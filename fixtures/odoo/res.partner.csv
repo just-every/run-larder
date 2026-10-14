@@ -1,0 +1,5 @@
+id,name,is_company,email,vat,customer_rank,supplier_rank
+__export__.res_partner_41_7c1e2a90,Harbour Kitchen Co,True,orders@harbourkitchen.example,51 824 753 556,3,0
+__export__.res_partner_42_1d9b33f0,Tasmanian Timber Co,True,sales@tastimber.example,,0,5
+__export__.res_partner_43_9a0c1b22,Coastal Oils Pty Ltd,True,,,0,2
+__export__.res_partner_44_5e6f7a81,Saltbush Cafe,True,,,1,1

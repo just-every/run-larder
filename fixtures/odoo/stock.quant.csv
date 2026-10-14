@@ -1,0 +1,7 @@
+product_id/id,location_id/id,quantity,lot_id/name,inventory_date
+__export__.product_product_101_e1f2,stock.stock_location_stock,26.0,TT-0926,2026-10-01
+__export__.product_product_102_e3f4,stock.stock_location_stock,3.5,,2026-10-01
+__export__.product_product_103_e5f6,__export__.stock_location_21_f001,4.0,,2026-10-01
+__export__.product_product_104_e7f8,stock.stock_location_customers,2.0,,2026-10-01
+__export__.product_product_106_ebfc,stock.stock_location_stock,40.0,,2026-10-01
+__export__.product_product_102_e3f4,stock.stock_location_stock,1.25.0,,2026-10-01

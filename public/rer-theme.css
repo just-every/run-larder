@@ -1,0 +1,58 @@
+/* Larder's declared theme: risograph print, tomato red and ink on warm paper.
+   The installer, sign-in, confirmation, /setup, the Lobby, the run site and the
+   app read these --rer-* tokens; the app's own tokens in src/ui/style.css and the
+   run site's in src/site/site.css are named from them. */
+@import url('/fonts/fonts.css');
+:root {
+  --rer-font-body: 'Bricolage Grotesque', Arial, sans-serif;
+  --rer-font-heading: 'Bricolage Grotesque', Arial, sans-serif;
+  --rer-font-print: 'Source Serif 4', Georgia, serif;
+  --rer-page: #F6F3E8;
+  --rer-surface: #FBF9F2;
+  --rer-text: #1A1A17;
+  --rer-muted: #5E5B52;
+  --rer-border: #1A1A17;
+  --rer-rule: #D9D4C4;
+  --rer-accent: #E5261F;
+  --rer-accent-text: #FFFFFF;
+  --rer-red-wash: #F7D9D2;
+  --rer-focus: #1A1A17;
+  --rer-link: #1A1A17;
+  --rer-radius: 6px;
+  --rer-button-radius: 999px;
+  --rer-wordmark-weight: 800;
+  --rer-wordmark-tracking: -.03em;
+  --rer-code-background: #1A1A17;
+  --rer-code-text: #F6F3E8;
+  --rer-logo: url('/brand/mark.svg');
+}
+
+/* Sign-in, confirmation and /setup (Base's no-JavaScript frames): one centred
+   printed card, 440 px, mark and name at top, a heavy title and a full-width ink
+   pill, as the sign-in and setup picks draw them (520 px: the picks draw it wider than SPEC's 440). */
+html.rer-themed body { background: var(--rer-page); }
+html.rer-themed main { max-width: 520px; padding: 36px 40px; background: var(--rer-surface); border: 1.5px solid var(--rer-text); border-radius: var(--rer-radius); box-shadow: none; }
+html.rer-themed .brand, html.rer-themed .rer-brand { gap: 10px; margin: 0 0 28px; font-size: 22px; font-weight: 800; letter-spacing: -.02em; color: var(--rer-text); }
+html.rer-themed .brand::before, html.rer-themed .rer-brand::before { width: 30px; height: 27px; }
+html.rer-themed h1 { font-size: 44px; font-weight: 800; line-height: 1.05; letter-spacing: -.03em; margin: 0 0 20px; }
+html.rer-themed p { color: var(--rer-muted); }
+html.rer-themed label { font-weight: 600; }
+html.rer-themed input:not([type=checkbox]):not([type=hidden]) { min-height: 46px; border: 1.5px solid var(--rer-text); border-radius: var(--rer-radius); background: var(--rer-surface); }
+html.rer-themed input[type=checkbox] { accent-color: var(--rer-text); }
+html.rer-themed button, html.rer-themed .action { min-height: 48px; border: 0; border-radius: 999px; background: var(--rer-text); color: var(--rer-surface); font-weight: 600; }
+html.rer-themed button.secondary { background: transparent; color: var(--rer-text); border: 1.5px solid var(--rer-text); }
+html.rer-themed dl { grid-template-columns: 96px minmax(0, 1fr); gap: 0; border-top: 1px solid var(--rer-rule); }
+html.rer-themed dt, html.rer-themed dd { padding: 12px 0; border-bottom: 1px solid var(--rer-rule); }
+html.rer-themed dt { font-size: 14px; }
+html.rer-themed :focus-visible { outline: 3px solid var(--rer-focus); outline-offset: 2px; }
+@media (max-width: 480px) { html.rer-themed main { padding: 26px 20px; } html.rer-themed h1 { font-size: 34px; } }
+
+/* The Lobby (Base's shared page): the same ink pill as every other primary action. */
+html[data-state] .btn { background: var(--rer-text); color: var(--rer-surface); box-shadow: none; }
+
+/* Base's shared Run and not-found pages: the heavy wordmark and heading, and Larder's printed card
+   (6 px, 1.5 px ink, no shadow) for each step; the layout stays Base's. Keep their last lines clear of the printed shelf below them. */
+body > .bar .brand, body > main > :is(.intro, .hero) h1, body > main .step h2 { font-weight: 800; }
+body > main :is(.step, .step.option) { border: 1.5px solid var(--rer-text); border-radius: var(--rer-radius); background: var(--rer-surface); box-shadow: none; backdrop-filter: none; }
+body > main .code { border-radius: var(--rer-radius); }
+.art ~ main { padding-bottom: 210px !important; }

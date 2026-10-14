@@ -1,0 +1,4 @@
+id,complete_name,usage
+stock.stock_location_stock,WH/Stock,internal
+__export__.stock_location_21_f001,WH/Stock/Dispatch shelf,internal
+stock.stock_location_customers,Partners/Customers,customer

@@ -1,0 +1,3 @@
+id,name,partner_id/id,state,date_planned,partner_ref,order_line/product_id/id,order_line/product_qty,order_line/qty_received,order_line/price_unit,order_line/product_uom/id
+__export__.purchase_order_201_d001,P00018,__export__.res_partner_42_1d9b33f0,purchase,2026-10-24 09:00:00,TT-889,__export__.product_product_101_e1f2,4.0,1.0,95.0,__export__.uom_uom_31_aa01
+__export__.purchase_order_202_d002,P00019,__export__.res_partner_43_9a0c1b22,draft,2026-10-30 09:00:00,,__export__.product_product_102_e3f4,10.0,0.0,18.0,uom.product_uom_litre

@@ -1,0 +1,75 @@
+// Load the whole operational state and commit a command's changes as one
+// atomic D1 batch, guarded by the session, the role and the state version.
+import { fail } from './problem'
+import { collections, type Actor, type Context, type State } from './model'
+
+export const roleSql = `CASE WHEN EXISTS(SELECT 1 FROM larder_records WHERE kind='roles' AND id=o.id) THEN (SELECT json_extract(data,'$.role') FROM larder_records WHERE kind='roles' AND id=o.id) WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END`
+
+// True only while this exact session is live, its operator active and unchanged,
+// and the operator still holds the role the command was checked against.
+export const authority = (a: Actor) => ({
+  sql: `EXISTS(SELECT 1 FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.id=? AND o.version=? AND s.operator_version=o.version AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>? AND ${roleSql}=?)`,
+  params: [a.sessionId, a.id, a.operatorVersion, Date.now(), a.role] as unknown[],
+})
+
+export async function load(db: D1Database): Promise<State> {
+  const out = await db.batch<any>([
+    db.prepare('SELECT version FROM larder_meta WHERE id=1'),
+    db.prepare("SELECT kind,data FROM larder_records ORDER BY kind,json_extract(data,'$.createdAt'),id"),
+    db.prepare('SELECT * FROM larder_movements ORDER BY sequence'),
+    db.prepare('SELECT * FROM larder_reservations ORDER BY rowid'),
+  ])
+  const s = { version: out[0].results[0].version, movements: [], reservations: [] } as unknown as State
+  for (const k of collections) s[k] = []
+  for (const r of out[1].results) if ((collections as readonly string[]).includes(r.kind)) s[r.kind as (typeof collections)[number]].push(JSON.parse(r.data))
+  s.movements = out[2].results.map((r: any) => ({ id: r.id, sequence: r.sequence, itemId: r.item_id, locationId: r.location_id, status: r.status, lotId: r.lot_id, quantity: BigInt(r.quantity), unitCost: BigInt(r.unit_cost), kind: r.kind, documentKind: r.document_kind, documentId: r.document_id, reversesId: r.reverses_id, actorId: r.actor_id, commandId: r.command_id, importId: r.import_id, reason: r.reason, createdAt: r.created_at }))
+  s.reservations = out[3].results.map((r: any) => ({ id: r.id, demandKind: r.demand_kind, demandId: r.demand_id, lineId: r.line_id, itemId: r.item_id, locationId: r.location_id, quantity: BigInt(r.quantity) }))
+  return s
+}
+
+export async function saved(db: D1Database, commandId: string, digest: string, actor: Actor) {
+  const r = await db.prepare('SELECT * FROM larder_commands WHERE id=?').bind(commandId).first<any>()
+  if (!r) return null
+  if (r.digest !== digest || r.actor_id !== actor.id) fail('IDEMPOTENCY', 'This command identity was already used with different content or by someone else.')
+  return JSON.parse(r.result)
+}
+
+const n = (v: bigint) => Number(v)
+
+// Statements that write the difference between `before` and the context state.
+export function changes(db: D1Database, c: Context, before: State): D1PreparedStatement[] {
+  const out: D1PreparedStatement[] = []
+  for (const kind of collections) {
+    const old = new Map(before[kind].map(r => [r.id, JSON.stringify(r)])), next = new Set(c.s[kind].map(r => r.id))
+    for (const r of c.s[kind]) if (old.get(r.id) !== JSON.stringify(r))
+      out.push(db.prepare('INSERT INTO larder_records(kind,id,version,data) VALUES(?,?,?,?) ON CONFLICT(kind,id) DO UPDATE SET version=excluded.version,data=excluded.data').bind(kind, r.id, r.version, JSON.stringify(r)))
+    for (const r of before[kind]) if (!next.has(r.id)) out.push(db.prepare('DELETE FROM larder_records WHERE kind=? AND id=?').bind(kind, r.id))
+  }
+  // Reservations shrink first, then movements post, then reservations grow, so
+  // the oversell triggers see the same order the command applied in memory.
+  const oldR = new Map(before.reservations.map(r => [r.id, r])), nextR = new Map(c.s.reservations.map(r => [r.id, r]))
+  for (const r of before.reservations) if (!nextR.has(r.id)) out.push(db.prepare('DELETE FROM larder_reservations WHERE id=?').bind(r.id))
+  for (const r of c.s.reservations) { const o = oldR.get(r.id); if (o && r.quantity < o.quantity) out.push(db.prepare('UPDATE larder_reservations SET quantity=? WHERE id=?').bind(n(r.quantity), r.id)) }
+  for (const m of c.s.movements.slice(before.movements.length))
+    out.push(db.prepare('INSERT INTO larder_movements VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(m.id, m.sequence, m.itemId, m.locationId, m.status, m.lotId, n(m.quantity), n(m.unitCost), m.kind, m.documentKind, m.documentId, m.reversesId, m.actorId, m.commandId, m.importId, m.reason, m.createdAt))
+  for (const r of c.s.reservations) {
+    const o = oldR.get(r.id)
+    if (!o) out.push(db.prepare('INSERT INTO larder_reservations VALUES(?,?,?,?,?,?,?)').bind(r.id, r.demandKind, r.demandId, r.lineId, r.itemId, r.locationId, n(r.quantity)))
+    else if (r.quantity > o.quantity) out.push(db.prepare('UPDATE larder_reservations SET quantity=? WHERE id=?').bind(n(r.quantity), r.id))
+  }
+  for (const a of c.attachments) out.push(db.prepare('INSERT INTO larder_attachments VALUES(?,?,?,?,?,?,?,?)').bind(a.id, a.name, a.contentType, a.size, a.sha256, a.bytes, a.createdBy, a.createdAt))
+  return out
+}
+
+export async function commit(db: D1Database, c: Context, before: State, type: string, digest: string, result: unknown) {
+  const a = authority(c.actor)
+  const response = { ok: true, result, version: before.version + 1 }
+  await db.batch([
+    db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${a.sql}) AND (SELECT version FROM larder_meta WHERE id=1)=? THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...a.params, before.version),
+    ...changes(db, c, before),
+    db.prepare('UPDATE larder_meta SET version=version+1 WHERE id=1'),
+    db.prepare('INSERT INTO larder_commands VALUES(?,?,?,?,?,?)').bind(c.commandId, c.actor.id, type, digest, JSON.stringify(response), c.now),
+    db.prepare('DELETE FROM larder_guard'),
+  ])
+  return response
+}

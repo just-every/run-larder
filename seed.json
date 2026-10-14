@@ -1,0 +1,173 @@
+{
+  "id": "larder",
+  "name": "Larder",
+  "version": "0.1.0",
+  "maturity": "first-release-local",
+  "category": "erp",
+  "spine": {
+    "id": "manufacturing",
+    "record": "Stock movement"
+  },
+  "description": "Small-maker operations: available to promise, atomic reservations, purchasing, version-pinned production, partial shipment, an accountant handoff, agent proposals approved by people, and an Odoo move-in kit.",
+  "capabilities": [
+    {
+      "id": "http-dispatch",
+      "clauses": [
+        "HTTP-001"
+      ]
+    },
+    {
+      "id": "catalogue",
+      "clauses": [
+        "LARDER-001"
+      ]
+    },
+    {
+      "id": "opening-stock",
+      "clauses": [
+        "LARDER-002"
+      ]
+    },
+    {
+      "id": "bills-of-materials",
+      "clauses": [
+        "LARDER-003"
+      ]
+    },
+    {
+      "id": "sales-orders",
+      "clauses": [
+        "LARDER-004",
+        "LARDER-005"
+      ]
+    },
+    {
+      "id": "planning",
+      "clauses": [
+        "LARDER-006"
+      ]
+    },
+    {
+      "id": "purchasing",
+      "clauses": [
+        "LARDER-007",
+        "LARDER-008"
+      ]
+    },
+    {
+      "id": "production",
+      "clauses": [
+        "LARDER-009"
+      ]
+    },
+    {
+      "id": "fulfilment",
+      "clauses": [
+        "LARDER-010"
+      ]
+    },
+    {
+      "id": "stock-corrections",
+      "clauses": [
+        "LARDER-011"
+      ]
+    },
+    {
+      "id": "accountant-handoff",
+      "clauses": [
+        "LARDER-012"
+      ]
+    },
+    {
+      "id": "exceptions-and-archive",
+      "clauses": [
+        "LARDER-013"
+      ]
+    },
+    {
+      "id": "authority",
+      "clauses": [
+        "LARDER-014"
+      ]
+    },
+    {
+      "id": "agent-proposals",
+      "clauses": [
+        "LARDER-015"
+      ]
+    },
+    {
+      "id": "odoo-move-in",
+      "clauses": [
+        "LARDER-016"
+      ]
+    }
+  ],
+  "nonGoals": [
+    "Statutory books, tax filing or payroll",
+    "Journal posting to the ledger",
+    "Multi-entity or multi-currency accounting",
+    "Finite-capacity or optimal scheduling",
+    "Regulated quality or recall certification",
+    "Live model or provider calls in phase one"
+  ],
+  "externals": [
+    {
+      "id": "cloudflare",
+      "required": true,
+      "why": "Worker hosting",
+      "data": [
+        "HTTP requests"
+      ],
+      "adapters": []
+    }
+  ],
+  "env": [],
+  "deploy": {
+    "healthPath": "/health",
+    "publicPaths": [
+      "/",
+      "/health",
+      "/signin"
+    ],
+    "notes": "Native sessions guard /app and /api/larder/*; every command re-checks session and role inside its D1 write; unknown paths return real 404s; the development outbox is local-only."
+  },
+  "extensionPoints": {
+    "contributions": [],
+    "policies": [],
+    "events": [],
+    "slots": [],
+    "adapters": []
+  },
+  "limits": {
+    "status": "unmeasured",
+    "notes": "Each command loads the whole operational state; sized for one small maker (thousands of items and movements). Odoo move-in batches are limited to 1.5 MiB of CSV; evidence files to 1 MiB; archive restore to 64 MiB."
+  },
+  "accessibility": {
+    "level": "WCAG 2.2 AA",
+    "status": "target; unaudited"
+  },
+  "operatingCost": {
+    "status": "unmeasured"
+  },
+  "composition": {
+    "base": "base",
+    "family": "manufacturing",
+    "edition": "larder",
+    "modules": [
+      "job-queue",
+      "release",
+      "deploy-kit",
+      "container",
+      "demo-host",
+      "integrations",
+      "mail",
+      "ai",
+      "portability",
+      "erasure",
+      "dependencies",
+      "operator-auth",
+      "owner-claim"
+    ]
+  }
+}

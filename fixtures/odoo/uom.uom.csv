@@ -1,0 +1,8 @@
+id,name,category_id/id,uom_type,factor,factor_inv,active
+uom.product_uom_unit,Units,uom.product_uom_categ_unit,reference,1.0,1.0,True
+uom.product_uom_dozen,Dozens,uom.product_uom_categ_unit,bigger,0.08333333,12.0,True
+__export__.uom_uom_31_aa01,Bundle of 10,uom.product_uom_categ_unit,bigger,0.1,10.0,True
+__export__.uom_uom_32_bb02,Box,uom.product_uom_categ_unit,bigger,0.16666667,6.0,True
+__export__.uom_uom_33_cc03,Box,uom.product_uom_categ_unit,bigger,0.125,8.0,True
+uom.product_uom_litre,L,uom.product_uom_categ_vol,reference,1.0,1.0,True
+__export__.uom_uom_34_dd04,mL,uom.product_uom_categ_vol,smaller,1000.0,0.001,True

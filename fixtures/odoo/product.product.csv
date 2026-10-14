@@ -1,0 +1,9 @@
+id,default_code,name,type,product_tmpl_id/id,product_template_attribute_value_ids,uom_id/id,route_ids/id,standard_price,list_price
+__export__.product_product_101_e1f2,WAL-BLANK,Walnut blank,consu,__export__.product_template_91_a1,,uom.product_uom_unit,purchase_stock.route_warehouse0_buy,9.5,0.0
+__export__.product_product_102_e3f4,OIL-1L,Board oil,consu,__export__.product_template_92_a2,,uom.product_uom_litre,purchase_stock.route_warehouse0_buy,18.0,0.0
+__export__.product_product_103_e5f6,BRD-WAL-L,Serving board,consu,__export__.product_template_93_a3,"Timber: Walnut,Size: Large",uom.product_uom_unit,mrp.route_warehouse0_manufacture,30.0,89.0
+__export__.product_product_104_e7f8,BRD-WAL-S,Serving board,consu,__export__.product_template_93_a3,"Timber: Walnut,Size: Small",uom.product_uom_unit,mrp.route_warehouse0_manufacture,22.0,59.0
+__export__.product_product_105_e9fa,,Gift wrap service,service,__export__.product_template_94_a4,,uom.product_uom_unit,,0.0,5.0
+__export__.product_product_106_ebfc,FELT-PAD,Felt pads,consu,__export__.product_template_95_a5,,__export__.uom_uom_32_bb02,purchase_stock.route_warehouse0_buy,0.4,0.0
+__export__.product_product_101_e1f2,WAL-BLANK-2,Walnut blank (copy),consu,__export__.product_template_96_a6,,uom.product_uom_unit,,9.5,0.0
+__export__.product_product_107_edfe,,Cherry blank,consu,__export__.product_template_97_a7,,uom.product_uom_unit,,8.0,0.0

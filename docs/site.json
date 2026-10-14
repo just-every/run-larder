@@ -1,0 +1,51 @@
+{
+  "sections": [
+    {
+      "title": "Start here",
+      "pages": [
+        {
+          "slug": "getting-started",
+          "file": "getting-started.md"
+        }
+      ]
+    },
+    {
+      "title": "Daily work",
+      "pages": [
+        {
+          "slug": "orders",
+          "file": "orders.md"
+        },
+        {
+          "slug": "make-and-buy",
+          "file": "make-and-buy.md"
+        },
+        {
+          "slug": "stock",
+          "file": "stock.md"
+        },
+        {
+          "slug": "handoff",
+          "file": "handoff.md"
+        }
+      ]
+    },
+    {
+      "title": "Your records",
+      "pages": [
+        {
+          "slug": "move-in",
+          "file": "move-in.md"
+        },
+        {
+          "slug": "people-and-roles",
+          "file": "people-and-roles.md"
+        },
+        {
+          "slug": "backup-and-restore",
+          "file": "backup-and-restore.md"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+id,product_tmpl_id/id,product_id/id,product_qty,product_uom_id/id,code,type,bom_line_ids/product_id/id,bom_line_ids/product_qty,bom_line_ids/product_uom_id/id,operation_ids/name,operation_ids/workcenter_id/id,operation_ids/time_cycle_manual
+__export__.mrp_bom_11_b001,__export__.product_template_93_a3,__export__.product_product_103_e5f6,1.0,uom.product_uom_unit,BRD-L,normal,__export__.product_product_101_e1f2,1.0,uom.product_uom_unit,Plane and cut,__export__.mrp_workcenter_1_bench,20.0
+,,,,,,,__export__.product_product_102_e3f4,50.0,__export__.uom_uom_34_dd04,Oil,__export__.mrp_workcenter_2_finish,5.0
+__export__.mrp_bom_12_b002,__export__.product_template_93_a3,__export__.product_product_104_e7f8,2.0,uom.product_uom_unit,BRD-S,normal,__export__.product_product_101_e1f2,1.0,uom.product_uom_unit,Plane and cut,__export__.mrp_workcenter_1_bench,12.0
+,,,,,,,__export__.product_product_102_e3f4,60.0,__export__.uom_uom_34_dd04,,,
+,,,,,,,__export__.product_product_106_ebfc,1.0,__export__.uom_uom_32_bb02,,,
