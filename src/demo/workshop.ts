@@ -88,12 +88,15 @@ export function workshop(ownerId: string, now: Date) {
     if (released) run('wo.release', { workOrderId: w.id, version: w.version }, -2)
     return w
   }
+  // Last week's batch went to the accountant; this week's production waits for the next one.
+  run('handoff.prepare', { note: 'Workshop movements for the weekly accountant review' }, -2)
   const w = work(board, '12', 1)
   run('wo.issue', { workOrderId: w.id, lines: w.components.map((l: any) => ({ itemId: l.itemId, locationId: stores.id, quantity: l.required })) }, -1)
   run('wo.output', { workOrderId: w.id, version: w.version, locationId: dispatch.id, quantity: '5', lot: 'BRD-FINISH-01' }, -1)
   work(paddle, '8', 3)
   work(coasters, '16', 5, false)
-  run('handoff.prepare', { note: 'Workshop movements for the weekly accountant review' }, -1)
+  // A late order the paddle batch does not yet cover: Make & buy shows the shortage.
+  order(customers[2], paddle, '10', 6)
   run('transfer.create', { itemId: oak.id, fromLocationId: stores.id, toLocationId: bench.id, quantity: '4', reason: 'Prepare the next paddle batch' }, 0)
   return Object.assign(c, { team })
 }
