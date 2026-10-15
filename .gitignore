@@ -13,3 +13,5 @@ dist/
 exports/
 test-results/
 src/routeTree.gen.ts
+
+.rer/demo/

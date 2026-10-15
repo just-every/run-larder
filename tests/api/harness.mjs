@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 
 let bundle
 async function script() {
-  bundle ??= build({ entryPoints: ['tests/api/worker.ts'], bundle: true, write: false, format: 'esm', platform: 'neutral', target: 'es2022', external: ['node:*'], loader: { '.css': 'text', '.svg': 'text' } }).then(b => b.outputFiles[0].text)
+  bundle ??= build({ entryPoints: ['tests/api/worker.ts'], bundle: true, write: false, format: 'esm', platform: 'neutral', target: 'es2022', external: ['node:*', 'cloudflare:*'], loader: { '.css': 'text', '.svg': 'text' } }).then(b => b.outputFiles[0].text)
   return bundle
 }
 
