@@ -21,7 +21,8 @@ bar, timer, outbox or captured-send screen. `data-rer-name` gives the app its
 Demo name and Base adds the document title suffix.
 
 `deploy-demo.json` declares the public host at `demo.run-larder.com`, with
-one isolated Container per visitor. The existing `/auth/owner-claim` accepts
+one isolated Container per visitor. Its plain `MAIL_FROM` demo setting supplies
+the sender address that auth requires before invoking the mocked mail effect. The existing `/auth/owner-claim` accepts
 Base's signed owner claim when its public-key settings are configured.
 
 The **Run demo** workflow reads the `run-demo` GitHub environment and runs

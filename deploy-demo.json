@@ -2,5 +2,8 @@
   "version": 1,
   "domain": "run-larder.com",
   "name": "Larder",
-  "instanceType": "basic"
+  "instanceType": "basic",
+  "settings": {
+    "MAIL_FROM": "demo@demo.invalid"
+  }
 }
