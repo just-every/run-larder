@@ -13,27 +13,39 @@ import { roleCommand } from '../larder/roles'
 export function workshop(ownerId: string, now: Date) {
   const s = Object.fromEntries(collections.map(k => [k, []])) as unknown as State
   Object.assign(s, { version: 0, movements: [], reservations: [] })
-  const c: Context = { s, actor: { id: ownerId, name: 'Alex Morgan', role: 'owner', sessionId: '', operatorVersion: 1 }, commandId: '', now: '', attachments: [] }
+  const owner = { id: ownerId, name: 'Alex Morgan', role: 'owner', sessionId: '', operatorVersion: 1 }
+  const c: Context = { s, actor: owner, commandId: '', now: '', attachments: [] }
   const day = (offset: number) => new Date(now.getTime() + offset * 86400000).toISOString().slice(0, 10)
   let step = 0
+  // Each operation runs as the teammate whose Larder role does that work, and is
+  // recorded as their command, so Activity reads as the team's week.
+  const commands: { id: string; actorId: string; type: string; payload: Record<string, unknown>; result: unknown; createdAt: string }[] = []
   const run = (type: string, payload: Record<string, unknown>, offset = -7): Row => {
     c.commandId = `demo-workshop-${++step}`
     c.now = new Date(now.getTime() + offset * 86400000 + step * 1000).toISOString()
+    c.actor = doer(type)
     for (const handle of [catalogue, warehouse, bom, sales, purchasing, production, handoff]) {
       const result = handle(c, type, payload)
-      if (result) return result
+      if (result) {
+        commands.push({ id: c.commandId, actorId: c.actor.id, type, payload, result: { ok: true, result, version: commands.length + 1 }, createdAt: c.now })
+        return result
+      }
     }
     throw new Error(`Unknown demo operation: ${type}`)
   }
   // The workshop's people: each joined over the past months and holds one Larder role.
   const team = ([['Priya Shah', 'priya', 'manager', -150], ['Tom Reilly', 'tom', 'production', -120], ['Mei Chen', 'mei', 'buyer', -90], ['Sam Okafor', 'sam', 'warehouse', -60], ['Jo Bennett', 'jo', 'accounts', -30]] as const)
     .map(([name, mailbox, role, joined]) => {
-      const person = { id: crypto.randomUUID(), name, email: `${mailbox}@walnut-workshop.example.invalid`, joinedAt: now.getTime() + joined * 86400000 }
+      const person = { id: crypto.randomUUID(), name, email: `${mailbox}@walnut-workshop.example`, joinedAt: now.getTime() + joined * 86400000 }
       c.commandId = `demo-workshop-role-${mailbox}`
       c.now = new Date(person.joinedAt).toISOString()
-      roleCommand(c, 'role.set', { operatorId: person.id, role })
+      const payload = { operatorId: person.id, role }
+      commands.push({ id: c.commandId, actorId: owner.id, type: 'role.set', payload, result: { ok: true, result: roleCommand(c, 'role.set', payload), version: commands.length + 1 }, createdAt: c.now })
       return person
     })
+  const member = (name: string, role: string) => ({ ...owner, id: team.find(p => p.name === name)!.id, name, role })
+  const priya = member('Priya Shah', 'manager'), tom = member('Tom Reilly', 'production'), mei = member('Mei Chen', 'buyer'), sam = member('Sam Okafor', 'warehouse'), jo = member('Jo Bennett', 'accounts')
+  const doer = (type: string) => /^(so\.|po\.approve)/.test(type) ? priya : /^po\./.test(type) ? mei : /^(shipment|receipt|transfer)\./.test(type) ? sam : /^wo\./.test(type) ? tom : /^handoff\./.test(type) ? jo : owner
   const stores = run('location.save', { name: 'Timber store', note: 'Racks A–C; counted weekly' })
   const bench = run('location.save', { name: 'Workshop', note: 'Cutting, sanding and finishing' })
   const dispatch = run('location.save', { name: 'Dispatch', note: 'Finished goods and packed orders' })
@@ -45,10 +57,10 @@ export function workshop(ownerId: string, now: Date) {
   const board = item('BRD-WAL', 'Walnut serving board', 'make', '21.4', '89')
   const paddle = item('PAD-OAK', 'Oak pizza paddle', 'make', '15.8', '65')
   const coasters = item('CST-WAL', 'Walnut coaster set', 'make', '12', '39')
-  const customers = ['Harbour Kitchen Co', 'Banksia Homewares', 'Little Cove Cafe', 'Marlow & Finch'].map(name => run('party.save', { name, kind: 'customer', email: name.toLowerCase().split(' ')[0] + '@example.invalid', terms: 'Net 14 days' }))
-  const timber = run('party.save', { name: 'Tasmanian Timber Co', kind: 'supplier', email: 'orders@timber.example.invalid', terms: 'Net 30 days' })
-  const finish = run('party.save', { name: 'Good Grain Finishes', kind: 'supplier', email: 'sales@finish.example.invalid', terms: 'Net 14 days' })
-  const packaging = run('party.save', { name: 'Paper & Parcel', kind: 'supplier', email: 'sales@paper.example.invalid', terms: 'Net 30 days' })
+  const customers = ['Harbour Kitchen Co', 'Banksia Homewares', 'Little Cove Cafe', 'Marlow & Finch'].map(name => run('party.save', { name, kind: 'customer', email: 'orders@' + name.toLowerCase().replace(/[^a-z]+/g, '') + '.example', terms: 'Net 14 days' }))
+  const timber = run('party.save', { name: 'Tasmanian Timber Co', kind: 'supplier', email: 'orders@tasmaniantimber.example', terms: 'Net 30 days' })
+  const finish = run('party.save', { name: 'Good Grain Finishes', kind: 'supplier', email: 'sales@goodgrain.example', terms: 'Net 14 days' })
+  const packaging = run('party.save', { name: 'Paper & Parcel', kind: 'supplier', email: 'sales@paperandparcel.example', terms: 'Net 30 days' })
   for (const [part, supplier, price] of [[walnut, timber, '14.5'], [oak, timber, '9.8'], [oil, finish, '28'], [box, packaging, '3.2']] as const)
     run('partyItem.save', { partyId: supplier.id, itemId: part.id, partyCode: part.sku, price, leadDays: 5, preferred: true })
   const evidence = { name: 'workshop-opening-count.csv', contentType: 'text/csv', base64: btoa(`counted_on,counted_by,note\n${day(-8)},Alex Morgan,Workshop opening count\n`) }
@@ -98,5 +110,6 @@ export function workshop(ownerId: string, now: Date) {
   // A late order the paddle batch does not yet cover: Make & buy shows the shortage.
   order(customers[2], paddle, '10', 6)
   run('transfer.create', { itemId: oak.id, fromLocationId: stores.id, toLocationId: bench.id, quantity: '4', reason: 'Prepare the next paddle batch' }, 0)
-  return Object.assign(c, { team })
+  c.actor = owner
+  return Object.assign(c, { team, commands })
 }

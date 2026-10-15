@@ -7,7 +7,9 @@ the owner's `.wrangler/state` stays separate.
 The workshop is adapted from Larder's API journey fixtures: walnut serving
 boards, oak pizza paddles and coaster sets, with customers, suppliers, counted
 stock, bills of materials, orders, purchasing, production, a partial shipment,
-quarantine and an accountant handoff. Dates follow the current day. The hook
+quarantine and an accountant handoff. Each step runs as the teammate whose
+Larder role does that work and is recorded as their command, so Activity shows
+the team's week. Dates follow the current day. The hook
 uses real domain operations and saves fixed IDs atomically and idempotently.
 Ordinary installations still start empty.
 
@@ -21,7 +23,8 @@ a demo. There is no demo bar, timer, outbox or captured-send screen. `data-rer-n
 Demo name and Base adds the document title suffix.
 
 `deploy-demo.json` declares the public host at `demo.run-larder.com`, with
-one isolated Container per visitor. Its plain `MAIL_FROM` demo setting supplies
+one isolated Container per visitor. Its `ownerEmail` signs each visitor in as
+the workshop's owner, Alex Morgan (`alex@walnut-workshop.example`). Its plain `MAIL_FROM` demo setting supplies
 the sender address that auth requires before the suppressed send. The existing `/auth/owner-claim` accepts
 Base's signed owner claim when its public-key settings are configured.
 
