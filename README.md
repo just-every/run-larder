@@ -124,8 +124,8 @@ landing in `src/site/landing/`, the guides rendered from `docs/*.md` and
 `deploy-site.json`) is the landing whose action is Run <name>, `/run`, `/docs`
 and a not-found page: `rer build --site` writes it to `dist/site`, `rer dev`
 serves it as `RER_SITE`, and `rer deploy --site` publishes it (`--dry-run`
-prints the plan; `.github/workflows/run-site.yml` deploys it from main once
-`RUN_SITE_DEPLOY` is set). The look (tokens, fonts, mark, riso goods) is in
+prints the plan; `.github/workflows/run-site.yml` deploys it from main to
+https://run-larder.com once `RUN_SITE_DEPLOY` is set). The look (tokens, fonts, mark, riso goods) is in
 `public/rer-theme.css`, `public/fonts/` and `public/brand/`.
 
 The edition owns `rer-setup.json`, application branding and its installer
