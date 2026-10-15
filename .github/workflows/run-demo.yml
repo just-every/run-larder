@@ -1,8 +1,6 @@
 # Adoption note: add it only when the seed's demo is adopted (DEMO.md "Hosting the demo")
 name: Run demo
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       test_only:
@@ -10,7 +8,7 @@ on:
         type: boolean
         default: false
       remove:
-        description: 'Remove that demo (rer deploy --demo --remove --yes) instead of deploying it'
+        description: 'Remove the separate test demo (requires test_only)'
         type: boolean
         default: false
 permissions:
@@ -20,13 +18,17 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || vars.RUN_DEMO_DEPLOY == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: run-demo
     env:
       DEMO_ENVIRONMENT: ${{ inputs.test_only && 'demo-test' || 'production' }}
     steps:
+      - name: Require the test environment for removal
+        if: inputs.remove
+        run: test "$TEST_ONLY" = true
+        env:
+          TEST_ONLY: ${{ inputs.test_only }}
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false

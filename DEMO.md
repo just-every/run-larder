@@ -25,7 +25,7 @@ one isolated Container per visitor. The existing `/auth/owner-claim` accepts
 Base's signed owner claim when its public-key settings are configured.
 
 The **Run demo** workflow reads the `run-demo` GitHub environment and runs
-only by explicit dispatch unless the repository enables automatic deployments.
+only by explicit dispatch.
 `test_only` selects `demo.test.run-larder.com` and Cloudflare's published
 Turnstile test keys; production uses the real widget. Dispatch with both
 `test_only` and `remove` to remove the test host and read back its absence.
