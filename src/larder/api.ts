@@ -17,10 +17,10 @@ import { resolutions } from './exceptions'
 import { sales } from './sales'
 import { warehouse } from './warehouse'
 import { Problem, fail, forbidden } from './problem'
-import { roles as roleNames } from './roles'
+import { roleCommand } from './roles'
 import { commit, load, roleSql, saved, authority } from './storage'
 import { stateView } from './view'
-import { get, row, bump, type Actor, type Context, type Row } from './model'
+import { get, type Actor, type Context, type Row } from './model'
 
 const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers })
@@ -33,15 +33,6 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
 }
 
 const handlers = [catalogue, warehouse, bom, sales, purchasing, production, planning, reversal, handoff, proposals, resolutions, imports]
-
-function roles(c: Context, type: string, p: any): Row | undefined {
-  if (type !== 'role.set') return
-  if (c.actor.role !== 'owner') forbidden('Only the owner assigns roles.')
-  if (!roleNames.includes(p.role) || p.role === 'owner') fail('INPUT', 'Choose a Larder role other than owner.')
-  const existing = c.s.roles.find(r => r.id === p.operatorId)
-  if (existing) return bump(existing, { role: p.role })
-  return row(c, 'roles', { id: p.operatorId, role: p.role })
-}
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare('SELECT id,display_name AS name FROM oa_operators').all()).results
@@ -73,7 +64,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   for (let attempt = 0; attempt < 8; attempt++) {
     const before = await load(env.DB), s = structuredClone(before)
     const c: Context = { s, actor, commandId, now: new Date().toISOString(), attachments: [] }
-    let result: Row | undefined = roles(c, type, payload)
+    let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
     if (type === 'import.commit' || type === 'import.undo') {

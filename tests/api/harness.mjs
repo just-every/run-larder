@@ -25,10 +25,18 @@ export async function installation() {
   const root = await mkdtemp(join(tmpdir(), 'larder-api-'))
   let origin = 'http://localhost'
   const setup = randomBytes(32).toString('hex'), code = await script()
+  // The mail provider is the network edge: invitations reach this fake Resend.
+  const mails = []
+  const outboundService = async request => {
+    if (request.url !== 'https://api.resend.com/emails') return new Response('Unexpected outbound request', { status: 599 })
+    mails.push(await request.json())
+    return Response.json({ id: `test-${mails.length}` })
+  }
   const options = port => ({
     ...convertV4MiniflareOptions({
       host: '127.0.0.1', port, modules: true, script: code, compatibilityDate: '2026-09-08', compatibilityFlags: ['nodejs_compat'], d1Databases: ['DB'],
-      bindings: { AUTH_LOCAL: 'true', AUTH_ORIGIN: origin, OWNER_EMAIL: 'owner@example.test', SESSION_SECRET: randomBytes(32).toString('hex'), SETUP_TOKEN: setup, MAIL_PROVIDER: 'development', MAIL_FROM: 'auth@example.test', RER_DEV_KEY: randomBytes(32).toString('hex') },
+      bindings: { AUTH_LOCAL: 'true', AUTH_ORIGIN: origin, OWNER_EMAIL: 'owner@example.test', SESSION_SECRET: randomBytes(32).toString('hex'), SETUP_TOKEN: setup, MAIL_PROVIDER: 'resend', MAIL_API_KEY: 'test-only-resend-key', MAIL_FROM: 'auth@example.test', RER_DEV_KEY: randomBytes(32).toString('hex') },
+      outboundService,
     }),
     resourcePersistencePath: root,
   })
@@ -75,12 +83,11 @@ export async function installation() {
       }
       return s
     }
-    // Invite a person, confirm through the outbox link and give them a Larder role.
+    // Invite a person, confirm through the mailed link and give them a Larder role.
     const person = async (email, role) => {
       const res = await request('/auth/invite', { method: 'POST', body: { email, displayName: email.split('@')[0], role: 'member' } })
       assert.equal(res.status, 202, await res.text())
-      const outbox = await db.prepare('SELECT message FROM rer_mail_development_outbox ORDER BY created_at DESC,sequence DESC LIMIT 1').first()
-      const link = String(JSON.parse(outbox.message).text).match(/http[^\s]+\/auth\/confirm\?token=([^\s]+)/)
+      const link = String(mails.at(-1).text).match(/http[^\s]+\/auth\/confirm\?token=([^\s]+)/)
       const confirmed = await request('/auth/confirm', { method: 'POST', as: '', body: { token: decodeURIComponent(link[1]) } })
       assert.equal(confirmed.status, 303, await confirmed.text())
       const cookie = confirmed.headers.getSetCookie().map(v => v.split(';')[0]).join('; ')

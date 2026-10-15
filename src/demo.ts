@@ -21,8 +21,11 @@ export async function seedDemo(env: Bindings, { ownerEmail, now }: { ownerEmail:
     if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, stable(v)]))
     return value
   }
-  const s = stable(c.s), attachments = stable(c.attachments)
+  const s = stable(c.s), attachments = stable(c.attachments), team = stable(c.team)
   const statements: D1PreparedStatement[] = []
+  // The workshop's own name for the owner a hosted demo's claim calls "Owner".
+  statements.push(env.DB.prepare("UPDATE oa_operators SET display_name='Alex Morgan' WHERE id=? AND display_name='Owner'").bind(owner.id))
+  for (const p of team) statements.push(env.DB.prepare("INSERT INTO oa_operators(id,email,display_name,role,status,created_at) VALUES(?,?,?,'member','active',?) ON CONFLICT DO NOTHING").bind(p.id, p.email, p.name, p.joinedAt))
   for (const kind of collections) for (const r of s[kind]) statements.push(env.DB.prepare('INSERT INTO larder_records(kind,id,version,data) VALUES(?,?,?,?) ON CONFLICT DO NOTHING').bind(kind, r.id, r.version, JSON.stringify(r)))
   for (const m of s.movements) statements.push(env.DB.prepare('INSERT INTO larder_movements VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING').bind(m.id, m.sequence, m.itemId, m.locationId, m.status, m.lotId, Number(m.quantity), Number(m.unitCost), m.kind, m.documentKind, m.documentId, m.reversesId, m.actorId, m.commandId, m.importId, m.reason, m.createdAt))
   for (const r of s.reservations) statements.push(env.DB.prepare('INSERT INTO larder_reservations VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING').bind(r.id, r.demandKind, r.demandId, r.lineId, r.itemId, r.locationId, Number(r.quantity)))

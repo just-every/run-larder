@@ -15,14 +15,14 @@ Base's v2 `withDemo` runs before other Worker imports. Public reads run for
 real; third-party writes return mocked success. Larder phase one has no
 external probes, carrier booking, supplier sending, payment or ledger posting.
 Shipping and handoffs record operations locally; downloads remain usable.
-Auth mail uses `demoEffect` to return accepted delivery silently,
-without contacting a provider or writing an outbox message. There is no demo
-bar, timer, outbox or captured-send screen. `data-rer-name` gives the app its
+Invitations and sign-in links use Base's development mail provider, which
+validates each message and sends nothing; Base auth reports that as success in
+a demo. There is no demo bar, timer, outbox or captured-send screen. `data-rer-name` gives the app its
 Demo name and Base adds the document title suffix.
 
 `deploy-demo.json` declares the public host at `demo.run-larder.com`, with
 one isolated Container per visitor. Its plain `MAIL_FROM` demo setting supplies
-the sender address that auth requires before invoking the mocked mail effect. The existing `/auth/owner-claim` accepts
+the sender address that auth requires before the suppressed send. The existing `/auth/owner-claim` accepts
 Base's signed owner claim when its public-key settings are configured.
 
 The **Run demo** workflow reads the `run-demo` GitHub environment and runs

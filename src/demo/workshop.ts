@@ -8,6 +8,7 @@ import { sales } from '../larder/sales'
 import { purchasing } from '../larder/purchasing'
 import { production } from '../larder/production'
 import { handoff } from '../larder/handoff'
+import { roleCommand } from '../larder/roles'
 
 export function workshop(ownerId: string, now: Date) {
   const s = Object.fromEntries(collections.map(k => [k, []])) as unknown as State
@@ -24,6 +25,15 @@ export function workshop(ownerId: string, now: Date) {
     }
     throw new Error(`Unknown demo operation: ${type}`)
   }
+  // The workshop's people: each joined over the past months and holds one Larder role.
+  const team = ([['Priya Shah', 'priya', 'manager', -150], ['Tom Reilly', 'tom', 'production', -120], ['Mei Chen', 'mei', 'buyer', -90], ['Sam Okafor', 'sam', 'warehouse', -60], ['Jo Bennett', 'jo', 'accounts', -30]] as const)
+    .map(([name, mailbox, role, joined]) => {
+      const person = { id: crypto.randomUUID(), name, email: `${mailbox}@walnut-workshop.example.invalid`, joinedAt: now.getTime() + joined * 86400000 }
+      c.commandId = `demo-workshop-role-${mailbox}`
+      c.now = new Date(person.joinedAt).toISOString()
+      roleCommand(c, 'role.set', { operatorId: person.id, role })
+      return person
+    })
   const stores = run('location.save', { name: 'Timber store', note: 'Racks A–C; counted weekly' })
   const bench = run('location.save', { name: 'Workshop', note: 'Cutting, sanding and finishing' })
   const dispatch = run('location.save', { name: 'Dispatch', note: 'Finished goods and packed orders' })
@@ -85,5 +95,5 @@ export function workshop(ownerId: string, now: Date) {
   work(coasters, '16', 5, false)
   run('handoff.prepare', { note: 'Workshop movements for the weekly accountant review' }, -1)
   run('transfer.create', { itemId: oak.id, fromLocationId: stores.id, toLocationId: bench.id, quantity: '4', reason: 'Prepare the next paddle batch' }, 0)
-  return c
+  return Object.assign(c, { team })
 }
