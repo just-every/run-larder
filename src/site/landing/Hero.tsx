@@ -12,7 +12,7 @@ export function Hero() {
       <div className="hero-text">
         <p className="sub">{copy.sub}</p>
         <p className="alternative">100% free, open source alternative to <b>{first}, {second}</b> and <b>{third}</b></p>
-        <p className="actions"><a className="pill" href={links.run}>{copy.run} <Arrow /></a><a className="text-link" href={links.docs}>{copy.docs}</a></p>
+        <p className="actions"><a className="pill" href={links.run}>{copy.run} <Arrow /></a><a className="pill" style={{ paddingInline: 32 }} href="https://demo.run-larder.com/">Try the demo</a><a className="text-link" href={links.docs}>{copy.docs}</a></p>
         <p className="small">{copy.licence}</p>
       </div>
       <ol className="steps" aria-label={copy.drawingLabel}>
