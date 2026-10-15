@@ -4,7 +4,7 @@
     {
       "path": "migrations/core/0015_owner_signin.sql",
       "originPath": "modules/operator-auth/accounts/schema/owner-signin.sql",
-      "revision": "5dbbda36b26fbb6d8d905cdc631c5fc6e2c626f1",
+      "revision": "38aa7efdb3cceec585d2344ed54dd559295b9059",
       "files": {
         "migrations/core/0015_owner_signin.sql": "98da904e768e35b43fb1be83d9dcc9c9b5d86ab3a795234ed5223c4fddc567d9"
       },
@@ -91,7 +91,7 @@
     {
       "path": "src/modules/demo",
       "originPath": "modules/demo",
-      "revision": "5dbbda36b26fbb6d8d905cdc631c5fc6e2c626f1",
+      "revision": "38aa7efdb3cceec585d2344ed54dd559295b9059",
       "files": {
         "src/modules/demo/effects.mjs": "2e523da1d9fcffc4b6e3e0e4901b6bd45e6f08adfb380b397e775acb0358c395",
         "src/modules/demo/index.d.mts": "71caa39f5001ab8bd2891ae5bdb9bf1ab4910c121fb038d83ae549adaf8fcf10",
@@ -625,7 +625,7 @@
     {
       "path": "src/modules/operator-auth",
       "originPath": "modules/operator-auth",
-      "revision": "5dbbda36b26fbb6d8d905cdc631c5fc6e2c626f1",
+      "revision": "38aa7efdb3cceec585d2344ed54dd559295b9059",
       "files": {
         "src/modules/operator-auth/accounts/adapter.mjs": "989fca51e86ecc80cb150661b6d6cb8b6a57f82a85eb408d1fa6286a8372a3aa",
         "src/modules/operator-auth/accounts/admin.mjs": "ad164e6b03136b67407e6f0b9ac7089dbcad505f65c07ac05c991705e17c69b1",
@@ -798,7 +798,7 @@
     {
       "path": "src/modules/owner-claim",
       "originPath": "modules/owner-claim",
-      "revision": "5dbbda36b26fbb6d8d905cdc631c5fc6e2c626f1",
+      "revision": "38aa7efdb3cceec585d2344ed54dd559295b9059",
       "files": {
         "src/modules/owner-claim/idp.mjs": "edb09dfeb0b66849cd84b651099d46c6420d1dc3f270446ae96595d91754d3e6",
         "src/modules/owner-claim/index.d.mts": "33fc8d1b756cb2c0a4317ea4dbc29ae704dd137f76993278859d98ae5e9ad184",
