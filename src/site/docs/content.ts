@@ -14,7 +14,14 @@ const source = (file: string) => {
 }
 const fileSlug = new Map(site.sections.flatMap(section => section.pages.map(page => [page.file, page.slug] as const)))
 const escape = (text: string) => text.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))
-const anchor = (text: string) => text.toLowerCase().replace(/<[^>]+>/g, '').replace(/&[a-z]+;/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+// Removes every match until none is left, so a removal cannot join its neighbours into a new tag or entity.
+const removeAll = (text: string, pattern: RegExp) => {
+  let next = text.replace(pattern, '')
+  while (next !== text) { text = next; next = text.replace(pattern, '') }
+  return text
+}
+export const stripTags = (html: string) => removeAll(html, /<[^>]+>/g)
+const anchor = (text: string) => removeAll(stripTags(text.toLowerCase()), /&[a-z]+;/g).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 
 function render(file: string) {
   const toc: DocsPage['toc'] = []

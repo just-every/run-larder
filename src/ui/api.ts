@@ -19,8 +19,11 @@ export function useLarder() {
   const [error, setError] = useState(''), [details, setDetails] = useState<unknown>(null), [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const pending = useRef<{ signature: string; commandId: string } | null>(null), flight = useRef(false)
+  const loaded = useRef(false)
   const refresh = useCallback(async () => {
-    const res = await fetch('/api/larder/state', { credentials: 'same-origin', cache: 'no-store' })
+    // The first load matches the document's preload of the same request; later loads always go to the server.
+    const res = await fetch('/api/larder/state', loaded.current ? { credentials: 'same-origin', cache: 'no-store' } : { credentials: 'same-origin' })
+    loaded.current = true
     if (res.status === 401) { window.location.href = '/signin?returnTo=%2Fapp'; return }
     const body: any = await res.json()
     if (!res.ok) throw new Error(body?.error?.message ?? 'Records could not load.')

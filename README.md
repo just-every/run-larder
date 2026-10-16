@@ -18,8 +18,13 @@ Tests: `pnpm run test:larder` (API flows) and `node tests/browser/run.mjs` (brow
 
 ## Run it locally
 
-Install the `rer` command once with `npx -y @runeditrun/rer cli install`, or the
-installer script on the RER site (`curl -fsSL https://runeditrun.com/install.sh | sh`).
+Run one line to clone Larder, install the `rer` command and start it:
+
+```sh
+npx -y @runeditrun/rer dev just-every/run-larder
+```
+
+To start it again later, run `cd run-larder && rer dev`.
 This edition is runnable after composition. From the composed edition's
 checkout root, `rer dev` alone launches it for review: it installs pinned
 dependencies, sets up a local owner on a free port, starts the real app and

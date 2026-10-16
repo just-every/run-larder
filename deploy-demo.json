@@ -2,7 +2,6 @@
   "version": 1,
   "domain": "run-larder.com",
   "name": "Larder",
-  "instanceType": "basic",
   "ownerEmail": "alex@walnut-workshop.example",
   "settings": {
     "MAIL_FROM": "larder@walnut-workshop.example"
