@@ -2,24 +2,15 @@
 
 Run Larder on your own computer, become its owner, and work through the five first steps on Today.
 
-## 1. Install rer
+## 1. Get Larder and start it
 
-Larder runs with `rer`, the Run Edit Run command. Install it once per computer:
-
-```sh
-curl -fsSL https://runeditrun.com/install.sh | sh
-```
-
-If you prefer npm, `npm install -g @runeditrun/rer` does the same. Larder needs Node 22 or later and pnpm 10.12.4, on macOS, Linux or Windows with WSL2; `rer` fetches the exact Node version Larder declares when your computer does not have it.
-
-## 2. Get Larder and start it
+Larder runs with `rer`, the Run Edit Run command; the one line below installs it for you. Larder needs Node 22 or later and pnpm 10.12.4, on macOS, Linux or Windows with WSL2; `rer` fetches the exact Node version Larder declares when your computer does not have it.
 
 ```sh
-git clone https://github.com/just-every/run-larder.git
-cd run-larder && rer dev
+npx -y @runeditrun/rer dev just-every/run-larder
 ```
 
-`rer dev` installs everything Larder needs, makes you the owner and prints a line starting `RER_OPEN` with a link. Open that link on the same computer: Larder opens signed in as you. Treat the link like a password; anyone who has it is signed in as the owner.
+To start it again later, run `cd run-larder && rer dev`. `rer dev` installs everything Larder needs, makes you the owner and prints a line starting `RER_OPEN` with a link. Open that link on the same computer: Larder opens signed in as you. Treat the link like a password; anyone who has it is signed in as the owner.
 
 To set up for a real mailbox instead of the local one, run the steps yourself:
 
@@ -29,13 +20,13 @@ rer setup --owner-email you@example.com
 rer dev
 ```
 
-## 3. Finish setup
+## 2. Finish setup
 
 The first time you open the app, Larder asks you to review the owner of this installation: your name and email. Tick **I confirm this owner account is ready to use.** and press **Finish setup**. Until you do, the installation's home page says it is waiting for its owner.
 
 A new installation starts empty. There are no sample items, stock or orders; everything you see is what you or your team recorded.
 
-## 4. The five first steps
+## 3. The five first steps
 
 **Today** shows a **Getting started** card until each step is done:
 
@@ -47,7 +38,7 @@ A new installation starts empty. There are no sample items, stock or orders; eve
 
 Each step ticks itself off when the record exists. When all five are done the card goes away and Today shows only what needs attention.
 
-## 5. Every morning
+## 4. Every morning
 
 **Today** answers what needs attention: an **Exceptions** list (what is short, late, quarantined, unreconciled or rejected in a move-in) and **Needs a person** (drafts and proposals waiting for someone with the authority to approve them). The red count beside **Today** in the menu is the number of items on that page.
 
