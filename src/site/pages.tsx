@@ -4,12 +4,13 @@ import { runPageHtml, siteNotFoundHtml, type RunData, type SiteBuild, type SiteC
 import { identity } from '../identity'
 import { DocsArticle } from './docs/DocsArticle'
 import { DocsIndex } from './docs/DocsIndex'
-import { docsLead, docsPages } from './docs/content'
+import { docsLead, docsPages, stripTags } from './docs/content'
 import { copy } from './landing/copy'
 import { Landing } from './landing/Landing'
 import run from './run.json'
 
-const text = (html: string) => html.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, '’').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+const entities: Record<string, string> = { '&amp;': '&', '&#39;': '’', '&quot;': '"', '&lt;': '<', '&gt;': '>' }
+const text = (html: string) => stripTags(html).replace(/&(?:amp|#39|quot|lt|gt);/g, entity => entities[entity]!)
 
 /**
  * The run site (run-larder.com), written by `rer build --site`: the landing at `/`, whose Run Larder opens the Run page
