@@ -12,11 +12,11 @@ npx -y @runeditrun/rer dev just-every/run-larder
 
 To start it again later, run `cd run-larder && rer dev`. `rer dev` installs everything Larder needs, makes you the owner and prints a line starting `RER_OPEN` with a link. Open that link on the same computer: Larder opens signed in as you. Treat the link like a password; anyone who has it is signed in as the owner.
 
-To set up for a real mailbox instead of the local one, run the steps yourself:
+To set up for a real mailbox instead of the local one, set it up first in place of the one line, then start it:
 
 ```sh
-rer install
-rer setup --owner-email you@example.com
+npx -y @runeditrun/rer setup just-every/run-larder --owner-email you@example.com
+cd run-larder
 rer dev
 ```
 
