@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { contractPageHtml } from '../base/contract-page'
 import { runPageHtml, siteNotFoundHtml, type RunData, type SiteBuild, type SiteContext } from '../base/run-site'
 import { identity } from '../identity'
 import { DocsArticle } from './docs/DocsArticle'
@@ -17,7 +18,7 @@ const text = (html: string) => stripTags(html).replace(/&(?:amp|#39|quot|lt|gt);
  * at `/run`; the guides at `/docs` and `/docs/<slug>`, rendered from the repository's Markdown; and the not-found page.
  * Every page is static, works without JavaScript and links to no instance-only route.
  */
-export function sitePages({ styles }: SiteContext): SiteBuild {
+export function sitePages({ styles, contract }: SiteContext): SiteBuild {
   const data: RunData = run
   const document = (title: string, description: string, body: ReactElement) => '<!doctype html>' + renderToStaticMarkup(
     <html lang="en">
@@ -38,10 +39,11 @@ export function sitePages({ styles }: SiteContext): SiteBuild {
   return {
     pages: [
       { path: '/', html: document(copy.meta.title, copy.meta.description, <Landing />) },
-      { path: '/run', html: runPageHtml(identity, data) },
+      { path: '/run', html: runPageHtml(identity, data, contract) },
+      ...(contract ? [{ path: '/contract', html: contractPageHtml(identity, data, contract) }] : []),
       { path: '/docs', html: document('Docs · Larder', docsLead, <DocsIndex />) },
       ...docsPages.map(page => ({ path: `/docs/${page.slug}`, html: document(`${text(page.title)} · Larder docs`, text(page.lead), <DocsArticle slug={page.slug} />) })),
-      { path: '/404', html: siteNotFoundHtml(identity, data) },
+      { path: '/404', html: siteNotFoundHtml(identity, data, contract) },
     ],
     assets: ['rer-theme.css', 'fonts', 'brand'],
   }
