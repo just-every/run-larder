@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "projectId": "just-every/run-larder",
+  "name": "Larder",
+  "sourceRepository": "https://github.com/just-every/run-larder",
+  "license": "MIT"
+}
