@@ -113,7 +113,7 @@ test('LARDER-006 shortages are reviewed and drafted into purchase and work order
   assert.deepEqual([boards.shortage, boards.requiredBy, boards.kind], ['10', '2026-10-28', 'make'])
   assert.match(boards.reasons[0].reference, /^SO-/)
   const wo = await h.command('plan.draft', { itemId: w.board.id })
-  assert.equal(wo.quantity, '10'); assert.equal(wo.requiredBy, '2026-10-28'); assert.match(wo.reason, /SO-0001 needs 10 by 28 Oct 2026/)
+  assert.equal(wo.quantity, '10'); assert.equal(wo.requiredBy, '2026-10-28'); assert.match(wo.reason, /SO-0001 needs 10 by Oct 28, 2026/)
   await h.command('wo.release', { workOrderId: wo.id, version: wo.version })
   s = await h.state()
   const timber = s.shortages.find(x => x.itemId === w.timber.id)

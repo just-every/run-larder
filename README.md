@@ -1,13 +1,16 @@
+<img src="public/brand/mark.svg" width="56" height="59" alt="Larder">
+
 # Larder
 
 Larder runs a small maker's operations: what can be promised, what must be bought or made, what actually moved, and what needs a person today. It takes one confirmed order through available to promise, atomic reservation, a purchase or a version-pinned work order, partial receipt with lots and quarantine, material issue and scrap, partial shipment, and a reconciled handoff to the accountant's own ledger. Agents prepare orders, purchases, merges, reschedules and reconciliations; people approve them. The first move-in kit reads Odoo exports.
 
-The first buyer is an Australian, single-entity, non-regulated maker of 5–50 people with external books. Larder never posts journals, files tax or claims regulated traceability. Scope, defaults and exclusions are in [CONTRACT.md](CONTRACT.md); what is proven is in [ACCEPTANCE.md](ACCEPTANCE.md); the API agents use is in [API.md](API.md); the Odoo kit is in [MOVE-IN.md](MOVE-IN.md). Source code: [just-every/run-larder](https://github.com/just-every/run-larder).
+Larder is being built into the manufacturing ERP and MRP a US maker of 5–50 people can switch to from Katana, MRPeasy or Fishbowl: planning materials and capacity, running the shop floor, tracing lots, costing actual production and syncing orders, shipping and accounting. [CONTRACT.md](CONTRACT.md) is that destination, with a status table of what is in code today; what is proven is in [ACCEPTANCE.md](ACCEPTANCE.md); the API agents use is in [API.md](API.md); the Odoo kit is in [MOVE-IN.md](MOVE-IN.md). Source code: [just-every/run-larder](https://github.com/just-every/run-larder).
 
 ## Where things are
 
 - `src/larder/` — the operational domain: catalogue, stock movements and reservations, BOMs, sales, purchasing, production, planning, reversals, handoff, exceptions, agent proposals, the archive, and `odoo/` (the move-in kit). `api.ts` is the only HTTP door (`/api/larder/*`).
-- `src/ui/` — the app at `/app`, in the risograph style picked with 12ui.
+- `src/ui/` — the app at `/app`.
+- `src/site/` — the run site (run-larder.com): the homepage, `/docs` and `/run`, built by `rer build --site`.
 - `docs/` — the owner guides published at `/docs` on the run site.
 - `migrations/core/0013_larder.sql` — the ledger schema with its append-only and oversell triggers; `0014_import_kit.sql` is Base's import-kit journal.
 - `src/modules/import-kit/` — Base's import kit, copied from Base `79f61fa`.
@@ -18,13 +21,14 @@ Tests: `pnpm run test:larder` (API flows) and `node tests/browser/run.mjs` (brow
 
 ## Run it locally
 
-Run one line to clone Larder, install the `rer` command and start it:
+Two lines, as on [run-larder.com/run](https://run-larder.com/run): install `rer`, then start Larder.
 
 ```sh
-npx -y @runeditrun/rer dev just-every/run-larder
+curl -fsSL https://runeditrun.com/install.sh | sh
+rer dev just-every/run-larder
 ```
 
-To start it again later, run `cd run-larder && rer dev`.
+Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-larder` does both in one line. To start it again later, run `cd run-larder && rer dev`.
 This edition is runnable after composition. From the composed edition's
 checkout root, `rer dev` alone launches it for review: it installs pinned
 dependencies, sets up a local owner on a free port, starts the real app and

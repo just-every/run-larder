@@ -8,7 +8,7 @@ export const identity: EditionIdentity = {
   product: branding.name,
   deployment: branding.name,
   purpose: '{deployment} runs this workshop\'s orders, stock, purchasing, production and accountant handoff.',
-  tagline: 'Orders, stock, purchasing, production and an accountant handoff for a small maker.',
+  tagline: 'Promise dates you can keep. Free, open source manufacturing for US makers.',
   signInPath: '/signin',
   // The run site `rer deploy --site` publishes (deploy-site.json).
   runSite: `https://${site.domain}`,
@@ -16,7 +16,7 @@ export const identity: EditionIdentity = {
   installedHome: 'lobby',
   theme: '/rer-theme.css',
   mark: '/brand/mark.svg',
-  band: '/brand/band.svg',
+  band: '/site/hero-1536.webp',
   fonts: '/fonts/fonts.css',
   accentColor: branding.primaryColor,
 }

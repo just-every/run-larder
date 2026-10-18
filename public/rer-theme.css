@@ -1,58 +1,115 @@
-/* Larder's declared theme: risograph print, tomato red and ink on warm paper.
-   The installer, sign-in, confirmation, /setup, the Lobby, the run site and the
-   app read these --rer-* tokens; the app's own tokens in src/ui/style.css and the
-   run site's in src/site/site.css are named from them. */
+/* Larder's tokens, defined once. The app (src/ui/style.css), the run site (src/site/styles), the installer,
+   sign-in, confirmation, /setup, the Lobby and Base's Run, contract and not-found pages all read this file.
+   Larder's look (design desk, 17 Oct 2026): the workshop blueprint's charcoal, cherry red for the one
+   action and for failures, a chartreuse marker for kept dates and passed checks, flat cool grey paper with
+   white hairline cards, and Inter set heavy and tight for headings. */
 @import url('/fonts/fonts.css');
-:root {
-  --rer-font-body: 'Bricolage Grotesque', Arial, sans-serif;
-  --rer-font-heading: 'Bricolage Grotesque', Arial, sans-serif;
-  --rer-font-print: 'Source Serif 4', Georgia, serif;
-  --rer-page: #F6F3E8;
-  --rer-surface: #FBF9F2;
-  --rer-text: #1A1A17;
-  --rer-muted: #5E5B52;
-  --rer-border: #1A1A17;
-  --rer-rule: #D9D4C4;
-  --rer-accent: #E5261F;
-  --rer-accent-text: #FFFFFF;
-  --rer-red-wash: #F7D9D2;
-  --rer-focus: #1A1A17;
-  --rer-link: #1A1A17;
-  --rer-radius: 6px;
-  --rer-button-radius: 999px;
-  --rer-wordmark-weight: 800;
-  --rer-wordmark-tracking: -.03em;
-  --rer-code-background: #1A1A17;
-  --rer-code-text: #F6F3E8;
-  --rer-logo: url('/brand/mark.svg');
-}
 
-/* Sign-in, confirmation and /setup (Base's no-JavaScript frames): one centred
-   printed card, 440 px, mark and name at top, a heavy title and a full-width ink
-   pill, as the sign-in and setup picks draw them (520 px: the picks draw it wider than SPEC's 440). */
+:root {
+  --rer-font-body: 'Inter', Arial, sans-serif;
+  --rer-font-heading: 'Inter', Arial, sans-serif;
+  --rer-font-print: 'Inter', Arial, sans-serif;
+  --rer-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --rer-page: #F4F4F4;
+  --rer-surface: #FFFFFF;
+  --rer-text: #1C1C1C;
+  --rer-muted: #5D6168;
+  --rer-border: #8E9197;
+  --rer-rule: #E3E3E3;
+  --rer-accent: #E03127;
+  --rer-accent-text: #FFFFFF;
+  --rer-red-wash: #FCE5E3;
+  --rer-focus: #E03127;
+  --rer-link: #1C1C1C;
+  --rer-radius: 12px;
+  --rer-button-radius: 8px;
+  --rer-wordmark-weight: 800;
+  --rer-wordmark-tracking: -.035em;
+  --rer-code-background: #2D2D2D;
+  --rer-code-text: #F1F1EF;
+  --rer-logo: url('/brand/mark.svg');
+  /* Base's /contract page: done in the marker chartreuse, partial in a warm amber, missing in quiet grey. */
+  --rer-done: #C9E84A;
+  --rer-done-ink: #4B6400;
+  --rer-on-done: #1C1C1C;
+  --rer-partial: #F2B84B;
+  --rer-partial-ink: #8A5A00;
+  --rer-on-partial: #1C1C1C;
+  --rer-missing: #8E9197;
+  --rer-missing-ink: #5D6168;
+  --rer-on-missing: #FFFFFF;
+
+  /* The run site's palette and scale, named from the tokens above (src/site/styles read only these). */
+  --charcoal: #2D2D2D;
+  --charcoal-2: #393939;
+  --charcoal-line: #4A4A4A;
+  --paper: var(--rer-page);
+  --card: var(--rer-surface);
+  --ink: var(--rer-text);
+  --body: #4A4E55;
+  --muted: var(--rer-muted);
+  --soft: #7C8087;
+  --faint: #A4A7AC;
+  --line: var(--rer-rule);
+  --line-strong: #D2D2D2;
+  --chip: #EEEEEE;
+  --red: var(--rer-accent);
+  --red-ink: #C4261D;
+  --red-hover: #C92A21;
+  --lime: #C9E84A;
+  --lime-ink: #1C1C1C;
+  --lime-deep: #6E8F00;
+  --amber: #E8A21A;
+  --amber-tint: #FDF1D8;
+  --green-tint: #E8F3E6;
+  --green-ink: #2F7A3A;
+  --font-body: var(--rer-font-body);
+  --font-head: var(--rer-font-heading);
+  --font-mono: var(--rer-font-mono);
+  --shadow-card: 0 1px 2px rgba(20, 20, 20, .04), 0 12px 32px -18px rgba(20, 20, 20, .22);
+  --shadow-lift: 0 2px 4px rgba(20, 20, 20, .05), 0 28px 56px -28px rgba(20, 20, 20, .38);
+  --radius-card: 14px;
+  --radius-chip: 999px;
+  --wrap: 1300px;
+  --gutter: 70px;
+}
+@media (max-width: 1100px) { :root { --gutter: 40px; } }
+@media (max-width: 760px) { :root { --gutter: 16px; } }
+
+/* Sign-in, confirmation and /setup (Base's no-JavaScript frames): one white card on the grey paper with a
+   hairline and soft shadow, the jar and name at top, a heavy title, quiet 1 px fields and the red button. */
 html.rer-themed body { background: var(--rer-page); }
-html.rer-themed main { max-width: 520px; padding: 36px 40px; background: var(--rer-surface); border: 1.5px solid var(--rer-text); border-radius: var(--rer-radius); box-shadow: none; }
-html.rer-themed .brand, html.rer-themed .rer-brand { gap: 10px; margin: 0 0 28px; font-size: 22px; font-weight: 800; letter-spacing: -.02em; color: var(--rer-text); }
-html.rer-themed .brand::before, html.rer-themed .rer-brand::before { width: 30px; height: 27px; }
-html.rer-themed h1 { font-size: 44px; font-weight: 800; line-height: 1.05; letter-spacing: -.03em; margin: 0 0 20px; }
+html.rer-themed main { max-width: 520px; padding: 36px 40px; background: var(--rer-surface); border: 1px solid var(--rer-rule); border-radius: 16px; box-shadow: var(--shadow-card); }
+html.rer-themed .brand, html.rer-themed .rer-brand { gap: 10px; margin: 0 0 28px; font-size: 22px; font-weight: 800; letter-spacing: -.035em; color: var(--rer-text); }
+html.rer-themed .brand::before, html.rer-themed .rer-brand::before { width: 27px; height: 28px; }
+html.rer-themed h1 { font-size: 42px; font-weight: 850; line-height: 1.04; letter-spacing: -.04em; margin: 0 0 18px; }
 html.rer-themed p { color: var(--rer-muted); }
 html.rer-themed label { font-weight: 600; }
-html.rer-themed input:not([type=checkbox]):not([type=hidden]) { min-height: 46px; border: 1.5px solid var(--rer-text); border-radius: var(--rer-radius); background: var(--rer-surface); }
-html.rer-themed input[type=checkbox] { accent-color: var(--rer-text); }
-html.rer-themed button, html.rer-themed .action { min-height: 48px; border: 0; border-radius: 999px; background: var(--rer-text); color: var(--rer-surface); font-weight: 600; }
-html.rer-themed button.secondary { background: transparent; color: var(--rer-text); border: 1.5px solid var(--rer-text); }
+html.rer-themed input:not([type=checkbox]):not([type=hidden]) { min-height: 46px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fff; }
+html.rer-themed input:not([type=checkbox]):not([type=hidden]):focus { border-color: var(--rer-text); }
+html.rer-themed input[type=checkbox] { accent-color: var(--rer-accent); }
+html.rer-themed button, html.rer-themed .action { min-height: 48px; border: 0; border-radius: var(--rer-button-radius); background: var(--rer-accent); color: var(--rer-accent-text); font-weight: 600; }
+html.rer-themed button.secondary { background: transparent; color: var(--rer-text); border: 1px solid var(--line-strong); }
 html.rer-themed dl { grid-template-columns: 96px minmax(0, 1fr); gap: 0; border-top: 1px solid var(--rer-rule); }
 html.rer-themed dt, html.rer-themed dd { padding: 12px 0; border-bottom: 1px solid var(--rer-rule); }
 html.rer-themed dt { font-size: 14px; }
 html.rer-themed :focus-visible { outline: 3px solid var(--rer-focus); outline-offset: 2px; }
 @media (max-width: 480px) { html.rer-themed main { padding: 26px 20px; } html.rer-themed h1 { font-size: 34px; } }
 
-/* The Lobby (Base's shared page): the same ink pill as every other primary action. */
-html[data-state] .btn { background: var(--rer-text); color: var(--rer-surface); box-shadow: none; }
+/* The Lobby (Base's shared page): the same red button as every other primary action. */
+html[data-state] .btn { background: var(--rer-accent); color: var(--rer-accent-text); box-shadow: none; }
 
-/* Base's shared Run and not-found pages: the heavy wordmark and heading, and Larder's printed card
-   (6 px, 1.5 px ink, no shadow) for each step; the layout stays Base's. Keep their last lines clear of the printed shelf below them. */
-body > .bar .brand, body > main > :is(.intro, .hero) h1, body > main .step h2 { font-weight: 800; }
-body > main :is(.step, .step.option) { border: 1.5px solid var(--rer-text); border-radius: var(--rer-radius); background: var(--rer-surface); box-shadow: none; backdrop-filter: none; }
-body > main .code { border-radius: var(--rer-radius); }
-.art ~ main { padding-bottom: 210px !important; }
+/* Base's shared Run, contract and not-found pages: heavy tight headings in the display optical size, white
+   hairline step cards with a soft shadow; the layout stays Base's. The workshop blueprint (the band) sits
+   under them on charcoal, so keep their last lines clear of it. */
+body > .bar .brand { font-weight: 800; letter-spacing: -.035em; }
+body > .bar .brand img { width: 38px; height: 40px; }
+body > main > :is(.intro, .hero) h1, body > main .step h2 { font-weight: 850; letter-spacing: -.04em; }
+body > main > :is(.intro, .hero) h1 { font-weight: 900; letter-spacing: -.045em; }
+body > main :is(.step, .step.option) { border: 1px solid var(--rer-rule); border-radius: 16px; background: var(--rer-surface); box-shadow: var(--shadow-card); backdrop-filter: none; }
+body > main .num { border-radius: 12px; font-weight: 800; }
+body > main .code { border-radius: 12px; }
+body:has(> .art) { background: var(--rer-page); }
+.art { background: var(--charcoal); }
+body > .art img { object-fit: cover; object-position: 50% 0; }
+.art ~ main { padding-bottom: calc(var(--art) + 64px) !important; }

@@ -4,15 +4,18 @@ Run Larder on your own computer, become its owner, and work through the five fir
 
 ## 1. Get Larder and start it
 
-Larder runs with `rer`, the Run Edit Run command; the one line below installs it for you. Larder needs Node 22 or later and pnpm 10.12.4, on macOS, Linux or Windows with WSL2; `rer` fetches the exact Node version Larder declares when your computer does not have it.
+Larder runs with `rer`, the Run Edit Run command. Larder needs Node 22 or later and pnpm 10.12.4, on macOS, Linux or Windows with WSL2. Two lines, the same as on the [Run page](https://run-larder.com/run): install `rer`, then start Larder.
 
 ```sh
-npx -y @runeditrun/rer dev just-every/run-larder
+curl -fsSL https://runeditrun.com/install.sh | sh
+rer dev just-every/run-larder
 ```
+
+The installer puts `rer` in your home folder, with its own Node if you have no Node 22 or later, and changes no shell settings: if its last line puts `rer` on your PATH, run that line first. Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-larder` does both steps in one line.
 
 To start it again later, run `cd run-larder && rer dev`. `rer dev` installs everything Larder needs, makes you the owner and prints a line starting `RER_OPEN` with a link. Open that link on the same computer: Larder opens signed in as you. Treat the link like a password; anyone who has it is signed in as the owner.
 
-To set up for a real mailbox instead of the local one, set it up first in place of the one line, then start it:
+To set up for a real mailbox instead of the local one, set Larder up first with your email, then start it:
 
 ```sh
 npx -y @runeditrun/rer setup just-every/run-larder --owner-email you@example.com

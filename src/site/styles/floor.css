@@ -1,0 +1,111 @@
+/* 07 the sanding tablet and the panel-saw phone, and 08 machine down: the two options and the afternoon's timeline. */
+
+/* 07: the tablet at right, the phone over its lower-left corner. Device frames are charcoal bezels, not borders on fields. */
+.floor-stage { position: relative; padding: 0 0 30px 60px; }
+.tablet { position: relative; margin-left: auto; max-width: 760px; padding: 18px; border-radius: 34px; background: #1F1F1F; box-shadow: var(--shadow-lift), inset 0 0 0 2px #3A3A3A; }
+.tablet .screen { padding: 0 30px 26px; border-radius: 20px; background: #fff; }
+.station { display: flex; align-items: center; gap: 16px; min-height: 70px; margin: 0 -30px 18px; padding: 0 30px; border-bottom: 1px solid var(--line); color: #2A2C30; font-size: 17px; }
+.station time { margin-left: auto; color: #5D6168; }
+.tablet h3 { font: 900 40px/1.05 var(--font-head); font-variation-settings: 'opsz' 32; letter-spacing: -.05em; color: #141414; }
+.job { margin-top: 10px; color: #4C5056; font-size: 20px; }
+.counts { display: grid; grid-template-columns: 1fr 1.12fr 1fr; gap: 14px; margin-top: 18px; }
+.counts div { padding: 14px 18px 10px; border: 1px solid #DCDCDC; border-radius: 10px; }
+.counts dt { color: #5D6168; font-size: 17px; }
+.counts dd { display: flex; align-items: center; gap: 14px; font: 900 52px/1.1 var(--font-head); letter-spacing: -.04em; color: #141414; }
+.counts .scrap dd { color: var(--red); }
+.counts .chip { min-height: 28px; padding: 0 10px; font: 500 13px/1 var(--font-body); letter-spacing: 0; color: #3F4247; }
+.running { display: flex; align-items: center; gap: 14px; margin-top: 18px; font-size: 22px; font-weight: 600; color: #141414; }
+.running .dot { width: 24px; height: 24px; border-radius: 50%; background: #8BC53F; box-shadow: 0 0 0 4px #E7F3D7; }
+.drawing { position: relative; margin: 6px 0 0 auto; width: 420px; max-width: 100%; color: #2A2C30; }
+.drawing svg { display: block; width: 100%; height: auto; }
+.drawing .cell { stroke-width: .7; }
+.drawing .grain { stroke-width: .6; opacity: .55; }
+.drawing .dim { stroke-width: .9; }
+.dim-label { position: absolute; font-size: 14px; color: #2A2C30; background: #fff; padding: 0 3px; line-height: 1; }
+.dim-label.w { left: 46.4%; top: 3.6%; transform: translate(-50%, -50%); }
+.dim-label.h { left: 0; top: 50%; transform: translate(-30%, -50%); }
+.dim-label.d { left: 93.8%; top: 7%; transform: translate(-50%, -100%); }
+.drawing figcaption { margin: 4px 0 0 14%; color: #3F4247; font-size: 15px; }
+.tablet-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; padding-left: 28%; }
+.tablet-buttons span { min-height: 60px; font-size: 20px; }
+.tablet-buttons .ghost-button { border-color: #2A2C30; }
+.phone { position: absolute; left: 0; bottom: 0; width: 248px; padding: 10px; border-radius: 38px; background: #1F1F1F; box-shadow: var(--shadow-lift), inset 0 0 0 2px #3A3A3A; }
+.phone::before { content: ''; position: absolute; left: 50%; top: 10px; width: 112px; height: 24px; margin-left: -56px; border-radius: 0 0 14px 14px; background: #1F1F1F; z-index: 1; }
+.phone .screen { min-height: 360px; padding: 46px 14px 18px; border-radius: 30px; background: #fff; }
+.phone .station { gap: 10px; min-height: 0; margin: 0 0 18px; padding: 0; border: 0; font-size: 13px; }
+.phone .avatar { width: 34px; height: 34px; font-size: 13px; }
+.phone h3 { font: 850 22px/1.15 var(--font-head); letter-spacing: -.035em; color: #141414; }
+.scan { display: flex; align-items: flex-start; gap: 12px; margin-top: 14px; padding: 12px; border: 1px solid #DCDCDC; border-radius: 10px; font-size: 13.5px; line-height: 1.4; color: #2A2C30; }
+.scan .check-dot { width: 30px; height: 30px; background: #6CC24A; color: #fff; }
+.no-dot { position: relative; flex: none; width: 30px; height: 30px; border-radius: 50%; background: var(--red); }
+.no-dot::after { content: ''; position: absolute; left: 8px; right: 8px; top: 50%; height: 3px; margin-top: -1.5px; border-radius: 2px; background: #fff; }
+
+/* 08: the charcoal moment. Option A approved in a lime frame, Option B quiet, the timeline under both. */
+#machine-down .router-art img { display: block; width: 100%; max-width: 880px; height: auto; }
+.options { display: grid; grid-template-columns: minmax(0, 1fr); gap: 28px; }
+.option-a { padding: 32px 38px 28px; border: 3px solid var(--lime); border-radius: 12px; box-shadow: 0 30px 60px -36px rgba(0, 0, 0, .7); }
+.option-a h3 { font-size: 30px; }
+.moved { margin-top: 14px; }
+.moved li { padding: 12px 0; font-size: 20px; color: #1E1E1E; }
+.moved li + li { border-top: 1px solid var(--line); }
+.moved .displaced { color: #4C5056; font-size: 18px; }
+.overtime { margin-top: 2px; padding-top: 18px; border-top: 1px solid #D5D5D5; font-size: 21px; font-weight: 650; color: #141414; }
+.option-a .pill-lime { margin-top: 14px; }
+.approved-chip { display: inline-flex; align-items: center; gap: 12px; margin-top: 20px; padding: 6px 18px 6px 6px; border-radius: 999px; background: #F0F0F0; font-size: 17px; font-weight: 500; color: #1E1E1E; }
+.option-b { padding: 28px 38px 30px; border: 1px solid #5A5A5A; background: #333; color: #fff; box-shadow: none; }
+.option-b h3 { color: #fff; font-size: 30px; }
+.option-b p { margin-top: 14px; color: #E2E2E2; font-size: 20px; line-height: 1.45; }
+.timeline { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: start; }
+.timeline ol { position: relative; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.timeline::before { content: ''; position: absolute; left: 0; right: 0; top: 12px; border-top: 1.5px solid #E8E8E8; }
+.timeline li { position: relative; display: grid; justify-items: center; align-content: start; gap: 6px; text-align: center; color: #D9D9D9; font-size: 17px; line-height: 1.4; }
+.timeline .node { position: relative; width: 26px; height: 26px; border: 2px solid #F2F2F2; border-radius: 50%; background: var(--charcoal); }
+.timeline .red .node { background: var(--red); border-color: #fff; }
+.timeline .lime .node { background: var(--lime); border-color: var(--lime); }
+.timeline li b { margin-top: 10px; color: #fff; font-size: 19px; font-weight: 700; }
+.changed { position: relative; padding-top: 26px; color: #fff; font-size: 17px; font-weight: 700; white-space: nowrap; }
+.changed::before { content: ''; position: absolute; right: 0; top: 2px; height: 22px; border-right: 2px solid #E8E8E8; }
+
+@media (max-width: 1180px) {
+  .floor-stage { padding: 0 0 0 0; display: grid; gap: 0; }
+  .tablet { margin: 0; max-width: 760px; }
+  .phone { position: relative; margin: -60px 0 0 24px; }
+  .options { max-width: 640px; }
+}
+@media (max-width: 760px) {
+  .tablet { padding: 10px; border-radius: 22px; }
+  .tablet .screen { padding: 0 14px 16px; border-radius: 14px; }
+  .station { min-height: 52px; gap: 10px; margin: 0 -14px 12px; padding: 0 14px; font-size: 14px; }
+  .station .avatar { width: 32px; height: 32px; font-size: 12px; }
+  .tablet h3 { font-size: 25px; }
+  .job { font-size: 15px; }
+  .counts { gap: 8px; margin-top: 12px; }
+  .counts div { padding: 8px 10px 6px; }
+  .counts dt { font-size: 13px; }
+  .counts dd { font-size: 32px; flex-wrap: wrap; gap: 4px; }
+  .counts .chip { font-size: 11px; min-height: 22px; padding: 0 6px; }
+  .running { font-size: 16px; gap: 10px; margin-top: 12px; }
+  .running .dot { width: 16px; height: 16px; }
+  .drawing { width: 100%; }
+  .dim-label { font-size: 11px; }
+  .drawing figcaption { font-size: 12px; margin-left: 6%; }
+  .tablet-buttons { padding-left: 0; gap: 10px; margin-top: 14px; }
+  .tablet-buttons span { min-height: 46px; font-size: 16px; }
+  .phone { width: min(248px, 72vw); margin: -10px 0 0 16px; }
+  .option-a, .option-b { padding: 22px 18px; }
+  .option-a h3, .option-b h3 { font-size: 22px; }
+  .moved li { font-size: 16px; padding: 10px 0; }
+  .moved .displaced { font-size: 15px; }
+  .overtime { font-size: 16px; padding-top: 12px; }
+  .approved-chip { font-size: 14px; gap: 8px; padding-right: 12px; }
+  .option-b p { font-size: 16px; }
+  .timeline { grid-template-columns: 1fr; gap: 12px; }
+  .timeline ol { grid-template-columns: 1fr; gap: 0; }
+  .timeline::before { left: 12px; right: auto; top: 12px; bottom: 40px; border-top: 0; border-left: 1.5px solid #E8E8E8; }
+  .timeline li { grid-template-columns: 26px auto; justify-items: start; column-gap: 16px; row-gap: 2px; text-align: left; padding-bottom: 22px; font-size: 15px; }
+  .timeline .node { grid-row: 1 / span 2; }
+  .timeline li b { margin: 0; font-size: 16px; }
+  .timeline li br { display: none; }
+  .changed { padding: 0 0 0 42px; font-size: 16px; }
+  .changed::before { display: none; }
+}

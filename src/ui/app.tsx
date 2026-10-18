@@ -32,7 +32,7 @@ export function LarderApp() {
   return <div className="larder">
     <div className="rail">
       <nav className="sidebar" aria-label="Larder">
-        <a className="wordmark" href="#today"><img src="/brand/mark.svg" alt="" width="34" height="31" /><span data-rer-name>Larder</span></a>
+        <a className="wordmark" href="#today"><img src="/brand/mark.svg" alt="" width="30" height="32" /><span data-rer-name>Larder</span></a>
         <ul>{destinations.map(d => <li key={d.id} className={d.id === 'more' ? 'more' : undefined}><a href={`#${d.id}`} aria-current={route.view === d.id ? 'page' : undefined}><Icon name={d.icon} /><span>{d.title}</span>{d.id === 'today' && waiting > 0 && <b className="count" aria-label={`${waiting} need attention`}>{waiting}</b>}</a></li>)}</ul>
       </nav>
       {state && <div className="account"><p className="who"><Icon name="person" /><span>{state.actor.name}<small>{words(state.actor.role)}</small></span></p><button className="signout" onClick={() => void signOut()}><Icon name="signout" />Sign out</button></div>}

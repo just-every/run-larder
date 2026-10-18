@@ -50,7 +50,7 @@ function render(file: string) {
         if (!slug) throw new Error(`Docs: docs/${file} links to ${href}, which is not a docs page.`)
         return `<a href="/docs/${slug}${hash ? '#' + hash : ''}">${text}</a>`
       },
-      code({ text }: Tokens.Code) { return `<div class="docs-code"><pre tabindex="0"><code>${escape(text)}</code></pre></div>` },
+      code({ text }: Tokens.Code) { return `<div class="docs-code"><pre tabindex="0"><code>${escape(text)}</code></pre><button type="button" class="docs-copy" hidden>Copy</button></div>` },
       table(token: Tokens.Table) {
         const cell = (c: Tokens.TableCell) => this.parser.parseInline(c.tokens)
         return `<div class="docs-table"><table><thead><tr>${token.header.map(c => `<th scope="col">${cell(c)}</th>`).join('')}</tr></thead><tbody>${token.rows.map(row => `<tr>${row.map(c => `<td>${cell(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`

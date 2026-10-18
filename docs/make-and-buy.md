@@ -4,7 +4,7 @@ See what is short and why, draft the purchase or work order that covers it, and 
 
 ## What is short, and why
 
-**Make & buy → Shortages** lists every item that confirmed orders and released work need more of than you have, or have coming. Each row shows how many are short, when they are first needed and which documents need them, for example "SO-0001 needs 24 by 28 Oct".
+**Make & buy → Shortages** lists every item that confirmed orders and released work need more of than you have, or have coming. Each row shows how many are short, when they are first needed and which documents need them, for example "SO-0001 needs 24 by Oct 28, 2026".
 
 Press **Draft work order** for an item you make, or **Draft purchase order** for one you buy. Larder drafts the quantity that is short, dated for when it is needed, with your preferred supplier and price. A draft purchase order waits on **Today** under **Needs a person** until a manager or buyer approves it; a draft work order waits under **Work orders** until it is released.
 

@@ -1,0 +1,156 @@
+/* The homepage's frame: the charcoal hero over the workshop blueprint, the light story sections on flat grey,
+   the two charcoal moments (machine down, the interlude) and the charcoal closing. Cards live in cards.css. */
+
+/* Hero: header, promise and action on charcoal, then the blueprint with the order's records set in it. */
+.hero { background: var(--charcoal); color: #fff; overflow: hidden; }
+.hero-copy { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 4px; }
+.hero h1 { font: 880 77px/1 var(--font-head); font-variation-settings: 'opsz' 32; letter-spacing: -.05em; text-wrap: balance; }
+.hero-sub { max-width: 920px; margin-top: 16px; color: #EFEFEF; font-size: 25px; line-height: 1.36; letter-spacing: -.005em; }
+.hero-alt { margin-top: 18px; color: #EFEFEF; font-size: 22px; line-height: 1.4; }
+.hero-alt strong { color: #fff; font-weight: 800; }
+.hero .site-actions { justify-content: center; margin-top: 24px; }
+.hero .site-link { color: #fff; }
+.hero-scene { position: relative; max-width: 1920px; margin: 14px auto 0; container-type: inline-size; }
+.hero-art img { display: block; width: 100%; height: auto; }
+.hero-cards { position: absolute; inset: 0; }
+.hero-card { position: absolute; padding: .5em .78em .52em; border-radius: .42em; background: #fff; color: #1C1C1C; font: 500 clamp(11px, .88cqw, 15px)/1.38 var(--font-body); letter-spacing: -.005em; white-space: nowrap; box-shadow: 0 6px 18px -8px rgba(0, 0, 0, .55); }
+.hero-card mark { padding: 0 .22em; border-radius: .2em; background: var(--lime); color: #1C1C1C; font-weight: 700; }
+.hero-card .tick { width: 1.05em; height: 1.05em; vertical-align: -.17em; }
+.tick.lime { color: #7BB21B; }
+
+/* A light story section: eyebrow, heading at three quarters of the hero's, the line, and its drawing. */
+.story { padding: 104px 0; background: var(--paper); }
+.story + .story:not(.dark) { padding-top: 40px; }
+.story-grid { display: grid; grid-template-columns: minmax(0, 500px) minmax(0, 1fr); gap: 48px 64px; align-items: center; }
+.story-grid > * { min-width: 0; }
+.story h2 { margin-top: 20px; color: #1A1A1A; font: 900 61px/1.0 var(--font-head); font-variation-settings: 'opsz' 32; letter-spacing: -.05em; text-wrap: balance; }
+.story-line { margin-top: 20px; max-width: 30em; color: var(--body); font-size: 23px; line-height: 1.42; letter-spacing: -.008em; text-wrap: pretty; }
+.mid { white-space: normal; }
+
+/* Wide sections: the copy across the top, the drawing under it. */
+.story.wide .story-grid { grid-template-columns: minmax(0, 1fr); gap: 52px; }
+.story.wide .story-line { max-width: none; }
+.story.schedule .story-copy { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'eyebrow eyebrow' 'title line'; align-items: end; gap: 0 32px; }
+.story.schedule .eyebrow { grid-area: eyebrow; }
+.story.schedule h2 { grid-area: title; }
+.story.schedule .story-line { grid-area: line; max-width: 520px; margin: 0 0 6px; font-size: 21px; }
+
+/* 02: the quote and the ship options overlap, offset as drawn. */
+#quote .story-grid { grid-template-columns: minmax(0, 470px) minmax(0, 1fr); }
+.quote-stage { position: relative; display: grid; }
+.quote-card { width: min(680px, 100%); margin-left: auto; }
+.options-wrap { position: relative; width: min(436px, 100%); margin: -62px 0 0 max(0px, calc(100% - min(680px, 100%) - 94px)); }
+
+/* 03: the BOM beside the net requirements, a walnut stack on the paper beside them. */
+.plan-grid { position: relative; display: grid; grid-template-columns: minmax(0, 552px) minmax(0, 1fr); gap: 18px; }
+
+/* 04: the supplier's email under the copy, the agent's plan beside both. */
+#slip .story-grid { grid-template-columns: minmax(0, 560px) minmax(0, 1fr); grid-template-areas: 'copy agent' 'email agent'; gap: 36px 48px; }
+#slip .story-copy { grid-area: copy; align-self: end; }
+#slip .email-card { grid-area: email; align-self: start; }
+#slip .agent-card { grid-area: agent; }
+
+/* 07: the tablet with the phone overlapping its lower left corner. */
+#floor .story-grid { grid-template-columns: minmax(0, 470px) minmax(0, 1fr); gap: 40px; }
+
+/* 08: the charcoal moment. */
+.story.dark { background: var(--charcoal); color: #fff; padding: 96px 0 40px; }
+.story.dark h2 { color: #fff; }
+.story.dark .eyebrow { color: #E4E4E4; }
+.story.dark .story-line { color: #E9E9E9; }
+#machine-down .story-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 552px); grid-template-areas: 'copy options' 'art options' 'timeline timeline'; gap: 0 48px; align-items: start; }
+#machine-down .story-copy { grid-area: copy; }
+#machine-down .router-art { grid-area: art; align-self: start; margin: 18px 0 0 -40px; }
+#machine-down .options { grid-area: options; }
+#machine-down .timeline { grid-area: timeline; margin-top: 36px; }
+
+/* 10 and 12: the drawing at left, the copy at right. */
+.story.copy-right .story-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 372px); grid-template-areas: 'card copy' 'card side'; gap: 28px 44px; align-items: start; }
+.story.copy-right .story-copy { grid-area: copy; align-self: end; }
+.story.copy-right .story-copy + * { grid-area: card; }
+.story.copy-right .syncs, .story.copy-right .terminal-wrap { grid-area: side; }
+@media (min-width: 1300px) { #ship h2 { font-size: 54px; } }
+#move-in .story-grid { grid-template-columns: minmax(0, 590px) minmax(0, 1fr); gap: 40px 76px; }
+#move-in .story-line { max-width: 28em; }
+
+/* 11: the copy centred over the two columns. */
+.story.centred .story-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 552px); grid-template-areas: 'copy copy' 'cost side'; gap: 48px 22px; align-items: start; }
+.story.centred .story-copy { grid-area: copy; text-align: center; }
+.story.centred .eyebrow { justify-content: center; }
+.story.centred .story-line { max-width: none; margin-top: 14px; }
+.story.centred .cost-card { grid-area: cost; }
+.story.centred .cost-side { grid-area: side; }
+
+/* 09: the dock from the yard, no heading, the order's tag on a stem over the truck. */
+.interlude { background: var(--charcoal); padding: 0 0 8px; }
+.interlude-scene { position: relative; max-width: 1920px; margin: 0 auto; container-type: inline-size; }
+.interlude-scene img { display: block; width: 100%; height: auto; }
+.dock-tag { position: absolute; left: 22.07%; top: 23.7%; }
+.dock-tag span { display: inline-flex; align-items: center; gap: .5em; padding: .5em .8em; border-radius: .4em; background: #fff; color: #1C1C1C; font: 600 clamp(13px, 1.24cqw, 22px)/1.2 var(--font-body); white-space: nowrap; box-shadow: 0 8px 22px -10px rgba(0, 0, 0, .6); }
+.dock-tag .tick { width: 1.3em; height: 1.3em; }
+.dock-tag::after { content: ''; position: absolute; left: 51.7%; top: 100%; width: 1.5px; height: 2.9cqw; background: #fff; }
+.dock-tag::before { content: ''; position: absolute; left: calc(51.7% - .38cqw + .75px); top: calc(100% + 2.9cqw - .38cqw); width: .76cqw; height: .76cqw; border-radius: 50%; background: #fff; }
+
+/* 13: the promise again at hero size, the boxed board on the bench, the footer set in type. */
+.closing { background: var(--charcoal); color: #fff; }
+.closing-copy { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: 88px; }
+.closing h2 { font: 900 81px/1 var(--font-head); font-variation-settings: 'opsz' 32; letter-spacing: -.052em; text-wrap: balance; }
+.closing-sub { margin-top: 16px; color: #E6E6E6; font-size: 26px; }
+.closing .site-actions { justify-content: center; margin-top: 26px; }
+.closing .site-link { color: #fff; }
+.closing-scene { max-width: 1920px; margin: 26px auto 0; }
+.closing-scene img { display: block; width: 100%; height: auto; }
+.closing .site-footer { margin-top: 40px; }
+
+/* Under 1180: two-column sections stack, copy first; the hero's records leave the art and sit under it. */
+@media (max-width: 1299px) {
+  #ship .story-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'copy' 'side' 'card'; gap: 32px; }
+  #ship .story-line { max-width: 36em; }
+  #ship .syncs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 1180px) {
+  .story-grid, #quote .story-grid, #floor .story-grid, #slip .story-grid, #move-in .story-grid, .story.copy-right .story-grid, #machine-down .story-grid, .story.centred .story-grid {
+    grid-template-columns: minmax(0, 1fr); grid-template-areas: none; gap: 40px;
+  }
+  .story-grid > *, #slip .story-grid > *, #machine-down .story-grid > *, .story.copy-right .story-grid > *, .story.centred .story-grid > * { grid-area: auto !important; }
+  .story-line { max-width: 36em; }
+  .story.centred .story-copy { text-align: left; }
+  .story.centred .eyebrow { justify-content: flex-start; }
+  .story.schedule .story-copy { display: block; }
+  .story.schedule .story-line { margin-top: 18px; max-width: 36em; }
+  #machine-down .router-art { margin: 0; max-width: 720px; }
+  #machine-down .timeline { margin-top: 0; }
+  .hero-cards { position: static; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; padding: 18px var(--gutter) 34px; }
+  .hero-card { position: static; font-size: 15px; white-space: normal; }
+  .hero-card br { display: none; }
+}
+@media (max-width: 1100px) {
+  .story h2 { font-size: 54px; }
+}
+@media (max-width: 760px) {
+  .hero h1 { font-size: 46px; line-height: 1.02; letter-spacing: -.045em; margin-top: 18px; }
+  .hero-copy { align-items: flex-start; text-align: left; }
+  .hero-sub { margin-top: 14px; font-size: 18px; text-wrap: pretty; }
+  .hero-alt { font-size: 16px; margin-top: 14px; }
+  .hero .site-actions { justify-content: flex-start; margin-top: 20px; }
+  .hero-scene { margin-top: 30px; }
+  .hero-cards { flex-direction: column; align-items: stretch; gap: 8px; padding: 16px var(--gutter) 30px; }
+  .hero-card { font-size: 14px; padding: 10px 14px; border-radius: 8px; }
+  .story { padding: 72px 0; }
+  .story + .story:not(.dark) { padding-top: 24px; }
+  .story.dark { padding: 64px 0; }
+  .eyebrow { font-size: 13px; gap: 10px; letter-spacing: .14em; }
+  .eyebrow-mark { width: 12px; height: 12px; }
+  .story h2 { margin-top: 16px; font-size: 42px; line-height: 1.02; letter-spacing: -.045em; }
+  .story-line, .story.schedule .story-line { margin-top: 14px; font-size: 18px; }
+  .story-grid { gap: 30px; }
+  .story.wide .story-grid { gap: 30px; }
+  .interlude { padding: 8px 0 0; }
+  .dock-tag { left: 4%; top: 6%; }
+  .dock-tag span { font-size: 13px; }
+  .dock-tag::after, .dock-tag::before { display: none; }
+  .closing-copy { align-items: flex-start; text-align: left; padding-top: 64px; }
+  .closing h2 { font-size: 46px; line-height: 1.02; letter-spacing: -.045em; }
+  .closing-sub { font-size: 18px; margin-top: 12px; }
+  .closing .site-actions { justify-content: flex-start; margin-top: 20px; }
+}

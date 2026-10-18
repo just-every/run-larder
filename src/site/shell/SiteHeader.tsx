@@ -1,14 +1,17 @@
-import { Lockup } from './Lockup'
+import { Brand } from './Brand'
 import { links } from './links'
 
-/** Mark and name at left; Docs, Contract and Source at right; an ink rule under the bar. */
-export function SiteHeader({ current }: { current?: 'docs' }) {
-  return <header className="site-bar"><div className="site-bar-row">
-    <Lockup />
-    <nav aria-label="Site">
-      <a href={links.docs} aria-current={current === 'docs' ? 'page' : undefined}>Docs</a>
-      <a href={links.contract}>Contract</a>
-      <a href={links.source}>Source</a>
-    </nav>
-  </div></header>
+/** The header on every run-site page: the lockup at left; Docs and Source at right, one row on phones too.
+ * `tone="dark"` is the homepage's, on the hero's charcoal. */
+export function SiteHeader({ current, tone = 'light' }: { current?: 'docs'; tone?: 'light' | 'dark' }) {
+  return <header className={`site-header ${tone}`}>
+    <a className="skip-link" href="#main">Skip to content</a>
+    <div className="site-wrap"><div className="site-header-row">
+      <Brand tone={tone} />
+      <nav aria-label="Main">
+        <a href={links.docs} aria-current={current === 'docs' ? 'page' : undefined}>Docs</a>
+        <a href={links.source}>Source</a>
+      </nav>
+    </div></div>
+  </header>
 }

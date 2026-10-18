@@ -1,0 +1,265 @@
+/* Product cards drawn in HTML and CSS: white hairline cards on the grey paper, chips, the lime marker and the
+   tables of quote, plan, supplier slip, ship, job cost and move-in. Trace and schedule: schedule.css; floor and
+   machine down: floor.css. */
+.card { position: relative; padding: 30px 34px; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--card); color: var(--ink); box-shadow: var(--shadow-card); }
+.card h3 { text-wrap: balance; font: 850 27px/1.15 var(--font-head); font-variation-settings: 'opsz' 28; letter-spacing: -.035em; color: #161616; }
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px 18px; flex-wrap: wrap; }
+.muted { color: var(--soft); }
+.chip { display: inline-flex; align-items: center; min-height: 34px; padding: 0 14px; border-radius: 9px; background: var(--chip); color: #3F4247; font-size: 15px; font-weight: 500; white-space: nowrap; }
+.tag { display: inline-flex; align-items: center; height: 28px; margin-left: 12px; padding: 0 11px; border-radius: 7px; background: var(--chip); color: #4C5056; font-size: 14px; font-weight: 500; }
+.pill-lime { display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 12px; border-radius: 8px; background: var(--lime); color: var(--lime-ink); font-size: 15px; font-weight: 700; white-space: nowrap; }
+.pill-lime.big { min-height: 50px; padding: 0 20px; font-size: 22px; letter-spacing: -.015em; gap: 9px; }
+.pill-lime .tick { width: 1.05em; height: 1.05em; }
+.pill-red { display: inline-flex; align-items: center; min-height: 46px; padding: 0 18px; border-radius: 8px; background: var(--red); color: #fff; font-size: 19px; font-weight: 700; white-space: nowrap; }
+.check-dot { display: inline-grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--lime); color: #1C1C1C; }
+.check-dot .tick { width: 17px; height: 17px; }
+.check-dot.green { background: var(--green-tint); color: var(--green-ink); }
+.check-dot.dark { width: 26px; height: 26px; background: #2F7A3A; color: #fff; }
+.check-dot.dark .tick { width: 14px; height: 14px; }
+.avatar { display: inline-grid; place-items: center; flex: none; width: 46px; height: 46px; border-radius: 50%; background: #E6E6E6; color: #4A4E55; font-size: 16px; font-weight: 700; letter-spacing: .01em; }
+.avatar.dark { width: 36px; height: 36px; background: #7C8087; color: #fff; font-size: 14px; }
+.ghost-button, .red-button, .dark-button { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 24px; border-radius: 8px; font-size: 18px; font-weight: 600; white-space: nowrap; }
+.ghost-button { border: 1px solid var(--line-strong); background: #fff; color: var(--ink); }
+.red-button { background: var(--red); color: #fff; }
+.dark-button { background: var(--charcoal); color: #fff; min-width: 146px; }
+
+/* Money tables: label left, amount right, hairlines between rows. */
+.lines { width: 100%; border-collapse: collapse; font-size: 19px; }
+.lines th { padding: 14px 0; text-align: left; font-weight: 400; color: #33363B; }
+.lines td, .net td:not(.action), .bom-qty { font-variant-numeric: tabular-nums; }
+.lines td { padding: 14px 0 14px 16px; text-align: right; white-space: nowrap; color: #1E1E1E; }
+.lines tbody tr + tr :is(th, td) { border-top: 1px solid var(--line); }
+.lines tfoot :is(th, td) { padding-top: 20px; border-top: 2px solid #D5D5D5; font: 850 28px/1 var(--font-head); letter-spacing: -.03em; color: #141414; }
+
+/* 02: quote and ship options. */
+.quote-card { padding: 32px 34px 28px; }
+.quote-card .card-head { margin-bottom: 14px; }
+.quote-foot { margin-top: 30px; text-align: right; color: var(--soft); font-size: 17px; }
+.options-card { padding: 28px 28px 14px; box-shadow: var(--shadow-lift); }
+.options-card h3 { font-size: 24px; margin-bottom: 18px; }
+.options-card li { display: flex; align-items: flex-start; gap: 16px; padding: 16px 0 18px; }
+.options-card li + li { border-top: 1px solid var(--line); }
+.options-card li:first-child { padding-top: 4px; }
+.radio { flex: none; width: 24px; height: 24px; margin-top: 2px; border: 1.5px solid #6A6E74; border-radius: 50%; }
+.chosen .radio { border: 2px solid #1C1C1C; background: radial-gradient(circle, #1C1C1C 0 6px, transparent 6.5px); }
+.option-text { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.option-text b { font-size: 18px; font-weight: 600; color: #1C1C1C; }
+.option-text small { color: var(--muted); font-size: 15px; line-height: 1.35; }
+.options-card .pill-lime { margin-left: auto; }
+.confirmed { margin-top: 16px; padding-left: 18px; color: #4C5056; font-size: 15px; }
+
+/* 03: the BOM tree and the net requirements. */
+.bom-card h3, .net-card h3 { font-size: 33px; margin-bottom: 28px; }
+.bom-card { padding: 34px 32px 30px; }
+.bom { position: relative; }
+.bom::before { content: ''; position: absolute; left: 6px; top: 29px; bottom: 29px; border-left: 1px solid #B9BBBF; }
+.bom li { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 58px; padding-left: 34px; font-size: 19px; color: #222; }
+.bom li::after { content: ''; position: absolute; left: 6px; top: 50%; width: 16px; border-top: 1px solid #B9BBBF; }
+.bom .bom-name { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 0; }
+.bom .bom-qty { white-space: nowrap; }
+.bom .d1 { padding-left: 64px; }
+.bom .d1::after { left: 38px; }
+.bom .d1::before { content: ''; position: absolute; left: 38px; top: 0; bottom: 0; border-left: 1px solid #B9BBBF; }
+.bom .d1.last::before { bottom: 50%; }
+.bom .d2 { padding-left: 94px; font-size: 16px; background: linear-gradient(#B9BBBF, #B9BBBF) 38px 0 / 1px 100% no-repeat; }
+.bom .d2 .bom-name { flex-wrap: nowrap; white-space: nowrap; }
+.bom .d2::after { left: 68px; width: 14px; }
+.bom .d2::before { content: ''; position: absolute; left: 68px; top: 0; bottom: 50%; border-left: 1px solid #B9BBBF; }
+.net-card { padding: 34px 32px 28px; }
+.net { width: 100%; border-collapse: collapse; font-size: 18px; }
+.net thead th { white-space: nowrap; padding: 0 12px 14px 0; border-bottom: 1px solid #CFCFCF; text-align: left; color: var(--muted); font-size: 17px; font-weight: 600; }
+.net tbody :is(th, td) { padding: 18px 12px 18px 0; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; font-weight: 400; color: #222; }
+.net td:not(.action) { white-space: nowrap; }
+.net td.short { color: var(--red); font-weight: 700; }
+.net td.zero { color: var(--faint); }
+.net td.action { font-size: 17px; line-height: 1.35; }
+.net-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin-top: 24px; }
+.net-foot .pill-lime.big { font-size: 19px; min-height: 50px; border-radius: 12px; }
+.net-foot .rule { width: 1px; height: 32px; background: var(--line-strong); }
+.net-foot .muted { font-size: 18px; }
+.scroll-x { overflow-x: auto; }
+
+/* 04: the supplier's email (set slightly askew, as dropped on the desk) and the agent's plan. */
+.email-card { padding: 26px 34px 30px; transform: rotate(-1.6deg); transform-origin: 30% 50%; max-width: 560px; }
+.email-from { color: var(--soft); font-size: 17px; }
+.email-subject { margin-top: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--line); font-size: 22px; font-weight: 700; letter-spacing: -.015em; color: #161616; }
+.email-body { margin-top: 18px; color: #26282C; font-size: 20px; line-height: 1.5; }
+.agent-card { padding: 34px 36px 26px; }
+.agent-card h3 { font-size: 30px; }
+.agent-card .card-head { flex-wrap: nowrap; align-items: center; }
+.source { display: flex; align-items: center; gap: 12px; margin-top: 16px; color: var(--muted); font-size: 18px; }
+.source svg { width: 24px; height: 24px; color: #6A6E74; }
+.agent-steps { position: relative; margin: 26px 0 0 24px; }
+.agent-steps::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 26px; border-left: 1.5px solid #9C9FA4; }
+.agent-steps li { position: relative; padding: 14px 0 14px 46px; font-size: 22px; color: #1E1E1E; letter-spacing: -.01em; }
+.agent-steps li::before { content: ''; position: absolute; left: -6.5px; top: 50%; width: 13px; height: 13px; margin-top: -6.5px; border-radius: 50%; background: #1C1C1C; }
+.agent-card > .pill-lime { margin: 14px 0 0 34px; }
+.agent-foot { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 18px; margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line); font-size: 16px; }
+.approved { display: inline-flex; align-items: center; gap: 14px; color: #4C5056; }
+.agent-foot .muted { color: #5D6168; }
+
+/* 10: the sales-order list and the four connections. */
+.orders-card { padding: 34px 22px 22px; }
+.orders-card h3 { font-size: 33px; margin: 0 0 22px 4px; }
+.orders { width: 100%; border-collapse: collapse; font-size: 15px; }
+.orders thead th { padding: 0 9px 12px; text-align: left; color: var(--muted); font-size: 15px; font-weight: 600; }
+.orders tbody :is(th, td) { padding: 15px 9px; border-top: 1px solid var(--line); text-align: left; white-space: nowrap; font-weight: 400; color: #2A2C30; }
+.orders tbody th { font-weight: 700; color: #141414; }
+.orders tr.current :is(th, td) { background: #F2F2F2; }
+.orders td.expected { white-space: normal; min-width: 128px; }
+.status { display: inline-flex; align-items: center; min-height: 32px; padding: 0 11px; border-radius: 9px; font-size: 14px; font-weight: 500; white-space: nowrap; }
+.status.ink { background: #2A2A2A; color: #fff; }
+.status.ink-soft { background: #4A4A4A; color: #fff; }
+.status.grey { background: #E9E9E9; color: #3A3D42; }
+.status.outline { border: 1px solid #9C9FA4; color: #2A2C30; }
+.syncs { display: grid; gap: 10px; }
+.syncs li { display: flex; align-items: center; gap: 14px; min-height: 48px; padding: 8px 16px; border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: 0 1px 2px rgba(20, 20, 20, .04); font-size: 17px; }
+.syncs li b { font-weight: 600; color: #141414; }
+.syncs li > span:last-child { color: #3F4247; }
+
+/* 11: actual cost, plan against actual, and the books. */
+.cost-card { padding: 36px 40px 34px; }
+.cost-card h3 { font-size: 33px; margin-bottom: 16px; }
+.lines.cost { font-size: 19px; }
+.lines.cost .muted { color: var(--soft); }
+.lines .totals tr :is(th, td) { padding: 22px 0; border-top: 2px solid #DADADA; font-weight: 700; color: #141414; }
+.lines .totals tr + tr :is(th, td) { font-weight: 400; }
+.lines .totals tr + tr th { font-weight: 700; }
+.margin { display: flex; align-items: center; gap: 22px; margin-top: 18px; padding-top: 22px; border-top: 2px solid #DADADA; font: 900 42px/1 var(--font-head); font-variation-settings: 'opsz' 32; letter-spacing: -.05em; color: #141414; }
+.margin mark { padding: 14px 20px; border-radius: 10px; background: var(--lime); color: #141414; font-size: 60px; }
+.cost-side { display: grid; gap: 22px; }
+.variance-card { padding: 34px 30px 24px; }
+.variance-card h3, .books-card h3 { font-size: 33px; }
+.variance-box { margin-top: 18px; padding: 18px 20px; border-radius: 10px; background: #F2F2F2; }
+.variance-box .big { font: 850 30px/1.15 var(--font-head); letter-spacing: -.035em; color: #141414; }
+.variance-box .red { margin-top: 8px; color: var(--red-ink); font-size: 24px; font-weight: 600; letter-spacing: -.015em; }
+.lines.small { margin-top: 10px; font-size: 18px; }
+.lines.small th { font-weight: 500; }
+.explained { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 18px; }
+.explained b { font-weight: 600; }
+.books-card { padding: 30px 30px 22px; }
+.books-card ul { margin-top: 18px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.books-card li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 4px 12px 22px; font-size: 18px; color: #2A2C30; }
+.books-card li + li { border-top: 1px solid var(--line); }
+.books-card > .muted { margin-top: 18px; font-size: 16px; }
+
+/* 12: the import preview and the terminal, a tin on its corner. */
+.import-card { padding: 44px 46px 40px; }
+.import-card h3 { font-size: 37px; margin-bottom: 20px; }
+.import-card li { display: flex; align-items: center; gap: 26px; min-height: 70px; font-size: 20px; color: #2A2C30; }
+.import-card li + li { border-top: 1px solid var(--line); }
+.import-card .check-dot { width: 40px; height: 40px; }
+.review-dot { flex: none; width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle, var(--amber) 0 6px, var(--amber-tint) 6.5px); }
+.import-foot { display: flex; justify-content: flex-end; margin-top: 22px; }
+.terminal-wrap { position: relative; padding-top: 22px; }
+.terminal { padding: 22px 26px 36px; border-radius: 12px; background: var(--charcoal); color: #ECECEC; box-shadow: var(--shadow-lift); }
+.terminal .dots { display: flex; gap: 8px; }
+.terminal .dots i { width: 13px; height: 13px; border-radius: 50%; background: #707070; }
+.terminal pre { margin-top: 30px; font: 500 18px/1.75 var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.terminal .prompt { color: #9A9A9A; }
+.terminal .comment { color: #A9A9A9; }
+
+/* The line-art props: charcoal ink on the grey paper. */
+.prop { color: #3A3A3A; pointer-events: none; }
+.prop .wood { fill: #ECE6E0; }
+.prop .tag { fill: #fff; }
+.prop .tin-lid { fill: var(--lime); }
+.prop .tin-body { fill: #fff; }
+.prop-label { fill: #6A6E74; stroke: none; font: 500 11px var(--font-body); }
+.planks { position: absolute; right: 0; bottom: calc(100% + 22px); width: 250px; height: auto; }
+.tin { position: absolute; right: 26px; top: -18px; width: 96px; height: auto; z-index: 1; }
+
+@media (max-width: 1180px) {
+  .quote-card { width: 100%; max-width: 680px; margin: 0; }
+  .options-wrap { margin: -26px 0 0 28px; }
+  .plan-grid { grid-template-columns: minmax(0, 1fr); }
+  .planks { display: none; }
+  .email-card { max-width: 560px; }
+}
+@media (max-width: 760px) {
+  .card { padding: 22px 18px; border-radius: 12px; }
+  .card h3, .bom-card h3, .net-card h3, .agent-card h3, .orders-card h3, .cost-card h3, .variance-card h3, .books-card h3 { font-size: 23px; margin-bottom: 16px; }
+  .chip { min-height: 30px; font-size: 13px; padding: 0 10px; }
+  .lines { font-size: 15px; }
+  .lines th { padding: 12px 0; }
+  .lines td { padding: 12px 0 12px 10px; }
+  .lines tfoot :is(th, td) { font-size: 22px; }
+  .quote-card .card-head { margin-bottom: 4px; }
+  .quote-foot { margin-top: 18px; font-size: 14px; }
+  .options-wrap { margin: -14px 0 0 12px; width: calc(100% - 12px); }
+  .options-card { padding: 20px 16px 8px; }
+  .options-card h3 { font-size: 20px; margin-bottom: 12px; }
+  .options-card li { flex-wrap: wrap; gap: 12px; }
+  .options-card .pill-lime { margin-left: 40px; }
+  .options-card .option-text { flex-basis: calc(100% - 40px); }
+  .option-text b { font-size: 16px; }
+  .option-text small { font-size: 13px; }
+  .confirmed { font-size: 13px; padding-left: 4px; }
+  .bom li { min-height: 46px; font-size: 15px; }
+  .bom .d2 { font-size: 13px; }
+  .bom .d2 .bom-name { flex-wrap: wrap; white-space: normal; }
+  .bom .d0 { padding-left: 22px; } .bom .d1 { padding-left: 44px; } .bom .d1::before { left: 22px; } .bom .d2 { padding-left: 66px; } .bom .d2::before { left: 46px; }
+  .tag { height: 24px; margin-left: 8px; padding: 0 8px; font-size: 13px; }
+  .net, .net thead th { font-size: 14px; }
+  .net thead { display: none; }
+  .net tbody tr { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .net tbody :is(th, td) { padding: 0; border: 0; }
+  .net tbody th { flex-basis: 100%; font-weight: 700; font-size: 16px; }
+  .net td[data-label]::before { content: attr(data-label) ' '; color: var(--soft); font-weight: 400; }
+  .net td.action { flex-basis: 100%; min-width: 0; font-size: 14px; color: #4C5056; }
+  .net-foot { flex-wrap: wrap; gap: 12px; margin-top: 18px; }
+  .net-foot .pill-lime.big { display: inline-block; font-size: 15px; line-height: 1.35; min-height: 0; white-space: normal; padding: 9px 14px; }
+  .net-foot .rule { display: none; }
+  .net-foot .muted { font-size: 15px; }
+  .pill-lime.big { min-height: 42px; font-size: 17px; padding: 0 14px; }
+  .pill-red { min-height: 36px; font-size: 15px; padding: 0 12px; }
+  .email-card { padding: 20px 18px 22px; transform: rotate(-1deg); }
+  .email-from { font-size: 14px; }
+  .email-subject { font-size: 17px; }
+  .email-body { font-size: 16px; }
+  .source { font-size: 14px; gap: 8px; }
+  .source svg { width: 18px; height: 18px; }
+  .agent-steps { margin: 16px 0 0 10px; }
+  .agent-steps li { padding: 10px 0 10px 26px; font-size: 16px; }
+  .agent-card > .pill-lime { margin: 10px 0 0 22px; }
+  .agent-card .card-head { flex-wrap: wrap; align-items: flex-start; }
+  .syncs, #ship .syncs { grid-template-columns: minmax(0, 1fr); }
+  .agent-foot { margin-top: 22px; padding-top: 16px; font-size: 14px; }
+  .avatar { width: 38px; height: 38px; font-size: 14px; }
+  .orders-card { padding: 22px 14px 12px; }
+  .orders thead { display: none; }
+  .orders, .orders tbody, .orders tr { display: block; }
+  .orders tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 14px 6px; border-top: 1px solid var(--line); }
+  .orders tbody :is(th, td) { padding: 0; border: 0; font-size: 14px; white-space: normal; }
+  .orders tbody th { font-size: 16px; }
+  .orders tbody td:nth-child(2) { grid-column: 1; grid-row: 2; color: var(--muted); }
+  .orders tbody td:nth-child(3) { grid-column: 1; }
+  .orders tbody td:nth-child(4) { grid-column: 1; color: var(--muted); }
+  .orders tbody td:nth-child(5) { grid-column: 2; grid-row: 1 / span 2; align-self: start; justify-self: end; }
+  .orders tr.current { background: #F2F2F2; border-radius: 8px; }
+  .orders tr.current :is(th, td) { background: none; }
+  .status { font-size: 13px; min-height: 28px; padding: 0 9px; white-space: normal; text-align: right; max-width: 150px; }
+  .syncs li { font-size: 14px; padding: 8px 12px; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+  .check-dot { width: 28px; height: 28px; }
+  .check-dot .tick { width: 15px; height: 15px; }
+  .cost-card { padding: 24px 18px; }
+  .lines.cost, .lines.small { font-size: 15px; }
+  .lines.cost .muted { display: block; font-size: 13px; }
+  .lines.cost .mid { display: none; }
+  .lines .totals tr :is(th, td) { padding: 16px 0; }
+  .margin { gap: 14px; font-size: 28px; }
+  .margin mark { font-size: 40px; padding: 10px 14px; }
+  .variance-card, .books-card { padding: 24px 18px 18px; }
+  .variance-box .big { font-size: 22px; }
+  .variance-box .red { font-size: 18px; }
+  .explained { font-size: 15px; }
+  .books-card li { font-size: 15px; padding: 10px 2px 10px 10px; }
+  .import-card { padding: 26px 20px 24px; }
+  .import-card h3 { font-size: 26px; }
+  .import-card li { gap: 14px; min-height: 54px; font-size: 16px; }
+  .import-card .check-dot, .review-dot { width: 32px; height: 32px; }
+  .terminal { padding: 18px 16px 24px; }
+  .terminal pre { margin-top: 20px; font-size: 14px; }
+  .tin { width: 72px; right: 14px; top: -6px; }
+  .ghost-button, .red-button, .dark-button { min-height: 44px; font-size: 16px; padding: 0 16px; }
+}

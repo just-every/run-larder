@@ -92,7 +92,7 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       const name = text(p.name, 'name', 200), kind = oneOf(p.kind, ['customer', 'supplier', 'both'] as const, 'kind')
       const twin = c.s.parties.find(x => x.id !== p.id && x.name.toLowerCase() === name.toLowerCase())
       if (twin) fail('DUPLICATE_PARTY', `${name} already exists. Use the existing record or give it a distinguishing name.`, { partyId: twin.id })
-      const data = { name, kind, email: optionalText(p.email, 'email', 200), abn: optionalText(p.abn, 'ABN', 20), terms: optionalText(p.terms, 'terms', 200) }
+      const data = { name, kind, email: optionalText(p.email, 'email', 200), abn: optionalText(p.abn, 'EIN', 20), terms: optionalText(p.terms, 'terms', 200) }
       if (!p.id) return row(c, 'parties', { ...data, sourceId: null, importId: null })
       const party = get(c.s, 'parties', p.id, 'party'); fresh(party, p.version)
       return bump(party, data)

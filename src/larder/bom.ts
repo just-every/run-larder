@@ -20,7 +20,7 @@ export function bom(c: Context, type: string, p: any): Row | undefined {
   })
   if (new Set(components.map(l => l.itemId)).size !== components.length) fail('INPUT', 'List each component once per revision.')
   const routing = (Array.isArray(p.routing) ? p.routing : []).slice(0, 50).map((step: any, i: number) => ({
-    sequence: i + 1, name: text(step.name, 'step name', 120), workCentre: optionalText(step.workCentre, 'work centre', 120),
+    sequence: i + 1, name: text(step.name, 'step name', 120), workCentre: optionalText(step.workCentre, 'work center', 120),
     minutes: Number.isFinite(step.minutes) && step.minutes >= 0 && step.minutes <= 100000 ? step.minutes : fail('INPUT', 'Step minutes must be between 0 and 100000.'),
   }))
   const previous = activeBom(c.s, item.id)

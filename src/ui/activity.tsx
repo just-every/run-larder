@@ -9,7 +9,7 @@ const actions: Record<string, string> = {
   'bom.revise': 'Saved a bill of materials revision', 'opening.record': 'Recorded opening stock', 'transfer.create': 'Transferred stock',
   'count.record': 'Recorded a count', 'count.approve': 'Approved a count adjustment', 'count.reject': 'Asked for a recount', 'quarantine.decide': 'Decided on quarantined stock',
   'movement.reverse': 'Reversed a recorded movement', 'so.quote': 'Saved a quote', 'so.confirm': 'Confirmed an order', 'so.reserve': 'Reserved stock for an order',
-  'so.cancelLine': 'Cancelled open quantity', 'shipment.pick': 'Picked an order', 'shipment.pack': 'Packed a shipment', 'shipment.ship': 'Shipped', 'return.receive': 'Received a return',
+  'so.cancelLine': 'Canceled open quantity', 'shipment.pick': 'Picked an order', 'shipment.pack': 'Packed a shipment', 'shipment.ship': 'Shipped', 'return.receive': 'Received a return',
   'plan.draft': 'Drafted from a shortage', 'po.draft': 'Drafted a purchase order', 'po.approve': 'Approved a purchase order', 'po.confirm': 'Recorded a supplier confirmation',
   'po.revise': 'Revised an expected delivery', 'receipt.create': 'Received a delivery', 'wo.draft': 'Drafted a work order', 'wo.release': 'Released a work order',
   'wo.reserve': 'Reserved materials', 'wo.issue': 'Issued materials', 'wo.output': 'Recorded output', 'wo.close': 'Closed a work order',

@@ -1,35 +1,46 @@
-import '../site.css'
-import './landing.css'
-import { SiteFooter } from '../shell/SiteFooter'
-import { SiteHeader } from '../shell/SiteHeader'
-import { links } from '../shell/links'
-import { Arrow } from './Arrow'
-import { copy } from './copy'
-import { drawings } from './Drawings'
 import { Hero } from './Hero'
+import { Closing } from './sections/Closing'
+import { Floor } from './sections/Floor'
+import { Interlude } from './sections/Interlude'
+import { JobCost } from './sections/JobCost'
+import { MachineDown } from './sections/MachineDown'
+import { MoveIn } from './sections/MoveIn'
+import { Plan } from './sections/Plan'
+import { Quote } from './sections/Quote'
+import { Schedule } from './sections/Schedule'
+import { Ship } from './sections/Ship'
+import { Slip } from './sections/Slip'
+import { Trace } from './sections/Trace'
+import '../styles/site.css'
+import '../styles/landing.css'
+import '../styles/cards.css'
+import '../styles/schedule.css'
+import '../styles/floor.css'
 
-/** The run site's homepage (SPEC.md §1): hero, six sections with their printed cards, the tiles, and the closing band. */
+/**
+ * run-larder.com's homepage, built from the design desk's approved page (17 Oct 2026, page-s1): one wholesale order,
+ * SO-1184 for Hearth & Table, followed from quote to cash. Painted art appears only in the hero, the router drawing,
+ * the interlude and the closing; every product card is HTML and CSS, and every figure agrees across sections.
+ */
 export function Landing() {
-  return <div className="site landing">
-    <SiteHeader />
-    <main>
-      <Hero />
-      {copy.sections.map((section, i) => { const Drawing = drawings[section.id]; return <section key={section.id} id={section.id} className={i % 2 ? 'feature flip' : 'feature'} aria-labelledby={`${section.id}-title`}>
-        <div className="feature-text"><h2 id={`${section.id}-title`}>{section.heading}</h2><p>{section.line}</p></div>
-        <div className="feature-drawing"><Drawing /></div>
-      </section> })}
-      <section id="included" className="included" aria-labelledby="included-title">
-        <h2 id="included-title">{copy.included.heading}</h2>
-        <ul>{copy.included.tiles.map(tile => <li key={tile.name}><img src={`/brand/goods/${tile.picture}.webp`} alt="" loading="lazy" /><p><b>{tile.name}</b><span>{tile.line}</span></p></li>)}</ul>
-      </section>
-      <section id="beside" className="beside" aria-labelledby="beside-title"><h2 id="beside-title">{copy.beside.heading}</h2><p>{copy.beside.line}</p></section>
-      <section className="closing" aria-labelledby="closing-title">
-        <img className="closing-mark" src="/brand/mark.svg" alt="" width="40" height="36" />
-        <h2 id="closing-title">{copy.headline.join(' ')}</h2>
-        <p className="actions"><a className="pill" href={links.run}>{copy.run} <Arrow /></a><a className="text-link" href={links.docs}>{copy.docs}</a></p>
-        <img className="closing-art" src="/brand/goods/shelf.webp" alt="" />
-      </section>
+  return <>
+    <Hero />
+    <main id="main">
+      <Quote />
+      <Plan />
+      <Slip />
+      <Trace />
+      <Schedule />
+      <Floor />
+      <MachineDown />
+      <Interlude />
+      <Ship />
+      <JobCost />
+      <MoveIn />
     </main>
-    <SiteFooter />
-  </div>
+    <Closing />
+  </>
 }
+
+/** The schedule's ‹ › page the Gantt by three days where it scrolls (phones); the hint follows what is in view. */
+export const landingScript = "document.querySelectorAll('[data-gantt]').forEach(b=>{b.hidden=false;b.addEventListener('click',()=>{const s=document.querySelector('.gantt-scroll'),d=s.querySelector('.day');s.scrollBy({left:(b.dataset.gantt==='next'?1:-1)*3*d.getBoundingClientRect().width,behavior:'smooth'})})})"

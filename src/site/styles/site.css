@@ -1,0 +1,72 @@
+/* The run site's frame: page base, header, footer and the actions. Tokens come from /rer-theme.css (defined once
+   there, shared with the app); every page links it before this sheet. */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+body { margin: 0; overflow-x: clip; background: var(--paper); color: var(--ink); font: 400 18px/1.55 var(--font-body); font-optical-sizing: auto; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-feature-settings: 'cv11' 1; }
+h1, h2, h3, p, ol, ul, figure, dl, dd, table { margin: 0; padding: 0; }
+ol, ul { list-style: none; }
+a { color: inherit; }
+img, svg { max-width: 100%; }
+button { font: inherit; }
+:focus-visible { outline: 3px solid var(--red); outline-offset: 3px; border-radius: 6px; }
+.site-wrap { width: 100%; max-width: calc(var(--wrap) + 2 * var(--gutter)); margin: 0 auto; padding: 0 var(--gutter); }
+.nowrap { white-space: nowrap; }
+.sr-only, .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Header: the lockup (jar and wordmark in the heading face) and two links; light on paper pages, white on the hero. */
+.site-header { position: relative; z-index: 3; color: var(--ink); }
+.site-header.dark { color: #fff; }
+.site-header-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; height: 84px; }
+.site-header.light .site-header-row { border-bottom: 1px solid var(--line); }
+.site-brand { display: inline-flex; align-items: center; gap: 13px; font: 800 37px/1 var(--font-head); letter-spacing: -.04em; text-decoration: none; color: inherit; }
+.site-brand img { flex: none; width: 38px; height: 40px; }
+.site-brand.footer { gap: 10px; font-size: 24px; letter-spacing: -.035em; }
+.site-brand.footer img { width: 27px; height: 28px; }
+.site-header nav { display: flex; gap: 44px; font-size: 18px; font-weight: 500; }
+.site-header nav a { text-decoration: none; padding: 8px 0; }
+.site-header nav a:hover, .site-header nav a[aria-current='page'] { text-decoration: underline; text-underline-offset: 7px; text-decoration-thickness: 1.5px; }
+
+/* The stage line over headings (homepage sections, docs): a red square, then tracked capitals. */
+.eyebrow { display: flex; align-items: center; gap: 14px; color: #5A5E64; font: 650 15px/1 var(--font-body); letter-spacing: .16em; text-transform: uppercase; }
+.eyebrow-mark { flex: none; width: 14px; height: 14px; border-radius: 2px; background: var(--red); }
+
+/* Actions: the red button and two plain links. */
+.site-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 36px; }
+.site-button { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 50px; padding: 0 26px; border-radius: var(--rer-button-radius); background: var(--red); color: #fff; font: 600 20px/1 var(--font-body); letter-spacing: -.01em; text-decoration: none; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16), 0 12px 24px -14px rgba(224, 49, 39, .9); transition: background-color .15s ease, transform .15s ease; }
+.site-button:hover { background: var(--red-hover); transform: translateY(-1px); }
+.site-button svg { width: 21px; height: 21px; }
+.site-link { font-size: 19px; font-weight: 500; text-decoration: none; padding: 8px 0; }
+.site-link:hover { text-decoration: underline; text-underline-offset: 7px; text-decoration-thickness: 1.5px; }
+
+/* The footer: one line set in type. Dark on the homepage's closing charcoal; light on docs. */
+.site-footer-row { display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; padding: 30px 0 40px; }
+.site-footer { position: relative; font-size: 17px; }
+.site-footer .site-footer-row { border-top: 1px solid var(--line); }
+.site-footer.dark { color: #fff; }
+.site-footer.dark .site-footer-row { border-top-color: var(--charcoal-line); }
+.site-footer.dark nav { color: #C9C9C9; }
+.site-footer.light { color: var(--ink); }
+.site-footer.light nav { color: var(--muted); }
+.site-footer nav { display: flex; flex-wrap: wrap; gap: 8px 34px; }
+.site-footer nav a { text-decoration: none; }
+.site-footer nav a:hover { color: inherit; text-decoration: underline; text-underline-offset: 5px; }
+.site-footer.dark nav a:hover { color: #fff; }
+
+.skip-link { position: absolute; left: 16px; top: -64px; z-index: 10; padding: 10px 18px; border-radius: 8px; background: var(--red); color: #fff; font-size: 16px; font-weight: 600; text-decoration: none; }
+.skip-link:focus { top: 12px; }
+
+@media (max-width: 760px) {
+  body { font-size: 16px; }
+  .site-header-row { height: 66px; }
+  .site-brand { font-size: 28px; gap: 10px; }
+  .site-brand img { width: 29px; height: 30px; }
+  .site-header nav { gap: 26px; font-size: 16px; }
+  .site-actions { gap: 10px 26px; }
+  .site-button { min-height: 50px; padding: 0 22px; font-size: 18px; }
+  .site-link { font-size: 17px; }
+  .eyebrow { font-size: 13px; gap: 10px; letter-spacing: .14em; }
+  .eyebrow-mark { width: 12px; height: 12px; }
+  .site-footer-row { flex-direction: column; align-items: flex-start; padding-top: 24px; }
+  .site-footer nav { gap: 6px 24px; font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } .site-button { transition: none; } .site-button:hover { transform: none; } }
