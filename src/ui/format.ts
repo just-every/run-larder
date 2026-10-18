@@ -9,7 +9,10 @@ export function localDay(value: unknown) {
   const d = new Date(String(value))
   return Number.isNaN(d.getTime()) ? '—' : `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`
 }
-const clock = (d: Date) => `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() < 12 ? 'AM' : 'PM'}`
+export const clock = (d: Date) => `${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, '0')} ${d.getHours() < 12 ? 'AM' : 'PM'}`
+// A calendar day with its weekday: Tue Oct 20.
+const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+export const dayName = (d: Date) => `${weekdays[d.getDay()]} ${months[d.getMonth()]} ${d.getDate()}`
 export function when(value: unknown) {
   const d = new Date(String(value))
   return Number.isNaN(d.getTime()) ? '—' : `${months[d.getMonth()]} ${d.getDate()}, ${clock(d)}`

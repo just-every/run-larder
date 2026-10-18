@@ -1,0 +1,51 @@
+// Schedule: where the shop starts each shift. The chart and the selected job's panel share one plan, computed
+// from the records on every load; a planner's reschedule proposal is drawn as ghosts until a person decides.
+import { useState } from 'react'
+import { rows } from '../api'
+import type { Larder } from '../app'
+import type { Mode } from '../shell'
+import { Card } from '../controls'
+import { Icon } from '../icons'
+import { dayName } from '../format'
+import { Agenda, Gantt } from './gantt'
+import { JobPanel, Worklog } from './panel'
+import { addDays, schedule, startOfDay } from './plan'
+
+export function Schedule({ larder, mode }: { larder: Larder; mode: Mode }) {
+  const s = larder.state!, now = new Date()
+  const [offset, setOffset] = useState(0), [picked, setPicked] = useState<string>()
+  const span = mode === 'week' ? 7 : 1, from = addDays(startOfDay(now), offset), last = addDays(from, span - 1)
+  const plan = schedule(s, now)
+  const proposal = rows(s, 'proposals').find(p => p.status === 'awaiting approval' && p.kind === 'reschedule')
+  const changes = Object.fromEntries((proposal?.plan.changes ?? []).map((ch: any) => [ch.workOrderId, { plannedStart: ch.plannedStart, ...(Number.isSafeInteger(ch.priority) ? { priority: ch.priority } : {}) }]))
+  const proposed = proposal ? schedule(s, now, changes) : undefined
+  const ghosts = proposed ? proposed.ops.filter(o => o.workOrder.id in changes) : []
+  const moving = new Set(Object.keys(changes))
+  const fallback = Object.keys(changes)[0] ?? (plan.ops.find(o => o.late || o.short) ?? plan.ops[0])?.workOrder.id
+  const selected = plan.ops.some(o => o.workOrder.id === picked) ? picked : fallback
+  const job = plan.ops.find(o => o.workOrder.id === selected)?.workOrder
+  return <div className="page schedule">
+    <header className="page-head schedule-head">
+      <h1>Schedule</h1>
+      <div className="range">
+        <p className="num">{mode === 'week' ? `${dayName(from)} – ${dayName(last)}, ${last.getFullYear()}` : `${dayName(from)}, ${from.getFullYear()}`}</p>
+        <div className="paired"><button type="button" className="button icon-only" aria-label={`Previous ${mode}`} onClick={() => setOffset(offset - span)}><Icon name="back" /></button><button type="button" className="button icon-only" aria-label={`Next ${mode}`} onClick={() => setOffset(offset + span)}><Icon name="chevron" /></button></div>
+        <button type="button" className="button" disabled={offset === 0} onClick={() => setOffset(0)}>Today</button>
+      </div>
+    </header>
+    {plan.ops.length === 0 ? <Card title="Nothing scheduled yet" className="schedule-empty">
+      <p>The schedule lays out draft and released work orders by work center, from the routing on each item's bill of materials: one line per step with its work center and minutes for each unit.</p>
+      <div className="actions"><a className="button primary" href="#make/boms">Add a routing</a><a className="button" href="#make/wo">Draft a work order</a></div>
+    </Card> : <div className="schedule-grid">
+      <div className="schedule-main">
+        <Gantt plan={plan} ghosts={ghosts} moving={moving} from={from} mode={mode} now={now} selected={selected} onSelect={setPicked} />
+        <Agenda plan={plan} ghosts={ghosts} from={from} mode={mode} selected={selected} onSelect={setPicked} />
+        <p className="schedule-note">Each work center runs one weekday shift, 7 AM to 3 PM; steps run in priority order, one job at a time.</p>
+      </div>
+      <div className="schedule-side">
+        {job && <JobPanel larder={larder} w={job} plan={plan} proposed={proposed} proposal={proposal} now={now} />}
+        <Worklog s={s} />
+      </div>
+    </div>}
+  </div>
+}

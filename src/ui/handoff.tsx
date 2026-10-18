@@ -20,7 +20,7 @@ export function Handoff({ larder, id }: { larder: Larder; id?: string }) {
       <Card title="Ready to hand off" aside={<Chip tone={s.pendingHandoff ? 'info' : 'good'}>{s.pendingHandoff} movements</Chip>}>
         {access ? <Form submit="Prepare handoff batch" busy={larder.busy} onSubmit={async d => { const r = await larder.run('handoff.prepare', { note: text(d, 'note') }); if (r) window.location.hash = `handoff/${r.id}`; return r }}><Field label="Note for the accountant" name="note" required={false} /></Form> : <Empty>Ask a manager or your accounts person to prepare the handoff.</Empty>}
       </Card>
-      <Card title="Batches">{rows(s, 'handoffs').length === 0 ? <Empty picture="papers">No batches yet.</Empty> :
+      <Card title="Batches">{rows(s, 'handoffs').length === 0 ? <Empty>No batches yet.</Empty> :
         <Table head={['Batch', 'Prepared', 'Lines', 'Net amount', 'Status']} numeric={[2, 3]}>{[...rows(s, 'handoffs')].reverse().map(h => <tr key={h.id}><td><a href={`#handoff/${h.id}`}>{h.reference}</a></td><td>{when(h.createdAt)} by {personName(s, h.createdBy)}</td><td className="num">{qty(String(h.lines.length))}</td><td className="num">{money(h.total)}</td><td><Chip tone={tone(h.status)}>{words(h.status)}</Chip></td></tr>)}</Table>}</Card>
     </>}
   </div>

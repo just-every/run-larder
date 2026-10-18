@@ -78,7 +78,12 @@
 
 /* Sign-in, confirmation and /setup (Base's no-JavaScript frames): one white card on the grey paper with a
    hairline and soft shadow, the jar and name at top, a heavy title, quiet 1 px fields and the red button. */
-html.rer-themed body { background: var(--rer-page); }
+html.rer-themed body { position: relative; background: var(--rer-page); }
+/* The app's charcoal band with the workshop in fine white line and the ruled ticks of the top bar, under the card. */
+html.rer-themed body::before { content: ''; position: absolute; z-index: 0; inset: 0 0 auto 0; height: 232px; pointer-events: none;
+  background: url('/brand/workshop-line.webp') right 6% top -24px / 210px auto no-repeat, repeating-linear-gradient(to right, rgba(255, 255, 255, .16) 0 1px, transparent 1px 12px) left bottom / 100% 5px no-repeat, var(--charcoal);
+  background-blend-mode: lighten, normal, normal; }
+html.rer-themed main { position: relative; z-index: 1; }
 html.rer-themed main { max-width: 520px; padding: 36px 40px; background: var(--rer-surface); border: 1px solid var(--rer-rule); border-radius: 16px; box-shadow: var(--shadow-card); }
 html.rer-themed .brand, html.rer-themed .rer-brand { gap: 10px; margin: 0 0 28px; font-size: 22px; font-weight: 800; letter-spacing: -.035em; color: var(--rer-text); }
 html.rer-themed .brand::before, html.rer-themed .rer-brand::before { width: 27px; height: 28px; }

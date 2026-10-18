@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { byId, can, itemName, locationName, partyName, rows, sku, unitOf, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
-import { Card, Chip, Choose, Empty, Field, Form, GoodsPicture, Lines, Table, options, readLines, text } from './controls'
+import { Card, Chip, Choose, Empty, Field, Form, Lines, Table, options, readLines, text } from './controls'
 import { day, isZero, minus, money, perUnit, plus, positive, qty, timesMoney, unitLabel, words } from './format'
 import { NeedsList } from './needs'
-import { itemGoods } from './today'
 
 const reservedFor = (s: LarderState, orderId: string, lineId: string) => plus(...rows(s, 'reservations').filter(r => r.demandId === orderId && r.lineId === lineId).map(r => r.quantity))
 const openOf = (l: any) => minus(minus(l.quantity, l.shipped), l.cancelled)
@@ -17,7 +16,7 @@ export function Orders({ larder, id }: { larder: Larder; id?: string }) {
   const list = [...rows(s, 'salesOrders')].reverse()
   return <div className="page">
     <header className="page-head"><p className="eyebrow">Orders</p><h1>Sales orders</h1></header>
-    <Card title="Open and recent orders">{list.length === 0 ? <Empty picture="docket">No orders yet. Enter a quote below, or move open orders in from Odoo.</Empty> :
+    <Card title="Open and recent orders">{list.length === 0 ? <Empty>No orders yet. Enter a quote below, or move open orders in from Odoo.</Empty> :
       <Table head={['Order', 'Customer', 'Promised', 'Status', 'Value']} numeric={[4]}>{list.map(o => <tr key={o.id}><td><a href={`#orders/${o.id}`}>{o.reference}</a>{o.sourceReference && <small>Odoo {o.sourceReference}</small>}</td><td>{partyName(s, o.customerId)}</td><td>{day(o.promiseDate)}</td><td><Chip tone={statusTone(o.status)}>{words(o.status)}</Chip></td><td className="num">{money(o.lines.reduce((n: string, l: any) => plus(n, timesMoney(l.quantity, l.unitPrice)), '0'))}</td></tr>)}</Table>}
     </Card>
     {can(s, ['manager', 'sales']) && <Card title="New quote"><Form submit="Save quote" busy={larder.busy} onSubmit={async d => { const r = await larder.run('so.quote', { customerId: text(d, 'customerId'), promiseDate: text(d, 'promiseDate'), customerReference: text(d, 'customerReference'), lines: readLines(d) }); if (r) window.location.hash = `orders/${r.id}`; return r }}>
@@ -38,7 +37,7 @@ function Availability({ s, itemId, larder, order }: { s: LarderState; itemId: st
   const reservedHere = plus(...rows(s, 'reservations').filter(r => r.itemId === itemId && r.demandId === order.id).map(r => r.quantity))
   const open = ['confirmed', 'part shipped'].includes(order.status)
   return <Card title="Selected line availability" className="availability">
-    <p className="item-title"><GoodsPicture name={itemGoods(item)} className="" /><span><strong>{itemName(s, itemId)}</strong><span className="muted">{item?.sku} · {unitLabel(item?.baseUnit)}</span></span></p>
+    <p className="item-title"><span><strong>{itemName(s, itemId)}</strong><span className="muted">{item?.sku} · {unitLabel(item?.baseUnit)}</span></span></p>
     <dl className="facts">
       <div><dt>On hand</dt><dd>{qty(a?.onHand)}</dd></div>
       <div><dt>Reserved for this order</dt><dd>{qty(reservedHere)}</dd></div>
@@ -66,13 +65,13 @@ function OrderWorkspace({ larder, order }: { larder: Larder; order: Rec }) {
   return <div className="page workspace">
     <header className="page-head"><p className="eyebrow"><a href="#orders">Orders</a></p><h1>{order.reference}</h1>
       <p className="subtitle"><span className="customer">{partyName(s, order.customerId)}</span><Chip tone={statusTone(order.status)}>{words(order.status)}</Chip></p>
-      <p className="meta">Promised {day(order.promiseDate)} · {order.lines.length} items · {qty(units)} units{order.customerReference && ` · Their ref ${order.customerReference}`}{order.sourceReference && ` · Odoo ${order.sourceReference}`}</p></header>
+      <p className="meta">Promised {day(order.promiseDate)} · {order.lines.length} {order.lines.length === 1 ? 'item' : 'items'} · {qty(units)} units{order.customerReference && ` · Their ref ${order.customerReference}`}{order.sourceReference && ` · Odoo ${order.sourceReference}`}</p></header>
     <div className="workspace-grid">
       <Card title="Order lines" className="lines-card">
         <Table head={['Product', 'Ordered', 'Reserved', 'Shipped', 'Short']} numeric={[1, 2, 3, 4]} stack={false}>{order.lines.map((l: any) => {
           const reserved = reservedFor(s, order.id, l.id), short = order.status === 'quote' ? '0' : minus(openOf(l), reserved)
           return <tr key={l.id} className={selected === l.itemId ? 'selected' : undefined} onClick={() => setSelected(l.itemId)}>
-            <td><button type="button" className="row-button" aria-pressed={selected === l.itemId} onClick={() => setSelected(l.itemId)}><GoodsPicture name={itemGoods(byId(s, 'items', l.itemId))} className="" /><span><strong>{itemName(s, l.itemId)}</strong><small>{sku(s, l.itemId)} · {money(l.unitPrice)} {perUnit(unitOf(s, l.itemId))}</small></span></button></td>
+            <td><button type="button" className="row-button" aria-pressed={selected === l.itemId} onClick={() => setSelected(l.itemId)}><span><strong>{itemName(s, l.itemId)}</strong><small>{sku(s, l.itemId)} · {money(l.unitPrice)} {perUnit(unitOf(s, l.itemId))}</small></span></button></td>
             <td className="num">{qty(l.quantity)}</td><td className="num">{qty(reserved)}</td><td className="num">{qty(l.shipped)}</td>
             <td className="num"><span className={`short ${positive(short) ? 'bad' : 'ok'}`}>{qty(short)}</span></td></tr>
         })}</Table>
@@ -84,8 +83,8 @@ function OrderWorkspace({ larder, order }: { larder: Larder; order: Rec }) {
     </div>
     <div className="split">
       <Card title="Pick, pack and ship" className="pick"><span id="pick" />
-        {shipments.length === 0 && <Empty picture="parcel">Nothing picked yet.</Empty>}
-        {shipments.map(x => <article key={x.id} className="shipment"><GoodsPicture name="parcel" /><h3>{x.reference} <Chip tone={x.status === 'shipped' ? 'good' : x.status === 'reversed' ? 'bad' : 'info'}>{words(x.status)}</Chip></h3>
+        {shipments.length === 0 && <Empty>Nothing picked yet.</Empty>}
+        {shipments.map(x => <article key={x.id} className="shipment"><h3>{x.reference} <Chip tone={x.status === 'shipped' ? 'good' : x.status === 'reversed' ? 'bad' : 'info'}>{words(x.status)}</Chip></h3>
           <ul>{x.lines.map((l: any, i: number) => <li key={i}>{qty(l.quantity)} {itemName(s, l.itemId)} from {locationName(s, l.locationId)}</li>)}</ul>
           {x.status === 'shipped' && <p className="muted">{x.carrier}{x.tracking && ` · ${x.tracking}`}</p>}
           {warehouse && x.status === 'picked' && <Form submit="Mark packed" busy={busy} onSubmit={d => run('shipment.pack', { shipmentId: x.id, version: x.version, packages: Number(text(d, 'packages')), weightKg: text(d, 'weightKg') || '0' })}><Field label="Packages" name="packages" type="number" min="1" defaultValue="1" /><Field label="Weight (kg)" name="weightKg" inputMode="decimal" required={false} /></Form>}

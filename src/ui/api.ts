@@ -17,7 +17,7 @@ function reply(v: unknown): Reply {
 export function useLarder() {
   const [state, setState] = useState<LarderState | null>(null)
   const [error, setError] = useState(''), [details, setDetails] = useState<unknown>(null), [notice, setNotice] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState(false), [loadedAt, setLoadedAt] = useState<Date | null>(null)
   const pending = useRef<{ signature: string; commandId: string } | null>(null), flight = useRef(false)
   const loaded = useRef(false)
   const refresh = useCallback(async () => {
@@ -27,7 +27,7 @@ export function useLarder() {
     if (res.status === 401) { window.location.href = '/signin?returnTo=%2Fapp'; return }
     const body: any = await res.json()
     if (!res.ok) throw new Error(body?.error?.message ?? 'Records could not load.')
-    setState(body)
+    setState(body); setLoadedAt(new Date())
   }, [])
   useEffect(() => { refresh().catch(e => setError(e.message)) }, [refresh])
   const run: Run = async (type, payload) => {
@@ -53,7 +53,7 @@ export function useLarder() {
       return false
     } finally { flight.current = false; setBusy(false) }
   }
-  return { state, run, refresh, error, details, notice, busy, setNotice }
+  return { state, run, refresh, error, details, notice, busy, setNotice, loadedAt }
 }
 
 export const rows = (s: LarderState, key: string): Rec[] => Array.isArray(s[key]) ? s[key] : []

@@ -24,7 +24,7 @@ export function MoveIn({ larder }: { larder: Larder }) {
         <Choose label="Valuation basis" name="valuationBasis" required={false} options={[{ value: 'standard-cost', label: 'Odoo standard cost' }, { value: 'last-purchase', label: 'Last purchase price' }, { value: 'supplier-invoice', label: 'Supplier invoices' }, { value: 'owner-estimate', label: 'Owner estimate' }]} />
       </Form></Card>}
     {batches.length > 0 && <Card title="Move-in batches"><Table head={['Batch', 'Prepared', 'Status', '']}>{batches.map(b => <tr key={b.id} className={b.id === selected ? 'selected' : undefined}><td>{b.label}</td><td>{when(b.createdAt)} by {personName(s, b.preparedBy)}</td><td><Chip tone={b.status === 'committed' ? 'good' : b.status === 'undone' ? 'neutral' : 'info'}>{words(b.status)}</Chip></td><td><button className="link" onClick={() => setSelected(b.id)}>Review</button></td></tr>)}</Table></Card>}
-    {batch ? <Review larder={larder} b={batch} /> : <Empty picture="papers">No move-in yet.</Empty>}
+    {batch ? <Review larder={larder} b={batch} /> : <Empty>No move-in yet.</Empty>}
   </>
 }
 

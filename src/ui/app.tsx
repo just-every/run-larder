@@ -1,54 +1,58 @@
 import { useEffect, useState } from 'react'
-import { useLarder } from './api'
+import { rows, useLarder } from './api'
 import { Details } from './controls'
-import { words } from './format'
+import { Rail, TopBar, PlannerStrip, type Mode } from './shell'
 import { Today } from './today'
 import { Orders } from './orders'
+import { Schedule } from './schedule/schedule'
 import { Stock } from './stock'
 import { MakeBuy } from './make'
 import { Handoff } from './handoff'
 import { More } from './more'
-import { Icon } from './icons'
-import './style.css'
+import './styles/base.css'
+import './styles/shell.css'
+import './styles/pages.css'
+import './styles/schedule.css'
 
-const destinations = [
+export const destinations = [
   { id: 'today', title: 'Today', icon: 'today' },
   { id: 'orders', title: 'Orders', icon: 'orders' },
+  { id: 'schedule', title: 'Schedule', icon: 'schedule' },
   { id: 'stock', title: 'Stock', icon: 'stock' },
   { id: 'make', title: 'Make & buy', icon: 'make' },
   { id: 'handoff', title: 'Handoff', icon: 'handoff' },
   { id: 'more', title: 'More', icon: 'more' },
 ] as const
 
-const readHash = () => { const [view = 'today', ...rest] = window.location.hash.slice(1).split('/'); return { view: destinations.some(d => d.id === view) ? view : 'today', rest } }
+const readHash = () => { const [view = '', ...rest] = window.location.hash.slice(1).split('/'); return { view: destinations.some(d => d.id === view) ? view : '', rest } }
 export const go = (path: string) => { window.location.hash = path }
 
 export function LarderApp() {
   const larder = useLarder(), { state, error, details, notice, busy } = larder
-  const [route, setRoute] = useState<{ view: string; rest: string[] }>({ view: 'today', rest: [] })
+  const [route, setRoute] = useState<{ view: string; rest: string[] }>({ view: '', rest: [] })
+  const [mode, setMode] = useState<Mode>('week')
   useEffect(() => { const update = () => { setRoute(readHash()); larder.setNotice('') }; update(); window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update) }, [])
-  async function signOut() { await fetch('/auth/signout', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}' }); window.location.href = '/signin' }
-  const waiting = state ? state.exceptions.length : 0
+  // The shop starts on its schedule once there is work to schedule; a new installation starts on Today's first steps.
+  const view = route.view || (state && rows(state, 'workOrders').length ? 'schedule' : 'today')
   return <div className="larder">
-    <div className="rail">
-      <nav className="sidebar" aria-label="Larder">
-        <a className="wordmark" href="#today"><img src="/brand/mark.svg" alt="" width="30" height="32" /><span data-rer-name>Larder</span></a>
-        <ul>{destinations.map(d => <li key={d.id} className={d.id === 'more' ? 'more' : undefined}><a href={`#${d.id}`} aria-current={route.view === d.id ? 'page' : undefined}><Icon name={d.icon} /><span>{d.title}</span>{d.id === 'today' && waiting > 0 && <b className="count" aria-label={`${waiting} need attention`}>{waiting}</b>}</a></li>)}</ul>
-      </nav>
-      {state && <div className="account"><p className="who"><Icon name="person" /><span>{state.actor.name}<small>{words(state.actor.role)}</small></span></p><button className="signout" onClick={() => void signOut()}><Icon name="signout" />Sign out</button></div>}
+    <TopBar larder={larder} view={view} mode={mode} setMode={setMode} />
+    <Rail larder={larder} view={view} />
+    <div className="workspace">
+      <PlannerStrip larder={larder} />
+      <main className="main" aria-busy={busy}>
+        {error && <div className="alert" role="alert"><strong>That did not go through.</strong> {error}{details !== null && <Details value={details} s={state ?? undefined} />}</div>}
+        {notice && <p className="notice" role="status">{notice}</p>}
+        {!state ? <p role="status" className="loading">{error ? 'Records have not loaded.' : 'Loading your records…'}</p> : <>
+          {view === 'today' && <Today larder={larder} />}
+          {view === 'orders' && <Orders larder={larder} id={route.rest[0]} />}
+          {view === 'schedule' && <Schedule larder={larder} mode={mode} />}
+          {view === 'stock' && <Stock larder={larder} />}
+          {view === 'make' && <MakeBuy larder={larder} section={route.rest[0]} id={route.rest[1]} />}
+          {view === 'handoff' && <Handoff larder={larder} id={route.rest[0]} />}
+          {view === 'more' && <More larder={larder} section={route.rest[0]} />}
+        </>}
+      </main>
     </div>
-    <main className="main" aria-busy={busy}>
-      {error && <div className="alert" role="alert"><strong>That did not go through.</strong> {error}{details !== null && <Details value={details} s={state ?? undefined} />}</div>}
-      {notice && <p className="notice" role="status">{notice}</p>}
-      {!state ? <p role="status" className="loading">{error ? 'Records have not loaded.' : 'Loading your records…'}</p> : <>
-        {route.view === 'today' && <Today larder={larder} />}
-        {route.view === 'orders' && <Orders larder={larder} id={route.rest[0]} />}
-        {route.view === 'stock' && <Stock larder={larder} />}
-        {route.view === 'make' && <MakeBuy larder={larder} section={route.rest[0]} id={route.rest[1]} />}
-        {route.view === 'handoff' && <Handoff larder={larder} id={route.rest[0]} />}
-        {route.view === 'more' && <More larder={larder} section={route.rest[0]} />}
-      </>}
-    </main>
   </div>
 }
 export type Larder = ReturnType<typeof useLarder>

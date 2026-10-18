@@ -1,4 +1,4 @@
-// Line icons for the navigation, account and row links, drawn inline so they inherit text colour.
+// Line icons for the navigation, top bar, account and row links, drawn inline so they inherit text color.
 const paths: Record<string, string> = {
   today: 'M7 3v3M17 3v3M4 8h16M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM9 13h2v2H9z',
   orders: 'M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M9 13h6M9 17h6',
@@ -9,6 +9,14 @@ const paths: Record<string, string> = {
   person: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20.5a7.5 7.5 0 0 1 15 0',
   signout: 'M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5M15 8l4 4-4 4M19 12H9',
   chevron: 'M9 6l6 6-6 6',
+  back: 'M15 6l-6 6 6 6',
+  schedule: 'M4 5h16v15H4zM4 10h16M8 3v4M16 3v4M8 14h3M13 14h3M8 17h3',
+  search: 'M10.5 17a6.5 6.5 0 1 0 0-13 6.5 6.5 0 0 0 0 13zM15.5 15.5 20 20',
+  info: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v5M12 8h.01',
+  clock: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 7v5l3 2',
+  check: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM8 12.5l2.8 2.8L16 9.8',
+  arrow: 'M5 12h14M13 6l6 6-6 6',
+  down: 'M6 9l6 6 6-6',
 }
 export function Icon({ name }: { name: string }) {
   return <svg className="icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]} /></svg>

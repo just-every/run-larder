@@ -1,5 +1,5 @@
-// A walnut-board workshop, adapted from the public API journey's workshop.
-// Use the real domain operations so stock, reservations and documents agree.
+// An end-grain board and board butter shop in Asheville, NC, adapted from the public API journey's workshop.
+// Use the real domain operations so stock, reservations, documents and the schedule agree.
 import { collections, type Context, type Row, type State } from '../larder/model'
 import { catalogue } from '../larder/catalogue'
 import { warehouse } from '../larder/warehouse'
@@ -8,6 +8,7 @@ import { sales } from '../larder/sales'
 import { purchasing } from '../larder/purchasing'
 import { production } from '../larder/production'
 import { handoff } from '../larder/handoff'
+import { proposals } from '../larder/proposals'
 import { roleCommand } from '../larder/roles'
 
 export function workshop(ownerId: string, now: Date) {
@@ -24,7 +25,7 @@ export function workshop(ownerId: string, now: Date) {
     c.commandId = `demo-workshop-${++step}`
     c.now = new Date(now.getTime() + offset * 86400000 + step * 1000).toISOString()
     c.actor = doer(type)
-    for (const handle of [catalogue, warehouse, bom, sales, purchasing, production, handoff]) {
+    for (const handle of [catalogue, warehouse, bom, sales, purchasing, production, handoff, proposals]) {
       const result = handle(c, type, payload)
       if (result) {
         commands.push({ id: c.commandId, actorId: c.actor.id, type, payload, result: { ok: true, result, version: commands.length + 1 }, createdAt: c.now })
@@ -33,8 +34,9 @@ export function workshop(ownerId: string, now: Date) {
     }
     throw new Error(`Unknown demo operation: ${type}`)
   }
-  // The workshop's people: each joined over the past months and holds one Larder role.
-  const team = ([['Priya Shah', 'priya', 'manager', -150], ['Tom Reilly', 'tom', 'production', -120], ['Mei Chen', 'mei', 'buyer', -90], ['Sam Okafor', 'sam', 'warehouse', -60], ['Jo Bennett', 'jo', 'accounts', -30]] as const)
+  // The shop's people: each joined over the past months and holds one Larder role. The planner is an agent:
+  // it prepares proposals and never approves them.
+  const team = ([['Dana Whitaker', 'dana', 'manager', -150], ['Luis Romero', 'luis', 'production', -120], ['Mei Chen', 'mei', 'buyer', -90], ['Sam Okafor', 'sam', 'warehouse', -60], ['Jo Bennett', 'jo', 'accounts', -30], ['Larder planner', 'planner', 'agent', -20]] as const)
     .map(([name, mailbox, role, joined]) => {
       const person = { id: crypto.randomUUID(), name, email: `${mailbox}@walnut-workshop.example`, joinedAt: now.getTime() + joined * 86400000 }
       c.commandId = `demo-workshop-role-${mailbox}`
@@ -44,72 +46,84 @@ export function workshop(ownerId: string, now: Date) {
       return person
     })
   const member = (name: string, role: string) => ({ ...owner, id: team.find(p => p.name === name)!.id, name, role })
-  const priya = member('Priya Shah', 'manager'), tom = member('Tom Reilly', 'production'), mei = member('Mei Chen', 'buyer'), sam = member('Sam Okafor', 'warehouse'), jo = member('Jo Bennett', 'accounts')
-  const doer = (type: string) => /^(so\.|po\.approve)/.test(type) ? priya : /^po\./.test(type) ? mei : /^(shipment|receipt|transfer)\./.test(type) ? sam : /^wo\./.test(type) ? tom : /^handoff\./.test(type) ? jo : owner
-  const stores = run('location.save', { name: 'Timber store', note: 'Racks A–C; counted weekly' })
-  const bench = run('location.save', { name: 'Workshop', note: 'Cutting, sanding and finishing' })
-  const dispatch = run('location.save', { name: 'Dispatch', note: 'Finished goods and packed orders' })
+  const dana = member('Dana Whitaker', 'manager'), luis = member('Luis Romero', 'production'), mei = member('Mei Chen', 'buyer'), sam = member('Sam Okafor', 'warehouse'), jo = member('Jo Bennett', 'accounts'), planner = member('Larder planner', 'agent')
+  const doer = (type: string) => /^(so\.|po\.approve)/.test(type) ? dana : /^po\./.test(type) ? mei : /^(shipment|receipt|transfer)\./.test(type) ? sam : /^wo\./.test(type) ? luis : /^handoff\./.test(type) ? jo : /^proposal\./.test(type) ? planner : owner
+  const rack = run('location.save', { name: 'Lumber rack', note: 'Bays A–D; counted weekly' })
+  const floor = run('location.save', { name: 'Shop floor', note: 'Routers, sanding, finishing and the batch room' })
+  const goods = run('location.save', { name: 'Finished goods', note: 'Packed stock and outgoing orders' })
   const item = (sku: string, name: string, kind: string, cost: string, price = '0', baseUnit = 'each') => run('item.save', { sku, name, kind, baseUnit, standardCost: cost, salePrice: price })
-  const walnut = item('WAL-BLANK', 'Walnut board blank', 'buy', '14.5')
-  const oak = item('OAK-BLANK', 'Oak paddle blank', 'buy', '9.8')
-  const oil = item('OIL-FOOD', 'Food-safe finishing oil', 'buy', '28', '0', 'l')
-  const box = item('BOX-GIFT', 'Recycled gift box', 'buy', '3.2')
-  const board = item('BRD-WAL', 'Walnut serving board', 'make', '21.4', '89')
-  const paddle = item('PAD-OAK', 'Oak pizza paddle', 'make', '15.8', '65')
-  const coasters = item('CST-WAL', 'Walnut coaster set', 'make', '12', '39')
-  const customers = ['Harbour Kitchen Co', 'Banksia Homewares', 'Little Cove Cafe', 'Marlow & Finch'].map(name => run('party.save', { name, kind: 'customer', email: 'orders@' + name.toLowerCase().replace(/[^a-z]+/g, '') + '.example', terms: 'Net 14 days' }))
-  const timber = run('party.save', { name: 'Tasmanian Timber Co', kind: 'supplier', email: 'orders@tasmaniantimber.example', terms: 'Net 30 days' })
-  const finish = run('party.save', { name: 'Good Grain Finishes', kind: 'supplier', email: 'sales@goodgrain.example', terms: 'Net 14 days' })
-  const packaging = run('party.save', { name: 'Paper & Parcel', kind: 'supplier', email: 'sales@paperandparcel.example', terms: 'Net 30 days' })
-  for (const [part, supplier, price] of [[walnut, timber, '14.5'], [oak, timber, '9.8'], [oil, finish, '28'], [box, packaging, '3.2']] as const)
-    run('partyItem.save', { partyId: supplier.id, itemId: part.id, partyCode: part.sku, price, leadDays: 5, preferred: true })
-  const evidence = { name: 'workshop-opening-count.csv', contentType: 'text/csv', base64: btoa(`counted_on,counted_by,note\n${day(-8)},Alex Morgan,Workshop opening count\n`) }
-  run('opening.record', { locationId: stores.id, countedOn: day(-8), countedBy: 'Alex Morgan', valuationBasis: 'supplier-invoice', evidence, lines: [
-    { itemId: walnut.id, quantity: '85', unitCost: '14.5' }, { itemId: oak.id, quantity: '50', unitCost: '9.8' },
-    { itemId: oil.id, quantity: '8', unitCost: '28' }, { itemId: box.id, quantity: '100', unitCost: '3.2' },
+  const walnut = item('WAL-84', 'Walnut 8/4 lumber', 'buy', '11.6', '0', 'bd ft')
+  const maple = item('MAP-84', 'Hard maple 8/4 lumber', 'buy', '7.4', '0', 'bd ft')
+  const oil = item('OIL-MIN', 'Food-grade mineral oil', 'buy', '18.5', '0', 'gal')
+  const wax = item('WAX-BEE', 'Beeswax pellets', 'buy', '9.2', '0', 'lb')
+  const tin = item('TIN-4OZ', '4 oz tin with lid', 'buy', '0.62')
+  const box = item('BOX-BRD', 'Board gift box', 'buy', '2.1')
+  const walnutBoard = item('EG-1218', 'Walnut end-grain board 12×18', 'make', '46', '129')
+  const mapleBoard = item('EG-1014', 'Maple end-grain board 10×14', 'make', '31', '89')
+  const butter = item('BB-1020', 'Board butter 4 oz', 'make', '3.9', '14')
+  const customers = [['Hearth & Table', 'Charlotte, NC'], ['Saltbox Kitchen Co', 'Asheville, NC'], ['Blue Ridge Mercantile', 'Boone, NC'], ['Piedmont Provisions', 'Greensboro, NC']]
+    .map(([name, place]) => run('party.save', { name, kind: 'customer', email: 'orders@' + name.toLowerCase().replace(/[^a-z]+/g, '') + '.example', terms: `Net 30 days · ${place}` }))
+  const hardwoods = run('party.save', { name: 'Carolina Hardwoods', kind: 'supplier', email: 'orders@carolinahardwoods.example', terms: 'Net 30 days' })
+  const apiary = run('party.save', { name: 'Appalachian Apiary Supply', kind: 'supplier', email: 'sales@appalachianapiary.example', terms: 'Net 15 days' })
+  const boxes = run('party.save', { name: 'Southern Box & Label', kind: 'supplier', email: 'sales@southernbox.example', terms: 'Net 30 days' })
+  for (const [part, supplier, price, lead] of [[walnut, hardwoods, '11.6', 6], [maple, hardwoods, '7.4', 4], [oil, apiary, '18.5', 3], [wax, apiary, '9.2', 3], [tin, boxes, '0.62', 7], [box, boxes, '2.1', 7]] as const)
+    run('partyItem.save', { partyId: supplier.id, itemId: part.id, partyCode: part.sku, price, leadDays: lead, preferred: true })
+  const evidence = { name: 'opening-count.csv', contentType: 'text/csv', base64: btoa(`counted_on,counted_by,note\n${day(-8)},Alex Morgan,Shop opening count\n`) }
+  run('opening.record', { locationId: rack.id, countedOn: day(-8), countedBy: 'Alex Morgan', valuationBasis: 'supplier-invoice', evidence, lines: [
+    { itemId: walnut.id, quantity: '420', unitCost: '11.6' }, { itemId: maple.id, quantity: '100', unitCost: '7.4' }, { itemId: oil.id, quantity: '16', unitCost: '18.5' },
+    { itemId: wax.id, quantity: '80', unitCost: '9.2' }, { itemId: tin.id, quantity: '900', unitCost: '0.62' }, { itemId: box.id, quantity: '300', unitCost: '2.1' },
   ] }, -8)
-  run('opening.record', { locationId: dispatch.id, countedOn: day(-8), countedBy: 'Alex Morgan', valuationBasis: 'standard-cost', evidence, lines: [
-    { itemId: board.id, quantity: '18', unitCost: '21.4' }, { itemId: paddle.id, quantity: '12', unitCost: '15.8' }, { itemId: coasters.id, quantity: '20', unitCost: '12' },
+  run('opening.record', { locationId: goods.id, countedOn: day(-8), countedBy: 'Alex Morgan', valuationBasis: 'standard-cost', evidence, lines: [
+    { itemId: walnutBoard.id, quantity: '24', unitCost: '46' }, { itemId: mapleBoard.id, quantity: '18', unitCost: '31' }, { itemId: butter.id, quantity: '120', unitCost: '3.9' },
   ] }, -8)
-  for (const [made, blank, quantity] of [[board, walnut, '1'], [paddle, oak, '1'], [coasters, walnut, '0.5']] as const)
-    run('bom.revise', { itemId: made.id, components: [{ itemId: blank.id, quantity }, { itemId: oil.id, quantity: '0.05' }, { itemId: box.id, quantity: '1' }], routing: [{ name: 'Cut and sand', workCentre: 'Bench 1', minutes: 25 }, { name: 'Oil and finish', workCentre: 'Finishing', minutes: 15 }], note: 'Current workshop specification' })
+  // Routings: minutes per unit at each work center, in order.
+  const board = (router: string, minutes: number[]) => [['Rough cut', router], ['Sand', 'Sanding'], ['Oil and finish', 'Finishing'], ['Pack', 'Pack and ship']].map(([name, workCentre], i) => ({ name, workCentre, minutes: minutes[i] }))
+  run('bom.revise', { itemId: walnutBoard.id, components: [{ itemId: walnut.id, quantity: '2.4' }, { itemId: oil.id, quantity: '0.02' }, { itemId: box.id, quantity: '1' }], routing: board('CNC Router 1', [12, 6, 5, 3]), note: 'Current shop specification' })
+  run('bom.revise', { itemId: mapleBoard.id, components: [{ itemId: maple.id, quantity: '1.6' }, { itemId: oil.id, quantity: '0.015' }, { itemId: box.id, quantity: '1' }], routing: board('CNC Router 2', [10, 5, 4, 2]), note: 'Current shop specification' })
+  run('bom.revise', { itemId: butter.id, components: [{ itemId: wax.id, quantity: '0.12' }, { itemId: oil.id, quantity: '0.015' }, { itemId: tin.id, quantity: '1' }], routing: [{ name: 'Melt and pour', workCentre: 'Batch room', minutes: 1.5 }, { name: 'Label and pack', workCentre: 'Pack and ship', minutes: 0.5 }], note: 'Current batch recipe' })
   const order = (customer: Row, made: Row, quantity: string, due: number, confirm = true) => {
-    const o = run('so.quote', { customerId: customer.id, promiseDate: day(due), customerReference: `PO-${customers.indexOf(customer) + 2401}`, lines: [{ itemId: made.id, quantity }] }, -4)
+    const o = run('so.quote', { customerId: customer.id, promiseDate: day(due), customerReference: `PO-${customers.indexOf(customer) + 4401}`, lines: [{ itemId: made.id, quantity }] }, -4)
     if (confirm) run('so.confirm', { orderId: o.id, version: o.version }, -4)
     return o
   }
-  const harbour = order(customers[0], board, '24', 1)
-  order(customers[1], paddle, '18', 3)
-  order(customers[2], coasters, '12', 0)
-  order(customers[3], board, '10', 7, false)
-  order(customers[1], coasters, '8', 4)
-  const shipment = run('shipment.pick', { orderId: harbour.id, lines: [{ lineId: harbour.lines[0].id, locationId: dispatch.id, quantity: '6' }] }, -2)
-  run('shipment.pack', { shipmentId: shipment.id, version: shipment.version, packages: 2, weightKg: '8.4' }, -2)
-  run('shipment.ship', { shipmentId: shipment.id, version: shipment.version, carrier: 'Australia Post', tracking: 'WORKSHOP-2401' }, -2)
+  const [hearth, saltbox, blueRidge, piedmont] = customers as [Row, Row, Row, Row]
+  const butterOrder = order(piedmont, butter, '60', 1)
+  order(hearth, walnutBoard, '120', 12)
+  order(saltbox, walnutBoard, '36', 5)
+  order(blueRidge, mapleBoard, '90', 6)
+  order(piedmont, butter, '480', 6)
+  order(hearth, mapleBoard, '40', 14, false)
+  const shipment = run('shipment.pick', { orderId: butterOrder.id, lines: [{ lineId: butterOrder.lines[0].id, locationId: goods.id, quantity: '36' }] }, -2)
+  run('shipment.pack', { shipmentId: shipment.id, version: shipment.version, packages: 1, weightKg: '4.1' }, -2)
+  run('shipment.ship', { shipmentId: shipment.id, version: shipment.version, carrier: 'UPS Ground', tracking: '1Z4F7W930312845117' }, -2)
   const purchase = (supplier: Row, part: Row, quantity: string, price: string, due: number, approved = true) => {
-    const po = run('po.draft', { supplierId: supplier.id, expectedDate: day(due), requiredBy: day(due + 1), reason: 'Replenish workshop stock for confirmed orders', lines: [{ itemId: part.id, quantity, unitPrice: price }] }, -3)
-    if (approved) { run('po.approve', { poId: po.id, version: po.version, note: 'Within the weekly materials budget' }, -3); run('po.confirm', { poId: po.id, version: po.version, supplierReference: `SUP-${po.reference}`, confirmedDate: day(due) }, -3) }
+    const po = run('po.draft', { supplierId: supplier.id, expectedDate: day(due), requiredBy: day(due + 1), reason: 'Replenish stock for confirmed orders', lines: [{ itemId: part.id, quantity, unitPrice: price }] }, -3)
+    if (approved) { run('po.approve', { poId: po.id, version: po.version, note: 'Within the weekly materials budget' }, -3); run('po.confirm', { poId: po.id, version: po.version, supplierReference: `CH-${po.reference.slice(3)}`, confirmedDate: day(due) }, -3) }
     return po
   }
-  const timberPo = purchase(timber, walnut, '40', '14.5', -1)
-  run('receipt.create', { poId: timberPo.id, supplierReference: 'DEL-1048', lines: [{ lineId: timberPo.lines[0].id, locationId: stores.id, quantity: '20', lot: 'WAL-1048', inspection: 'quarantine' }] }, -1)
-  purchase(finish, oil, '10', '28', 2)
-  purchase(packaging, box, '200', '3.2', 5, false)
-  const work = (made: Row, quantity: string, due: number, released = true) => {
-    const w = run('wo.draft', { itemId: made.id, quantity, requiredBy: day(due), plannedStart: day(0), reason: 'Confirmed customer commitments', priority: 1 }, -2)
+  const walnutPo = purchase(hardwoods, walnut, '200', '11.6', -1)
+  run('receipt.create', { poId: walnutPo.id, supplierReference: 'DEL-1412', lines: [{ lineId: walnutPo.lines[0].id, locationId: rack.id, quantity: '100', lot: 'CH-1412', inspection: 'quarantine' }] }, -1)
+  const maplePo = purchase(hardwoods, maple, '200', '7.4', 3)
+  purchase(apiary, wax, '60', '9.2', 4)
+  purchase(boxes, box, '400', '2.1', 6, false)
+  const work = (made: Row, quantity: string, due: number, start: number, priority: number, released = true) => {
+    const w = run('wo.draft', { itemId: made.id, quantity, requiredBy: day(due), plannedStart: day(start), reason: 'Confirmed customer orders', priority }, -2)
     if (released) run('wo.release', { workOrderId: w.id, version: w.version }, -2)
     return w
   }
   // Last week's batch went to the accountant; this week's production waits for the next one.
-  run('handoff.prepare', { note: 'Workshop movements for the weekly accountant review' }, -2)
-  const w = work(board, '12', 1)
-  run('wo.issue', { workOrderId: w.id, lines: w.components.map((l: any) => ({ itemId: l.itemId, locationId: stores.id, quantity: l.required })) }, -1)
-  run('wo.output', { workOrderId: w.id, version: w.version, locationId: dispatch.id, quantity: '5', lot: 'BRD-FINISH-01' }, -1)
-  work(paddle, '8', 3)
-  work(coasters, '16', 5, false)
-  // A late order the paddle batch does not yet cover: Make & buy shows the shortage.
-  order(customers[2], paddle, '10', 6)
-  run('transfer.create', { itemId: oak.id, fromLocationId: stores.id, toLocationId: bench.id, quantity: '4', reason: 'Prepare the next paddle batch' }, 0)
+  run('handoff.prepare', { note: 'Shop movements for the weekly accountant review' }, -2)
+  work(walnutBoard, '120', 9, 0, 2)
+  work(mapleBoard, '90', 4, 0, 1)
+  work(butter, '480', 4, 0, 1)
+  const saltboxWork = work(walnutBoard, '36', 4, 1, 0)
+  work(mapleBoard, '60', 9, 2, 0, false)
+  work(butter, '240', 8, 3, 0, false)
+  run('po.revise', { poId: maplePo.id, version: maplePo.version, expectedDate: day(2), note: 'Earlier delivery confirmed by Carolina Hardwoods' }, 0)
+  run('transfer.create', { itemId: walnut.id, fromLocationId: rack.id, toLocationId: floor.id, quantity: '40', reason: 'Stage blanks for the router' }, 0)
+  // The planner's proposal: run the Saltbox boards first. A person approves it or keeps the current plan.
+  run('proposal.prepare', { kind: 'reschedule', summary: 'Run WO-0004 for Saltbox Kitchen Co ahead of WO-0001 on CNC Router 1', assumptions: 'WO-0001 is not needed until later in the week.',
+    evidence: ['WO-0004 priority 0, planned behind WO-0001 on CNC Router 1', 'Saltbox Kitchen Co order promised for later this week'], plan: { changes: [{ workOrderId: saltboxWork.id, plannedStart: day(0), priority: 3 }], conflicts: ['WO-0001 starts its rough cut later'] } }, 0)
   c.actor = owner
   return Object.assign(c, { team, commands })
 }

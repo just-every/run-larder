@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 
 // The owner's first-release journey through the built app: move in from Odoo,
 // reserve, make the shortfall, ship part of the order and hand off to the
-// accountant; then a phone-width order from quote to shipment.
+// accountant, with the released work on the schedule; then a phone-width order from quote to shipment.
 const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787'
 const shots = process.env.LARDER_SCREENSHOTS
 const fixtures = resolve('fixtures/odoo')
@@ -66,6 +66,15 @@ test('owner runs an order from Odoo move-in to accountant handoff at 1440px', as
   await expect(page).toHaveURL(/#make\/wo\//)
   await act(page, () => page.getByRole('button', { name: 'Release and reserve materials' }).click())
   await expect(page.getByText('pinned to BOM revision 1')).toBeVisible()
+  // The released work is on the schedule: its routing steps as bars by work center, the job in the side panel.
+  const workOrder = page.url()
+  await page.goto(`${origin}/app#schedule`)
+  await expect(page.getByRole('heading', { name: 'Schedule', exact: true })).toBeVisible()
+  const reference = (await state(page)).workOrders.find((w: any) => w.status === 'released').reference
+  await expect(page.locator('.gantt .bar').filter({ hasText: reference }).first()).toBeVisible()
+  await expect(page.locator('.job-panel').getByRole('heading', { name: reference })).toBeVisible()
+  await shot(page, 'schedule')
+  await page.goto(workOrder)
   const issue = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Issue materials' }) })
   await issue.getByLabel('From location').selectOption({ label: 'WH/Stock' })
   await act(page, () => issue.getByRole('button', { name: 'Issue' }).click())
@@ -131,7 +140,7 @@ test('owner quotes, confirms and ships an order at 390px', async ({ page }) => {
   await act(page, () => pick.getByRole('button', { name: 'Ship', exact: true }).click())
   await expect(page.locator('.chip', { hasText: 'Shipped' }).first()).toBeVisible()
   await shot(page, 'order')
-  for (const [hash, name] of [['today', 'today'], ['orders', 'orders'], ['stock', 'stock'], ['make/plan', 'make'], ['make/wo', 'work-orders'], ['handoff', 'handoff'], ['more/move-in', 'move-in'], ['more', 'more']]) {
+  for (const [hash, name] of [['today', 'today'], ['orders', 'orders'], ['schedule', 'schedule'], ['stock', 'stock'], ['make/plan', 'make'], ['make/wo', 'work-orders'], ['handoff', 'handoff'], ['more/move-in', 'move-in'], ['more', 'more']]) {
     await page.goto(`${origin}/app#${hash}`)
     await expect(page.locator('main h1')).toBeVisible()
     await shot(page, name)

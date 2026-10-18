@@ -29,18 +29,13 @@ export function Table({ head, children, numeric = [], stack = head.length > 2 }:
   return <div className={stack ? 'table-wrap stack-table' : 'table-wrap'}><table><thead><tr>{head.map((h, i) => <th key={i} className={numeric.includes(i) ? 'num' : undefined} scope="col">{h}</th>)}</tr></thead><tbody>{stack ? Children.map(children, label) : children}</tbody></table></div>
 }
 
-export function Chip({ tone = 'neutral', children }: { tone?: 'neutral' | 'good' | 'warn' | 'bad' | 'info'; children: ReactNode }) {
+// go: the chartreuse "still on" marker, kept for on-track work.
+export function Chip({ tone = 'neutral', children }: { tone?: 'neutral' | 'good' | 'warn' | 'bad' | 'info' | 'go'; children: ReactNode }) {
   return <span className={`chip ${tone}`}>{children}</span>
 }
 
-export function Empty({ children, picture }: { children: ReactNode; picture?: Goods }) {
-  return picture ? <p className="empty pictured"><GoodsPicture name={picture} />{children}</p> : <p className="empty">{children}</p>
-}
-
-// The riso goods printed from the picks (public/brand/goods): shown only where the kind of thing is known.
-export type Goods = 'docket' | 'po' | 'board' | 'blanks' | 'bottle' | 'parcel' | 'papers' | 'still-life'
-export function GoodsPicture({ name, className = 'goods' }: { name: Goods; className?: string }) {
-  return <img className={className || undefined} src={`/brand/goods/${name}.webp`} alt="" loading="lazy" />
+export function Empty({ children }: { children: ReactNode }) {
+  return <p className="empty">{children}</p>
 }
 
 // A disclosure with the facts behind a refusal or a proposal, in words: records by name, numbers formatted,

@@ -4,7 +4,7 @@ import { Card, Empty, Table } from './controls'
 import { when, words } from './format'
 
 // Each recorded command, as the person who did it would say it.
-const actions: Record<string, string> = {
+export const actions: Record<string, string> = {
   'item.save': 'Saved an item', 'location.save': 'Saved a location', 'party.save': 'Saved a contact', 'partyItem.save': 'Saved a supplier or customer code',
   'bom.revise': 'Saved a bill of materials revision', 'opening.record': 'Recorded opening stock', 'transfer.create': 'Transferred stock',
   'count.record': 'Recorded a count', 'count.approve': 'Approved a count adjustment', 'count.reject': 'Asked for a recount', 'quarantine.decide': 'Decided on quarantined stock',

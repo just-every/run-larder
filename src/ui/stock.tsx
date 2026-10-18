@@ -18,10 +18,10 @@ export function Stock({ larder }: { larder: Larder }) {
   const lot = (id: string) => rows(s, 'lots').find(l => l.id === id)?.code
   return <div className="page">
     <header className="page-head"><p className="eyebrow">Stock</p><h1>Stock on hand</h1><p className="meta">Every quantity is the sum of its recorded movements. Reserved stock cannot be moved or sold twice.</p></header>
-    <Card title="By item">{s.availability.length === 0 ? <Empty picture="blanks">No items yet. Add items under More → Items, contacts and locations, or move them in from Odoo.</Empty> :
+    <Card title="By item">{s.availability.length === 0 ? <Empty>No items yet. Add items under More → Items, contacts and locations, or move them in from Odoo.</Empty> :
       <Table head={['Item', 'On hand', 'Reserved', 'Available', 'Quarantine', 'Expected', 'To promise']} numeric={[1, 2, 3, 4, 5, 6]}>{s.availability.map((a: any) => <tr key={a.itemId}><td><strong>{itemName(s, a.itemId)}</strong><small>{sku(s, a.itemId)}</small></td><td className="num">{qty(a.onHand)}</td><td className="num">{qty(a.reserved)}</td><td className="num">{qty(a.available)}</td><td className="num">{qty(a.quarantine)}</td><td className="num">{qty(plus(a.expectedPurchase, a.expectedProduction))}</td><td className="num"><strong>{qty(a.availableToPromise)}</strong></td></tr>)}</Table>}
     </Card>
-    <Card title="By location">{s.positions.length === 0 ? <Empty picture="board">No stock recorded yet. Record an opening count below.</Empty> :
+    <Card title="By location">{s.positions.length === 0 ? <Empty>No stock recorded yet. Record an opening count below.</Empty> :
       <Table head={['Location', 'Item', 'Lot', 'Status', 'Quantity']} numeric={[4]}>{s.positions.map((p: any, i: number) => <tr key={i}><td>{locationName(s, p.locationId)}</td><td>{itemName(s, p.itemId)}</td><td>{lot(p.lotId) ?? '—'}</td><td><Chip tone={p.status === 'quarantine' ? 'warn' : 'good'}>{words(p.status)}</Chip></td><td className="num">{qty(p.quantity)}</td></tr>)}</Table>}
     </Card>
     {wh && quarantine.length > 0 && <Card title="Quality decisions">{quarantine.map((p: any, i: number) => <Form key={i} title={`${qty(p.quantity)} ${itemName(s, p.itemId)} at ${locationName(s, p.locationId)}${p.lotId ? `, lot ${lot(p.lotId)}` : ''}`} submit="Record decision" busy={busy} onSubmit={d => run('quarantine.decide', { itemId: p.itemId, locationId: p.locationId, lotId: p.lotId || undefined, quantity: text(d, 'quantity'), decision: text(d, 'decision'), reason: text(d, 'reason') })}>
