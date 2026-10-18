@@ -29,8 +29,8 @@ function Bar({ op, x, ghost, moving, selected, onSelect, lane }: { op: Op; x: (t
   const title = `${op.reference} · Op ${op.sequence} ${op.step} · ${op.workCenter} · ${dayName(op.start)} ${clock(op.start)} to ${dayName(op.end)} ${clock(op.end)}${ghost ? ' (proposed)' : ''}`
   return <button type="button" className={`bar ${tone} ${moving ? 'moving' : ''} ${selected ? 'selected' : ''}`} style={{ left: `${left}%`, width: `${width}%`, top: lane ? 'var(--lane-ghost)' : undefined }} title={title} aria-pressed={selected} onClick={() => onSelect(op.workOrder.id)}>
     <strong>{op.reference}</strong>
-    <span>{ghost ? `Proposed · Op ${op.sequence}` : `Op ${op.sequence} ${op.step}`}</span>
-    {flag && !ghost ? <em>{flag}</em> : <small>{ghost ? `${dayName(op.start)}, ${clock(op.start)}` : `${op.quantity.toLocaleString('en-US')} ${op.item}`}</small>}
+    <span>{ghost ? `Proposed · Op ${op.sequence} ${op.step}` : `Op ${op.sequence} ${op.step}`}</span>
+    {!ghost && (flag ? <em>{flag}</em> : <small>{`${op.quantity.toLocaleString('en-US')} ${op.item}`}</small>)}
   </button>
 }
 
