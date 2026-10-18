@@ -7,6 +7,7 @@ The app and agents use the same door. Every request needs a native session cooki
 - `GET /api/larder/handoffs/<id>.csv` — a handoff batch as CSV (owner, manager, accounts).
 - `GET /api/larder/attachments/<id>` — an evidence file.
 - `GET /api/larder/imports/<id>.json` — a move-in preview: counts, rejected rows, skips, unread columns.
+- `GET /api/larder/boms.csv` — current effective BOMs and routings as editable CSV (owner, manager, production).
 - `GET /api/larder/archive` — the complete business archive with its checksum (owner, manager).
 - `POST /api/larder/archive/restore` — restore an archive into an empty installation (owner).
 
@@ -21,7 +22,9 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `party.save` | `{id?, version?, name, kind: customer\|supplier\|both, email?, abn?, terms?}` | manager, buyer, sales |
 | `partyItem.save` | `{id?, version?, partyId, itemId, partyCode, unit?, price?, leadDays?, preferred?}` | manager, buyer, sales |
 | `opening.record` | `{locationId, countedOn, valuationBasis: supplier-invoice\|last-purchase\|standard-cost\|owner-estimate, countedBy, evidence: {name, contentType, base64}, lines: [{itemId, quantity, unit?, unitCost, lot?}]}` | manager, warehouse |
-| `bom.revise` | `{itemId, components: [{itemId, quantity, unit?}], routing?: [{name, workCentre?, minutes}], note?}` | manager, production |
+| `bom.revise` | `{itemId, components: [{itemId, quantity, unit?}], routing?: [{name, workCentre?, minutes}], note?, effectiveOn?}` | manager, production |
+| `bom.bulkPreview` | `{file: {name, content}}` — CSV rows, errors and stock/open-work impact; creates only the review record | manager, production |
+| `bom.bulkApprove` | `{previewId, version, acceptRejected?: <exact error count>}` — approve all valid whole-BOM groups atomically; changed business state requires a new preview | manager, production (different preparer; owner may approve own) |
 | `so.quote` | `{orderId?, version?, customerId, promiseDate, customerReference?, note?, lines: [{itemId, quantity, unit?, unitPrice?}]}` | manager, sales |
 | `so.confirm` | `{orderId, version, reserve?: true}` | manager, sales |
 | `so.reserve` | `{orderId, locationId?}` | manager, sales, warehouse |
@@ -68,3 +71,11 @@ The agent prepares; nothing changes until a person approves the exact version.
 | `item-merge` | `{duplicateItemId, keepItemId}` | manager | re-points codes, quotes and draft purchases, revises active BOMs, moves stock by compensating movements and archives the duplicate; refused while open orders or reservations use it. |
 | `reschedule` | `{changes: [{workOrderId, priority, plannedStart}], conflicts?}` | production, manager | updates priorities and planned starts; a changed work order makes it stale. |
 | `reconciliation` | `{handoffId, entries: [{lineId, ledgerId, amount}]}` | accounts, manager | records the acknowledgements. |
+
+## BOM CSV revisions (ENG-004)
+
+Download `/api/larder/boms.csv`, edit component SKUs, quantities, units, routing or effectivity, then send the file to `bom.bulkPreview`. CSV columns are `item_sku,revision,effective_on,component_sku,quantity,unit,routing,note`, one row per component. Keep the source revision; all rows for a made item carry the same effective date, note and routing JSON (ordered `{name,workCentre,minutes}` steps). The export includes the current effective revision of every active made SKU. `effective_on` is the proposed new revision's UTC date, today or later; exports default it to today. Quantity conversions must be exact. Free-text notes use reversible apostrophe escaping for spreadsheet formulas.
+
+The preview lists file/row/column errors and the affected SKUs, existing stock positions, component changes, and open work. A bad row excludes that entire BOM, preventing a truncated recipe. Approval needs the preview's version and, when errors exist, the exact rejected-row count. An intervening business write makes the preview stale. A different production engineer or manager approves; the owner can approve their own preview. The original CSV, preview, approver and created revision IDs remain in the state/archive.
+
+Approval creates immutable new revisions in one transaction. Future revisions become eligible on their effective UTC date; release pins the effective revision at release time. Released work, reservations and physical movements stay unchanged. Changing released work requires a separate reviewed workflow; bulk CSV approval never changes it. Re-download to inspect the newly effective component quantities and routings.

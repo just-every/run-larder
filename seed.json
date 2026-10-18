@@ -31,7 +31,8 @@
     {
       "id": "bills-of-materials",
       "clauses": [
-        "LARDER-003"
+        "LARDER-003",
+        "ENG-004"
       ]
     },
     {

@@ -30,7 +30,7 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
       approver(c, ['manager', 'production'])
       if (w.status !== 'draft') fail('STATE', 'Only a draft work order can be released.')
-      const bom = activeBom(c.s, w.itemId) ?? fail('NO_BOM', 'Give this item a bill of materials before releasing work.')
+      const bom = activeBom(c.s, w.itemId, c.now.slice(0, 10)) ?? fail('NO_BOM', 'Give this item a bill of materials before releasing work.')
       const quantity = decimal(w.quantity)
       const components = bom.components.map((l: any) => ({ id: newId(), itemId: l.itemId, perUnit: l.quantity, required: format(times(decimal(l.quantity), quantity)), issued: '0' }))
       const standardUnitCost = bom.components.reduce((n: bigint, l: any) => n + times(decimal(l.quantity), averageCost(c.s, l.itemId)), 0n)

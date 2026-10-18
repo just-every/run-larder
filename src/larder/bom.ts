@@ -4,9 +4,11 @@ import { toBase } from './catalogue'
 import { format } from './decimal'
 import { fail } from './problem'
 import { allow } from './roles'
-import { bump, get, list, optionalText, row, text, type Context, type Row, type State } from './model'
+import { bump, date, get, list, optionalText, row, text, type Context, type Row, type State } from './model'
 
-export const activeBom = (s: State, itemId: string) => s.boms.find(b => b.itemId === itemId && b.status === 'active')
+export const activeBom = (s: State, itemId: string, on = new Date().toISOString().slice(0, 10)) =>
+  s.boms.filter(b => b.itemId === itemId && ['active', 'scheduled'].includes(b.status) && (!b.effectiveOn || b.effectiveOn <= on))
+    .sort((a, b) => (b.effectiveOn ?? '').localeCompare(a.effectiveOn ?? '') || b.revision - a.revision)[0]
 
 export function bom(c: Context, type: string, p: any): Row | undefined {
   if (type !== 'bom.revise') return
@@ -23,8 +25,11 @@ export function bom(c: Context, type: string, p: any): Row | undefined {
     sequence: i + 1, name: text(step.name, 'step name', 120), workCentre: optionalText(step.workCentre, 'work center', 120),
     minutes: Number.isFinite(step.minutes) && step.minutes >= 0 && step.minutes <= 100000 ? step.minutes : fail('INPUT', 'Step minutes must be between 0 and 100000.'),
   }))
-  const previous = activeBom(c.s, item.id)
-  if (previous) bump(previous, { status: 'superseded' })
+  const effectiveOn = p.effectiveOn === undefined ? c.now.slice(0, 10) : date(p.effectiveOn, 'effective date')
+  if (effectiveOn < c.now.slice(0, 10) || new Date(effectiveOn + 'T00:00:00Z').toISOString().slice(0, 10) !== effectiveOn) fail('INPUT', 'A new BOM revision needs a real effective date today or later.')
+  const immediate = effectiveOn <= c.now.slice(0, 10)
+  const previous = activeBom(c.s, item.id, c.now.slice(0, 10))
+  if (immediate && previous) bump(previous, { status: 'superseded' })
   const revision = Math.max(0, ...c.s.boms.filter(b => b.itemId === item.id).map(b => b.revision)) + 1
-  return row(c, 'boms', { itemId: item.id, revision, components, routing, note: optionalText(p.note, 'change note', 400), status: 'active' })
+  return row(c, 'boms', { itemId: item.id, revision, components, routing, note: optionalText(p.note, 'change note', 400), effectiveOn, status: immediate ? 'active' : 'scheduled' })
 }

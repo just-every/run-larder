@@ -451,13 +451,15 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 
 Judged from the code and tests at commit `ef0f2402bd6a3e0dd3fdc95d3187433ff92327f7` (18 October 2026).
 
-Homepage claim coverage was completed on 18 October 2026. Every pre-existing clause retains its status. US-001 was re-judged against the current archive code and remains partial; OPEN-001 and DEMAND-008 are new target clauses. The additional acceptance requirements below remain engineering work wherever their clause is partial or missing.
+HTTP-001 and ENG-004 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
+
+Homepage claim coverage was completed on 18 October 2026. The baseline retained every pre-existing clause status; subsequent completed journeys are recorded in the Status rows. US-001 was re-judged against the current archive code and remains partial; OPEN-001 and DEMAND-008 are new target clauses. The additional acceptance requirements below remain engineering work wherever their clause is partial or missing.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 1 | 45 | 66 | 112 |
-| All | 17 | 45 | 66 | 128 |
+| Target and push further | 2 | 44 | 66 | 112 |
+| All | 18 | 44 | 66 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -483,7 +485,7 @@ Homepage claim coverage was completed on 18 October 2026. Every pre-existing cla
 | `ENG-001` | Multilevel BOM explosion | target | partial | `src/larder/bom.ts`; `src/larder/production.ts`; `tests/api/flows.test.mjs` | Made components and revision pins ship; recursive explosion, phantoms and yield-aware multilevel netting do not. |
 | `ENG-002` | Executable routings and instructions | target | partial | `src/larder/bom.ts`; `src/larder/production.ts` | Routing names, work-center text and minutes exist; executable dependencies, detailed instructions and acknowledgments are absent. |
 | `ENG-003` | Configurable and matrix BOMs | target | missing |  | Configurable and matrix BOMs workflow and its acceptance journey are not implemented. |
-| `ENG-004` | BOM CSV export and bulk revision | target | partial | `src/larder/odoo/map.ts`; `src/larder/archive.ts`; `tests/api/move-in.test.mjs` | Odoo BOM CSV import and archive export exist; standalone BOM CSV export, batch updates and impact approval are absent. |
+| `ENG-004` | BOM CSV export and bulk revision | target | done | `src/larder/bom-csv.ts`; `src/larder/bom-bulk.ts`; `src/larder/bom.ts`; `tests/api/bom-bulk.test.mjs` (ENG-004) | Authenticated CSV export/edit/preview/approval round-trip for ten BOMs and routings; row errors exclude whole recipes, stock/open-work impact is retained, exact quantities and effective dates create revisions atomically, stale/self approval is refused and released work stays pinned. |
 | `ENG-005` | Engineering change approval and obsolescence | target | missing |  | Engineering change approval and obsolescence workflow and its acceptance journey are not implemented. |
 | `ENG-006` | Kits and sale-triggered assembly | target | missing |  | Kits and sale-triggered assembly workflow and its acceptance journey are not implemented. |
 | `ENG-007` | Catalog export, bulk edit and re-import | target | partial | `src/larder/catalogue.ts`; `src/larder/odoo/map.ts`; `src/larder/odoo/imports.ts`; `tests/api/move-in.test.mjs` | Catalog validation and Odoo product/variant CSV preview with row errors ship; Larder-ID-keyed XLSX/CSV catalog export, blank-preserving update import, field-level change and impact preview and atomic bulk apply are absent. |
