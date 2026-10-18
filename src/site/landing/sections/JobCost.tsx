@@ -14,7 +14,7 @@ export function JobCost() {
   return <Story id="job-cost" className="centred" eyebrow={<>Job cost<Mid />Fri Nov 6</>} title="Know what every order made."
     line="Actual walnut, labor, machine time and tins, costed in dollars and posted to QuickBooks.">
     <article className="card cost-card" aria-label="Actual cost of SO-1184">
-      <h3>Actual cost · SO-1184 · Hearth &amp; Table</h3>
+      <h3>Actual cost · <span className="nowrap">SO-1184</span> · Hearth &amp; Table</h3>
       <table className="lines cost">
         <tbody>{costs.map(([item, detail, amount]) => <tr key={item}><th scope="row">{item}<Mid /><span className="muted">{detail}</span></th><td>{amount}</td></tr>)}</tbody>
         <tbody className="totals"><tr><th scope="row">Actual cost</th><td>$14,609.20</td></tr><tr><th scope="row">Revenue<Mid /><span className="muted">Invoice 3317</span></th><td>$25,010.00</td></tr></tbody>

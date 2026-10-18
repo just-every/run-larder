@@ -36,7 +36,7 @@ export function Plan() {
             <td data-label="Short" className={short === '0' ? 'zero' : 'short'}>{short}</td><td className="action">{action}</td>
           </tr>)}</tbody>
         </table></div>
-        <p className="net-foot"><span className="pill-lime big">2 POs approved by Dana W.<Mid />9:31 AM <Tick /></span><span className="rule" aria-hidden="true" /><span className="muted">3 suggestions</span></p>
+        <p className="net-foot"><span className="pill-lime big">2 POs approved by Dana W.<Mid /><span className="nowrap">9:31 AM <Tick /></span></span><span className="rule" aria-hidden="true" /><span className="muted">3 suggestions</span></p>
       </article>
       <Planks />
     </div>

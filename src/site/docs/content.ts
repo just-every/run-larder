@@ -50,6 +50,8 @@ function render(file: string) {
         if (!slug) throw new Error(`Docs: docs/${file} links to ${href}, which is not a docs page.`)
         return `<a href="/docs/${slug}${hash ? '#' + hash : ''}">${text}</a>`
       },
+      // A short code word (an order number such as SO-0001, a menu name) never breaks at its hyphen; long commands still wrap.
+      codespan({ text }: Tokens.Codespan) { return `<code${/^\S{1,24}$/.test(text) ? ' class="nowrap"' : ''}>${escape(text)}</code>` },
       code({ text }: Tokens.Code) { return `<div class="docs-code"><pre tabindex="0"><code>${escape(text)}</code></pre><button type="button" class="docs-copy" hidden>Copy</button></div>` },
       table(token: Tokens.Table) {
         const cell = (c: Tokens.TableCell) => this.parser.parseInline(c.tokens)
