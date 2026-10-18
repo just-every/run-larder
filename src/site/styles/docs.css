@@ -52,7 +52,25 @@
 .docs-cards strong { display: block; font: 750 21px/1.25 var(--font-head); letter-spacing: -.02em; color: #141414; }
 .docs-cards strong + span { display: block; margin-top: 4px; color: var(--muted); font-size: 16px; line-height: 1.5; }
 
+/* The index: the guides use the width the table of contents leaves, two cards a row where they fit, with the workshop's
+   line-art props beside the title and its blueprint closing the page over the footer, as on /run. */
+.docs-index .docs-article { grid-column: 2 / -1; }
+.docs-index-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 32px; }
+.docs-index .docs-lead { max-width: 680px; }
+.docs-props { display: flex; align-items: flex-end; gap: 10px; padding-bottom: 6px; }
+.docs-props .prop { position: static; display: block; height: auto; }
+.docs-props .planks { width: 220px; }
+.docs-props .drum { width: 74px; }
+.docs-props .tin { width: 62px; margin-left: -6px; }
+.docs-index .docs-cards { grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); }
+.docs-index .docs-cards li { display: grid; }
+.docs-end { background: var(--charcoal); }
+.docs-blueprint img { display: block; width: 100%; height: clamp(180px, 21vw, 400px); object-fit: cover; object-position: center top; -webkit-mask-image: linear-gradient(#000 55%, transparent); mask-image: linear-gradient(#000 55%, transparent); }
+.docs-end .site-footer-row { border-top: 0; }
+
 @media (max-width: 1180px) { .docs-layout { grid-template-columns: 220px minmax(0, 1fr); gap: 44px; } .docs-toc { display: none; } }
+@media (max-width: 1180px) { .docs-props .planks { width: 150px; } .docs-props .drum { width: 52px; } .docs-props .tin { width: 44px; } }
+@media (max-width: 960px) { .docs-index-head { display: block; } .docs-props { display: none; } }
 @media (max-width: 760px) {
   .docs-layout { display: block; padding-top: 18px; padding-bottom: 56px; }
   .docs-side { display: none; }
@@ -68,4 +86,6 @@
   .docs-cards .disc { width: 34px; height: 34px; font-size: 16px; }
   .docs-cards strong { font-size: 18px; }
   .docs-next-link span:not(.arrow) { font-size: 18px; }
+  .docs-index-head { display: block; }
+  .docs-props { display: none; }
 }

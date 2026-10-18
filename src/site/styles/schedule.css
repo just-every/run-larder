@@ -35,10 +35,10 @@
 .gantt-card { padding: 18px 16px 16px; }
 .gantt-nav { display: none; }
 .gantt-scroll { position: relative; overflow-x: auto; scrollbar-width: thin; }
-.gantt { position: relative; --label: 196px; padding-top: 40px; min-width: 980px; }
+.gantt { position: relative; --label: 196px; --head: 60px; padding-top: 40px; min-width: 980px; }
 .gantt-head, .gantt-row { display: grid; grid-template-columns: var(--label) minmax(0, 1fr); }
 .gantt-head { grid-template-columns: var(--label) repeat(5, minmax(0, 1fr)) minmax(0, .4fr) repeat(5, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 8px 8px 0 0; }
-.day { display: grid; place-items: center; height: 58px; color: #33363B; font-size: 17px; font-weight: 500; }
+.day { display: grid; place-items: center; height: calc(var(--head) - 2px); color: #33363B; font-size: 17px; font-weight: 500; }
 .day.after-gap { grid-column-start: 8; }
 .gantt-row { position: relative; z-index: 2; border: 1px solid var(--line); border-top: 0; min-height: 72px; }
 .gantt-row:last-child { border-radius: 0 0 8px 8px; }
@@ -61,8 +61,12 @@
 @media (max-width: 760px) {
   .next { position: absolute; left: 4px; top: 50%; display: grid; place-items: center; width: calc(100% / 10.4 * 3 - 8px); height: 34px; margin-top: -17px; border: 1px dashed #C7C9CC; border-radius: 7px; background: #FAFAFA; color: var(--muted); font-size: 13px; }
 }
-.today-line { position: absolute; top: -12px; bottom: 0; left: calc(var(--today) * 100%); z-index: 1; border-left: 2px solid #1C1C1C; }
-.today-line span { position: absolute; left: 0; top: -24px; transform: translateX(-50%); font-size: 14px; font-weight: 650; color: #1C1C1C; white-space: nowrap; }
+/* Today: its label and a tick above the header, then the line again under the header, so no day label is struck. */
+.today-line { --tick: 12px; position: absolute; top: calc(-1 * var(--tick)); bottom: 0; left: calc(var(--today) * 100%); z-index: 1; }
+.today-line::before, .today-line::after { content: ''; position: absolute; left: 0; border-left: 2px solid #1C1C1C; }
+.today-line::before { top: 0; height: var(--tick); }
+.today-line::after { top: calc(var(--tick) + var(--head)); bottom: 0; }
+.today-line span { position: absolute; left: 1px; top: -24px; transform: translateX(-50%); font-size: 14px; font-weight: 650; color: #1C1C1C; white-space: nowrap; }
 .ship-line { position: absolute; top: -36px; bottom: 0; right: 4px; z-index: 2; border-right: 2px solid var(--red); }
 .ship-line span { position: absolute; right: -8px; top: 0; padding: 5px 10px; border-radius: 4px; background: var(--red); color: #fff; font-size: 14px; font-weight: 700; white-space: nowrap; }
 .gantt-hint { display: none; }
@@ -113,14 +117,14 @@
   .ship-pill { margin-left: auto; padding: 6px 10px; border-radius: 6px; background: var(--red); color: #fff; font-size: 13px; font-weight: 700; white-space: nowrap; }
   .gantt-scroll { scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-mask-image: none; mask-image: none; }
   .gantt-scroll::-webkit-scrollbar { display: none; }
-  .gantt { --label: 0px; min-width: calc((100vw - 2 * var(--gutter)) / 3 * 10.4); padding-top: 22px; }
+  .gantt { --label: 0px; --head: 46px; min-width: calc((100vw - 2 * var(--gutter)) / 3 * 10.4); padding-top: 36px; }
   .gantt-head { grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, .4fr) repeat(5, minmax(0, 1fr)); border-radius: 0; border-left: 0; border-right: 0; }
   .gantt-head .corner { display: none; }
   .day.after-gap { grid-column-start: 7; }
-  .gantt-grid { top: 22px; }
-  .day { height: 44px; font-size: 14px; scroll-snap-align: start; }
+  .gantt-grid { top: 36px; }
+  .day { font-size: 14px; scroll-snap-align: start; }
   .gantt-row { display: block; min-height: 0; border-left: 0; border-right: 0; }
-  .centre { position: sticky; left: 0; display: block; width: max-content; max-width: calc(100vw - 2 * var(--gutter) - 24px); padding: 10px 12px 0; border: 0; background: transparent; }
+  .centre { position: sticky; left: 0; display: block; width: max-content; max-width: calc(100vw - 2 * var(--gutter) - 24px); padding: 10px 8px 2px 12px; border: 0; border-radius: 0 0 6px 0; background: var(--card); }
   .centre b { font-size: 14px; }
   .centre small { display: inline; margin-left: 6px; font-size: 13px; }
   .track { height: 50px; }
@@ -130,8 +134,8 @@
   .bar .full, .bar .short { font-size: 13px; }
   .ship-line { top: 0; }
   .ship-line span { display: none; }
-  .today-line { top: 0; }
-  .today-line span { top: 48px; left: 6px; transform: none; font-size: 13px; }
+  .today-line { --tick: 14px; }
+  .today-line span { top: -19px; font-size: 13px; }
   .gantt-hint { display: block; padding: 10px 12px 0; color: var(--soft); font-size: 13px; }
   .gantt-stats { grid-template-columns: 1fr; margin: 14px 12px 0; }
   .gantt-stats div { justify-content: space-between; padding: 12px 14px; }
