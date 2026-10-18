@@ -7,17 +7,17 @@ import { Chip } from '../controls'
 import { Icon } from '../icons'
 import { clock, dayName, qty, unitLabel, when, words } from '../format'
 import { addDays, daysBetween, fromDate, load, SHIFT, startOfDay, type Plan } from './plan'
+import { coveredBy, firstStart, stories } from '../supply'
 
 // A job is on time when it finishes by the end of the shift on its needed-by day, as the scheduler counts it.
 const due = (w: Rec) => { const d = fromDate(w.requiredBy); d.setHours(SHIFT.end); return d }
-const firstStart = (plan: Plan, id: string) => plan.ops.filter(o => o.workOrder.id === id).map(o => o.start).sort((a, b) => a.getTime() - b.getTime())[0]
 
 function Facts({ s, w, plan }: { s: LarderState; w: Rec; plan: Plan }) {
-  const short = (w.shortages ?? []).length > 0, item = byId(s, 'items', w.itemId), end = plan.finish.get(w.id)
+  const short = (w.shortages ?? []).length > 0, item = byId(s, 'items', w.itemId), end = plan.finish.get(w.id), until = short ? coveredBy(s, w, plan) : undefined
   const bom = w.bomRevision ?? rows(s, 'boms').find(b => b.itemId === w.itemId && b.status === 'active')?.revision
   return <dl className="metrics">
     <div><dt>Finishes</dt><dd className="num">{end ? <>{dayName(end)}<small>{clock(end)}</small></> : 'Not scheduled'}</dd></div>
-    <div><dt>Materials</dt><dd>{w.status === 'draft' ? 'Not released' : short ? <span className="red">Short</span> : 'Reserved'}</dd></div>
+    <div><dt>Materials</dt><dd>{w.status === 'draft' ? 'Not released' : short ? <><span className="red">Short</span>{until && <small>until {dayName(until)}</small>}</> : 'Reserved'}</dd></div>
     <div><dt>BOM</dt><dd>{bom ? `Rev ${bom}` : 'None yet'}{item && <small>{item.sku}</small>}</dd></div>
   </dl>
 }
@@ -68,10 +68,11 @@ function Recovery({ larder, proposal, plan, proposed, now }: { larder: Larder; p
     <article className="plan-option" data-plan="B">
       <h4><span className="radio" aria-hidden="true" /><span>Plan B</span> Keep as is</h4>
       <p>Keep the current sequence and priorities.</p>
-      <dl>{effects.map(e => <div key={e.w.id} className="pair" data-wo={e.w.reference} data-after={e.before?.toISOString() ?? ''}>
-        <div><dt>{e.w.reference} finishes</dt><dd className={e.was ? 'red num' : 'num'} title={stamp(e.before)}>{e.before ? dayName(e.before) : '—'}</dd></div>
-        <div><dt>Needed by</dt><dd className="num">{dayName(e.by)}{e.was ? <strong className="red"> · {e.was} {e.was === 1 ? 'day' : 'days'} late</strong> : ' · on time'}</dd></div>
-      </div>)}</dl>
+      <dl className="keep"><div className="pair-head" aria-hidden="true"><span>Finishes</span><span>Needed by</span></div>
+        {effects.map(e => <div key={e.w.id} className="pair" data-wo={e.w.reference} data-after={e.before?.toISOString() ?? ''}>
+          <div><dt>{e.w.reference}<span className="sr-only"> finishes</span></dt><dd className={e.was ? 'red num' : 'num'} title={stamp(e.before)}>{e.before ? dayName(e.before) : '—'}</dd></div>
+          <div><dt className="sr-only">Needed by</dt><dd className="num">{dayName(e.by)}{e.was ? <strong className="red"> · {e.was} {e.was === 1 ? 'day' : 'days'} late</strong> : ' · on time'}</dd></div>
+        </div>)}</dl>
     </article>
     <div className="plan-actions">
       <a className="button" href={`#make/wo/${changed[0]?.w.id ?? ''}`}>Edit…</a>
@@ -97,6 +98,7 @@ export function JobPanel({ larder, w, plan, proposed, proposal, now }: { larder:
     <p className="job-item">{item?.name ?? 'Removed item'}</p>
     <p className="job-meta"><span className="num">{qty(w.quantity)} {unitLabel(item?.baseUnit)}</span><b aria-hidden="true">•</b><span>needed {dayName(fromDate(w.requiredBy))}</span><b aria-hidden="true">•</b><span>{words(w.status)}</span></p>
     <Facts s={s} w={w} plan={plan} />
+    {w.status === 'released' && (w.shortages ?? []).length > 0 && <p className="job-short">Short: {stories(s, w, plan).join('; ')}.</p>}
     {involved ? <Recovery larder={larder} proposal={proposal!} plan={plan} proposed={proposed!} now={now} /> : <Operations plan={plan} w={w} />}
   </aside>
 }

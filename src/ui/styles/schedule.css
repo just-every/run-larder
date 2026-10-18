@@ -45,9 +45,9 @@
 .g-row > .g-load { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; padding: 0 4px; background: var(--card); border-right: 1px solid var(--rule); }
 .g-row > .g-load strong { font-size: 17px; font-weight: 700; }
 .g-row > .g-load small { color: var(--soft); font-size: 11.5px; white-space: nowrap; }
-.g-lane { position: relative; min-height: 84px; }
+.g-lane { position: relative; min-height: 68px; }
 
-.bar { position: absolute; z-index: 2; top: 8px; height: 56px; display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 3px 6px 3px 11px; overflow: hidden; background: var(--card); border: 1px solid #D5D9DE; border-radius: 3px; box-shadow: 0 2px 3px rgba(20, 20, 20, .07); color: var(--ink); font: inherit; font-size: 12.5px; line-height: 1.25; text-align: left; cursor: pointer; }
+.bar { position: absolute; z-index: 2; top: 6px; height: 52px; display: flex; flex-direction: column; justify-content: center; gap: 0; padding: 2px 6px 2px 11px; overflow: hidden; background: var(--card); border: 1px solid #D5D9DE; border-radius: 3px; box-shadow: 0 2px 3px rgba(20, 20, 20, .07); color: var(--ink); font: inherit; font-size: 12.5px; line-height: 1.22; text-align: left; cursor: pointer; }
 .bar::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--rail); }
 .bar > * { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bar strong { font-size: 13px; font-weight: 700; }
@@ -58,15 +58,26 @@
 .bar.draft::before { background: var(--field); }
 .bar.exception { padding-left: 20px; background: #FFF7F6; border-color: color-mix(in srgb, var(--red) 45%, transparent); }
 .bar.exception::before { width: 12px; background: repeating-linear-gradient(135deg, var(--red) 0 2px, #FFFFFF 2px 4.5px); border-right: 1px solid var(--red); }
-.bar.ghost { height: 46px; padding-inline: 6px; background: rgba(255, 255, 255, .72); border: 1px dashed #8E9197; box-shadow: none; }
+.bar.ghost { padding-inline: 6px; background: rgba(255, 255, 255, .72); border: 1px dashed #8E9197; box-shadow: none; }
+/* In a ghost lane under the steps a ghost reads on one line. */
+.bar.ghost.oneline { height: 28px; flex-direction: row; align-items: center; justify-content: flex-start; gap: 5px; padding-block: 0; }
 .bar.ghost::before { content: none; }
+.bar.ghost.oneline strong { flex: none; }
 .bar.moving { opacity: .62; }
+/* A step that runs on past the weekend or the view ends square at its last shift, with an arrow and the day it
+   continues on; the part after resumes square. */
+.bar.continues { padding-right: 16px; border-top-right-radius: 0; border-bottom-right-radius: 0; border-right: 2px solid var(--muted); }
+.bar.continues::after { content: ''; position: absolute; right: 5px; top: 50%; width: 6px; height: 6px; border-top: 1.5px solid var(--muted); border-right: 1.5px solid var(--muted); transform: translateY(-50%) rotate(45deg); }
+.bar.resumes { border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.bar .cont { color: var(--muted); font-size: 12px; font-weight: 600; }
 .bar.moving strong { text-decoration: line-through; }
 .bar.selected { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
 /* A bar too short for its label carries it beside it, in the free time on its row. */
 .bar.narrow { padding: 0; overflow: visible; }
+.bar.narrow.continues::after { right: 1px; width: 4px; height: 4px; }
 .bar.narrow.exception::before { width: auto; right: 0; border-right: 0; }
-.bar.narrow > .tag { position: absolute; top: -1px; bottom: -1px; display: flex; flex-direction: column; justify-content: center; gap: 1px; padding: 0 6px; background: rgba(255, 255, 255, .94); border-radius: 3px; }
+.bar.narrow > .tag { position: absolute; top: -1px; bottom: -1px; display: flex; flex-direction: column; justify-content: center; gap: 0; padding: 0 6px; background: rgba(255, 255, 255, .94); border-radius: 3px; }
+.bar.ghost.oneline.narrow > .tag { flex-direction: row; align-items: center; gap: 5px; }
 .bar.narrow > .tag.right { left: calc(100% + 6px); }
 .bar.narrow > .tag.left { right: calc(100% + 6px); text-align: right; }
 .tag > * { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -100,6 +111,7 @@
 .metrics dt { color: var(--muted); font-size: 12px; }
 .metrics dd { margin: 2px 0 0; font-size: 14px; font-weight: 600; }
 .metrics dd small { display: block; color: var(--muted); font-size: 12px; font-weight: 400; }
+.job-short { margin: 10px 0 0; padding: 8px 10px; background: #FFF7F6; border-left: 3px solid var(--red); font-size: 13px; }
 .recovery-options h3, .operations h3 { margin: 14px 0 8px; font-size: 17px; font-weight: 700; }
 .plan-option { margin-bottom: 10px; padding: 12px; border: 1px solid var(--rule); border-radius: var(--radius); }
 .plan-option.chosen { background: #F6FAEF; border-color: #789D37; }
@@ -110,12 +122,17 @@
 .plan-option > p { margin: 4px 0 8px 32px; color: #4A4E55; font-size: 13.5px; }
 .plan-option > p small { display: block; margin-top: 2px; color: var(--muted); font-size: 12.5px; }
 .plan-option > p.byline { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
-.plan-option dl { display: grid; gap: 6px; margin: 0; padding-top: 8px; border-top: 1px solid rgba(20, 20, 20, .08); font-size: 13px; }
+.plan-option dl { display: grid; gap: 5px; margin: 0; padding-top: 8px; border-top: 1px solid rgba(20, 20, 20, .08); font-size: 13px; }
 .plan-option dl > div { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: baseline; }
 .plan-option dl > div > dd { white-space: nowrap; text-align: right; }
 .plan-option dl > div.pair { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
 .plan-option dl > div.pair > div { display: grid; gap: 1px; }
 .plan-option dl > div.pair dd { white-space: normal; text-align: left; }
+/* Plan B: one line per job under one column head. */
+.plan-option dl.keep { gap: 4px; font-size: 12.5px; }
+.plan-option dl.keep .pair-head { display: grid; color: var(--soft); font-size: 12px; }
+.plan-option dl.keep .pair-head, .plan-option dl.keep > div.pair { grid-template-columns: 136px minmax(0, 1fr); gap: 6px; }
+.plan-option dl.keep > div.pair > div { display: flex; flex-wrap: wrap; gap: 0 6px; align-items: baseline; }
 .plan-option dt { color: var(--muted); }
 .plan-option dd { margin: 0; }
 /* Each job whose finish the plan changes: the job and its needed-by day, the finish before and after, the verdict. */

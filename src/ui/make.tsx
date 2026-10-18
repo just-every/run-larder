@@ -1,7 +1,9 @@
 import { byId, can, itemName, locationName, partyName, personName, rows, sku, unitOf, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
 import { Card, Chip, Choose, Empty, Field, Form, Lines, Table, options, readLines, text } from './controls'
-import { day, minus, money, positive, qty, when, words } from './format'
+import { day, dayName, minus, money, positive, qty, when, words } from './format'
+import { covers, firstStart, stories, timing } from './supply'
+import { schedule } from './schedule/plan'
 
 const tabs = [{ id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }]
 
@@ -18,11 +20,18 @@ export function MakeBuy({ larder, section = 'plan', id }: { larder: Larder; sect
 }
 
 function Shortages({ larder }: { larder: Larder }) {
-  const s = larder.state!
-  return <Card title="What is short, and why">{s.shortages.length === 0 ? <Empty>Confirmed orders and released work are covered by stock and open supply.</Empty> :
+  const s = larder.state!, plan = schedule(s, new Date())
+  // Released work still missing materials that open supply covers: what each waits on, against when it starts.
+  const waiting = rows(s, 'workOrders').filter(w => w.status === 'released').flatMap(w => covers(s, w, plan).map(c => ({ w, c, start: firstStart(plan, w.id) })))
+  return <><Card title="What is short, and why">{s.shortages.length === 0 ? <Empty>{waiting.length ? 'Open supply covers every confirmed order and released job. Some of it arrives after the work starts; see below.' : 'Confirmed orders and released work are covered by stock and open supply.'}</Empty> :
     <Table head={['Item', 'Short', 'Needed by', 'Because', '']} numeric={[1]}>{s.shortages.map((x: any) => <tr key={x.itemId}><td><strong>{itemName(s, x.itemId)}</strong><small>{words(x.kind === 'make' ? 'made' : 'bought')} · {qty(x.available)} free, {qty(x.expected)} expected</small></td><td className="num"><span className="short bad">{qty(x.shortage)}</span></td><td>{day(x.requiredBy)}</td><td>{x.reasons.map((r: any) => `${r.reference} needs ${qty(r.quantity)} by ${day(r.date)}`).join('; ')}</td>
       <td>{can(s, ['manager', 'buyer', 'production', 'agent']) && <button className="button" disabled={larder.busy} onClick={async () => { const r = await larder.run('plan.draft', { itemId: x.itemId }); if (r) window.location.hash = `make/${x.kind === 'make' ? 'wo' : 'po'}/${r.id}` }}>{x.kind === 'make' ? 'Draft work order' : x.supplierId ? `Draft PO to ${partyName(s, x.supplierId)}` : 'Draft purchase order'}</button>}</td></tr>)}</Table>}
   </Card>
+  {waiting.length > 0 && <Card title="Released work waiting on supply">
+    <Table head={['Work order', 'Material', 'Short', 'Waits on', 'Job starts']} numeric={[2]}>{waiting.map(({ w, c, start }) => <tr key={`${w.id}:${c.itemId}`}>
+      <td><a href={`#make/wo/${w.id}`}>{w.reference}</a></td><td>{itemName(s, c.itemId)}</td><td className="num"><span className="short bad">{qty(c.short)}</span></td>
+      <td className={c.arrives && start && c.arrives > start ? 'warn-text' : undefined}>{timing(c, start)}</td><td>{start ? dayName(start) : 'Not scheduled'}</td></tr>)}</Table>
+  </Card>}</>
 }
 
 const poTone = (status: string) => status === 'draft' ? 'warn' : status === 'received' ? 'good' : 'info'
@@ -80,7 +89,7 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
       {w.routing.length > 0 && <ol className="routing">{w.routing.map((r: any) => <li key={r.sequence}>{r.name}{r.workCentre && ` · ${r.workCentre}`} · {r.minutes} min each</li>)}</ol>}
       <p>Output {qty(w.output)} · scrap {qty(w.scrap)} · standard cost {money(w.standardUnitCost)} each</p>
       {w.cost && <p>Materials used {money(w.cost.materials)} · variance {money(w.cost.variance)} · actual {money(w.cost.actualUnitCost)} each</p>}
-      {(w.shortages ?? []).length > 0 && <p className="warn-text">Short: {w.shortages.map((x: any) => `${qty(x.short)} ${itemName(s, x.itemId)}`).join(', ')}. <button className="link" onClick={() => run('wo.reserve', { workOrderId: w.id })}>Try reserving again</button></p>}
+      {(w.shortages ?? []).length > 0 && <p className="warn-text">Short: {stories(s, w, schedule(s, new Date())).join('; ')}. <button className="link" onClick={() => run('wo.reserve', { workOrderId: w.id })}>Try reserving again</button></p>}
     </Card>
     {w.status === 'released' && <Card title="Record the work">
       {can(s, ['manager', 'production', 'warehouse']) && <Form title="Issue materials" submit="Issue" busy={busy} onSubmit={d => run('wo.issue', { workOrderId: w.id, lines: w.components.map((l: any) => ({ itemId: l.itemId, locationId: text(d, 'locationId'), quantity: text(d, `q.${l.id}`) })).filter((l: any) => l.quantity && positive(l.quantity)) })}>

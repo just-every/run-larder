@@ -3,6 +3,8 @@ import type { Larder } from './app'
 import { Card, Chip, Details, Empty, Field, Form, text } from './controls'
 import { Icon } from './icons'
 import { day, money, qty, words } from './format'
+import { stories } from './supply'
+import { schedule } from './schedule/plan'
 
 function Checklist({ s }: { s: LarderState }) {
   const steps = [
@@ -35,7 +37,12 @@ export function Today({ larder }: { larder: Larder }) {
   const proposals = rows(s, 'proposals').filter(p => p.status === 'awaiting approval')
   const drafts = rows(s, 'purchaseOrders').filter(p => p.status === 'draft'), counts = rows(s, 'counts').filter(c => c.status === 'awaiting approval')
   const approve = can(s, ['manager', 'sales', 'buyer', 'production', 'accounts'])
-  const others = s.exceptions.filter((x: any) => !['proposal', 'approval'].includes(x.kind))
+  // A released job missing materials reads what it waits on and when, as the Shortages page and the Schedule do.
+  const plan = schedule(s, new Date())
+  const others = s.exceptions.filter((x: any) => !['proposal', 'approval'].includes(x.kind)).map((x: any) => {
+    const w = x.view === 'make' && x.kind === 'shortage' ? rows(s, 'workOrders').find(r => r.id === x.id) : undefined
+    return w ? { ...x, detail: stories(s, w, plan).join('; ') } : x
+  })
   const waiting = proposals.length + drafts.length + counts.length
   return <div className="page today">
     <header className="page-head"><p className="eyebrow">Today</p><h1>What needs attention</h1></header>

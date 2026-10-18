@@ -9,7 +9,8 @@ import { Icon } from '../icons'
 import { clock, dayName } from '../format'
 import { Agenda, Gantt } from './gantt'
 import { JobPanel, Worklog } from './panel'
-import { addDays, schedule, SHIFT, startOfDay } from './plan'
+import { addDays, openWork, schedule, SHIFT, startOfDay } from './plan'
+import { coveredBy } from '../supply'
 
 export function Schedule({ larder, mode }: { larder: Larder; mode: Mode }) {
   const s = larder.state!, now = new Date()
@@ -21,6 +22,7 @@ export function Schedule({ larder, mode }: { larder: Larder; mode: Mode }) {
   const proposed = proposal ? schedule(s, now, changes) : undefined
   const ghosts = proposed ? proposed.ops.filter(o => o.workOrder.id in changes) : []
   const moving = new Set(Object.keys(changes))
+  const due = new Map(openWork(s).flatMap(w => { const d = coveredBy(s, w, plan); return d ? [[w.id, d] as const] : [] }))
   const fallback = Object.keys(changes)[0] ?? (plan.ops.find(o => o.late || o.short) ?? plan.ops[0])?.workOrder.id
   const selected = plan.ops.some(o => o.workOrder.id === picked) ? picked : fallback
   const job = plan.ops.find(o => o.workOrder.id === selected)?.workOrder
@@ -41,8 +43,8 @@ export function Schedule({ larder, mode }: { larder: Larder; mode: Mode }) {
     </Card> : <div className={`schedule-grid ${job && job.id in changes ? 'deciding' : ''}`}>
       <div className="schedule-main">
         {!inSpan && <p className="schedule-quiet" role="status"><strong>Nothing planned {mode === 'week' ? `${dayName(from)} – ${dayName(last)}` : `on ${dayName(from)}`}.</strong> {plan.ops.length === 0 ? 'No work order is open.' : next ? `The next step starts ${dayName(next.start)}.` : ''} <a href="#make/wo">Work orders</a></p>}
-        <Gantt plan={plan} ghosts={ghosts} moving={moving} from={from} mode={mode} now={now} selected={selected} onSelect={setPicked} />
-        <Agenda plan={plan} ghosts={ghosts} from={from} mode={mode} selected={selected} onSelect={setPicked} />
+        <Gantt plan={plan} ghosts={ghosts} moving={moving} due={due} from={from} mode={mode} now={now} selected={selected} onSelect={setPicked} />
+        <Agenda plan={plan} ghosts={ghosts} due={due} from={from} mode={mode} selected={selected} onSelect={setPicked} />
         <p className="schedule-note">Each work center runs one weekday shift, {hours(SHIFT.start)} to {hours(SHIFT.end)}; steps run in priority order, one job at a time.</p>
       </div>
       <div className="schedule-side">

@@ -16,7 +16,7 @@ export type Plan = { ops: Op[]; centers: string[]; finish: Map<string, Date> }
 export const weekend = (d: Date) => d.getDay() === 0 || d.getDay() === 6
 export const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
 export const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, d.getHours(), d.getMinutes())
-const at = (d: Date, hour: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour)
+export const at = (d: Date, hour: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), hour)
 export const fromDate = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d) }
 const quantityOf = (v: unknown) => Number(String(v ?? '0')) || 0
 
