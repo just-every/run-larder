@@ -7,7 +7,7 @@
   --rule: var(--rer-rule); --field: #D2D2D2; --red: var(--rer-accent); --red-ink: #C4261D; --red-wash: var(--rer-red-wash);
   --lime: #C9E84A; --lime-ink: #3F5600; --green: #E8F3E6; --green-ink: #2F7A3A; --amber: #FDF1D8; --amber-ink: #8A5A00;
   --tint: #F0F1F3; --rail: #2D2D2D; --rail-line: #474747; --rail-ink: #ECECEC; --rail-muted: #A4A7AC;
-  --rail-w: 176px; --top-h: 64px; --radius: 8px;
+  --rail-w: 170px; --top-h: 70px; --radius: 8px;
   --shadow: 0 1px 2px rgba(20, 20, 20, .05), 0 8px 24px -16px rgba(20, 20, 20, .18);
   color: var(--ink); font: 400 15px/1.45 var(--rer-font-body); -webkit-font-smoothing: antialiased;
 }

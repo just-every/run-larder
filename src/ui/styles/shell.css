@@ -9,7 +9,7 @@ body:has(.larder) { padding: 0; }
 
 /* Top bar, with the ruled time ticks of the blueprint along its foot. */
 .topbar {
-  grid-column: 1 / -1; position: relative; display: flex; align-items: center; gap: 22px; min-width: 0; padding: 0 22px 0 0;
+  grid-column: 1 / -1; position: relative; display: flex; align-items: center; gap: 22px; min-width: 0; padding: 0 20px 0 0;
   background: var(--rail); color: var(--rail-ink); border-bottom: 1px solid var(--rail-line);
 }
 .topbar::after { content: ''; position: absolute; left: var(--rail-w); right: 0; bottom: 0; height: 5px; pointer-events: none;
@@ -53,7 +53,7 @@ body:has(.larder) { padding: 0; }
 /* Rail: labelled destinations, the current one in signal red, the workshop drawing at its foot. */
 .rail { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; height: calc(100vh - var(--top-h)); min-height: 560px; overflow: hidden; color: var(--rail-ink); background: var(--rail); }
 .rail ul { position: relative; z-index: 1; display: flex; flex-direction: column; margin: 0; padding: 30px 0 0; list-style: none; }
-.rail a { display: flex; align-items: center; gap: 15px; min-height: 50px; padding: 10px 18px 10px 20px; font-size: 16px; font-weight: 500; text-decoration: none; }
+.rail a { display: flex; align-items: center; gap: 15px; min-height: 52px; padding: 10px 18px 10px 20px; font-size: 16px; font-weight: 500; text-decoration: none; }
 .larder .rail a { color: var(--rail-ink); }
 .rail a .icon { width: 22px; height: 22px; stroke-width: 1.5; }
 .rail a:hover { background: #383838; }
@@ -63,13 +63,13 @@ body:has(.larder) { padding: 0; }
 
 /* The planner strip and the work surface. */
 .workspace { min-width: 0; }
-.planner { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 8px 22px; background: #ECEEF0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: 14px; }
+.planner { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 18px; background: #ECEEF0; border-bottom: 1px solid var(--rule); color: var(--muted); font-size: 14px; }
 .planner > .icon { width: 20px; height: 20px; color: #5C6570; }
 .planner strong { flex: none; color: var(--ink); font-size: 15px; font-weight: 700; }
 .planner p { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .planner a { display: inline-flex; align-items: center; gap: 8px; flex: none; margin-left: auto; font-weight: 500; text-decoration: none; }
 .planner a .icon { width: 18px; height: 18px; }
-.main { padding: 20px 22px 56px; min-width: 0; }
+.main { padding: 18px 18px 40px; min-width: 0; }
 
 @media (max-width: 1360px) {
   .topbar { gap: 16px; } .sync .since { display: none; } .search { flex-basis: 260px; }
