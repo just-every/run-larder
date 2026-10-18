@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { byId, can, itemName, locationName, partyName, rows, sku, unitOf, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
 import { Card, Chip, Choose, Empty, Field, Form, Lines, Table, options, readLines, text } from './controls'
-import { day, isZero, minus, money, perUnit, plus, positive, qty, timesMoney, unitLabel, words } from './format'
+import { day, isZero, minus, money, negative, perUnit, plus, positive, qty, timesMoney, unitLabel, words } from './format'
 import { NeedsList } from './needs'
 
 const reservedFor = (s: LarderState, orderId: string, lineId: string) => plus(...rows(s, 'reservations').filter(r => r.demandId === orderId && r.lineId === lineId).map(r => r.quantity))
@@ -45,7 +45,7 @@ function Availability({ s, itemId, larder, order }: { s: LarderState; itemId: st
       {!isZero(a?.quarantine) && <div><dt>In quarantine</dt><dd>{qty(a?.quarantine)}</dd></div>}
       <div><dt>Expected from purchase<small>{pos.map(p => `${p.reference} · due ${day(p.expectedDate)}`).join(', ') || 'None open'}</small></dt><dd>{qty(a?.expectedPurchase)}</dd></div>
       <div><dt>Expected from work orders<small>{wos.map(w => `${w.reference} · BOM rev ${w.bomRevision}`).join(', ') || 'None released'}</small></dt><dd>{qty(a?.expectedProduction)}</dd></div>
-      <div className="atp"><dt>Available to promise</dt><dd>{qty(a?.availableToPromise)}</dd></div>
+      <div className="atp"><dt>Available to promise</dt><dd className={negative(a?.availableToPromise) ? 'red' : ''}>{qty(a?.availableToPromise)}</dd></div>
     </dl>
     {open && <div className="stack">
       {can(s, ['manager', 'sales', 'warehouse']) && <button className="button primary" disabled={larder.busy} onClick={() => larder.run('so.reserve', { orderId: order.id })}>Reserve stock</button>}

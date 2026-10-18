@@ -1,7 +1,7 @@
 // The app's frame from the owner's pick: a charcoal top bar and labelled rail with the workshop's white line
 // drawing, and the planner strip that says what agents have prepared for a person to approve.
 import { useEffect, useState } from 'react'
-import { personName, rows } from './api'
+import { personName, rows, type Rec } from './api'
 import { destinations, type Larder } from './app'
 import { Icon } from './icons'
 import { Search } from './search'
@@ -42,6 +42,9 @@ export function Rail({ larder, view }: { larder: Larder; view: string }) {
   </nav>
 }
 
+// A proposal's subject in a few words; its full summary is in the panel and the strip's tooltip.
+const subject = (p: Rec) => p.kind === 'reschedule' ? `reschedule ${(p.context?.before ?? []).map((b: Rec) => b.reference).join(', ')}` : String(p.kind).replaceAll('-', ' ')
+
 // Agents prepare; people approve. The strip names what is waiting, never acts on its own.
 export function PlannerStrip({ larder }: { larder: Larder }) {
   const s = larder.state
@@ -50,7 +53,7 @@ export function PlannerStrip({ larder }: { larder: Larder }) {
   const latest = [...waiting].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0]
   return <aside className="planner" aria-label="Larder planner">
     <Icon name="info" /><strong>Larder planner</strong>
-    <p title={latest?.summary}>{latest ? <>Prepared at {clock(new Date(latest.createdAt))} by {personName(s, latest.preparedBy)}; {waiting.length} {waiting.length === 1 ? 'plan' : 'plans'} awaiting your approval: {latest.summary}</> : 'No plans are waiting. Agents prepare drafts and proposals; a person approves them.'}</p>
+    <p title={latest?.summary}>{latest ? <>{waiting.length} {waiting.length === 1 ? 'plan' : 'plans'} awaiting your approval: {subject(latest)}. Prepared {clock(new Date(latest.createdAt))} by {personName(s, latest.preparedBy)}.</> : 'No plans are waiting. Agents prepare drafts and proposals; a person approves them.'}</p>
     <a href="#more/activity">View worklog <Icon name="arrow" /></a>
   </aside>
 }

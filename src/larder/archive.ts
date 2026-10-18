@@ -21,7 +21,7 @@ export async function archive(env: Bindings, actor: Actor) {
     env.DB.prepare('SELECT id,display_name AS name FROM oa_operators ORDER BY id'),
   ])
   const content = {
-    format: FORMAT, version: s.version, currency: 'AUD', precision: 6,
+    format: FORMAT, version: s.version, currency: 'USD', precision: 6,
     records: Object.fromEntries(collections.map(k => [k, s[k]])),
     movements: s.movements.map(m => ({ ...m, quantity: m.quantity.toString(), unitCost: m.unitCost.toString() })),
     reservations: s.reservations.map(r => ({ ...r, quantity: r.quantity.toString() })),

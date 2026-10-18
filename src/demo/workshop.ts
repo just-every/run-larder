@@ -96,13 +96,14 @@ export function workshop(ownerId: string, now: Date) {
   const shipment = run('shipment.pick', { orderId: butterOrder.id, lines: [{ lineId: butterOrder.lines[0].id, locationId: goods.id, quantity: '36' }] }, -2)
   run('shipment.pack', { shipmentId: shipment.id, version: shipment.version, packages: 1, weightKg: '4.1' }, -2)
   run('shipment.ship', { shipmentId: shipment.id, version: shipment.version, carrier: 'UPS Ground', tracking: '1Z4F7W930312845117' }, -2)
+  const initials = (name: string) => name.split(/\s+/).map(w => w[0]).join('').toUpperCase()
   const purchase = (supplier: Row, part: Row, quantity: string, price: string, due: number, approved = true) => {
     const po = run('po.draft', { supplierId: supplier.id, expectedDate: day(due), requiredBy: day(due + 1), reason: 'Replenish stock for confirmed orders', lines: [{ itemId: part.id, quantity, unitPrice: price }] }, -3)
-    if (approved) { run('po.approve', { poId: po.id, version: po.version, note: 'Within the weekly materials budget' }, -3); run('po.confirm', { poId: po.id, version: po.version, supplierReference: `CH-${po.reference.slice(3)}`, confirmedDate: day(due) }, -3) }
+    if (approved) { run('po.approve', { poId: po.id, version: po.version, note: 'Within the weekly materials budget' }, -3); run('po.confirm', { poId: po.id, version: po.version, supplierReference: `${initials(supplier.name)}-${po.reference.slice(3)}`, confirmedDate: day(due) }, -3) }
     return po
   }
   const walnutPo = purchase(hardwoods, walnut, '200', '11.6', -1)
-  run('receipt.create', { poId: walnutPo.id, supplierReference: 'DEL-1412', lines: [{ lineId: walnutPo.lines[0].id, locationId: rack.id, quantity: '100', lot: 'CH-1412', inspection: 'quarantine' }] }, -1)
+  run('receipt.create', { poId: walnutPo.id, supplierReference: 'PS-1412', lines: [{ lineId: walnutPo.lines[0].id, locationId: rack.id, quantity: '100', lot: 'CH-1412', inspection: 'quarantine' }] }, -1)
   const maplePo = purchase(hardwoods, maple, '200', '7.4', 3)
   purchase(apiary, wax, '60', '9.2', 4)
   purchase(boxes, box, '400', '2.1', 6, false)
@@ -122,7 +123,7 @@ export function workshop(ownerId: string, now: Date) {
   run('po.revise', { poId: maplePo.id, version: maplePo.version, expectedDate: day(2), note: 'Earlier delivery confirmed by Carolina Hardwoods' }, 0)
   run('transfer.create', { itemId: walnut.id, fromLocationId: rack.id, toLocationId: floor.id, quantity: '40', reason: 'Stage blanks for the router' }, 0)
   // The planner's proposal: run the Saltbox boards first. A person approves it or keeps the current plan.
-  run('proposal.prepare', { kind: 'reschedule', summary: 'Run WO-0004 for Saltbox Kitchen Co ahead of WO-0001 on CNC Router 1', assumptions: 'WO-0001 is not needed until later in the week.',
+  run('proposal.prepare', { kind: 'reschedule', summary: 'Run WO-0004 for Saltbox Kitchen Co ahead of WO-0001 on CNC Router 1', assumptions: 'WO-0001 is not needed until next week.',
     evidence: ['WO-0004 priority 0, planned behind WO-0001 on CNC Router 1', 'Saltbox Kitchen Co order promised for later this week'], plan: { changes: [{ workOrderId: saltboxWork.id, plannedStart: day(0), priority: 3 }], conflicts: ['WO-0001 starts its rough cut later'] } }, 0)
   c.actor = owner
   return Object.assign(c, { team, commands })

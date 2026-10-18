@@ -8,6 +8,7 @@ import { Icon } from '../icons'
 import { clock, dayName, qty, unitLabel, when, words } from '../format'
 import { addDays, daysBetween, fromDate, load, SHIFT, startOfDay, type Plan } from './plan'
 
+// A job is on time when it finishes by the end of the shift on its needed-by day, as the scheduler counts it.
 const due = (w: Rec) => { const d = fromDate(w.requiredBy); d.setHours(SHIFT.end); return d }
 const firstStart = (plan: Plan, id: string) => plan.ops.filter(o => o.workOrder.id === id).map(o => o.start).sort((a, b) => a.getTime() - b.getTime())[0]
 
@@ -21,33 +22,56 @@ function Facts({ s, w, plan }: { s: LarderState; w: Rec; plan: Plan }) {
   </dl>
 }
 
+// Every job whose finish the proposal changes, moved or pushed: its finish now and under the proposal, against
+// its needed-by date. Both plans are the scheduler's own layout of the same records.
+function consequences(s: LarderState, plan: Plan, proposed: Plan, moved: Set<string>) {
+  const ids = [...new Set([...plan.finish.keys(), ...proposed.finish.keys()])]
+  return ids.map(id => {
+    const w = byId(s, 'workOrders', id)!, before = plan.finish.get(id), after = proposed.finish.get(id), by = due(w)
+    const lateBy = (end?: Date) => end && end > by ? Math.max(1, daysBetween(by, end)) : 0
+    return { w, before, after, by, was: lateBy(before), will: lateBy(after) }
+  }).filter(x => moved.has(x.w.id) || x.before?.getTime() !== x.after?.getTime())
+    .sort((a, b) => Number(moved.has(b.w.id)) - Number(moved.has(a.w.id)) || a.w.reference.localeCompare(b.w.reference))
+}
+const daysLate = (n: number) => `late, ${n} ${n === 1 ? 'day' : 'days'}`
+const stamp = (d?: Date) => d ? `${dayName(d)} ${clock(d)}` : 'Not scheduled'
+
 function Recovery({ larder, proposal, plan, proposed, now }: { larder: Larder; proposal: Rec; plan: Plan; proposed: Plan; now: Date }) {
   const s = larder.state!, busy = larder.busy
   const changed = proposal.plan.changes.map((ch: any) => ({ ch, w: byId(s, 'workOrders', ch.workOrderId) })).filter((x: any) => x.w)
   const from = startOfDay(now), to = addDays(from, 7)
-  const centers = [...new Set(proposed.ops.filter(o => changed.some((x: any) => x.w.id === o.workOrder.id)).map(o => o.workCenter))]
-    .map(c => ({ c, before: load(plan, c, from, to).percent, after: load(proposed, c, from, to).percent })).filter(x => x.before !== x.after)
+  const centers = plan.centers.map(c => ({ c, before: load(plan, c, from, to).percent, after: load(proposed, c, from, to).percent })).filter(x => x.before !== x.after)
+  const effects = consequences(s, plan, proposed, new Set(changed.map((x: any) => x.w.id)))
+  const turnsLate = effects.filter(e => e.will && !e.was), recovers = effects.filter(e => e.was && !e.will)
   const approve = can(s, ['manager', 'production']) && s.actor.role !== 'agent' && (proposal.preparedBy !== s.actor.id || s.actor.role === 'owner')
   return <section className="recovery-options" aria-label="Recovery options">
     <h3>Recovery options</h3>
-    <article className="plan-option chosen">
+    <article className="plan-option chosen" data-plan="A">
       <h4><Icon name="check" /><span>Plan A</span> Planner's resequence</h4>
-      <p>{proposal.summary}{proposal.assumptions && <small> {proposal.assumptions}</small>}</p>
+      <p>{proposal.summary}{proposal.assumptions && <small> Planner's assumption: {proposal.assumptions}</small>}</p>
       <dl>
         {changed.map(({ w }: any) => { const a = firstStart(plan, w.id), b = firstStart(proposed, w.id); return <div key={`start:${w.id}`}><dt>{w.reference} starts</dt><dd className="num">{a ? dayName(a) : '—'} → {b ? dayName(b) : '—'}</dd><dd /></div> })}
         {centers.map(x => <div key={`load:${x.c}`}><dt>{x.c} load</dt><dd className="num">{x.before}% → {x.after}%</dd><dd /></div>)}
-        {changed.map(({ w }: any) => { const end = proposed.finish.get(w.id), ok = !!end && end <= due(w); return <div key={`end:${w.id}`}><dt>{w.reference} finishes</dt><dd className="num">{end ? dayName(end) : '—'}</dd><dd className={ok ? 'still-on' : 'red'}>{ok ? '(still on)' : '(late)'}</dd></div> })}
       </dl>
+      <dl className="finishes">{effects.map(e => <div key={`end:${e.w.id}`} className="finish" data-wo={e.w.reference} data-before={e.before?.toISOString() ?? ''} data-after={e.after?.toISOString() ?? ''}>
+        <dt>{e.w.reference} finishes<small>needed {dayName(e.by)}</small></dt>
+        <dd className="num" title={`${stamp(e.before)} → ${stamp(e.after)}`}>{e.before ? dayName(e.before) : '—'} → <span className={e.will ? 'red' : ''}>{e.after ? dayName(e.after) : '—'}</span></dd>
+        <dd className={e.will ? 'red' : 'still-on'}>{e.will ? `(${daysLate(e.will)})` : '(still on)'}</dd>
+      </div>)}</dl>
+      {(turnsLate.length > 0 || recovers.length > 0) && <p className={`verdict ${turnsLate.length ? 'cost' : ''}`}>
+        {recovers.length > 0 && <>Brings {recovers.map(e => e.w.reference).join(' and ')} back on time. </>}
+        {turnsLate.length > 0 && <strong>Makes {turnsLate.map(e => `${e.w.reference} late (needed ${dayName(e.by)})`).join(' and ')}.</strong>}
+      </p>}
       {approve && <button type="button" className="button primary wide" disabled={busy} onClick={() => larder.run('proposal.approve', { proposalId: proposal.id, version: proposal.version })}>Approve plan A</button>}
       <p className="byline">Prepared by {personName(s, proposal.preparedBy)}, {when(proposal.createdAt)}</p>
     </article>
-    <article className="plan-option">
+    <article className="plan-option" data-plan="B">
       <h4><span className="radio" aria-hidden="true" /><span>Plan B</span> Keep as is</h4>
       <p>Keep the current sequence and priorities.</p>
-      <dl>{changed.map(({ w }: any) => { const end = plan.finish.get(w.id), slip = end && end > due(w) ? daysBetween(due(w), end) : 0; return <div key={w.id} className="pair">
-        <div><dt>{w.reference} finishes</dt><dd className={slip ? 'red num' : 'num'}>{end ? dayName(end) : '—'}</dd></div>
-        <div><dt>Needed by</dt><dd className="num">{dayName(fromDate(w.requiredBy))}{slip ? <strong className="red"> · {slip} {slip === 1 ? 'day' : 'days'} late</strong> : ' · on time'}</dd></div>
-      </div> })}</dl>
+      <dl>{effects.map(e => <div key={e.w.id} className="pair" data-wo={e.w.reference} data-after={e.before?.toISOString() ?? ''}>
+        <div><dt>{e.w.reference} finishes</dt><dd className={e.was ? 'red num' : 'num'} title={stamp(e.before)}>{e.before ? dayName(e.before) : '—'}</dd></div>
+        <div><dt>Needed by</dt><dd className="num">{dayName(e.by)}{e.was ? <strong className="red"> · {e.was} {e.was === 1 ? 'day' : 'days'} late</strong> : ' · on time'}</dd></div>
+      </div>)}</dl>
     </article>
     <div className="plan-actions">
       <a className="button" href={`#make/wo/${changed[0]?.w.id ?? ''}`}>Edit…</a>

@@ -39,6 +39,8 @@ test('LARDER-016 Odoo move-in: preview rejects with source IDs, commit journals 
   const board = s.items.find(i => i.sku === 'BRD-WAL-L')
   assert.equal(board.sourceId, '__export__.product_product_103_e5f6')
   assert.deepEqual(s.boms.find(b => b.itemId === board.id).components.map(c => c.quantity), ['1', '0.05'])
+  // An export with only the work centers' External IDs moves them in under readable names.
+  assert.deepEqual(s.boms.find(b => b.itemId === board.id).routing.map(r => r.workCentre), ['Bench', 'Finish'])
   assert.deepEqual(s.positions.map(p => p.quantity).sort(), ['26', '3.5', '4'])
   const jobs = await h.db.prepare("SELECT state FROM ik_jobs WHERE operation_key=?").bind('larder:' + preview.id).all()
   assert.deepEqual(jobs.results.map(j => j.state), ['completed'])

@@ -6,10 +6,10 @@ import type { Larder } from '../app'
 import type { Mode } from '../shell'
 import { Card } from '../controls'
 import { Icon } from '../icons'
-import { dayName } from '../format'
+import { clock, dayName } from '../format'
 import { Agenda, Gantt } from './gantt'
 import { JobPanel, Worklog } from './panel'
-import { addDays, schedule, startOfDay } from './plan'
+import { addDays, schedule, SHIFT, startOfDay } from './plan'
 
 export function Schedule({ larder, mode }: { larder: Larder; mode: Mode }) {
   const s = larder.state!, now = new Date()
@@ -24,6 +24,8 @@ export function Schedule({ larder, mode }: { larder: Larder; mode: Mode }) {
   const fallback = Object.keys(changes)[0] ?? (plan.ops.find(o => o.late || o.short) ?? plan.ops[0])?.workOrder.id
   const selected = plan.ops.some(o => o.workOrder.id === picked) ? picked : fallback
   const job = plan.ops.find(o => o.workOrder.id === selected)?.workOrder
+  const to = addDays(from, span), inSpan = plan.ops.some(o => o.end > from && o.start < to), next = plan.ops.filter(o => o.start >= to).sort((a, b) => a.start.getTime() - b.start.getTime())[0]
+  const hours = (h: number) => clock(new Date(2026, 0, 1, h)).replace(':00', '')
   return <div className="page schedule">
     <header className="page-head schedule-head">
       <h1>Schedule</h1>
@@ -33,14 +35,15 @@ export function Schedule({ larder, mode }: { larder: Larder; mode: Mode }) {
         <button type="button" className="button" disabled={offset === 0} onClick={() => setOffset(0)}>Today</button>
       </div>
     </header>
-    {plan.ops.length === 0 ? <Card title="Nothing scheduled yet" className="schedule-empty">
+    {plan.centers.length === 0 ? <Card title="Nothing scheduled yet" className="schedule-empty">
       <p>The schedule lays out draft and released work orders by work center, from the routing on each item's bill of materials: one line per step with its work center and minutes for each unit.</p>
       <div className="actions"><a className="button primary" href="#make/boms">Add a routing</a><a className="button" href="#make/wo">Draft a work order</a></div>
-    </Card> : <div className="schedule-grid">
+    </Card> : <div className={`schedule-grid ${job && job.id in changes ? 'deciding' : ''}`}>
       <div className="schedule-main">
+        {!inSpan && <p className="schedule-quiet" role="status"><strong>Nothing planned {mode === 'week' ? `${dayName(from)} – ${dayName(last)}` : `on ${dayName(from)}`}.</strong> {plan.ops.length === 0 ? 'No work order is open.' : next ? `The next step starts ${dayName(next.start)}.` : ''} <a href="#make/wo">Work orders</a></p>}
         <Gantt plan={plan} ghosts={ghosts} moving={moving} from={from} mode={mode} now={now} selected={selected} onSelect={setPicked} />
         <Agenda plan={plan} ghosts={ghosts} from={from} mode={mode} selected={selected} onSelect={setPicked} />
-        <p className="schedule-note">Each work center runs one weekday shift, 7 AM to 3 PM; steps run in priority order, one job at a time.</p>
+        <p className="schedule-note">Each work center runs one weekday shift, {hours(SHIFT.start)} to {hours(SHIFT.end)}; steps run in priority order, one job at a time.</p>
       </div>
       <div className="schedule-side">
         {job && <JobPanel larder={larder} w={job} plan={plan} proposed={proposed} proposal={proposal} now={now} />}

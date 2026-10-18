@@ -21,6 +21,17 @@ const odooNumber = (v: string, name: string) => {
 }
 const day = (v: string) => /^\d{4}-\d{2}-\d{2}/.test(v.trim()) ? v.trim().slice(0, 10) : ''
 const unitKey = (v: string) => v.trim().toLowerCase().replace(/\s+/g, ' ')
+// A routing step's work center by its Odoo name. An export with only the External ID gets a readable label from
+// it: __export__.mrp_workcenter_1_bench reads "Bench"; an id ending in Odoo's generated hash reads "Work center 1".
+export function workCentreName(cells: Record<string, string>) {
+  const name = (cells['operation_ids/workcenter_id/name'] || cells['operation_ids/workcenter_id'] || '').trim()
+  if (name) return name
+  const id = cells['operation_ids/workcenter_id/id']?.trim() ?? ''
+  if (!id) return ''
+  const m = /^(?:mrp_workcenter_)?(\d+)?_?(.*)$/.exec(id.slice(id.lastIndexOf('.') + 1))!
+  const rest = /^[0-9a-f]{8}$/.test(m[2]!) ? '' : m[2]!.replace(/_/g, ' ').trim()
+  return rest ? rest[0]!.toUpperCase() + rest.slice(1) : m[1] ? `Work center ${m[1]}` : id
+}
 
 export function readFiles(files: OdooFile[]): { tables: Rows[]; unsupported: { file: string; columns: string[] }[] } {
   const tables: Rows[] = [], unsupported: { file: string; columns: string[] }[] = []
@@ -194,7 +205,7 @@ export function mapOdoo(s: State, files: OdooFile[], previousUnits: Record<strin
           })
           if (!components.length) throw new Problem('ROW', 'The BOM has no component lines')
           if (new Set(components.map(c => c.itemSource)).size !== components.length) throw new Problem('ROW', 'A component appears twice; combine the lines in Odoo')
-          const routing = r.lines.filter(l => l.cells['operation_ids/name']?.trim()).map(l => ({ name: l.cells['operation_ids/name'].trim(), workCentre: l.cells['operation_ids/workcenter_id/id']?.trim() ?? '', minutes: l.cells['operation_ids/time_cycle_manual']?.trim() ? Number(format(odooNumber(l.cells['operation_ids/time_cycle_manual'], 'minutes'))) : 0 }))
+          const routing = r.lines.filter(l => l.cells['operation_ids/name']?.trim()).map(l => ({ name: l.cells['operation_ids/name'].trim(), workCentre: workCentreName(l.cells), minutes: l.cells['operation_ids/time_cycle_manual']?.trim() ? Number(format(odooNumber(l.cells['operation_ids/time_cycle_manual'], 'minutes'))) : 0 }))
           if (s.boms.some(b => b.sourceId === id && s.items.find(i => i.id === b.itemId)?.sourceId === target.sourceId)) throw new Problem('ROW', 'Already moved in by an earlier batch')
           boms.push({ sourceId: id, itemSource: target.sourceId, components, routing })
           target.kind = 'make'

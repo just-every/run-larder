@@ -1,7 +1,7 @@
 import { can, itemName, partyName, rows } from './api'
 import type { Larder } from './app'
 import { Card, Choose, Empty, Field, Form, Table, options, text } from './controls'
-import { money, words } from './format'
+import { isZero, money, words } from './format'
 
 const conversions = (raw: string) => raw.split(',').map(x => x.trim()).filter(Boolean).map(x => { const [unit, factor] = x.split('=').map(y => y.trim()); return { unit, factor } })
 const attributes = (raw: string) => Object.fromEntries(raw.split(',').map(x => x.trim()).filter(Boolean).map(x => { const at = x.indexOf(':'); return [x.slice(0, at).trim(), x.slice(at + 1).trim()] }))
@@ -10,11 +10,11 @@ export function Setup({ larder }: { larder: Larder }) {
   const s = larder.state!, run = larder.run, busy = larder.busy
   return <>
     <Card title="Items">{rows(s, 'items').length === 0 ? <Empty>No items yet.</Empty> :
-      <Table head={['Item', 'Made or bought', 'Unit', 'Other units', 'Variant', 'List price']} numeric={[5]}>{rows(s, 'items').map(i => <tr key={i.id}><td><strong>{i.name}</strong><small>{i.sku}{i.archived && ' · archived'}{i.sourceId && ' · from Odoo'}</small></td><td>{i.kind === 'make' ? 'Made' : 'Bought'}</td><td>{i.baseUnit}</td><td>{i.conversions.map((c: any) => `${c.unit} = ${c.factor} ${i.baseUnit}`).join(', ') || '—'}</td><td>{i.template ? `${i.template}: ${Object.entries(i.attributes).map(([k, v]) => `${k} ${v}`).join(', ')}` : '—'}</td><td className="num">{money(i.salePrice)}</td></tr>)}</Table>}
+      <Table head={['Item', 'Made or bought', 'Unit', 'Other units', 'Variant', 'List price']} numeric={[5]}>{rows(s, 'items').map(i => <tr key={i.id}><td><strong>{i.name}</strong><small>{i.sku}{i.archived && ' · archived'}{i.sourceId && ' · from Odoo'}</small></td><td>{i.kind === 'make' ? 'Made' : 'Bought'}</td><td>{i.baseUnit}</td><td>{i.conversions.map((c: any) => `${c.unit} = ${c.factor} ${i.baseUnit}`).join(', ') || '—'}</td><td>{i.template ? `${i.template}: ${Object.entries(i.attributes).map(([k, v]) => `${k} ${v}`).join(', ')}` : '—'}</td><td className="num">{isZero(i.salePrice) ? '—' : money(i.salePrice)}</td></tr>)}</Table>}
       {can(s, ['manager', 'buyer']) && <Form title="Add an item" submit="Add item" busy={busy} onSubmit={d => run('item.save', { sku: text(d, 'sku'), name: text(d, 'name'), kind: text(d, 'kind'), baseUnit: text(d, 'baseUnit'), conversions: conversions(text(d, 'conversions')), template: text(d, 'template'), attributes: attributes(text(d, 'attributes')), standardCost: text(d, 'standardCost') || '0', salePrice: text(d, 'salePrice') || '0' })}>
         <Field label="SKU" name="sku" /><Field label="Name" name="name" /><Choose label="Made or bought" name="kind" options={[{ value: 'make', label: 'Made here' }, { value: 'buy', label: 'Bought in' }]} /><Field label="Base unit" name="baseUnit" placeholder="each, kg, l" />
         <Field label="Other units" name="conversions" required={false} placeholder="box = 12, bundle = 10" hint="Each must convert exactly to the base unit" />
-        <Field label="Variant of" name="template" required={false} placeholder="Serving board" /><Field label="Variant attributes" name="attributes" required={false} placeholder="Timber: Walnut, Size: Large" />
+        <Field label="Variant of" name="template" required={false} placeholder="Serving board" /><Field label="Variant attributes" name="attributes" required={false} placeholder="Wood: Walnut, Size: Large" />
         <Field label="Standard cost" name="standardCost" inputMode="decimal" required={false} /><Field label="List price" name="salePrice" inputMode="decimal" required={false} />
       </Form>}
     </Card>
@@ -32,7 +32,7 @@ export function Setup({ larder }: { larder: Larder }) {
       </Card>
     </div>
     <Card title="Locations">{rows(s, 'locations').length === 0 ? <Empty>No locations yet.</Empty> : <ul className="pills">{rows(s, 'locations').map(l => <li key={l.id}>{l.name}</li>)}</ul>}
-      {can(s, ['manager', 'warehouse']) && <Form title="Add a location" submit="Add location" busy={busy} onSubmit={d => run('location.save', { name: text(d, 'name'), note: text(d, 'note') })}><Field label="Name" name="name" placeholder="Workshop, Dispatch shelf" /><Field label="Note" name="note" required={false} /></Form>}
+      {can(s, ['manager', 'warehouse']) && <Form title="Add a location" submit="Add location" busy={busy} onSubmit={d => run('location.save', { name: text(d, 'name'), note: text(d, 'note') })}><Field label="Name" name="name" placeholder="Shop floor, Shipping shelf" /><Field label="Note" name="note" required={false} /></Form>}
     </Card>
   </>
 }

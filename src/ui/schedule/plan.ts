@@ -1,14 +1,14 @@
 // The production schedule, computed from the records: each open work order's routing steps laid end to end
-// on their work centers in priority order, one job at a time per center (finite capacity). Larder has no
-// work-center calendar yet, so every center works one weekday shift (SHIFT); nothing here is saved.
-import { itemName, rows, type LarderState, type Rec } from '../api'
+// on their work centers in priority order, one job at a time per center (finite capacity). Larder's work-center
+// calendar is one weekday shift (SHIFT) for every center; nothing here is saved.
+import { byId, itemName, rows, type LarderState, type Rec } from '../api'
 
 export const SHIFT = { start: 7, end: 15 }
 const shiftMinutes = (SHIFT.end - SHIFT.start) * 60
 const DAY = 86400000
 
 export type Op = {
-  key: string; workOrder: Rec; reference: string; item: string; quantity: number; step: string; sequence: number; workCenter: string
+  key: string; workOrder: Rec; reference: string; item: string; sku: string; quantity: number; step: string; sequence: number; workCenter: string
   minutes: number; start: Date; end: Date; late: boolean; short: boolean
 }
 export type Plan = { ops: Op[]; centers: string[]; finish: Map<string, Date> }
@@ -55,6 +55,8 @@ function slot(spans: Span[], ready: Date, minutes: number): Span {
 const routingOf = (s: LarderState, w: Rec): any[] => w.status === 'released' ? w.routing ?? [] : rows(s, 'boms').find(b => b.itemId === w.itemId && b.status === 'active')?.routing ?? []
 const remaining = (w: Rec) => Math.max(0, quantityOf(w.quantity) - quantityOf(w.output) - quantityOf(w.scrap))
 export const openWork = (s: LarderState) => rows(s, 'workOrders').filter(w => ['draft', 'released'].includes(w.status))
+// Every routing step the shop can run: open work's routings and each item's active BOM.
+const routed = (s: LarderState) => [...openWork(s).flatMap(w => routingOf(s, w)), ...rows(s, 'boms').filter(b => b.status === 'active').flatMap(b => b.routing ?? [])].filter(r => r.minutes > 0)
 
 // changes: the planner's proposed start and priority per work order, applied before laying out.
 export function schedule(s: LarderState, now: Date, changes: Record<string, { plannedStart?: string; priority?: number }> = {}): Plan {
@@ -71,19 +73,20 @@ export function schedule(s: LarderState, now: Date, changes: Record<string, { pl
       if (!minutes) continue
       const { begin, end } = slot(booked.get(center) ?? [], ready, minutes)
       booked.set(center, [...(booked.get(center) ?? []), { begin, end }].sort((a, b) => a.begin.getTime() - b.begin.getTime())); ready = end
-      placed.push({ key: `${w.id}:${r.sequence}`, workOrder: w, reference: w.reference, item: itemName(s, w.itemId), quantity: remaining(w), step: r.name, sequence: r.sequence, workCenter: center, minutes, start: begin, end, late: false, short: (w.shortages ?? []).length > 0 })
+      placed.push({ key: `${w.id}:${r.sequence}`, workOrder: w, reference: w.reference, item: itemName(s, w.itemId), sku: byId(s, 'items', w.itemId)?.sku ?? '', quantity: remaining(w), step: r.name, sequence: r.sequence, workCenter: center, minutes, start: begin, end, late: false, short: (w.shortages ?? []).length > 0 })
     }
     if (!placed.length) continue
     const due = at(fromDate(w.requiredBy), SHIFT.end), late = ready > due
     for (const op of placed) op.late = late
     finish.set(w.id, ready); ops.push(...placed)
   }
-  const centers = [...new Set(work.flatMap(w => routingOf(s, w).map(r => r.workCentre || 'Unassigned')))].filter(c => ops.some(o => o.workCenter === c))
-  centers.sort((a, b) => firstUse(ops, a) - firstUse(ops, b))
+  // Every center a routing uses gets a row, idle ones at 0%, in routing order: the earliest step that uses each comes
+  // first, and centers with nothing booked follow by their routing step.
+  const steps = routed(s), centers = [...new Set(steps.map(r => r.workCentre || 'Unassigned'))]
+  const order = (c: string) => Math.min(...ops.filter(o => o.workCenter === c).map(o => o.sequence * 1e13 + o.start.getTime()), ...steps.filter(r => (r.workCentre || 'Unassigned') === c).map(r => r.sequence * 1e13 + 9e12))
+  centers.sort((a, b) => order(a) - order(b))
   return { ops, centers, finish }
 }
-// Centers read in routing order: the earliest step that uses each comes first.
-const firstUse = (ops: Op[], center: string) => Math.min(...ops.filter(o => o.workCenter === center).map(o => o.sequence * 1e13 + o.start.getTime()))
 
 // Booked shift hours on a center inside [from, to), against one shift per weekday.
 export function load(plan: Plan, center: string, from: Date, to: Date) {
