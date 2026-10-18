@@ -11,6 +11,10 @@ export const redact = value => String(value)
 
 export async function freshCopy(workspace, root) {
   await mkdir(root, { recursive: true })
+  // Keep source provenance: the site privacy guard distinguishes committed
+  // documentation examples (such as the Owner role) from private identities.
+  execFileSync('git', ['clone', '--local', '--no-hardlinks', '--no-checkout', workspace, root], { stdio: 'pipe' })
+  execFileSync('git', ['reset', '--mixed', 'HEAD'], { cwd: root, stdio: 'pipe' })
   const files = execFileSync('git', ['ls-files', '-z'], { cwd: workspace, maxBuffer: 32 * 1024 * 1024 }).toString().split('\0').filter(Boolean)
   for (const file of files) {
     await mkdir(dirname(join(root, file)), { recursive: true })
@@ -51,14 +55,15 @@ export async function command(executable, args, cwd, env) {
 
 export async function startDev(root, port) {
   const executable = join(root, 'node_modules/.bin/rer')
-  const runtime = child(executable, ['dev', '--port', String(port)], root)
+  const runtime = child(executable, ['dev', '--foreground', '--port', String(port)], root)
   const deadline = Date.now() + 10 * 60 * 1000
   try {
     while (Date.now() < deadline) {
       const ready = runtime.output().match(/^RER_READY\s+(\S+)/m)?.[1]
       const entry = runtime.output().match(/^RER_OPEN\s+(\S+)/m)?.[1]
-      if (ready && entry) return { ...runtime, origin: new URL(ready).origin, entry }
-      if (runtime.process.exitCode !== null) throw new Error(redact(runtime.output()).slice(-6000) || 'Owned dev runtime exited before readiness.')
+      const site = runtime.output().match(/^RER_SITE\s+(\S+)/m)?.[1]
+      if (ready && entry && site) return { ...runtime, origin: new URL(ready).origin, entry, site }
+      if (runtime.process.exitCode !== null || runtime.process.signalCode !== null) throw new Error(redact(runtime.output()).slice(-6000) || 'Owned dev runtime exited before readiness.')
       await new Promise(resolve => setTimeout(resolve, 200))
     }
     throw new Error('Owned dev runtime did not report readiness within ten minutes.')
@@ -69,12 +74,10 @@ export async function startDev(root, port) {
 }
 
 export async function stopDev(root, runtime) {
-  let problem
-  try { await command(join(root, 'node_modules/.bin/rer'), ['dev', '--stop'], root) } catch (error) { problem = error }
-  if (runtime?.process.exitCode === null) runtime.process.kill('SIGTERM')
-  if (runtime) {
-    const settled = await Promise.race([runtime.done.then(() => true), new Promise(resolve => setTimeout(() => resolve(false), 5000))])
-    if (!settled && runtime.process.exitCode === null) { runtime.process.kill('SIGKILL'); await runtime.done }
-  }
-  if (problem) throw new Error(`Owned runtime stop failed: ${redact(problem.message)}`)
+  if (!runtime) return
+  // Signal only the foreground process this journey started. Its custody
+  // handler stops its own children; a shared stop command can hit other lanes.
+  if (runtime.process.exitCode === null && runtime.process.signalCode === null) runtime.process.kill('SIGTERM')
+  const settled = await Promise.race([runtime.done.then(() => true), new Promise(resolve => setTimeout(() => resolve(false), 15000))])
+  if (!settled) throw new Error('Owned runtime did not stop after SIGTERM.')
 }

@@ -456,8 +456,8 @@ Homepage claim coverage was completed on 18 October 2026. Every pre-existing cla
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 0 | 46 | 66 | 112 |
-| All | 16 | 46 | 66 | 128 |
+| Target and push further | 1 | 45 | 66 | 112 |
+| All | 17 | 45 | 66 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -574,7 +574,7 @@ Homepage claim coverage was completed on 18 October 2026. Every pre-existing cla
 | `GOV-005` | Erasure and retention | target | missing |  | Erasure and retention workflow and its acceptance journey are not implemented. |
 | `GOV-006` | Provider and model secret custody | target | missing |  | Provider and model secret custody workflow and its acceptance journey are not implemented. |
 | `GOV-007` | Backup restore and recovery | target | partial | `src/larder/archive.ts`; `scripts/installer/portability-policy.mjs`; `tests/api/backup.test.mjs` | Manual checked domain/installation archive restore ships; scheduled encryption/retention drills and remote-effect recovery controls are absent. |
-| `HTTP-001` | Preserve Base public and private paths | target | partial | `src/server.ts`; `src/larder/api.ts`; `tests/api/authority.test.mjs`; `tests/runtime.mjs` | Base dispatch/native authentication and Larder guards ship; full combined public-path acceptance is not demonstrated by a named domain test. |
+| `HTTP-001` | Preserve Base public and private paths | target | done | `src/server.ts`; `src/larder/api.ts`; `tests/browser/journey.spec.ts` (HTTP-001); `tests/runtime.mjs` | Named browser journey opens signed-out Lobby, health and built docs, refuses private app/state/archive and direct commands, verifies real document/API/site 404s, signs in through native setup, posts a domain command and refuses cross-origin writes without mutation; Lobby/docs/private app inspected at 1440 and 390 pixels. |
 | `MOB-001` | Responsive accessible manufacturing | target | partial | `src/ui/make.tsx`; `tests/browser/journey.spec.ts` | Current order/stock/material/shipment journeys run at both widths; new target screens and full accessibility acceptance are absent. |
 | `MOB-002` | iOS and Android shop-floor apps | target | missing |  | iOS and Android shop-floor apps workflow and its acceptance journey are not implemented. |
 | `OPS-001` | Durable scheduling and sync jobs | target | missing |  | No reference dataset generator, durable job runner, measured-limits report or restart/cancel/budget controls exist. |

@@ -37,6 +37,62 @@ async function enter(page: Page) {
   }
 }
 
+test('HTTP-001 public Lobby, health and docs stay separate from private app and exports', async ({ page, context }) => {
+  const site = process.env.LARDER_SITE_URL
+  if (!site) throw new Error('Set LARDER_SITE_URL to the built run site preview.')
+  // This context has never signed in. Redirects are inspected before following.
+  for (const path of ['/api/larder/state', '/api/larder/archive']) {
+    const denied = await context.request.get(origin + path)
+    expect(denied.status()).toBe(401)
+    expect((await denied.json()).error.code).toBe('AUTH')
+    expect(denied.headers()['cache-control']).toContain('no-store')
+  }
+  const app = await context.request.get(origin + '/app', { maxRedirects: 0 })
+  expect(app.status()).toBe(303)
+  expect(app.headers().location).toMatch(/^\/signin\?returnTo=/)
+  const health = await context.request.get(origin + '/health')
+  expect(health.status()).toBe(200)
+  expect((await health.json()).status).toBe('ok')
+  for (const path of ['/missing-workshop-page', '/api/missing'])
+    expect((await context.request.get(origin + path)).status()).toBe(404)
+  expect((await context.request.get(site + '/missing-workshop-page')).status()).toBe(404)
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    expect((await page.goto(origin))!.status()).toBe(200)
+    await expect(page.getByRole('link', { name: 'Sign in', exact: true })).toBeVisible()
+    await shot(page, 'HTTP-001-lobby')
+    expect((await page.goto(site + '/docs'))!.status()).toBe(200)
+    await page.getByRole('link', { name: 'Take an order', exact: false }).first().click()
+    await expect(page.locator('article')).toBeVisible()
+    await shot(page, 'HTTP-001-docs')
+  }
+  await enter(page)
+  const before = await state(page)
+  const name = 'HTTP-001 receiving bench'
+  const payload = { commandId: crypto.randomUUID(), type: 'location.save', payload: { name } }
+  const refused = await context.request.post(origin + '/api/larder/commands', { headers: { Origin: 'https://untrusted.example' }, data: payload })
+  expect(refused.status()).toBe(403)
+  expect((await refused.json()).error.code).toBe('ORIGIN')
+  expect((await state(page)).version).toBe(before.version)
+  const created = await context.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: payload })
+  expect(created.status()).toBe(200)
+  const result = await created.json()
+  expect(result.ok).toBe(true)
+  expect((await state(page)).locations.find((l: any) => l.id === result.result.id).name).toBe(name)
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto(origin + '/app#more/setup')
+    await expect(page.getByText(name, { exact: true })).toBeVisible()
+    await shot(page, 'HTTP-001-private-app')
+  }
+  expect((await context.request.get(origin + '/api/larder/archive')).status()).toBe(200)
+  const anonymous = await page.context().browser()!.newContext()
+  try {
+    expect((await anonymous.request.get(origin + '/api/larder/archive')).status()).toBe(401)
+    expect((await anonymous.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: payload })).status()).toBe(401)
+  } finally { await anonymous.close() }
+})
+
 test('owner runs an order from Odoo move-in to accountant handoff at 1440px', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await enter(page)

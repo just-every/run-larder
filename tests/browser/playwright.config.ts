@@ -6,7 +6,7 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   timeout: 240_000,
-  use: { headless: true, trace: 'off', video: 'off', screenshot: 'off' },
+  use: { headless: true, launchOptions: { args: ['--use-mock-keychain', '--password-store=basic'] }, trace: 'off', video: 'off', screenshot: 'off' },
   reporter: [['list']],
   outputDir: process.env.LARDER_BROWSER_OUTPUT || '/tmp/larder-browser-results',
 })
