@@ -23,6 +23,7 @@ test('TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; ex
   await warehouse.run('receipt.create', { poId: po.id, supplierReference: 'No lot', lines: [line(undefined, '1', { expiresOn: day(10) })] }, { error: 'INPUT' })
   await warehouse.run('receipt.create', { poId: po.id, supplierReference: 'Future', lines: [line('F', '1', { manufacturedOn: day(1) })] }, { error: 'INPUT' })
   await warehouse.run('receipt.create', { poId: po.id, supplierReference: 'Backwards', lines: [line('W', '1', { manufacturedOn: day(-2), expiresOn: day(-3) })] }, { error: 'INPUT' })
+  await warehouse.run('receipt.create', { poId: po.id, supplierReference: 'Invalid calendar day', lines: [line('INVALID', '1', { expiresOn: '2026-02-30' })] }, { error: 'INPUT' })
   const receipt = await warehouse.run('receipt.create', { poId: po.id, supplierReference: 'MB-77', lines: [
     line('A', '10', { manufacturedOn: day(-10), expiresOn: day(20), storage: 'Refrigerate 2-8 °C' }),
     line('B', '20', { manufacturedOn: day(-5), supplierShelfLifeDays: 120, retestOn: day(90), storage: 'Refrigerate 2-8 °C' }),

@@ -21,7 +21,12 @@ function wholeDays(value: unknown, field: string): number | undefined {
   if (!Number.isSafeInteger(n) || (n as number) < 0 || (n as number) > 3650) fail('INPUT', `${field} must be a whole number of days from 0 to 3650.`, { field })
   return n as number
 }
-const optionalDate = (value: unknown, field: string) => (value === undefined || value === null || value === '' ? '' : date(value, field))
+const optionalDate = (value: unknown, field: string) => {
+  if (value === undefined || value === null || value === '') return ''
+  const on = date(value, field)
+  if (new Date(`${on}T00:00:00Z`).toISOString().slice(0, 10) !== on) fail('INPUT', `${field} must be a real UTC calendar date.`, { field })
+  return on
+}
 
 // Validated dates for a new lot. A supplier shelf life without an explicit
 // expiry sets expiry = manufacture date + shelf-life days.
