@@ -4,7 +4,7 @@ import { installation, evidence, parse } from './harness.mjs'
 const day = (start, n) => new Date(Date.parse(start + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10)
 const nextMonday = () => { const d = new Date(); return day(d.toISOString().slice(0, 10), 8 - (d.getUTCDay() || 7)) }
 
-test('DEMAND-003 twelve-week CSV forecast, order consumption, seasonal overrides/undo, error, approved stale-safe MPS and real supply linkage', async t => {
+test('DEMAND-003 DEMAND-004 twelve-week CSV forecast, order consumption, seasonal overrides/undo, error, approved stale-safe MPS and real supply linkage', async t => {
   const h = await installation(); t.after(() => h.close())
   const production = await h.person('planner@example.test', 'production'), manager = await h.person('supervisor@example.test', 'manager'), agent = await h.person('assistant@example.test', 'agent'), sales = await h.person('sales@example.test', 'sales')
   const raw = await h.command('item.save', { sku: 'STEEL', name: 'Steel blank', kind: 'buy', baseUnit: 'each' })
@@ -52,19 +52,25 @@ test('DEMAND-003 twelve-week CSV forecast, order consumption, seasonal overrides
   assert.equal((await h.state()).masterSchedule.find(r => r.week === weeks[1]).forecast, '12')
   await manager.run('mps.release', { planId: stale.id, version: stale.version }, { error: 'STALE' })
   assert.equal((await h.state()).workOrders.length, 0)
+  const policy = await manager.run('inventory.policy', { itemId: product.id, locationId: location.id, mode: 'make-to-stock', effectiveOn: new Date().toISOString().slice(0, 10), batchSize: '4', orderMultiple: '6', reason: 'Reviewed location replenishment' })
   const own = await production.run('mps.preview', { reason: 'Self approval refusal' })
   await production.run('mps.release', { planId: own.id, version: own.version }, { error: 'FORBIDDEN' })
   const preview = await agent.run('mps.preview', { reason: 'Reviewed manufacturing schedule' })
   await agent.run('mps.release', { planId: preview.id, version: preview.version }, { error: 'FORBIDDEN' })
-  const id = crypto.randomUUID(), releasePayload = { planId: preview.id, version: preview.version }
+  assert.deepEqual(preview.policyWarnings.map(p => [p.policyId, p.locationId, p.batchSize, p.orderMultiple]), [[policy.id, location.id, '4', '6']])
+  await manager.run('mps.release', { planId: preview.id, version: preview.version }, { error: 'INVENTORY_POLICY' })
+  await manager.run('mps.release', { planId: preview.id, version: preview.version, manualPolicyOverride: true, policyOverrideReason: '' }, { error: 'INPUT' })
+  await agent.run('mps.release', { planId: preview.id, version: preview.version, manualPolicyOverride: true, policyOverrideReason: 'Cannot grant agent release' }, { error: 'FORBIDDEN' })
+  const id = crypto.randomUUID(), releasePayload = { planId: preview.id, version: preview.version, manualPolicyOverride: true, policyOverrideReason: 'Reviewed weekly global demand; retain exact quantities as manual exception' }
   const released = await manager.run('mps.release', releasePayload, { commandId: id })
+  assert.equal(released.policyOverride.by, manager.id); assert.equal(released.policyOverride.reason, releasePayload.policyOverrideReason); assert.deepEqual(released.policyOverride.policies, preview.policyWarnings)
   assert.equal(released.status, 'released'); assert.equal(released.documents.length, 12)
   assert.deepEqual(await manager.run('mps.release', releasePayload, { commandId: id }), released)
   s = await h.invariant(); assert.equal(s.workOrders.length, 12)
   for (const row of preview.rows) {
     const doc = released.documents.find(d => d.week === row.week), work = s.workOrders.find(w => w.id === doc.id)
     assert.equal(work.quantity, row.proposed); assert.equal(work.requiredBy, day(row.week, 6)); assert.equal(work.masterSchedule.planId, preview.id)
-    assert.deepEqual(work.masterSchedule.sources, row.sources)
+    assert.deepEqual(work.masterSchedule.sources, row.sources); assert.deepEqual(work.masterSchedule.policyOverride, released.policyOverride)
     assert.equal(s.masterSchedule.find(r => r.week === row.week).proposed, '0')
   }
   // MRP sees residual forecast plus actual once; the approved drafts cover

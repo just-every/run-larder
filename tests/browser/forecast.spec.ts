@@ -18,7 +18,7 @@ async function shots(page: Page, stage: string, region?: ReturnType<Page['locato
   }
 }
 
-test('DEMAND-003 import twelve weeks, consume real orders, adjust and undo forecasts, review and release linked MPS at 1440/390', async ({ page }) => {
+test('DEMAND-003 DEMAND-004 import twelve weeks, consume real orders, adjust and undo forecasts, review and release linked MPS at 1440/390', async ({ page }) => {
   if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
@@ -26,6 +26,8 @@ test('DEMAND-003 import twelve weeks, consume real orders, adjust and undo forec
   const raw = await command(page, 'item.save', { sku: `BLANK-${suffix}`, name: `Steel blank ${suffix}`, kind: 'buy', baseUnit: 'each' })
   const product = await command(page, 'item.save', { sku, name: `Ohio bracket ${suffix}`, kind: 'make', baseUnit: 'each' })
   await command(page, 'bom.revise', { itemId: product.id, components: [{ itemId: raw.id, quantity: '2' }] })
+  const location = await command(page, 'location.save', { name: `Ohio forecast stockroom ${suffix}` })
+  await command(page, 'inventory.policy', { itemId: product.id, locationId: location.id, mode: 'make-to-stock', effectiveOn: new Date().toISOString().slice(0, 10), batchSize: '4', orderMultiple: '6', reason: 'Reviewed location policy for weekly demand' })
   const customer = await command(page, 'party.save', { name: `Equipment Works ${suffix}`, kind: 'customer' })
   const now = new Date(), monday = day(now.toISOString().slice(0, 10), 8 - (now.getUTCDay() || 7)), weeks = Array.from({ length: 12 }, (_, i) => day(monday, i * 7))
   await page.goto(origin + '/app#make/forecast'); await page.reload(); await settled(page)
@@ -63,7 +65,8 @@ test('DEMAND-003 import twelve weeks, consume real orders, adjust and undo forec
   await schedule.getByLabel('Schedule reason', { exact: true }).fill('Winter manufacturing plan')
   await schedule.getByRole('button', { name: 'Preview MPS', exact: true }).click(); await settled(page)
   let plan = page.getByRole('heading', { name: /MPS · preview/ }).first().locator('../..')
-  await expect(plan.locator('tbody tr').filter({ hasText: product.name })).toHaveCount(12); await expect(plan.getByRole('button', { name: 'Approve and release MPS' })).toBeEnabled()
+  await expect(plan.getByRole('region', { name: 'MPS quantity suggestions', exact: true }).locator('tbody tr').filter({ hasText: product.name })).toHaveCount(12); await expect(plan.getByRole('button', { name: 'Approve and release MPS' })).toBeEnabled()
+  await expect(plan.getByRole('region', { name: 'MPS location policy review' })).toContainText(location.name)
   await shots(page, 'mps-preview', plan)
   // A real concurrent business change invalidates the reviewed schedule.
   await command(page, 'item.save', { sku: `EXTRA-${suffix}`, name: 'New purchased washer', kind: 'buy', baseUnit: 'each' })
@@ -73,8 +76,12 @@ test('DEMAND-003 import twelve weeks, consume real orders, adjust and undo forec
   await shots(page, 'stale-schedule', plan)
   await schedule.getByLabel('Schedule reason', { exact: true }).fill('Refreshed winter manufacturing plan'); await schedule.getByRole('button', { name: 'Preview MPS', exact: true }).click(); await settled(page)
   plan = page.getByRole('heading', { name: /MPS · preview/ }).first().locator('../..')
+  await plan.getByLabel('Acknowledge manual MPS policy override', { exact: true }).check()
+  await plan.getByLabel('Manual policy override reason', { exact: true }).fill('Reviewed exact winter quantities as a manual global exception')
+  await shots(page, 'manual-policy-override', plan)
   await plan.getByRole('button', { name: 'Approve and release MPS', exact: true }).click(); await settled(page)
   const released = page.getByRole('heading', { name: /MPS · released/ }).first().locator('../..')
+  await expect(released).toContainText('Reviewed exact winter quantities as a manual global exception')
   await expect(released.locator('li').filter({ hasText: product.name })).toHaveCount(12); await shots(page, 'released', released)
   const state = await (await page.request.get(origin + '/api/larder/state')).json()
   expect(state.masterSchedule.every((r: any) => r.itemId !== product.id || r.proposed === '0')).toBe(true)

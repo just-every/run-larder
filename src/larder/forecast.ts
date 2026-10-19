@@ -1,3 +1,5 @@
+import { canonicalJson } from '../modules/import-kit/src/d1/index'
+import { mpsPolicyWarnings } from './inventory-policy-warnings'
 import { attach } from './attachments'
 import { decimal, format, times } from './decimal'
 import { parseForecast } from './forecast-csv'
@@ -48,16 +50,19 @@ export function forecasts(c: Context, type: string, p: any): Row | undefined {
     if (!c.s.forecasts.length) fail('INPUT', 'Import a forecast before preparing the master production schedule.')
     const rows = masterSchedule(c.s)
     if (rows.some(r => decimal(r.undatedShipped) > 0n)) fail('HISTORICAL_DEMAND', 'Historical shipped demand has no issued delivery dates. Reconcile the source documents before releasing this item’s MPS.', rows.filter(r => decimal(r.undatedShipped) > 0n).map(r => ({ itemId: r.itemId, sources: r.undatedSources })))
-    return row(c, 'productionPlans', { status: 'preview', stateVersion: c.s.version + 1, preparedBy: c.actor.id, reason: text(p.reason, 'reason', 400), rows })
+    return row(c, 'productionPlans', { status: 'preview', stateVersion: c.s.version + 1, preparedBy: c.actor.id, reason: text(p.reason, 'reason', 400), rows, policyWarnings: mpsPolicyWarnings(c.s, rows.filter(r => decimal(r.proposed) > 0n).map(r => r.itemId), c.now.slice(0, 10)) })
   }
   if (type === 'mps.release') {
     const plan = get(c.s, 'productionPlans', p.planId, 'master production schedule'); fresh(plan, p.version)
     approver(c, ['manager', 'production'], plan.preparedBy)
     if (plan.status !== 'preview') fail('STATE', 'Only an unreleased MPS preview can be released.')
     if (plan.stateVersion !== c.s.version) fail('STALE', 'Business records changed. Prepare and review a new MPS.')
+    const policies = mpsPolicyWarnings(c.s, plan.rows.filter((r: any) => decimal(r.proposed) > 0n).map((r: any) => r.itemId), c.now.slice(0, 10))
+    if (canonicalJson(policies) !== canonicalJson(plan.policyWarnings ?? [])) fail('STALE', 'Effective location policies changed. Prepare and review a new MPS.')
+    if (policies.length && p.manualPolicyOverride !== true) fail('INVENTORY_POLICY', 'Use the location policy planner, or explicitly acknowledge a manual global MPS override with a reason.')
+    const policyOverride = policies.length ? { by: c.actor.id, at: c.now, reason: text(p.policyOverrideReason, 'manual policy override reason', 400), policies } : null
     const documents = plan.rows.filter((r: any) => decimal(r.proposed) > 0n).map((r: any) => {
       const item = get(c.s, 'items', r.itemId)
-      if (c.s.inventoryPolicies.some(p => p.itemId === item.id && p.effectiveOn <= c.now.slice(0, 10))) fail('INVENTORY_POLICY', 'Use the SKU/location inventory policy preview for this configured item before drafting supply.')
       if (item.archived) fail('ARCHIVED', `${item.name} is archived; revise its forecast before releasing supply.`)
       const reason = `${plan.reason}; MPS week ${r.week}`
       const due = addDays(r.week, 6)
@@ -68,9 +73,9 @@ export function forecasts(c: Context, type: string, p: any): Row | undefined {
         const supplier = terms.find(t => t.preferred) ?? terms[0] ?? fail('NO_SUPPLIER', `Choose a supplier for ${item.name} before releasing the MPS.`)
         doc = draftPurchase(c, { supplierId: supplier.partyId, lines: [{ itemId: item.id, quantity: r.proposed, unitPrice: supplier.price }], expectedDate: due, requiredBy: due, reason }, plan.preparedBy)
       }
-      doc.masterSchedule = { planId: plan.id, week: r.week, forecastId: r.forecastId, sources: r.sources }
+      doc.masterSchedule = { planId: plan.id, week: r.week, forecastId: r.forecastId, sources: r.sources, policyOverride }
       return { kind: item.kind === 'make' ? 'workOrders' : 'purchaseOrders', id: doc.id, itemId: item.id, reference: doc.reference, quantity: r.proposed, week: r.week }
     })
-    return bump(plan, { status: 'released', releasedAt: c.now, releasedBy: c.actor.id, documents })
+    return bump(plan, { status: 'released', releasedAt: c.now, releasedBy: c.actor.id, documents, policyOverride })
   }
 }

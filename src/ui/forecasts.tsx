@@ -1,3 +1,4 @@
+import { MpsPolicyReview, MpsRelease } from './mps-policy-review'
 import { ForecastHistory } from './forecast-history'
 import { useState } from 'react'
 import { byId, can, itemName, rows } from './api'
@@ -50,9 +51,9 @@ export function Forecasts({ larder }: { larder: Larder }) {
       {f.history.at(-1)?.before && f.history.at(-1)?.kind !== 'undo' && <Form submit="Undo latest forecast change" quiet busy={busy} onSubmit={d => run('forecast.undo', { forecastId: f.id, version: f.version, historyId: f.history.at(-1).id, reason: text(d, 'reason') })}><Field label="Undo reason" name="reason" /></Form>}
     </Card>)}
     {plans.map(p => <Card key={p.id} title={`MPS · ${p.status} · ${when(p.createdAt)}`}>
-      <p>{p.reason}</p><p className="muted">Approved release creates linked draft work or purchases. Releasing work and approving spend remain separate actions.</p>
-      <Table head={['Item', 'Week', 'Forecast / actual', 'Net demand', 'Suggested supply']}>{p.rows.map((r: any) => <tr key={`${r.itemId}:${r.week}`}><td>{itemName(s, r.itemId)}</td><td>{day(r.week)}</td><td>{qty(r.forecast)} / {qty(r.actual)}</td><td>{qty(r.netDemand)}</td><td>{qty(r.proposed)}</td></tr>)}</Table>
-      {p.status === 'preview' && maintain && <button className="button primary" disabled={busy || p.stateVersion !== s.version || (p.preparedBy === s.actor.id && s.actor.role !== 'owner')} onClick={() => run('mps.release', { planId: p.id, version: p.version })}>Approve and release MPS</button>}
+      <p>{p.reason}</p><MpsPolicyReview s={s} plan={p} /><p className="muted">Approved release creates linked draft work or purchases. Releasing work and approving spend remain separate actions.</p>
+      <section aria-label="MPS quantity suggestions"><Table head={['Item', 'Week', 'Forecast / actual', 'Net demand', 'Suggested supply']}>{p.rows.map((r: any) => <tr key={`${r.itemId}:${r.week}`}><td>{itemName(s, r.itemId)}</td><td>{day(r.week)}</td><td>{qty(r.forecast)} / {qty(r.actual)}</td><td>{qty(r.netDemand)}</td><td>{qty(r.proposed)}</td></tr>)}</Table></section>
+      {p.status === 'preview' && maintain && <MpsRelease larder={larder} plan={p} disabled={busy || p.stateVersion !== s.version || (p.preparedBy === s.actor.id && s.actor.role !== 'owner')} />}
       {p.status === 'preview' && p.stateVersion !== s.version && <p className="warn-text">Records changed. Prepare a fresh MPS before approval.</p>}
       {p.status === 'preview' && p.preparedBy === s.actor.id && s.actor.role !== 'owner' && <p>A different authorized person must approve this MPS.</p>}
       {p.status === 'released' && <ul>{p.documents.map((d: any) => <li key={d.id}><a href={`#make/${d.kind === 'workOrders' ? 'wo' : 'po'}/${d.id}`}>{d.reference}</a> · {itemName(s, d.itemId)} · {qty(d.quantity)} · week of {day(d.week)} · {byId(s, d.kind, d.id)?.status}</li>)}</ul>}
