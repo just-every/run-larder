@@ -14,7 +14,7 @@ export function ReworkOrders({ larder, jobId }: { larder: Larder; jobId?: string
   return <>
     {orders.map(w => <Card key={w.id} title={`${w.reference} · ${words(w.kind)}`}>
       <Chip tone={w.status === 'released' ? 'good' : 'warn'}>{words(w.status)}</Chip>
-      <p>Original lot <strong>{byId(s, 'lots', w.sourceLotId)?.code}</strong> · <a href={`#make/wo/${w.sourceJobId}`}>{byId(s, 'workOrders', w.sourceJobId)?.reference}</a> · pinned revision {w.bomRevision} · {qty(w.quantity)} consumed from {w.sourceStatus}</p>
+      <p>Original lot <strong>{byId(s, 'lots', w.sourceLotId)?.code}</strong> · <a href={`#make/wo/${w.sourceJobId}`}>{byId(s, 'workOrders', w.sourceJobId)?.reference}</a> · pinned revision {w.bomRevision} · {qty(w.quantity)} {w.executedAt ? 'consumed from' : 'planned from'} {w.sourceStatus}</p>
       <p>{w.disposition}</p><p>Instructions: {w.instructions}</p>
       <p>Evidence {w.evidence.map((f: Rec) => <a key={f.id} href={`/api/larder/attachments/${f.id}`}>{f.name} </a>)}{w.approval && ` · instructions approved by ${personName(s, w.approval.by)} ${when(w.approval.at)}`}</p>
       <Table head={['Output', 'Quantity', 'Allocated value', 'Lot']} numeric={[1, 2]}>{w.outputs.map((o: Rec) => <tr key={o.itemId}><td>{itemName(s, o.itemId)}</td><td>{qty(o.quantity)}</td><td>{money(o.value)}</td><td>{o.lot}</td></tr>)}</Table>
