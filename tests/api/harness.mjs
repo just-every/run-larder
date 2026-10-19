@@ -32,20 +32,21 @@ export async function installation() {
     mails.push(await request.json())
     return Response.json({ id: `test-${mails.length}` })
   }
+  const sessionSecret = randomBytes(32).toString('hex'), devKey = randomBytes(32).toString('hex')
   const options = port => ({
     ...convertV4MiniflareOptions({
       host: '127.0.0.1', port, modules: true, script: code, compatibilityDate: '2026-09-08', compatibilityFlags: ['nodejs_compat'], d1Databases: ['DB'],
-      bindings: { AUTH_LOCAL: 'true', AUTH_ORIGIN: origin, OWNER_EMAIL: 'owner@example.test', SESSION_SECRET: randomBytes(32).toString('hex'), SETUP_TOKEN: setup, MAIL_PROVIDER: 'resend', MAIL_API_KEY: 'test-only-resend-key', MAIL_FROM: 'auth@example.test', RER_DEV_KEY: randomBytes(32).toString('hex') },
+      bindings: { AUTH_LOCAL: 'true', AUTH_ORIGIN: origin, OWNER_EMAIL: 'owner@example.test', SESSION_SECRET: sessionSecret, SETUP_TOKEN: setup, MAIL_PROVIDER: 'resend', MAIL_API_KEY: 'test-only-resend-key', MAIL_FROM: 'auth@example.test', RER_DEV_KEY: devKey },
       outboundService,
     }),
     resourcePersistencePath: root,
   })
-  const mf = new Miniflare(options(0))
+  let mf = new Miniflare(options(0))
   try {
     const address = await mf.ready
     origin = address.origin
     await mf.setOptions(options(Number(address.port)))
-    const db = await mf.getD1Database('DB')
+    let db = await mf.getD1Database('DB')
     await migrate(db)
     let owner = ''
     const request = (path, { method = 'GET', body, as = owner, raw } = {}) => fetch(origin + path, {
@@ -95,7 +96,12 @@ export async function installation() {
       if (role) await command('role.set', { operatorId: session.operator.id, role })
       return { cookie, id: session.operator.id, run: (type, payload, opts = {}) => command(type, payload, { as: cookie, ...opts }) }
     }
-    return { mf, origin, db, request, send, command, state, invariant, person, owner: () => owner, async close() { await mf.dispose(); await rm(root, { recursive: true, force: true }) } }
+    return { get mf() { return mf }, origin, get db() { return db }, async restart() {
+      await mf.dispose()
+      mf = new Miniflare(options(Number(new URL(origin).port)))
+      await mf.ready
+      db = await mf.getD1Database('DB')
+    }, request, send, command, state, invariant, person, owner: () => owner, async close() { await mf.dispose(); await rm(root, { recursive: true, force: true }) } }
   } catch (error) {
     await mf.dispose().catch(() => {}); await rm(root, { recursive: true, force: true }).catch(() => {})
     throw error

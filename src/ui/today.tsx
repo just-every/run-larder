@@ -1,3 +1,4 @@
+import { CaseFollowUp } from './follow-up'
 import { DowntimeNotices } from './downtime-report'
 import { can, itemName, partyName, personName, rows, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
@@ -52,7 +53,7 @@ export function Today({ larder }: { larder: Larder }) {
       <Card title="Exceptions" aside={<Chip tone={others.length ? 'warn' : 'good'}>{others.length} open</Chip>}>
         {others.length === 0 ? <Empty>Nothing is short, late, quarantined or unreconciled.</Empty> : <ul className="queue">{others.map((x: any) => <li key={x.key}>
           <a className="queue-row" href={`#${route(x)}`}><Chip tone={x.kind === 'mismatch' || x.kind === 'late' ? 'bad' : 'warn'}>{words(x.kind)}</Chip><span><strong>{x.title}</strong><span className="muted">{x.detail}</span></span><Icon name="chevron" /></a>
-          {x.resolvable && can(s, ['manager']) && <details className="resolve"><summary>Resolve with a note</summary><Form submit="Mark resolved" quiet busy={busy} onSubmit={d => run('exception.resolve', { key: x.key, note: text(d, 'note') })}><Field label="Decision note" name="note" placeholder="What you decided and why" /></Form></details>}
+          <CaseFollowUp larder={larder} entry={x} canAssign={can(s, ['manager'])} canUpdate={can(s, ['manager']) || s.actor.id === x.ownerId} assignees={rows(s, 'people').filter(p => !['viewer', 'agent'].includes(p.role))} supervisors={rows(s, 'people').filter(p => ['owner', 'manager'].includes(p.role))} />
         </li>)}</ul>}
       </Card>
       <Card title="Needs a person" aside={<Chip tone={waiting ? 'warn' : 'good'}>{waiting}</Chip>} className="needs">
@@ -67,5 +68,6 @@ export function Today({ larder }: { larder: Larder }) {
           {c.sessionId ? <a className="button" href="#stock">Review count session</a> : can(s, ['manager']) && c.createdBy !== s.actor.id || s.actor.role === 'owner' ? <div className="actions"><button className="button primary" disabled={busy} onClick={() => run('count.approve', { countId: c.id, version: c.version })}>Approve adjustment</button><button className="button" disabled={busy} onClick={() => run('count.reject', { countId: c.id, version: c.version, note: 'Recount' })}>Ask for a recount</button></div> : null}</article>)}
       </Card>
     </div>
+    {(s.followUpCases ?? []).some((x: any) => x.status === 'closed' && x.caseId) && <Card title="Closed follow-up cases"><ul className="queue">{s.followUpCases.filter((x: any) => x.status === 'closed' && x.caseId).map((x: any) => <li key={x.key}><strong>{x.title}</strong><CaseFollowUp larder={larder} entry={x} canAssign={false} canUpdate={false} assignees={[]} supervisors={[]} /></li>)}</ul></Card>}
   </div>
 }

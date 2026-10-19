@@ -30,6 +30,8 @@ import { proposals } from './proposals'
 import { purchasing } from './purchasing'
 import { reversal } from './reversal'
 import { resolutions } from './exceptions'
+import { caseHumanRoleSql, followUps } from './follow-up'
+import { observeFollowUps } from './follow-up-state'
 import { sales } from './sales'
 import { orderChanges } from './order-changes'
 import { warehouse } from './warehouse'
@@ -49,7 +51,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [inventory, certificates, expiry, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [followUps, inventory, certificates, expiry, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -82,6 +84,16 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   const digest = sha256(canonicalJson({ type, payload }))
   const previous = await saved(env.DB, commandId, digest, actor)
   if (previous) return json(previous)
+  if (type === 'exception.assign' || type === 'exception.escalate') {
+    if (!['owner', 'manager'].includes(actor.role)) forbidden('Only an owner or manager assigns or escalates cases.')
+    const existing = type === 'exception.escalate' ? (await load(env.DB)).followUps.find(f => f.key === payload.key) : undefined
+    const targets = type === 'exception.assign' ? [[payload.ownerId, caseHumanRoleSql], [payload.escalationOwnerId, "'owner','manager'"]] : [[existing?.escalationOwnerId, "'owner','manager'"]]
+    for (const [id, permitted] of targets) {
+      if (typeof id !== 'string') fail('INPUT', 'Choose an active follow-up person and escalation owner.')
+      const target = await env.DB.prepare(`SELECT 1 AS ok FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN (${permitted})`).bind(id).first<{ ok: number }>()
+      if (!target) fail('INPUT', 'Choose an active human with write authority; escalation needs an owner or manager.')
+    }
+  }
   if (type === 'wo.operation.assign') {
     if (!['owner', 'manager'].includes(actor.role)) forbidden('Only a manager authorizes operation skills.')
     const person = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(payload.operatorId).first<{ role: string }>()
@@ -100,6 +112,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
+    observeFollowUps(c)
     if (type === 'import.commit' || type === 'import.undo') {
       await publishImport(env, c, before, type, digest, result!)
       return json((await saved(env.DB, commandId, digest, actor)) ?? fail('IMPORT_PUBLICATION', 'The import did not finish. Send the same command again to resume it.'))

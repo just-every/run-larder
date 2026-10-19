@@ -1,6 +1,7 @@
 // Load the whole operational state and commit a command's changes as one
 // atomic D1 batch, guarded by the session, the role and the state version.
 import { fail } from './problem'
+import { caseHumanRoleSql } from './follow-up'
 import { collections, type Actor, type Context, type State } from './model'
 
 export const roleSql = `CASE WHEN EXISTS(SELECT 1 FROM larder_records WHERE kind='roles' AND id=o.id) THEN (SELECT json_extract(data,'$.role') FROM larder_records WHERE kind='roles' AND id=o.id) WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END`
@@ -72,6 +73,12 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
       db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), d.escalationOwnerId))) : []),
     ...(type === 'wo.operation.assign' ? (result as any).operationStates.filter((task: any) => task.assignment?.at === c.now && task.assignment?.by === c.actor.id).map((task: any) =>
       db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager','production')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), task.assignment.operatorId)) : []),
+    // Assignment and escalation destinations are checked in this same batch,
+    // so a demotion/deactivation cannot receive a new case or escalation.
+    ...(['exception.assign', 'exception.escalate'].includes(type) ? [
+      ...(type === 'exception.assign' ? [[(result as any).ownerId, caseHumanRoleSql]] : []),
+      [(result as any).escalationOwnerId, "'owner','manager'"],
+    ].map(([id, permitted]) => db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN (${permitted})) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), id)) : []),
     ...changes(db, c, before),
     db.prepare('UPDATE larder_meta SET version=version+1 WHERE id=1'),
     db.prepare('INSERT INTO larder_commands VALUES(?,?,?,?,?,?)').bind(c.commandId, c.actor.id, type, digest, JSON.stringify(response), c.now),

@@ -269,7 +269,7 @@ test('LARDER-012 handoff exports costs and invoice preparation; acknowledgements
   assert.equal(next.lines[0].amountCents, '-178.00')
 })
 
-test('LARDER-013 exceptions are resolved and the complete archive restores into an empty installation', async t => {
+test('LARDER-013 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h)
   const q = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-10-28', lines: [{ itemId: w.board.id, quantity: '6', unitPrice: '89' }] })
@@ -281,7 +281,7 @@ test('LARDER-013 exceptions are resolved and the complete archive restores into 
   const late = s.exceptions.find(x => x.kind === 'late')
   await h.command('exception.resolve', { key: late.key, note: 'Supplier rang: shipping Friday' })
   s = await h.state()
-  assert.ok(!s.exceptions.some(x => x.kind === 'late'))
+  assert.ok(s.exceptions.some(x => x.kind === 'late' && x.status === 'following up'))
   assert.equal(s.resolutions[0].note, 'Supplier rang: shipping Friday')
   const archive = await (await h.request('/api/larder/archive')).json()
   assert.equal(archive.format, 'larder-archive-v1')
@@ -292,6 +292,8 @@ test('LARDER-013 exceptions are resolved and the complete archive restores into 
   const restored = await (await fresh.request('/api/larder/archive/restore', { method: 'POST', raw: JSON.stringify(archive) })).json()
   assert.equal(restored.ok, true, JSON.stringify(restored))
   const after = await fresh.invariant()
+  assert.ok(after.exceptions.some(x => x.key === late.key && x.status === 'following up'))
+  assert.equal(after.resolutions[0].note, 'Supplier rang: shipping Friday')
   assert.deepEqual(after.positions, s.positions); assert.equal(after.salesOrders[0].reference, 'SO-0001')
   assert.deepEqual(after.reservations.map(r => r.quantity), s.reservations.map(r => r.quantity))
   const opening = after.openings[0]

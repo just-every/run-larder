@@ -8,7 +8,8 @@ import { orderStatuses } from './order-status'
 import { blindView } from './count-visibility'
 import { availability } from './availability'
 import { format } from './decimal'
-import { exceptions } from './exceptions'
+import { exceptionRows } from './exceptions'
+import { followUpView } from './follow-up-state'
 import { shortages } from './planning'
 import { positions } from './stock'
 import { fefoPlans, lotStatuses } from './lot-dates'
@@ -20,6 +21,7 @@ export const movementView = (m: State['movements'][number]) => ({ ...m, quantity
 export function stateView(s: State, actor: Actor, extra: Record<string, unknown>) {
   const blind = blindView(s, actor, extra)
   if (blind) return blind
+  const today = new Date().toISOString().slice(0, 10), followUpCases = followUpView(s, today)
   const records = Object.fromEntries(collections.map(k => [k, s[k]]))
   return {
     version: s.version, actor, ...records,
@@ -33,7 +35,8 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
     positions: positions(s),
     availability: s.items.map(i => availability(s, i.id)),
     shortages: shortages(s),
-    exceptions: exceptions(s, new Date().toISOString().slice(0, 10)),
+    exceptions: exceptionRows(followUpCases),
+    followUpCases,
     lotStatuses: lotStatuses(s, new Date().toISOString().slice(0, 10)),
     fefoPlans: fefoPlans(s, new Date().toISOString().slice(0, 10)),
     pendingHandoff: pendingHandoffCount(s),
