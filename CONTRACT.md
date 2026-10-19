@@ -76,7 +76,7 @@ The sixteen published clauses keep their IDs and useful operational guarantees. 
 
 ### Product engineering
 
-- **ENG-001 — Multilevel BOM explosion.** Engineers build multilevel assemblies and phantom subassemblies with per-unit quantities, yields, effective revisions and make/buy choices. MRP recursively explodes them, detects cycles, and pegs component demand without double counting shared subassemblies. Released work remains pinned. **Acceptance evidence:** Create a three-level BOM sharing a component, stock one subassembly, run MRP and inspect net component demand; reject a cycle and preserve released work after revision.
+- **ENG-001 — Multilevel BOM explosion.** Engineers build multilevel assemblies and phantom subassemblies with per-unit quantities, yields, effective revisions and make/buy choices. MRP recursively explodes them, detects cycles, and pegs component demand without double counting shared subassemblies. Released work remains pinned. Yield is a good-output fraction greater than zero and at most one; each aggregate recipe requirement divides per-unit inputs by yield and rounds upward to six quantity places. Planning and release select the revision effective today in UTC. Make supply nets shared stock/open and draft supply before exploding only uncovered quantity; buy stops explosion; phantom bypasses subassembly stock and expands its recipe. Draft work contributes its inputs once; released work uses its pinned requirements. Pegs retain the root document and revision path. Future effective revisions are also checked for cycles. **Acceptance evidence:** Create a three-level BOM sharing a component, stock one subassembly, run MRP and inspect net component demand; reject a cycle and preserve released work after revision.
 
 - **ENG-002 — Executable routings and instructions.** A revision includes ordered operations, dependencies, setup/run/queue times, work-center eligibility, labor skills, drawings and step instructions. Operators see the exact approved revision at their task, including a required acknowledgment after an instruction change. **Acceptance evidence:** Release a two-operation job, open its tablet task and drawing, then revise instructions; the released job retains its instructions and a new job requires acknowledgment.
 
@@ -400,7 +400,7 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 | 17 | "Sales tax · resale certificate on file" | `US-002` | missing |
 | 18 | "Est. margin 42.0%" | `DEMAND-001`, `COST-004` | partial |
 | 19 | "Confirmed Thu Oct 8 → SO-1184" | `LARDER-004` | done |
-| 20 | "MRP explodes the bill of materials" (multilevel BOM) | `ENG-001` | partial |
+| 20 | "MRP explodes the bill of materials" (multilevel BOM) | `ENG-001` | done |
 | 21 | "nets what you have and drafts what to buy, with dates" (net requirements, PO-5521, PO-5524, MO-2198) | `LARDER-006`, `MRP-001` | partial |
 | 22 | "BOM · FW-EG-1218 rev C" | `LARDER-003` | done |
 | 23 | "2 POs approved by Dana W. · 9:31 AM" | `LARDER-007` | done |
@@ -451,15 +451,15 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 
 Judged from the code and tests at commit `ef0f2402bd6a3e0dd3fdc95d3187433ff92327f7` (18 October 2026).
 
-HTTP-001, ENG-004, STOCK-002 and DEMAND-006 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
+HTTP-001, ENG-004, STOCK-002, DEMAND-006 and ENG-001 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
 
 Homepage claim coverage was completed on 18 October 2026. The baseline retained every pre-existing clause status; subsequent completed journeys are recorded in the Status rows. US-001 was re-judged against the current archive code and remains partial; OPEN-001 and DEMAND-008 are new target clauses. The additional acceptance requirements below remain engineering work wherever their clause is partial or missing.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 4 | 42 | 66 | 112 |
-| All | 20 | 42 | 66 | 128 |
+| Target and push further | 5 | 41 | 66 | 112 |
+| All | 21 | 41 | 66 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -482,7 +482,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `US-001` | US business and USD defaults | target | partial | `src/larder/decimal.ts`; `src/larder/catalogue.ts`; `src/larder/archive.ts`; `tests/api/flows.test.mjs` | Exact decimals/units ship; src/larder/archive.ts hard-codes AUD and restore neither validates nor migrates currency. US business configuration, USD defaults, per-amount ISO currency declarations and a versioned AUD migration with recorded rates/reconciliation are absent. |
 | `US-002` | Sales tax and exemption handoff | target | missing |  | Sales tax and exemption handoff workflow and its acceptance journey are not implemented. |
 | `US-003` | Guided real-order setup | target | missing |  | Guided real-order setup workflow and its acceptance journey are not implemented. |
-| `ENG-001` | Multilevel BOM explosion | target | partial | `src/larder/bom.ts`; `src/larder/production.ts`; `tests/api/flows.test.mjs` | Made components and revision pins ship; recursive explosion, phantoms and yield-aware multilevel netting do not. |
+| `ENG-001` | Multilevel BOM explosion | target | done | `tests/api/multilevel.test.mjs`; `tests/browser/multilevel.spec.ts` — ENG-001 | Recursive topological shared-supply netting, root/revision pegging, stocked subassemblies, make/buy/phantom choices, upward yield arithmetic, effective-date cycle rejection and immutable resolved release pins; recipe, shortage and work screens at 1440/390. |
 | `ENG-002` | Executable routings and instructions | target | partial | `src/larder/bom.ts`; `src/larder/production.ts` | Routing names, work-center text and minutes exist; executable dependencies, detailed instructions and acknowledgments are absent. |
 | `ENG-003` | Configurable and matrix BOMs | target | missing |  | Configurable and matrix BOMs workflow and its acceptance journey are not implemented. |
 | `ENG-004` | BOM CSV export and bulk revision | target | done | `src/larder/bom-csv.ts`; `src/larder/bom-bulk.ts`; `src/larder/bom.ts`; `tests/api/bom-bulk.test.mjs` (ENG-004) | Authenticated CSV export/edit/preview/approval round-trip for ten BOMs and routings; row errors exclude whole recipes, stock/open-work impact is retained, exact quantities and effective dates create revisions atomically, stale/self approval is refused and released work stays pinned. |
@@ -493,7 +493,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `DEMAND-002` | Order changes and cancellations | target | partial | `src/larder/sales.ts`; `tests/api/flows.test.mjs` | Quotes, line cancellation and partial shipments exist; comprehensive order amendments and downstream change approval are absent. |
 | `DEMAND-003` | Master production schedule and forecasts | target | missing |  | Master production schedule and forecasts workflow and its acceptance journey are not implemented. |
 | `DEMAND-004` | Make-to-stock and make-to-order policies | target | partial | `src/larder/planning.ts`; `src/larder/production.ts` | Stock work and demand-driven drafts exist; explicit planning policies, reorder/safety levels and lot-sizing rules are absent. |
-| `DEMAND-005` | Allocation priority and customer commitments | target | partial | `src/larder/stock.ts`; `src/larder/sales.ts`; `tests/api/flows.test.mjs` | Hard reservations preserve stock integrity and work orders carry a priority number; explicit order ranking, rank-ordered allocation and displaced-order/commitment workflows are absent. Promise-preserving recovery and changed-customer-date counts are absent. |
+| `DEMAND-005` | Allocation priority and customer commitments | target | partial | `src/larder/stock.ts`; `src/larder/sales.ts`; `tests/api/flows.test.mjs` | Explicit SO/MO ranks and indicative shared-supply allocation ship in DEMAND-006 with protected reservations. Displacement preview/approval, margin and due-date consequences, approved promise-change counts and alternate-capacity promise-preserving recovery remain absent. |
 | `DEMAND-006` | Live order material and production status | target | done | `tests/api/order-status.test.mjs`; `tests/browser/order-status.spec.ts` — DEMAND-006 | Ranked shared-supply projection on every read; SO/MO order and line status with current PO/MO references/dates, quarantine exclusion, protected reservations, rank/status sort/filter at 1440/390. |
 | `DEMAND-007` | Order invoicing and payment status | target | partial | `src/larder/handoff.ts`; `src/larder/sales.ts`; `tests/api/flows.test.mjs` | Shipment-driven invoice preparation lines valued at the order price, with ledger acknowledgment and linked corrections for reversed shipments, ship in the accountant handoff; invoice records per order, Invoice all/some, bulk and automatic invoicing, refusal of unshipped quantity, invoice and payment status columns with filters, provider payment readback and the overdue release check are absent. |
 | `DEMAND-008` | One fulfillment list across sales channels | target | missing |  | The common wholesale/Shopify/Amazon fulfillment list, channel identity, channel import and connected shipment journeys are not implemented. |

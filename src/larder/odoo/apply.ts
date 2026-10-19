@@ -4,6 +4,7 @@ import { saveItem } from '../catalogue'
 import { decimal, format, times } from '../decimal'
 import { move } from '../stock'
 import { activeBom } from '../bom'
+import { validateBomGraph } from '../bom-explosion'
 import { bump, newId, nextReference, row, type Context, type Row } from '../model'
 import type { Plan } from './map'
 
@@ -20,6 +21,7 @@ export function applyPlan(c: Context, batch: Row, plan: Plan) {
     if (previous) bump(previous, { status: 'superseded' })
     row(c, 'boms', { itemId: made.id, revision: Math.max(0, ...c.s.boms.filter(x => x.itemId === made.id).map(x => x.revision)) + 1, components: b.components.map(x => ({ itemId: item(x.itemSource).id, quantity: x.quantity, note: '' })), routing: b.routing.map((r, i) => ({ sequence: i + 1, ...r })), note: 'Moved in from Odoo', status: 'active', sourceId: b.sourceId, importId })
   }
+  validateBomGraph(c.s, c.now.slice(0, 10))
   for (const o of plan.openings) {
     const opening = row(c, 'openings', { reference: nextReference(c.s.openings, 'OS'), locationId: location(o.locationSource), countedOn: batch.opening.countedOn, valuationBasis: batch.opening.valuationBasis, countedBy: batch.opening.countedBy, evidence: batch.files.find((f: any) => f.model === 'stock.quant'), lines: [], importId })
     for (const l of o.lines) {

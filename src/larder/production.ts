@@ -1,6 +1,7 @@
 // Work orders: draft, release (pins the BOM revision and reserves components),
 // material issue, output with scrap, and close with cost variance.
 import { activeBom } from './bom'
+import { resolvedComponents } from './bom-explosion'
 import { toBase } from './catalogue'
 import { decimal, divide, format, max, min, times } from './decimal'
 import { fail } from './problem'
@@ -32,9 +33,12 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       if (w.status !== 'draft') fail('STATE', 'Only a draft work order can be released.')
       const bom = activeBom(c.s, w.itemId, c.now.slice(0, 10)) ?? fail('NO_BOM', 'Give this item a bill of materials before releasing work.')
       const quantity = decimal(w.quantity)
-      const components = bom.components.map((l: any) => ({ id: newId(), itemId: l.itemId, perUnit: l.quantity, required: format(times(decimal(l.quantity), quantity)), issued: '0' }))
-      const standardUnitCost = bom.components.reduce((n: bigint, l: any) => n + times(decimal(l.quantity), averageCost(c.s, l.itemId)), 0n)
-      bump(w, { status: 'released', bomId: bom.id, bomRevision: bom.revision, components, routing: bom.routing, standardUnitCost: format(standardUnitCost), releasedBy: c.actor.id, releasedAt: c.now })
+      const resolved = resolvedComponents(c.s, bom, quantity, c.now.slice(0, 10))
+      const totals = new Map<string, bigint>()
+      for (const l of resolved.components) totals.set(l.itemId, (totals.get(l.itemId) ?? 0n) + decimal(l.quantity))
+      const components = [...totals].map(([itemId, required]) => ({ id: newId(), itemId, perUnit: format(divide(required, quantity)), required: format(required), supplyRequirements: resolved.components.filter(l => l.itemId === itemId).map(l => ({ supply: l.supply, quantity: l.quantity })), issued: '0' }))
+      const standardUnitCost = divide(components.reduce((n: bigint, l: any) => n + times(decimal(l.required), averageCost(c.s, l.itemId)), 0n), quantity)
+      bump(w, { status: 'released', bomId: bom.id, bomRevision: bom.revision, bomRevisions: resolved.revisions, components, routing: bom.routing, standardUnitCost: format(standardUnitCost), releasedBy: c.actor.id, releasedAt: c.now })
       w.shortages = components.map((l: any) => {
         const got = reserve(c, { demandKind: 'work', demandId: w.id, lineId: l.id, itemId: l.itemId }, decimal(l.required))
         return { itemId: l.itemId, short: format(decimal(l.required) - got) }

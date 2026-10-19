@@ -1,10 +1,10 @@
 import { activeBom } from './bom'
 import { toBase } from './catalogue'
-import { format } from './decimal'
+import { decimal, format, SCALE } from './decimal'
 import { optionalText, text, type Row, type State } from './model'
 import { parseCsv } from './odoo/csv'
 
-const headers = ['item_sku', 'revision', 'effective_on', 'component_sku', 'quantity', 'unit', 'routing', 'note']
+const headers = ['item_sku', 'revision', 'effective_on', 'component_sku', 'quantity', 'unit', 'routing', 'note', 'yield', 'supply']
 const today = () => new Date().toISOString().slice(0, 10)
 const quote = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
 // Only free-text cells are escaped. SKU identifiers must retain their exact bytes.
@@ -22,7 +22,7 @@ export function bomCsv(s: State): string {
       const part = s.items.find(i => i.id === component.itemId)
       if (!part) throw new Error(`BOM ${bom.id} references a missing component.`)
       const effectiveOn = bom.effectiveOn && bom.effectiveOn > today() ? bom.effectiveOn : today()
-      rows.push([item.sku, bom.revision, effectiveOn, part.sku, component.quantity, part.baseUnit, routing, protect(bom.note ?? '')])
+      rows.push([item.sku, bom.revision, effectiveOn, part.sku, component.quantity, part.baseUnit, routing, protect(bom.note ?? ''), bom.yield ?? '1', component.supply ?? part.kind])
     }
   }
   return rows.map(row => row.map(quote).join(',')).join('\r\n') + '\r\n'
@@ -72,7 +72,7 @@ export function parseBomCsv(s: State, content: string, file: string): { revision
   catch (e) { error(Number(/line (\d+)/.exec(reason(e))?.[1] ?? 1), 'file', reason(e)); return { revisions: [], errors } }
   const lines = rowLines(content), header = rows.shift()
   if (!header) { error(1, 'file', 'The CSV file is empty.'); return { revisions: [], errors } }
-  for (const name of headers) if (!header.includes(name)) error(lines[0] ?? 1, name, 'Required column is missing.')
+  for (const name of headers.filter(h => !['yield', 'supply'].includes(h))) if (!header.includes(name)) error(lines[0] ?? 1, name, 'Required column is missing.')
   for (const [index, name] of header.entries()) {
     if (!headers.includes(name)) error(lines[0] ?? 1, name || 'header', 'Unknown column.')
     if (header.indexOf(name) !== index) error(lines[0] ?? 1, name, 'Duplicate column.')
@@ -101,19 +101,24 @@ export function parseBomCsv(s: State, content: string, file: string): { revision
     let steps: ReturnType<typeof routing> = [], note = ''
     try { steps = routing(data.routing) } catch (e) { reject('routing', reason(e)) }
     try { note = optionalText(unprotect(data.note), 'change note', 400) } catch (e) { reject('note', reason(e)) }
-    const metadata = { revision: data.revision, effective_on: data.effective_on, routing: JSON.stringify(steps), note }
+    const source = s.boms.find(b => b.id === group!.revision.sourceBomId)
+    const yieldRate = data.yield || source?.yield || '1'
+    try { if (decimal(yieldRate, 'yield', { positive: true }) > SCALE) reject('yield', 'Yield cannot exceed one.') } catch (e) { reject('yield', reason(e)) }
+    const metadata = { yield: yieldRate, revision: data.revision, effective_on: data.effective_on, routing: JSON.stringify(steps), note }
     for (const [column, value] of Object.entries(metadata)) {
       if (column in group.metadata && group.metadata[column] !== value) reject(column, 'All rows for an item must use the same value.')
       else group.metadata[column] = value
     }
-    Object.assign(group.revision, { routing: steps, note })
+    Object.assign(group.revision, { routing: steps, note, yield: yieldRate })
     const part: Row | undefined = s.items.find(i => String(i.sku).toLowerCase() === data.component_sku.toLowerCase())
     if (!part || part.archived) { reject('component_sku', 'Unknown or archived component SKU.'); continue }
     if (part.id === item.id) reject('component_sku', 'An item cannot be a component of itself.')
     if (group.seen.has(part.id)) reject('component_sku', 'List each component once per revision.')
     group.seen.add(part.id)
     if (!data.unit.trim()) reject('unit', 'A unit is required.')
-    try { group.revision.components.push({ itemId: part.id, quantity: format(toBase(part, data.quantity, data.unit)), unit: part.baseUnit }) }
+    const supply = header.includes('supply') ? data.supply || part.kind : source?.components.find((l: any) => l.itemId === part.id)?.supply || part.kind
+    if (!['make', 'buy', 'phantom'].includes(supply) || (supply !== 'buy' && part.kind !== 'make')) reject('supply', 'Choose buy, or make/phantom for a made item.')
+    try { group.revision.components.push({ supply, itemId: part.id, quantity: format(toBase(part, data.quantity, data.unit)), unit: part.baseUnit }) }
     catch (e) { reject(/unit|conversion/i.test(reason(e)) ? 'unit' : 'quantity', reason(e)) }
     if (group.revision.components.length > 200) reject('component_sku', 'A BOM must contain at most 200 components.')
   }

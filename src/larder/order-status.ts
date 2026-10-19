@@ -1,6 +1,7 @@
 import { activeBom } from './bom'
+import { resolvedComponents } from './bom-explosion'
 import { open } from './availability'
-import { decimal, format, max, min, SCALE, times } from './decimal'
+import { decimal, format, max, min } from './decimal'
 import type { Row, State } from './model'
 import { combined, supplyAllocator, type IngredientStatus, type ProductionStatus, type StatusLine } from './order-supply'
 
@@ -25,9 +26,9 @@ export function orderStatuses(s: State): { sales: OrderStatus[]; work: OrderStat
     const lines: StatusLine[] = []
     if (kind === 'work') {
       const live = ['draft', 'released'].includes(r.status), bom = r.status === 'draft' ? activeBom(s, r.itemId) : undefined
-      const components = r.status === 'draft' ? bom?.components : r.components
+      const components = r.status === 'draft' ? (bom ? resolvedComponents(s, bom, decimal(r.quantity)).components : undefined) : r.components
       if (live && components) for (const l of components) {
-        const need = r.status === 'draft' ? times(decimal(l.quantity), decimal(r.quantity)) : max(0n, decimal(l.required) - decimal(l.issued))
+        const need = r.status === 'draft' ? decimal(l.quantity) : max(0n, decimal(l.required) - decimal(l.issued))
         lines.push(allocate(l.itemId, need, r.id, l.id ?? `${r.id}:${l.itemId}`, r.reference))
       }
       const ingredientStatus: IngredientStatus = live && !components ? 'No BOM' : combined(lines)
@@ -47,13 +48,14 @@ export function orderStatuses(s: State): { sales: OrderStatus[]; work: OrderStat
           const bom = activeBom(s, item.id)
           if (!bom) line.ingredientStatus = 'No BOM'
           else {
-            line.ingredients = bom.components.map((c: any) => allocate(c.itemId, times(decimal(c.quantity), uncovered), r.id, `${l.id}:${c.itemId}`, r.reference))
+            const resolved = resolvedComponents(s, bom, uncovered).components
+            line.ingredients = resolved.map((c: any) => allocate(c.itemId, decimal(c.quantity), r.id, `${l.id}:${c.itemId}`, r.reference))
             // A recipe's shortages are expressed in product units at the parent,
             // while each ingredient retains its own quantity and supply units.
             let covered = uncovered
-            for (let i = 0; i < bom.components.length; i++) {
-              const per = decimal(bom.components[i].quantity), ingredient = line.ingredients![i]
-              if (per > 0n) covered = min(covered, max(0n, decimal(ingredient.required) - decimal(ingredient.missing)) * SCALE / per)
+            for (let i = 0; i < resolved.length; i++) {
+              const per = decimal(resolved[i].quantity), ingredient = line.ingredients![i]
+              if (per > 0n) covered = min(covered, max(0n, decimal(ingredient.required) - decimal(ingredient.missing)) * uncovered / per)
             }
             line.missing = format(max(0n, uncovered - covered))
             line.ingredientStatus = combined(line.ingredients!)

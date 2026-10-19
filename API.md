@@ -22,7 +22,7 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `party.save` | `{id?, version?, name, kind: customer\|supplier\|both, email?, abn?, terms?}` | manager, buyer, sales |
 | `partyItem.save` | `{id?, version?, partyId, itemId, partyCode, unit?, price?, leadDays?, preferred?}` | manager, buyer, sales |
 | `opening.record` | `{locationId, countedOn, valuationBasis: supplier-invoice\|last-purchase\|standard-cost\|owner-estimate, countedBy, evidence: {name, contentType, base64}, lines: [{itemId, quantity, unit?, unitCost, lot?}]}` | manager, warehouse |
-| `bom.revise` | `{itemId, components: [{itemId, quantity, unit?}], routing?: [{name, workCentre?, minutes}], note?, effectiveOn?}` | manager, production |
+| `bom.revise` | `{itemId, components: [{itemId, quantity, unit?, supply?: make|buy|phantom}], yield?: <fraction>, routing?: [{name, workCentre?, minutes}], note?, effectiveOn?}` | manager, production |
 | `bom.bulkPreview` | `{file: {name, content}}` — CSV rows, errors and stock/open-work impact; creates only the review record | manager, production |
 | `bom.bulkApprove` | `{previewId, version, acceptRejected?: <exact error count>}` — approve all valid whole-BOM groups atomically; changed business state requires a new preview | manager, production (different preparer; owner may approve own) |
 | `order.rank` | `{kind: sales\|work, orderId, version, rank}` — lower positive whole-number ranks first; preserves reservations/promises | manager, production |
@@ -104,3 +104,11 @@ Lower explicit ranks consume scarce free supply first; equal ranks resolve by du
 Made sales lines consume finished stock and open MO supply once. MO-covered sales quantity inherits that MO's component coverage through `supplyingWork`, including its actual PO sources; uncovered sales quantity gets effective single-level BOM ingredient demand in `ingredients`. The existing multilevel/phantom extension remains ENG-001 work. All physical and future pools are shared across demand for that read; a supplying MO's components are not allocated again for its sales consumers. `available` is physically allocated quantity, `missing` is quantity without a declared source; a blocked supplying MO can therefore still have a declared product source while its nested ingredients expose the shortage.
 
 Receipts, ETA changes, rank edits, reservations, cancellations and production reports require no MRP refresh: the next state read recomputes everything. Ranking changes indicative free-supply coverage only, preserves hard reservations and never changes promises. The reviewed displacement and recovery workflow remains DEMAND-005 work.
+
+## Multilevel material planning (ENG-001)
+
+The state API’s `shortages` recursively nets all confirmed sales and released/draft work through effective BOMs. Every row retains `pegs`: root document IDs/references, dates, quantities and each intermediate BOM ID/revision. Shared stock, hard reservations and approved/open/draft supply are counted once across branches; draft work adds its own input demand once. This is quantity netting; dated feasibility remains MRP-001.
+
+`bom.revise` accepts a `yield` fraction greater than zero and at most one (default `1`) and per-component `supply`: `make`, `buy` or `phantom` (default the item’s kind). Make nets subassembly supply before expanding the uncovered quantity; buy stops expansion; phantom ignores its own stock and expands directly. Make/phantom require a made item. Each aggregate recipe input is `ceil(perUnit × output / yield)` at six quantity places. Today’s UTC effective revision is used; new revisions are checked for cycles now and at every future effectivity boundary.
+
+`plan.draft` optionally takes `supply: make|buy`; `supplyChoices` gives each uncovered quantity when an item has both requirements. Release merges physical requirements by SKU, retains make/buy quantities and pins all resolved phantom revision IDs/yields in `bomRevisions`. Subsequent revisions cannot change that released snapshot. BOM CSV adds `yield` and `supply`; older files remain supported.

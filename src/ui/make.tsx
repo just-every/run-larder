@@ -4,6 +4,7 @@ import { Card, Chip, Choose, Empty, Field, Form, Lines, Table, options, readLine
 import { day, dayName, minus, money, positive, qty, when, words } from './format'
 import { covers, firstStart, stories, timing } from './supply'
 import { schedule } from './schedule/plan'
+import { Boms } from './bom-editor'
 import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
 
 const tabs = [{ id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }]
@@ -25,8 +26,8 @@ function Shortages({ larder }: { larder: Larder }) {
   // Released work still missing materials that open supply covers: what each waits on, against when it starts.
   const waiting = rows(s, 'workOrders').filter(w => w.status === 'released').flatMap(w => covers(s, w, plan).map(c => ({ w, c, start: firstStart(plan, w.id) })))
   return <><Card title="What is short, and why">{s.shortages.length === 0 ? <Empty>{waiting.length ? 'Open supply covers every confirmed order and released job. Some of it arrives after the work starts; see below.' : 'Confirmed orders and released work are covered by stock and open supply.'}</Empty> :
-    <Table head={['Item', 'Short', 'Needed by', 'Because', '']} numeric={[1]}>{s.shortages.map((x: any) => <tr key={x.itemId}><td><strong>{itemName(s, x.itemId)}</strong><small>{words(x.kind === 'make' ? 'made' : 'bought')} · {qty(x.available)} free, {qty(x.expected)} expected</small></td><td className="num"><span className="short bad">{qty(x.shortage)}</span></td><td>{day(x.requiredBy)}</td><td>{x.reasons.map((r: any) => `${r.reference} needs ${qty(r.quantity)} by ${day(r.date)}`).join('; ')}</td>
-      <td>{can(s, ['manager', 'buyer', 'production', 'agent']) && <button className="button" disabled={larder.busy} onClick={async () => { const r = await larder.run('plan.draft', { itemId: x.itemId }); if (r) window.location.hash = `make/${x.kind === 'make' ? 'wo' : 'po'}/${r.id}` }}>{x.kind === 'make' ? 'Draft work order' : x.supplierId ? `Draft PO to ${partyName(s, x.supplierId)}` : 'Draft purchase order'}</button>}</td></tr>)}</Table>}
+    <Table head={['Item', 'Short', 'Needed by', 'Because', '']} numeric={[1]}>{s.shortages.map((x: any) => <tr key={x.itemId}><td><strong>{itemName(s, x.itemId)}</strong><small>{words(x.kind === 'make' ? 'made' : 'bought')} · {qty(x.available)} free, {qty(x.expected)} expected</small></td><td className="num"><span className="short bad">{qty(x.shortage)}</span></td><td>{day(x.requiredBy)}</td><td><div>{x.pegs.map((r: any, i: number) => <div key={i}>{r.reference} needs {qty(r.quantity)} by {day(r.date)}{r.path.length > 0 && <small>Via {r.path.map((b: any) => `${itemName(s, b.itemId)} rev ${b.revision}`).join(' → ')}</small>}</div>)}</div></td>
+      <td>{can(s, ['manager', 'buyer', 'production', 'agent']) && ['make', 'buy'].filter(mode => positive(x.supplyChoices[mode])).map(mode => <button key={mode} className="button" disabled={larder.busy} onClick={async () => { const r = await larder.run('plan.draft', { itemId: x.itemId, supply: mode }); if (r) window.location.hash = `make/${mode === 'make' ? 'wo' : 'po'}/${r.id}` }}>{mode === 'make' ? 'Draft work order' : x.supplierId ? `Draft PO to ${partyName(s, x.supplierId)}` : 'Draft purchase order'} ({qty(x.supplyChoices[mode])})</button>)}</td></tr>)}</Table>}
   </Card>
   {waiting.length > 0 && <Card title="Released work waiting on supply">
     <Table head={['Work order', 'Material', 'Short', 'Waits on', 'Job starts']} numeric={[2]}>{waiting.map(({ w, c, start }) => <tr key={`${w.id}:${c.itemId}`}>
@@ -84,6 +85,7 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
   const reserved = (lineId: string) => rows(s, 'reservations').filter(r => r.demandId === w.id && r.lineId === lineId)
   return <div className="split">
     <Card title={<>{w.reference} <Chip tone={woTone(w.status)}>{words(w.status)}</Chip></>}>
+      {w.bomRevisions?.length > 0 && <p className="muted">Pinned recipes: {w.bomRevisions.map((b: any) => `${itemName(s, b.itemId)} rev ${b.revision} (yield ${b.yield})`).join('; ')}</p>}
       <p className="meta">Make {qty(w.quantity)} {itemName(s, w.itemId)} by {day(w.requiredBy)}{w.bomRevision && ` · pinned to BOM revision ${w.bomRevision}`}</p><p>{w.reason}</p>
       {w.status === 'draft' && prod && <div className="actions"><button className="button primary" disabled={busy} onClick={() => run('wo.release', { workOrderId: w.id, version: w.version })}>Release and reserve materials</button></div>}
       {w.components.length > 0 && <Table head={['Material', 'Required', 'Issued', 'Reserved']} numeric={[1, 2, 3]}>{w.components.map((l: any) => <tr key={l.id}><td>{itemName(s, l.itemId)}</td><td className="num">{qty(l.required)} {unitOf(s, l.itemId)}</td><td className="num">{qty(l.issued)}</td><td className="num">{reserved(l.id).map(r => `${qty(r.quantity)} at ${locationName(s, r.locationId)}`).join(', ') || '0'}</td></tr>)}</Table>}
@@ -101,16 +103,4 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
       {prod && <Form submit="Close work order" quiet busy={busy} note="Releases leftover reservations and records the material cost and variance." onSubmit={() => run('wo.close', { workOrderId: w.id, version: w.version })}><span /></Form>}
     </Card>}
   </div>
-}
-
-function Boms({ larder }: { larder: Larder }) {
-  const s = larder.state!, made = rows(s, 'items').filter(i => i.kind === 'make')
-  return <><Card title="Bills of materials">{rows(s, 'boms').length === 0 ? <Empty>No bills of materials yet.</Empty> :
-    <Table head={['Item', 'Revision', 'Components', 'Routing', 'Status']}>{[...rows(s, 'boms')].reverse().map(b => <tr key={b.id}><td>{itemName(s, b.itemId)}</td><td>Rev {b.revision}</td><td>{b.components.map((c: any) => `${qty(c.quantity)} ${unitOf(s, c.itemId)} ${itemName(s, c.itemId)}`).join(', ')}</td><td>{b.routing.map((r: any) => r.name).join(' → ') || '—'}</td><td><Chip tone={b.status === 'active' ? 'good' : 'neutral'}>{words(b.status)}</Chip></td></tr>)}</Table>}</Card>
-    {can(s, ['manager', 'production']) && made.length > 0 && <Card title="New revision"><Form submit="Save new revision" busy={larder.busy} note="Saving creates the next revision. Released work keeps the revision it was released with." onSubmit={d => larder.run('bom.revise', { itemId: text(d, 'itemId'), note: text(d, 'note'), components: readLines(d).map(l => ({ itemId: l.itemId, quantity: l.quantity, unit: l.unitPrice })), routing: text(d, 'routing').split('\n').map(x => x.trim()).filter(Boolean).map(x => { const [name, workCentre = '', minutes = '0'] = x.split(',').map(y => y.trim()); return { name, workCentre, minutes: Number(minutes) } }) })}>
-      <Choose label="Item" name="itemId" options={options(made, r => `${r.name} · ${r.sku}`)} /><Field label="Change note" name="note" required={false} />
-      <BomLines s={s} /><label className="field wide"><span>Routing (one step per line: step, work center, minutes)</span><textarea name="routing" rows={3} required={false} placeholder={'Plane and cut, Bench, 20\nOil, Finishing, 5'} /></label></Form></Card>}</>
-}
-function BomLines({ s }: { s: LarderState }) {
-  return <fieldset className="lines wide"><legend>Components per one finished unit</legend>{[0, 1, 2, 3].map(i => <div className="line" key={i}><Choose label={`Component ${i + 1}`} name={`lines.${i}.itemId`} options={options(rows(s, 'items'), r => `${r.name} · ${r.sku}`)} required={i === 0} /><Field label="Quantity" name={`lines.${i}.quantity`} inputMode="decimal" required={false} /><Field label="Unit" name={`lines.${i}.unitPrice`} required={false} hint="Blank uses the base unit" /></div>)}</fieldset>
 }
