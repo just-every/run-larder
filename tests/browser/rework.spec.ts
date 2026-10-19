@@ -60,7 +60,8 @@ test('FLOOR-004 return defective assemblies, authorize unbuild and repair, recov
         for (const [label, value] of [['Material quantity', '1'], ['Labor person', 'Riley'], ['Labor hours', '0.25'], ['Hourly rate', '20'], ['Labor description', 'Seal replacement and function test']]) await form.getByLabel(label, { exact: true }).fill(value)
       }
       await shot(page, `${kind}-draft-form`)
-      await form.getByRole('button', { name: 'Save repair draft', exact: true }).click(); await settled(page)
+      await form.getByRole('button', { name: 'Save repair draft', exact: true }).click()
+      await expect(page.getByRole('heading', { name: repair ? /^RW-\d+ · Rework$/ : /^UB-\d+ · Unbuild$/ })).toBeVisible(); await settled(page)
       const row = (await state()).reworkOrders.find((w: any) => w.sourceJobId === work.id && w.kind === kind), detail = card(page, `${row.reference} · ${repair ? 'Rework' : 'Unbuild'}`)
       await expect(detail).toContainText(`Original lot ORIGINAL-${tag}`); await expect(detail).toContainText(work.reference)
       await detail.getByLabel('Approval reason', { exact: true }).fill('Reviewed pinned instructions, quantities and cost allocation')
