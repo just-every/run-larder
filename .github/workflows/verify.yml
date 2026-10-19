@@ -43,3 +43,11 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec rer check --profile first-party
       - run: pnpm run verify
+      - name: Retain redacted forecast navigation lifecycle
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: forecast-navigation
+          path: /tmp/larder-browser-evidence/navigation-diagnostics/
+          if-no-files-found: ignore
+          retention-days: 3

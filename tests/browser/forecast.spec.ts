@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { test, expect, navigationMark } from './navigation-diagnostics'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787'
@@ -41,7 +42,10 @@ test('DEMAND-003 DEMAND-004 import twelve weeks, consume real orders, adjust and
   await command(page, 'inventory.policy', { itemId: product.id, locationId: location.id, mode: 'make-to-stock', effectiveOn: new Date().toISOString().slice(0, 10), batchSize: '4', orderMultiple: '6', reason: 'Reviewed location policy for weekly demand' })
   const customer = await command(page, 'party.save', { name: `Equipment Works ${suffix}`, kind: 'customer' })
   const now = new Date(), monday = day(now.toISOString().slice(0, 10), 8 - (now.getUTCDay() || 7)), weeks = Array.from({ length: 12 }, (_, i) => day(monday, i * 7))
-  await page.goto(origin + '/app#make/forecast'); await page.reload(); await settled(page)
+  navigationMark(page, 'before-goto')
+  await page.goto(origin + '/app#make/forecast'); navigationMark(page, 'after-goto')
+  await page.reload(); navigationMark(page, 'after-reload')
+  await settled(page); navigationMark(page, 'after-settled')
   const importer = page.getByRole('heading', { name: 'Import weekly forecast', exact: true }).locator('../..')
   await expect(importer).toBeVisible()
   const csv = 'sku,week,quantity,seasonality\n' + weeks.map((week, i) => `${sku},${week},10,${i === 1 ? '1.5' : '1'}`).join('\n')
