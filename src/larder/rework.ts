@@ -5,6 +5,7 @@ import { approvedCertificates } from './certificate-policy'
 import { decimal, divide, format, times } from './decimal'
 import { assertLotNotHeld } from './quality'
 import { plansFor } from './quality-holds'
+import { lotBlock } from './lot-dates'
 import { fail } from './problem'
 import { allow, approver } from './roles'
 import { balance, move, qty, withdraw } from './stock'
@@ -55,7 +56,7 @@ export function rework(c: Context, type: string, p: any): Row | undefined {
     for (const x of w.outputs) {
       const q = decimal(x.quantity), unitCost = divide(decimal(x.value), q)
       if (times(q, unitCost) !== decimal(x.value)) fail('COST', 'Output value must reconcile at six-place unit cost precision.')
-      const lot = row(c, 'lots', { itemId: x.itemId, code: x.lot, source: 'rework', documentId: w.id, originalLotId: source.id, originalJobId: w.sourceJobId, status: 'quarantined', supplierId: null })
+      const lot = row(c, 'lots', { itemId: x.itemId, code: x.lot, source: 'rework', documentId: w.id, originalLotId: source.id, originalJobId: w.sourceJobId, status: 'quarantined', supplierId: null, ...(source.dates ? { dates: structuredClone(source.dates) } : {}) })
       const m = move(c, { ...base, itemId: x.itemId, locationId: w.locationId, status: 'quarantine', lotId: lot.id, quantity: q, unitCost, kind: w.kind === 'rework' ? 'repair-output' : 'recovered-component' })
       outputLots.push({ lotId: lot.id, movementId: m.id, itemId: x.itemId, quantity: x.quantity, value: x.value })
     }
@@ -69,6 +70,7 @@ export function rework(c: Context, type: string, p: any): Row | undefined {
     for (const x of w.outputLots) {
       assertLotNotHeld(c.s, x.lotId, 'released')
       const lot = get(c.s, 'lots', x.lotId)
+      if (lotBlock(lot, c.now.slice(0, 10))) fail('LOT_BLOCKED', `Recovery lot ${lot.code} ${lotBlock(lot, c.now.slice(0, 10))}; record its documented disposition first.`)
       approvedCertificates(c.s, x.itemId, lot.id, c.now.slice(0, 10))
       for (const stage of ['receipt', 'in-process', 'final']) for (const plan of plansFor(c.s, stage, x.itemId, w.bomRevision).filter(p => p.required)) {
         const result = c.s.inspections.filter(i => i.subjectId === w.id && i.planId === plan.id).at(-1)

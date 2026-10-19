@@ -16,7 +16,7 @@ test('FLOOR-004 return defective assemblies, unbuild recovered parts, repair the
   const draft = await h.command('wo.draft', { itemId: motor.id, quantity: '3', requiredBy: today, reason: 'Customer batch' })
   let job = await h.command('wo.release', { workOrderId: draft.id, version: draft.version })
   job = await h.command('wo.issue', { workOrderId: job.id, lines: [{ itemId: part.id, locationId: location.id, quantity: '3' }] })
-  job = await h.command('wo.output', { workOrderId: job.id, version: job.version, locationId: location.id, quantity: '3', lot: 'MOTOR-A' })
+  job = await h.command('wo.output', { workOrderId: job.id, version: job.version, locationId: location.id, quantity: '3', lot: 'MOTOR-A', dates: { expiresOn: `${new Date().getUTCFullYear() + 1}-12-31` } })
   const original = (await h.state()).lots.find(l => l.code === 'MOTOR-A')
   const ship = async (quantity, lotId) => {
     const q = await h.command('so.quote', { customerId: customer.id, promiseDate: today, lines: [{ itemId: motor.id, quantity, unitPrice: '30' }] })
@@ -75,7 +75,7 @@ test('FLOOR-004 return defective assemblies, unbuild recovered parts, repair the
   assert.equal(await (await h.request(`/api/larder/attachments/${file.id}`)).text(), 'Passing inspection')
   const shippedRepair = await ship('1', repairLot)
   const s = await h.invariant(), actualLot = s.lots.find(l => l.id === repairLot)
-  assert.equal(actualLot.originalLotId, original.id); assert.equal(actualLot.originalJobId, job.id)
+  assert.deepEqual(actualLot.dates, original.dates); assert.equal(actualLot.originalLotId, original.id); assert.equal(actualLot.originalJobId, job.id)
   assert.equal(s.lots.find(l => l.id === recoveredLot).originalLotId, original.id)
   assert.equal(s.positions.find(p => p.lotId === recoveredLot).quantity, '1')
   assert.deepEqual(s.positions.filter(p => p.lotId === original.id).map(p => [p.status, p.quantity]), [['quarantine', '1']])
