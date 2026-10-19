@@ -1,6 +1,6 @@
 // ENG-002: execution refers only to the released instruction snapshot.
 import { activeMaintenance, assertEquipmentAvailable } from './maintenance-availability'
-import { holdReason, openHolds } from './quality'
+import { holdReason, openHolds } from './quality-holds'
 import { allow } from './roles'
 import { fail } from './problem'
 import { bump, fresh, get, text, type Actor, type Context, type Row, type State } from './model'

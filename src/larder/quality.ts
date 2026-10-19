@@ -7,6 +7,7 @@
 // exactly the plan's sample size and every sample lies within its inclusive
 // lower and upper limits; a result passes when every measurement passes.
 import { attach } from './attachments'
+import { holdReason, openHolds } from './quality-holds'
 import { SCALE, decimal, divide, format } from './decimal'
 import { fail, forbidden } from './problem'
 import { allow, approver } from './roles'
@@ -28,14 +29,7 @@ function measurements(value: unknown) {
   return out
 }
 
-// The approved, current plans that apply to a work order (in-process, final) or a received lot.
-export function plansFor(s: Pick<State, 'inspectionPlans'>, stage: string, itemId: string, revision: number | null) {
-  return s.inspectionPlans.filter(p => p.status === 'approved' && p.stage === stage && p.itemId === itemId && (p.revision === null || p.revision === revision))
-}
-
-export const openHolds = (s: Pick<State, 'qualityHolds'>, subjectId: string) => s.qualityHolds.filter(h => h.status === 'open' && h.subjectId === subjectId)
 const lotHolds = (s: State, lotId: string) => s.qualityHolds.filter(h => h.status === 'open' && h.lots.some((x: any) => x.lotId === lotId))
-export const holdReason = (h: Row) => `Quality hold: ${h.planName} failed on ${h.failedAt.slice(0, 10)} (${h.failures.join('; ')}); an owner or manager releases it after a passing retest.`
 
 // Refuse using a lot under an open quality hold (pick, ship, quarantine release).
 // Quarantine rejection (scrap or return) stays open without a retest.

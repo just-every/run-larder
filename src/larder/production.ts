@@ -11,7 +11,7 @@ import { fail } from './problem'
 import { allow, approver } from './roles'
 import { averageCost, consume, move, release, reserve, reservedQuantity, withdraw } from './stock'
 import { lotDates } from './lot-dates'
-import { holdReason, openHolds, plansFor } from './quality'
+import { holdReason, openHolds, plansFor } from './quality-holds'
 import { bump, date, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Row } from './model'
 
 export function draftWork(c: Context, p: any, preparedBy?: string): Row {
