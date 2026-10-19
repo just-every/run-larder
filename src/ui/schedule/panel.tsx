@@ -84,7 +84,7 @@ function Recovery({ larder, proposal, plan, proposed, now }: { larder: Larder; p
 function Operations({ plan, w }: { plan: Plan; w: Rec }) {
   const ops = plan.ops.filter(o => o.workOrder.id === w.id)
   return <section className="operations"><h3>Operations</h3>
-    {ops.length === 0 ? <p className="muted">No routing steps with minutes on this item's bill of materials.</p> : <ol>{ops.map(o => <li key={o.key}><strong>Op {o.sequence} {o.step}</strong><span>{o.workCenter}</span><span className="num"><time dateTime={o.start.toISOString()}>{dayName(o.start)}, {clock(o.start)}</time> – <time dateTime={o.end.toISOString()}>{o.end.toDateString() === o.start.toDateString() ? clock(o.end) : `${dayName(o.end)}, ${clock(o.end)}`}</time></span></li>)}</ol>}
+    {ops.length === 0 ? <p className="muted">No routing steps with minutes on this item's bill of materials.</p> : <ol>{ops.map(o => <li key={o.key}><strong>Op {o.sequence} {o.step}</strong><span>{w.operationStates?.find((t: any) => t.sequence === o.sequence)?.status ?? 'pending'} · {qty(o.minutes)} job minutes remaining</span><span>{o.workCenter}</span><span className="num"><time dateTime={o.start.toISOString()}>{dayName(o.start)}, {clock(o.start)}</time> – <time dateTime={o.end.toISOString()}>{o.end.toDateString() === o.start.toDateString() ? clock(o.end) : `${dayName(o.end)}, ${clock(o.end)}`}</time></span></li>)}</ol>}
     <a className="button wide" href={`#make/wo/${w.id}`}>Open work order</a>
   </section>
 }

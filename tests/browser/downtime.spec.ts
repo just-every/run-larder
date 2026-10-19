@@ -1,0 +1,101 @@
+import { test, expect, type Page } from '@playwright/test'
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
+const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787'
+async function command(page: Page, type: string, payload: object) {
+  const r = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type, payload } })
+  const b = await r.json(); expect(b.ok, JSON.stringify(b.error)).toBe(true); return b.result
+}
+async function settled(page: Page) { await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false'); await expect(page.getByRole('alert')).toHaveCount(0) }
+async function shots(page: Page, stage: string, region?: ReturnType<Page['locator']>) {
+  if (!process.env.LARDER_SCREENSHOTS) return
+  await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true })
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    const path = join(process.env.LARDER_SCREENSHOTS, `${width}-FLOOR-007-${stage}.png`)
+    if (region) await region.screenshot({ path }); else await page.screenshot({ path, fullPage: true })
+  }
+}
+async function plannedTimes(page: Page, reference: string) {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto(origin + '/app#schedule'); await page.reload(); await settled(page)
+  await page.getByRole('group', { name: 'Schedule span' }).getByRole('button', { name: 'Week', exact: true }).click()
+  await page.locator('.gantt .bar').filter({ hasText: reference }).first().click()
+  return page.locator('.job-panel .operations time').evaluateAll(nodes => nodes.map(node => node.getAttribute('datetime')!))
+}
+
+test('FLOOR-007 pause for broken tool, notify supervisor in app, revise effort, inspect lost time and changed plan at 1440/390', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  const suffix = crypto.randomUUID().slice(0, 6), today = new Date().toISOString().slice(0, 10)
+  const raw = await command(page, 'item.save', { sku: `PLATE-${suffix}`, name: `Steel blank ${suffix}`, kind: 'buy', baseUnit: 'each' })
+  const product = await command(page, 'item.save', { sku: `DRILLED-${suffix}`, name: `Ohio mounting plate ${suffix}`, kind: 'make', baseUnit: 'each' })
+  const location = await command(page, 'location.save', { name: `Plate shelf ${suffix}` })
+  await command(page, 'bom.revise', { itemId: product.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'Drill', workCentre: `Drill press ${suffix}`, minutes: 20 }, { name: 'Deburr', workCentre: `Bench ${suffix}`, minutes: 10 }] })
+  await command(page, 'opening.record', { locationId: location.id, countedOn: today, countedBy: 'Olive', valuationBasis: 'supplier-invoice', evidence: { name: 'plate-count.txt', contentType: 'text/plain', base64: Buffer.from('Invoice and counted steel blanks').toString('base64') }, lines: [{ itemId: raw.id, quantity: '20', unitCost: '4' }] })
+  let work = await command(page, 'wo.draft', { itemId: product.id, quantity: '10', requiredBy: today, reason: 'Customer mounting plates' })
+  work = await command(page, 'wo.release', { workOrderId: work.id, version: work.version })
+  let following = await command(page, 'wo.draft', { itemId: product.id, quantity: '4', requiredBy: today, reason: 'Following customer batch' })
+  following = await command(page, 'wo.release', { workOrderId: following.id, version: following.version })
+  const before = await plannedTimes(page, work.reference)
+  const followingBefore = await plannedTimes(page, following.reference)
+  await page.goto(origin + `/app#make/wo/${work.id}`); await settled(page)
+  await page.getByRole('button', { name: 'Start step 1', exact: true }).click(); await settled(page)
+  const task = page.getByRole('region', { name: 'Step 1 progress and downtime', exact: true })
+  await shots(page, 'running', task.locator('..'))
+  const state = await (await page.request.get(origin + '/api/larder/state')).json()
+  const plannedResume = new Date(Date.now() + 2 * 86400000)
+  const localResume = new Date(plannedResume.getTime() - plannedResume.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+  await task.getByLabel('Step 1 downtime reason', { exact: true }).selectOption('breakdown')
+  await task.getByLabel('Step 1 downtime note', { exact: true }).fill('Drill bit snapped; supervisor to obtain replacement')
+  await task.getByLabel('Step 1 escalation owner', { exact: true }).selectOption(state.actor.id)
+  await task.getByLabel('Step 1 estimated resume (local time)', { exact: true }).fill(localResume)
+  await shots(page, 'pause-prepared', task.locator('..'))
+  await task.getByRole('button', { name: 'Pause step 1', exact: true }).click(); await settled(page)
+  await expect(task).toContainText('recorded in app'); await expect(task).toContainText('awaiting acknowledgment')
+  await expect(page.getByRole('button', { name: 'Complete step 1', exact: true })).toHaveCount(0)
+  await task.getByLabel('Step 1 reported completed quantity', { exact: true }).fill('2.5')
+  await task.getByLabel('Step 1 remaining job minutes', { exact: true }).fill('960')
+  await task.getByLabel('Step 1 progress reason', { exact: true }).fill('Replacement setup and remaining drilling')
+  await task.getByRole('button', { name: 'Record step 1 progress', exact: true }).click(); await settled(page)
+  await expect(task).toContainText('2.5 of 10'); await expect(task).toContainText('960 job minutes remaining')
+  await shots(page, 'paused-progress', task.locator('..'))
+  await page.goto(origin + '/app#today'); await settled(page)
+  const notice = page.getByRole('heading', { name: 'Downtime escalations recorded in app', exact: true }).locator('../..')
+  await expect(notice).toContainText(work.reference); await expect(notice).toContainText('Drill bit snapped')
+  await shots(page, 'supervisor-notice', notice)
+  await notice.getByLabel(`${work.reference} supervisor note`, { exact: true }).fill('I own recovery; replacement tool is being sourced')
+  await notice.getByRole('button', { name: `Acknowledge ${work.reference} downtime`, exact: true }).click(); await settled(page)
+  await expect(notice).toHaveCount(0)
+  const after = await plannedTimes(page, work.reference)
+  expect(Date.parse(after[0])).toBeGreaterThan(Date.parse(before[0]))
+  expect(Date.parse(after.at(-1)!)).toBeGreaterThan(Date.parse(before.at(-1)!))
+  expect(Date.parse(after[0])).toBeGreaterThanOrEqual(Date.parse(new Date(localResume).toISOString()))
+  await expect(page.locator('.job-panel')).toContainText('paused · 960 job minutes remaining')
+  await shots(page, 'affected-plan')
+  const followingAfter = await plannedTimes(page, following.reference)
+  // The other job can use the gap while the broken tool is being replaced.
+  expect(Date.parse(followingAfter.at(-1)!)).toBeLessThan(Date.parse(followingBefore.at(-1)!))
+  await shots(page, 'following-plan')
+  await page.goto(origin + '/app#make/wo'); await settled(page)
+  const report = page.getByRole('heading', { name: 'Lost-time report', exact: true }).locator('../..')
+  await report.getByLabel('Lost-time work order', { exact: true }).selectOption(work.id)
+  await expect(report).toContainText('Breakdown'); await expect(report).toContainText('Still open'); await expect(report).toContainText('Acknowledged')
+  await shots(page, 'open-report', report)
+  await page.goto(origin + `/app#make/wo/${work.id}`); await settled(page)
+  await task.getByLabel('Step 1 resume reason', { exact: true }).fill('Replacement bit fitted and tested')
+  await task.getByRole('button', { name: 'Resume step 1', exact: true }).click(); await settled(page)
+  await expect(task).toContainText('stopped'); await expect(page.getByRole('button', { name: 'Complete step 1', exact: true })).toBeVisible()
+  await task.getByText('Step 1 progress history', { exact: true }).click(); await expect(task).toContainText('Replacement setup and remaining drilling')
+  await shots(page, 'resumed-history', task.locator('..'))
+  const end = await (await page.request.get(origin + '/api/larder/state')).json()
+  const final = end.workOrders.find((w: any) => w.id === work.id)
+  expect(final.output).toBe('0'); expect(final.scrap).toBe('0'); expect(final.status).toBe('released'); expect(final.operationStates[0].status).toBe('running'); expect(final.requiredBy).toBe(today)
+  expect(end.lostTimeReport.find((r: any) => r.workOrderId === work.id).status).toBe('closed')
+  await page.reload(); await settled(page); await expect(task).toContainText('acknowledged by')
+  await page.goto(origin + '/app#make/wo'); await settled(page)
+  await report.getByLabel('Lost-time work order', { exact: true }).selectOption(work.id)
+  await expect(report).not.toContainText('Still open'); await shots(page, 'closed-report', report)
+})

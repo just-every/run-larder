@@ -66,6 +66,10 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
   const response = { ok: true, result, version: before.version + 1 }
   await db.batch([
     db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${a.sql}) AND (SELECT version FROM larder_meta WHERE id=1)=? THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...a.params, before.version),
+    // A supervisor can lose authority after the handler read. Verify the
+    // escalation destination in the same transaction that records the notice.
+    ...(type === 'wo.operation.pause' ? (result as any).operationStates.flatMap((task: any) => (task.downtime ?? []).filter((d: any) => d.commandId === c.commandId).map((d: any) =>
+      db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), d.escalationOwnerId))) : []),
     ...changes(db, c, before),
     db.prepare('UPDATE larder_meta SET version=version+1 WHERE id=1'),
     db.prepare('INSERT INTO larder_commands VALUES(?,?,?,?,?,?)').bind(c.commandId, c.actor.id, type, digest, JSON.stringify(response), c.now),

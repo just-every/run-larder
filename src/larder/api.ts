@@ -16,6 +16,7 @@ import { catalogue } from './catalogue'
 import { exportBatch, imports, publishImport } from './odoo/imports'
 import { handoff, handoffCsv } from './handoff'
 import { forecasts } from './forecast'
+import { downtime } from './downtime'
 import { engineering } from './engineering'
 import { planning } from './planning'
 import { production } from './production'
@@ -43,7 +44,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [engineering, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -69,6 +70,10 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (target!.role === 'owner') fail('OWNER_ROLE', 'The owner keeps owner authority.')
   }
   if (blindSessions(await load(env.DB), actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
+  if (type === 'wo.operation.pause') {
+    const supervisor = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(payload.escalationOwnerId).first<{ role: string }>()
+    if (!supervisor || !['owner', 'manager'].includes(supervisor.role)) fail('INPUT', 'Escalate to an active owner or manager.')
+  }
   if (type === 'wo.operation.assign') {
     if (!['owner', 'manager'].includes(actor.role)) forbidden('Only a manager authorizes operation skills.')
     const person = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(payload.operatorId).first<{ role: string }>()

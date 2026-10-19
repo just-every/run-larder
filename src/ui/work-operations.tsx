@@ -1,3 +1,4 @@
+import { WorkDowntime } from './work-downtime'
 import { can, personName, rows, type Rec } from './api'
 import type { Larder } from './app'
 import { Choose, Chip, Field, Form, text } from './controls'
@@ -47,6 +48,7 @@ export function WorkOperations({ larder, w }: { larder: Larder; w: Rec }) {
           <>{centres.length ? <Choose label={`Step ${sequence} work center`} name="workCentre" options={centres.map(centre => ({ value: centre, label: centre }))} required={centres.length > 0} defaultValue={centres.length === 1 ? centres[0] : ''} /> : <Field label={`Step ${sequence} work center`} name="workCentre" />}</>
         </Form>}
         {released && task && operate && status === 'running' && <div className="actions"><button type="button" className="button primary" disabled={larder.busy || task.startedBy !== actor.id} onClick={() => larder.run('wo.operation.complete', payload)}>Complete step {sequence}</button></div>}
+        {released && <WorkDowntime larder={larder} w={w} task={task} sequence={sequence} />}
       </fieldset>
     })}
   </section>

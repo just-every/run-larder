@@ -172,7 +172,7 @@ The sixteen published clauses keep their IDs and useful operational guarantees. 
 
 - **FLOOR-006 — Co-products and by-products.** A manufacturing order records multiple planned outputs, by-products and recoverable scrap with exact yield and approved cost-allocation policy. Each output has its own lot, quality disposition and stock destination. **Acceptance evidence:** Produce two co-products and a reusable by-product from one batch, inspect lot links and cost allocations, and verify total output value equals approved actual cost.
 
-- **FLOOR-007 — Downtime reasons and production progress.** Operators report breakdown, waiting material, changeover, quality and other lost-time reasons with start/stop and escalation owner. Supervisors see live operation progress and revised remaining effort; reported delay updates planning without inventing completion. **Acceptance evidence:** Pause a running operation for a broken tool, notify its supervisor, revise remaining effort and inspect lost-time report and the affected plan dates.
+- **FLOOR-007 — Downtime reasons and production progress.** Operators report breakdown, waiting material, changeover, quality and other lost-time reasons with start/stop and escalation owner. Supervisors see live operation progress and revised remaining effort; reported delay updates planning without inventing completion. Current production people report their own running operation; owner/manager reports require a reason, and agents cannot report or acknowledge. A pause selects an active owner/manager for escalation, rechecked in the atomic write. Its notice is labelled “recorded in app”, appears in that supervisor’s Today queue and retains acknowledgment; it does not claim an email. Intervals start and stop at server UTC timestamps; one operation cannot have overlapping pauses, and resuming closes its open interval. Reasons are breakdown, waiting-material, changeover, quality or other, with a note. Lost-time minutes derive from elapsed integer milliseconds, rounded half up to six decimal places; open intervals show their as-of timestamp. Operation completed quantities are nondecreasing reports bounded by the job quantity, separate from good output, scrap and stock. Remaining effort is whole-job minutes (not per-unit), including zero as an estimate only; history is retained. On the next read the current weekday schedule uses reported effort and the anticipated resume time for the affected operation and downstream bookings. Unreported effort remains pinned setup + run minutes × outstanding output quantity + queue minutes. A running/paused task starts no earlier than the read’s current time; a paused projection assumes its resume estimate while its task remains paused. Completion requires the explicit operation command; customer promises, output and stock never change from a delay/progress report. **Acceptance evidence:** Pause a running operation for a broken tool, notify and acknowledge its supervisor in app, revise remaining effort and inspect lost-time report and the affected plan dates at 1440/390. Assert all reason categories, real start/stop duration, stale/duplicate/unauthorized and overlapping-pause refusal, progress history and bounds, supervisor revocation, zero-effort non-completion and unchanged stock/output/promises.
 
 - **FLOOR-008 — Barcode scanning workflows.** USB/Bluetooth scanners and phone/tablet cameras scan item, bin, job, lot and serial codes for receiving, issue, count, transfer, pick and output. GS1 data separates identifier, lot and expiry; wrong/stale/held codes are refused with a recoverable reason. **Acceptance evidence:** Scan a receipt and issue/pick it through the shop-floor UI using a hardware scanner and camera; reject a wrong item, held lot and duplicate scan without an extra movement.
 
@@ -424,7 +424,7 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 | 41 | Drawing "FW-EG-1218 rev C" on the station | `ENG-002` | done |
 | 42 | "The planning agent lays out two fixes" (Option A/B with dates and overtime) | `AGENT-001`, `CAP-007` | partial |
 | 43 | "Dana picks one" (Approved by Dana W. · 1:46 PM) | `LARDER-015`, `GOV-002` | partial |
-| 44 | Downtime timeline (spindle fault logged, released, 240/240) | `FLOOR-007`, `CAP-009` | missing |
+| 44 | Downtime timeline (spindle fault logged, released, 240/240) | `FLOOR-007`, `CAP-009` | partial |
 | 45 | "Customer dates changed: 0" | `DEMAND-005` | partial |
 | 46 | "SO-1184 · 21 cartons · out Fri Nov 6, 3:40 PM" | `LARDER-010` | done |
 | 47 | "Wholesale, Shopify and Amazon orders ship from one list" | `LARDER-010`, `CONN-003`, `CONN-005`, `DEMAND-008` | partial |
@@ -458,8 +458,8 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 10 | 38 | 64 | 112 |
-| All | 26 | 38 | 64 | 128 |
+| Target and push further | 11 | 38 | 63 | 112 |
+| All | 27 | 38 | 63 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -523,7 +523,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `FLOOR-004` | Rework repair and unbuild | target | partial | `src/larder/production.ts`; `src/larder/reversal.ts`; `src/larder/warehouse.ts` | Scrap, returns and compensating reversals exist; dedicated rework/unbuild workflows and extra-cost attribution are absent. |
 | `FLOOR-005` | Split and merge manufacturing orders | target | missing |  | Split and merge manufacturing orders workflow and its acceptance journey are not implemented. |
 | `FLOOR-006` | Co-products and by-products | target | missing |  | Co-products and by-products workflow and its acceptance journey are not implemented. |
-| `FLOOR-007` | Downtime reasons and production progress | target | missing |  | Downtime reasons and production progress workflow and its acceptance journey are not implemented. |
+| `FLOOR-007` | Downtime reasons and production progress | target | done | `src/larder/downtime.ts`; `src/larder/operation-effort.ts`; `tests/api/downtime.test.mjs`; `tests/browser/downtime.spec.ts` (FLOOR-007) | Named Worker and real-dev journeys exercise real pause/resume intervals and reasons, supervisor notice/ack, progress/effort history and bounds, schedule effects, current supervisor authority and unchanged physical completion/promises at 1440/390. |
 | `FLOOR-008` | Barcode scanning workflows | target | missing |  | Barcode scanning workflows workflow and its acceptance journey are not implemented. |
 | `FLOOR-009` | Zebra and printable labels | target | missing |  | Zebra and printable labels workflow and its acceptance journey are not implemented. |
 | `TRACE-001` | Lot and batch genealogy | target | partial | `src/larder/stock.ts`; `src/larder/purchasing.ts`; `src/larder/production.ts`; `src/larder/sales.ts` | Lot-linked physical movements exist; complete genealogy traversal, allocations and buyer trace views are absent. Forward/backward trace CSV is absent. |

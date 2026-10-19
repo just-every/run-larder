@@ -46,6 +46,7 @@ export function Schedule({ larder, mode }: { larder: Larder; mode: Mode }) {
         <Gantt plan={plan} ghosts={ghosts} moving={moving} due={due} from={from} mode={mode} now={now} selected={selected} onSelect={setPicked} />
         <Agenda plan={plan} ghosts={ghosts} due={due} from={from} mode={mode} selected={selected} onSelect={setPicked} />
         <p className="schedule-note">Each work center runs one weekday shift, {hours(SHIFT.start)} to {hours(SHIFT.end)}; steps run in priority order, one job at a time.</p>
+        {openWork(s).some(w => w.operationStates?.some((t: any) => t.progress || t.downtime?.length)) && <p className="schedule-note">Reported job minutes and estimated resume times update this plan. A paused operation remains paused until an explicit resume; progress reports never post output or change customer promises.</p>}
       </div>
       <div className="schedule-side">
         {job && <JobPanel larder={larder} w={job} plan={plan} proposed={proposed} proposal={proposal} now={now} />}

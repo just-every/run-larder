@@ -1,6 +1,7 @@
 // The production schedule, computed from the records: each open work order's routing steps laid end to end
 // on their work centers in priority order, one job at a time per center (finite capacity). Larder's work-center
 // calendar is one weekday shift (SHIFT) for every center; nothing here is saved.
+import { operationEffort, operationReady } from '../../larder/operation-effort'
 import { byId, itemName, rows, type LarderState, type Rec } from '../api'
 
 export const SHIFT = { start: 7, end: 15 }
@@ -56,7 +57,7 @@ const routingOf = (s: LarderState, w: Rec): any[] => w.status === 'released' ? w
 const remaining = (w: Rec) => Math.max(0, quantityOf(w.quantity) - quantityOf(w.output) - quantityOf(w.scrap))
 export const openWork = (s: LarderState) => rows(s, 'workOrders').filter(w => ['draft', 'released'].includes(w.status))
 // Every routing step the shop can run: open work's routings and each item's active BOM.
-const routed = (s: LarderState) => [...openWork(s).flatMap(w => routingOf(s, w)), ...rows(s, 'boms').filter(b => b.status === 'active').flatMap(b => b.routing ?? [])].filter(r => r.minutes > 0)
+const routed = (s: LarderState) => [...openWork(s).flatMap(w => routingOf(s, w)), ...rows(s, 'boms').filter(b => b.status === 'active').flatMap(b => b.routing ?? [])].filter(r => r.minutes > 0 || r.setupMinutes > 0 || r.queueMinutes > 0)
 
 // changes: the planner's proposed start and priority per work order, applied before laying out.
 export function schedule(s: LarderState, now: Date, changes: Record<string, { plannedStart?: string; priority?: number }> = {}): Plan {
@@ -68,11 +69,12 @@ export function schedule(s: LarderState, now: Date, changes: Record<string, { pl
     const start = [w.plannedStart, reviewedDate].filter(Boolean).sort().at(-1)
     const planned = start ? at(fromDate(start), SHIFT.start) : today
     let ready = planned > today ? planned : today
-    const steps = routingOf(s, w).filter(r => r.minutes > 0)
+    const steps = routingOf(s, w).filter(r => (r.minutes > 0 || r.setupMinutes > 0 || r.queueMinutes > 0 || w.operationStates?.some((t: any) => t.sequence === r.sequence && t.progress)) && !w.operationStates?.some((t: any) => t.sequence === r.sequence && t.status === 'done'))
     const placed: Op[] = []
     for (const r of steps) {
-      const center = r.workCentre || 'Unassigned', minutes = r.minutes * remaining(w)
-      if (!minutes) continue
+      const center = r.workCentre || 'Unassigned', minutes = operationEffort(w, r)
+      const reportedReady = operationReady(w, r, now)
+      if (reportedReady && reportedReady > ready) ready = reportedReady
       const { begin, end } = slot(booked.get(center) ?? [], ready, minutes)
       booked.set(center, [...(booked.get(center) ?? []), { begin, end }].sort((a, b) => a.begin.getTime() - b.begin.getTime())); ready = end
       placed.push({ key: `${w.id}:${r.sequence}`, workOrder: w, reference: w.reference, item: itemName(s, w.itemId), sku: byId(s, 'items', w.itemId)?.sku ?? '', quantity: remaining(w), step: r.name, sequence: r.sequence, workCenter: center, minutes, start: begin, end, late: false, short: (w.shortages ?? []).length > 0 })

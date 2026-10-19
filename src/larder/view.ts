@@ -1,5 +1,6 @@
 // What a signed-in person or agent reads: records, formatted ledger, positions,
 // availability, shortages and the exception queue.
+import { lostTimeReport } from './downtime'
 import { engineeringAffectedWork } from './engineering'
 import { masterSchedule } from './forecast-plan'
 import { orderStatuses } from './order-status'
@@ -22,6 +23,7 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
     version: s.version, actor, ...records,
     orderStatuses: orderStatuses(s),
     masterSchedule: masterSchedule(s),
+    lostTimeReport: lostTimeReport(s),
     engineeringImpacts: Object.fromEntries(s.items.filter(i => i.kind === 'make').map(i => [i.id, engineeringAffectedWork(s, i.id)])),
     movements: s.movements.map(movementView),
     reservations: s.reservations.map(r => ({ ...r, quantity: format(r.quantity) })),

@@ -1,3 +1,4 @@
+import { DowntimeNotices } from './downtime-report'
 import { can, itemName, partyName, personName, rows, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
 import { Card, Chip, Details, Empty, Field, Form, text } from './controls'
@@ -46,7 +47,7 @@ export function Today({ larder }: { larder: Larder }) {
   const waiting = proposals.length + drafts.length + counts.length
   return <div className="page today">
     <header className="page-head"><p className="eyebrow">Today</p><h1>What needs attention</h1></header>
-    <Checklist s={s} />
+    <Checklist s={s} /><DowntimeNotices larder={larder} />
     <div className="split">
       <Card title="Exceptions" aside={<Chip tone={others.length ? 'warn' : 'good'}>{others.length} open</Chip>}>
         {others.length === 0 ? <Empty>Nothing is short, late, quarantined or unreconciled.</Empty> : <ul className="queue">{others.map((x: any) => <li key={x.key}>
