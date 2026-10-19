@@ -1,19 +1,7 @@
-import type { Page } from '@playwright/test'
-import { test, expect, navigationMark } from './navigation-diagnostics'
+import { test, expect, type Page } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787'
-test.afterEach(async ({ page }, info) => {
-  if (info.status === info.expectedStatus) return
-  console.error('Forecast failed page', JSON.stringify(await page.evaluate(() => {
-    const router = (window as any).__TSR_ROUTER__
-    const safeHash = (hash: string | undefined) => hash?.includes('rer-dev') ? '[private entry]' : hash
-    return { hash: safeHash(location.hash), historyHash: safeHash(router?.history.location.hash), routerHash: safeHash(router?.stores.location.get().hash),
-      headings: [...document.querySelectorAll('main h1, main h2')].map(h => h.textContent), busy: document.querySelector('main')?.getAttribute('aria-busy'),
-      alert: document.querySelector('[role=alert]')?.textContent,
-      stateRequests: performance.getEntriesByType('resource').filter(e => new URL(e.name).pathname === '/api/larder/state').map(e => ({ initiator: (e as PerformanceResourceTiming).initiatorType, duration: e.duration, responseEnd: (e as PerformanceResourceTiming).responseEnd })) }
-  })))
-})
 const day = (start: string, n: number) => new Date(Date.parse(start + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10)
 async function command(page: Page, type: string, payload: object) {
   const res = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type, payload } })
@@ -34,6 +22,7 @@ test('DEMAND-003 DEMAND-004 import twelve weeks, consume real orders, adjust and
   if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  await settled(page)
   const suffix = crypto.randomUUID().slice(0, 6), sku = `BRACKET-${suffix}`
   const raw = await command(page, 'item.save', { sku: `BLANK-${suffix}`, name: `Steel blank ${suffix}`, kind: 'buy', baseUnit: 'each' })
   const product = await command(page, 'item.save', { sku, name: `Ohio bracket ${suffix}`, kind: 'make', baseUnit: 'each' })
@@ -42,10 +31,10 @@ test('DEMAND-003 DEMAND-004 import twelve weeks, consume real orders, adjust and
   await command(page, 'inventory.policy', { itemId: product.id, locationId: location.id, mode: 'make-to-stock', effectiveOn: new Date().toISOString().slice(0, 10), batchSize: '4', orderMultiple: '6', reason: 'Reviewed location policy for weekly demand' })
   const customer = await command(page, 'party.save', { name: `Equipment Works ${suffix}`, kind: 'customer' })
   const now = new Date(), monday = day(now.toISOString().slice(0, 10), 8 - (now.getUTCDay() || 7)), weeks = Array.from({ length: 12 }, (_, i) => day(monday, i * 7))
-  navigationMark(page, 'before-goto')
-  await page.goto(origin + '/app#make/forecast'); navigationMark(page, 'after-goto')
-  await page.reload(); navigationMark(page, 'after-reload')
-  await settled(page); navigationMark(page, 'after-settled')
+  // Refresh API-created records before selecting the view. An immediate
+  // reload of a same-document fragment navigation races browser/router startup.
+  await page.reload(); await settled(page)
+  await page.goto(origin + '/app#make/forecast'); await settled(page)
   const importer = page.getByRole('heading', { name: 'Import weekly forecast', exact: true }).locator('../..')
   await expect(importer).toBeVisible()
   const csv = 'sku,week,quantity,seasonality\n' + weeks.map((week, i) => `${sku},${week},10,${i === 1 ? '1.5' : '1'}`).join('\n')

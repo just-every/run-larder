@@ -8,7 +8,12 @@ async function command(page: Page, type: string, payload: object) {
   const res = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type, payload } })
   const body = await res.json(); expect(body.ok, JSON.stringify(body.error)).toBe(true); return body.result
 }
-async function open(page: Page, path: string) { await page.goto(origin + '/app#' + path); await page.reload(); await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false') }
+async function open(page: Page, path: string) {
+  // Load API-created records before navigating, so reload cannot discard a
+  // fragment selected while the previous document is still hydrating.
+  await page.reload(); await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false')
+  await page.goto(origin + '/app#' + path); await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false')
+}
 async function shot(page: Page, stage: string) {
   if (!process.env.LARDER_SCREENSHOTS) return
   await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true })
@@ -18,6 +23,7 @@ test('ENG-002 author routing, open tablet tasks/drawing, execute dependencies an
   if (!process.env.LARDER_OPEN) throw new Error('A private local owner entry is required.')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false')
   const suffix = crypto.randomUUID().slice(0, 6)
   const raw = await command(page, 'item.save', { sku: `PLATE-${suffix}`, name: `Steel blank ${suffix}`, kind: 'buy', baseUnit: 'each', standardCost: '12' })
   const product = await command(page, 'item.save', { sku: `BRACKET-${suffix}`, name: `Machine bracket ${suffix}`, kind: 'make', baseUnit: 'each' })
