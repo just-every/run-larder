@@ -38,6 +38,7 @@ const lotHolds = (s: State, lotId: string) => s.qualityHolds.filter(h => h.statu
 export const holdReason = (h: Row) => `Quality hold: ${h.planName} failed on ${h.failedAt.slice(0, 10)} (${h.failures.join('; ')}); an owner or manager releases it after a passing retest.`
 
 // Refuse using a lot under an open quality hold (pick, ship, quarantine release).
+// Quarantine rejection (scrap or return) stays open without a retest.
 export function assertLotNotHeld(s: State, lotId: string, action: string) {
   const h = lotId ? lotHolds(s, lotId)[0] : undefined
   if (h) fail('QUALITY_HOLD', `Lot ${s.lots.find(l => l.id === lotId)?.code} cannot be ${action}. ${holdReason(h)}`, { lotId, holdId: h.id })
@@ -147,7 +148,7 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
         move(c, { itemId: lot.itemId, locationId: x.locationId, status: 'available', lotId: lot.id, quantity, unitCost: out.unitCost, kind: 'quality-release', documentKind: 'qualityHolds', documentId: hold.id, reason })
         released.push({ lotId: lot.id, locationId: x.locationId, quantity: format(quantity) })
       }
-      for (const x of hold.lots) if (!lotHolds(c.s, x.lotId).some(h => h.id !== hold.id)) bump(get(c.s, 'lots', x.lotId, 'lot'), { status: x.priorStatus })
+      for (const x of hold.lots) { const lot = get(c.s, 'lots', x.lotId, 'lot'); if (lot.status === 'quality hold' && !lotHolds(c.s, lot.id).some(h => h.id !== hold.id)) bump(lot, { status: x.priorStatus }) }
       return bump(hold, { status: 'released', release: { by: c.actor.id, role: c.actor.role, at: c.now, reason, evidence, retestId: latest!.id, released } })
     }
   }

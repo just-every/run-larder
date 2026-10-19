@@ -133,4 +133,10 @@ test('TRACE-004 approved inspection plans hold failed work and lots from start, 
   s = await h.invariant()
   assert.equal(s.qualityHolds.find(x => x.id === meltFail.holdId).subjectKind, 'lots')
   assert.deepEqual(s.positions.filter(p => p.lotId === receipt.lines[0].lotId).map(p => [p.status, p.quantity]), [['quarantine', '10']])
+  // A held lot may still leave through quarantine rejection without a retest; release stays refused.
+  await warehouse.run('quarantine.decide', { itemId: wax.id, locationId: shop.id, lotId: receipt.lines[0].lotId, quantity: '10', decision: 'release', reason: 'Use it' }, { error: 'QUALITY_HOLD' })
+  await warehouse.run('quarantine.decide', { itemId: wax.id, locationId: shop.id, lotId: receipt.lines[0].lotId, quantity: '10', decision: 'reject', reason: 'Returned to Wax Works: melt point low' })
+  s = await h.invariant()
+  assert.deepEqual(s.positions.filter(p => p.lotId === receipt.lines[0].lotId), [])
+  assert.equal(s.lots.find(l => l.id === receipt.lines[0].lotId).status, 'rejected')
 })
