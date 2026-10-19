@@ -1,5 +1,6 @@
 // Work orders: draft, release (pins the BOM revision and reserves components),
 // material issue, output with scrap, and close with cost variance.
+import { requiredTypes } from './certificate-policy'
 import { engineeringReleaseBom } from './engineering-policy'
 import { requireCatalogLot } from './catalog-fields'
 import { activeBom } from './bom'
@@ -82,9 +83,11 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       if (decimal(w.output) + decimal(w.scrap) + good + scrap > decimal(w.quantity)) fail('OVER_OUTPUT', `${w.reference} is for ${w.quantity} ${item.baseUnit}; this would exceed it. Release more work instead.`)
       if (good > 0n) {
         requireCatalogLot(item, p.lot)
+        const controlled = requiredTypes(c.s, item.id).length > 0
+        if (controlled) text(p.lot, 'lot required for controlled certificates', 80)
         const location = get(c.s, 'locations', p.locationId, 'location'), code = optionalText(p.lot, 'batch', 80)
-        const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: null, source: 'production', documentId: w.id, status: 'released' }) : null
-        move(c, { itemId: item.id, locationId: location.id, status: 'available', lotId: lot?.id, quantity: good, unitCost: decimal(w.standardUnitCost), kind: 'output', documentKind: 'workOrders', documentId: w.id, reason: `Output of ${w.reference}` })
+        const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: null, source: 'production', documentId: w.id, status: controlled ? 'quarantined' : 'released' }) : null
+        move(c, { itemId: item.id, locationId: location.id, status: controlled ? 'quarantine' : 'available', lotId: lot?.id, quantity: good, unitCost: decimal(w.standardUnitCost), kind: 'output', documentKind: 'workOrders', documentId: w.id, reason: `Output of ${w.reference}` })
       }
       w.outputs = [...(w.outputs ?? []), { at: c.now, by: c.actor.id, good: format(good), scrap: format(scrap), scrapReason: scrap > 0n ? text(p.scrapReason, 'scrap reason', 400) : '' }]
       return bump(w, { output: format(decimal(w.output) + good), scrap: format(decimal(w.scrap) + scrap) })

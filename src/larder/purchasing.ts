@@ -1,5 +1,6 @@
 // Purchase orders: draft, approve, supplier confirmation, revised delivery,
 // partial receipt with supplier lots, and quarantine decisions.
+import { approvedCertificates, requiredTypes } from './certificate-policy'
 import { requireCatalogLot } from './catalog-fields'
 import { attach } from './attachments'
 import { toBase } from './catalogue'
@@ -68,8 +69,12 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
         const item = get(c.s, 'items', line.itemId, 'item'), location = get(c.s, 'locations', l.locationId, 'location'), q = toBase(item, l.quantity, l.unit)
         const outstanding = decimal(line.quantity) - decimal(line.received)
         if (q > outstanding) fail('OVER_RECEIPT', `Only ${format(outstanding)} ${item.baseUnit} of ${item.name} is still expected on ${po.reference}.`, { lineId: line.id })
-        const inspection = oneOf(l.inspection ?? 'accept', ['accept', 'quarantine'] as const, 'inspection')
+        let inspection = oneOf(l.inspection ?? 'accept', ['accept', 'quarantine'] as const, 'inspection')
         requireCatalogLot(item, l.lot)
+        if (requiredTypes(c.s, item.id).length) {
+          text(l.lot, 'lot required for controlled certificates', 80)
+          inspection = 'quarantine'
+        }
         const code = optionalText(l.lot, 'supplier lot', 80)
         const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: po.supplierId, source: 'receipt', documentId: receipt.id, status: inspection === 'quarantine' ? 'quarantined' : 'released' }) : null
         move(c, { itemId: item.id, locationId: location.id, status: inspection === 'quarantine' ? 'quarantine' : 'available', lotId: lot?.id, quantity: q, unitCost: decimal(line.unitPrice), kind: 'receipt', documentKind: 'receipts', documentId: receipt.id, reason: `Received on ${po.reference}` })
@@ -86,6 +91,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       const lotId = p.lotId ? get(c.s, 'lots', p.lotId, 'lot').id : ''
       const q = toBase(item, p.quantity, p.unit), decision = oneOf(p.decision, ['release', 'reject'] as const, 'decision')
       if (balance(c.s, item.id, location.id, 'quarantine', lotId) < q) fail('INSUFFICIENT_STOCK', `Only ${format(balance(c.s, item.id, location.id, 'quarantine', lotId))} ${item.baseUnit} is in quarantine there.`)
+      if (decision === 'release') approvedCertificates(c.s, item.id, lotId, c.now.slice(0, 10))
       const approval = row(c, 'approvals', { subjectKind: 'lots', subjectId: lotId || item.id, subjectVersion: 0, decision: decision === 'release' ? 'released' : 'rejected', role: c.actor.role, note: text(p.reason, 'reason', 400), quantity: format(q), locationId: location.id })
       const out = move(c, { itemId: item.id, locationId: location.id, status: 'quarantine', lotId, quantity: -q, kind: decision === 'release' ? 'release' : 'reject', documentKind: 'approvals', documentId: approval.id, reason: approval.note })
       if (decision === 'release') move(c, { itemId: item.id, locationId: location.id, status: 'available', lotId, quantity: q, unitCost: out.unitCost, kind: 'release', documentKind: 'approvals', documentId: approval.id, reason: approval.note })

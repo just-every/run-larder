@@ -1,3 +1,4 @@
+import { ShipmentCertificates } from './certificates'
 import { useState } from 'react'
 import { byId, can, itemName, locationName, partyName, rows, sku, unitOf, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
@@ -92,6 +93,7 @@ function OrderWorkspace({ larder, order }: { larder: Larder; order: Rec }) {
         {shipments.map(x => <article key={x.id} className="shipment"><h3>{x.reference} <Chip tone={x.status === 'shipped' ? 'good' : ['reversed', 'cancelled'].includes(x.status) ? 'bad' : 'info'}>{words(x.status)}</Chip></h3>
           <ul>{x.lines.map((l: any, i: number) => <li key={i}>{qty(l.quantity)} {itemName(s, l.itemId)} from {locationName(s, l.locationId)}</li>)}</ul>
           {x.commercialTerms && <Details label="Shipment commercial terms" value={x.commercialTerms} s={s} />}{x.status === 'shipped' && <p className="muted">{x.carrier}{x.tracking && ` · ${x.tracking}`}</p>}
+          <ShipmentCertificates shipment={x} />
           {warehouse && x.status === 'picked' && <Form submit="Mark packed" busy={busy} onSubmit={d => run('shipment.pack', { shipmentId: x.id, version: x.version, packages: Number(text(d, 'packages')), weightKg: text(d, 'weightKg') || '0' })}><Field label="Packages" name="packages" type="number" min="1" defaultValue="1" /><Field label="Weight (kg)" name="weightKg" inputMode="decimal" required={false} /></Form>}
           {warehouse && ['picked', 'packed'].includes(x.status) && <Form title={`Undo ${x.reference} pick`} submit="Undo pick" quiet busy={busy} note="Use before dispatch. Stock and reservations stay with the order; record a separate cancellation to release them." onSubmit={d => run('shipment.unpick', { shipmentId: x.id, version: x.version, reason: text(d, 'reason') })}><Field label="Reason for undoing pick" name="reason" /></Form>}
           {warehouse && x.status === 'packed' && <Form submit="Ship" busy={busy} onSubmit={d => run('shipment.ship', { shipmentId: x.id, version: x.version, carrier: text(d, 'carrier'), tracking: text(d, 'tracking') })}><Field label="Carrier" name="carrier" /><Field label="Tracking" name="tracking" required={false} /></Form>}

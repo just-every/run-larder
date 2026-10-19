@@ -1,4 +1,5 @@
 // Opening stock, transfers, counts with approved adjustments, and customer returns.
+import { requiredTypes } from './certificate-policy'
 import { requireCatalogLot } from './catalog-fields'
 import { attach } from './attachments'
 import { toBase } from './catalogue'
@@ -25,9 +26,11 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
         if (opening.lines.some((l: any) => l.itemId === item.id && (l.lot ?? '') === (line.lot ?? ''))) fail('INPUT', `${item.name} appears twice on this opening count.`)
         const quantity = toBase(item, line.quantity, line.unit), unitCost = decimal(line.unitCost, 'unit cost')
         requireCatalogLot(item, line.lot)
+        const controlled = requiredTypes(c.s, item.id).length > 0
+        if (controlled) text(line.lot, 'lot required for controlled certificates', 80)
         const lot = optionalText(line.lot, 'lot', 80)
-        const lotRow = lot ? row(c, 'lots', { itemId: item.id, code: lot, supplierId: null, source: 'opening', documentId: opening.id, status: 'released' }) : null
-        move(c, { itemId: item.id, locationId: location.id, status: 'available', lotId: lotRow?.id, quantity, unitCost, kind: 'opening', documentKind: 'openings', documentId: opening.id, reason: `Opening count ${countedOn} (${basis})` })
+        const lotRow = lot ? row(c, 'lots', { itemId: item.id, code: lot, supplierId: null, source: 'opening', documentId: opening.id, status: controlled ? 'quarantined' : 'released' }) : null
+        move(c, { itemId: item.id, locationId: location.id, status: controlled ? 'quarantine' : 'available', lotId: lotRow?.id, quantity, unitCost, kind: 'opening', documentKind: 'openings', documentId: opening.id, reason: `Opening count ${countedOn} (${basis})` })
         opening.lines.push({ itemId: item.id, quantity: format(quantity), unitCost: format(unitCost), lotId: lotRow?.id ?? '' })
       }
       return opening
@@ -48,11 +51,13 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
       const order = get(c.s, 'salesOrders', p.orderId, 'order'), line = order.lines.find((l: any) => l.id === p.lineId) ?? fail('NOT_FOUND', 'That order line was not found.')
       const item = get(c.s, 'items', line.itemId, 'item'), quantity = toBase(item, p.quantity, p.unit)
       if (decimal(line.shipped) - decimal(line.returned) < quantity) fail('RETURN_EXCEEDS', `Only ${format(decimal(line.shipped) - decimal(line.returned))} ${item.baseUnit} shipped on this line can come back.`)
-      const location = get(c.s, 'locations', p.locationId, 'location'), disposition = oneOf(p.disposition, ['restock', 'quarantine'] as const, 'disposition')
+      const location = get(c.s, 'locations', p.locationId, 'location'); let disposition = oneOf(p.disposition, ['restock', 'quarantine'] as const, 'disposition')
+      if (requiredTypes(c.s, item.id).length) disposition = 'quarantine'
       const sources = returnSources(c.s, order, line, quantity)
       const r = row(c, 'returns', { reference: nextReference(c.s.returns, 'RT'), orderId: order.id, lineId: line.id, itemId: item.id, quantity: format(quantity), locationId: location.id, disposition, reason: text(p.reason, 'reason', 400), sources })
       for (const source of sources) {
-        const movement = move(c, { itemId: item.id, locationId: location.id, status: disposition === 'restock' ? 'available' : 'quarantine', quantity: decimal(source.quantity), unitCost: decimal(source.unitCost), kind: 'return', documentKind: 'returns', documentId: r.id, reason: r.reason })
+        const original = c.s.movements.find(m => m.id === source.shipmentMovementId)!
+        const movement = move(c, { itemId: item.id, locationId: location.id, status: disposition === 'restock' ? 'available' : 'quarantine', lotId: original.lotId, quantity: decimal(source.quantity), unitCost: decimal(source.unitCost), kind: 'return', documentKind: 'returns', documentId: r.id, reason: r.reason })
         Object.assign(source, { returnMovementId: movement.id })
       }
       line.returned = format(decimal(line.returned) + quantity)

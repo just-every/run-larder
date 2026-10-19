@@ -16,6 +16,8 @@ import { catalogue } from './catalogue'
 import { exportBatch, imports, publishImport } from './odoo/imports'
 import { handoff, handoffCsv } from './handoff'
 import { forecasts } from './forecast'
+import { certificates } from './certificates'
+import { certificatePack } from './certificate-pack'
 import { maintenance } from './maintenance'
 import { downtime } from './downtime'
 import { engineering } from './engineering'
@@ -45,7 +47,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [certificates, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -136,6 +138,8 @@ export async function larderResponse(request: Request, original: Bindings): Prom
       if (!['owner', 'manager', 'production'].includes(actor.role)) forbidden('Only manufacturing engineers or managers export BOMs.')
       return new Response(bomCsv(await load(env.DB)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-boms.csv"' } })
     }
+    const certificateDownload = /^\/shipments\/([-0-9a-f]{36})\/certificates\.json$/.exec(path)
+    if (certificateDownload) return json(await certificatePack(env.DB, await load(env.DB), certificateDownload[1]))
     const csv = /^\/handoffs\/([-0-9a-f]{36})\.csv$/.exec(path)
     if (csv) {
       if (!['owner', 'manager', 'accounts'].includes(actor.role)) forbidden()

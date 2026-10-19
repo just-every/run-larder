@@ -1,4 +1,5 @@
 // Counts retain their original observations; only approval posts movements.
+import { approvedCertificates } from './certificate-policy'
 import { decimal, format, times } from './decimal'
 import { fail } from './problem'
 import { allow, approver } from './roles'
@@ -30,6 +31,7 @@ export function counts(c: Context, type: string, p: any): Row | undefined {
       const approval = row(c, 'approvals', { subjectKind: 'counts', subjectId: count.id, subjectVersion: count.version, decision: type === 'count.approve' ? 'approved' : 'rejected', role: c.actor.role, note: optionalText(p.note, 'note', 400) })
       if (type === 'count.reject') return bump(count, { status: 'rejected', approvalId: approval.id })
       const variance = decimal(count.variance, 'variance', { signed: true })
+      if (variance > 0n) approvedCertificates(c.s, count.itemId, count.lotId, c.now.slice(0, 10))
       const movements = variance === 0n ? [] : withdraw(c, { itemId: count.itemId, locationId: count.locationId, status: 'available', lotId: count.lotId || undefined, quantity: variance, unitCost: count.unitCost ? decimal(count.unitCost) : undefined, kind: 'adjustment', documentKind: 'counts', documentId: count.id, reason: `Approved count ${count.reference}` })
       return bump(count, { status: 'adjusted', approvalId: approval.id, approvedAt: c.now, approvedBy: c.actor.id, adjustmentMovementIds: movements.map(m => m.id), valueVariance: format(movements.reduce((n, m) => n + times(m.quantity, m.unitCost), 0n)) })
     }
