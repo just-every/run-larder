@@ -68,7 +68,7 @@ test('HTTP-001 public Lobby, health and docs stay separate from private app and 
   }
   await enter(page)
   const before = await state(page)
-  const name = 'HTTP-001 receiving bench'
+  const name = `HTTP-001 receiving bench ${crypto.randomUUID().slice(0, 6)}`
   const payload = { commandId: crypto.randomUUID(), type: 'location.save', payload: { name } }
   const refused = await context.request.post(origin + '/api/larder/commands', { headers: { Origin: 'https://untrusted.example' }, data: payload })
   expect(refused.status()).toBe(403)
@@ -82,6 +82,9 @@ test('HTTP-001 public Lobby, health and docs stay separate from private app and 
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 })
     await page.goto(origin + '/app#more/setup')
+    // The location was created through the API after this document loaded.
+    // A hash-only navigation keeps the document and its original records.
+    await page.reload()
     await expect(page.getByText(name, { exact: true })).toBeVisible()
     await shot(page, 'HTTP-001-private-app')
   }
