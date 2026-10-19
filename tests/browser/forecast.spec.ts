@@ -2,6 +2,17 @@ import { test, expect, type Page } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787'
+test.afterEach(async ({ page }, info) => {
+  if (info.status === info.expectedStatus) return
+  console.error('Forecast failed page', JSON.stringify(await page.evaluate(() => {
+    const router = (window as any).__TSR_ROUTER__
+    const safeHash = (hash: string | undefined) => hash?.includes('rer-dev') ? '[private entry]' : hash
+    return { hash: safeHash(location.hash), historyHash: safeHash(router?.history.location.hash), routerHash: safeHash(router?.stores.location.get().hash),
+      headings: [...document.querySelectorAll('main h1, main h2')].map(h => h.textContent), busy: document.querySelector('main')?.getAttribute('aria-busy'),
+      alert: document.querySelector('[role=alert]')?.textContent,
+      stateRequests: performance.getEntriesByType('resource').filter(e => new URL(e.name).pathname === '/api/larder/state').map(e => ({ initiator: (e as PerformanceResourceTiming).initiatorType, duration: e.duration, responseEnd: (e as PerformanceResourceTiming).responseEnd })) }
+  })))
+})
 const day = (start: string, n: number) => new Date(Date.parse(start + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10)
 async function command(page: Page, type: string, payload: object) {
   const res = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type, payload } })
@@ -32,6 +43,7 @@ test('DEMAND-003 DEMAND-004 import twelve weeks, consume real orders, adjust and
   const now = new Date(), monday = day(now.toISOString().slice(0, 10), 8 - (now.getUTCDay() || 7)), weeks = Array.from({ length: 12 }, (_, i) => day(monday, i * 7))
   await page.goto(origin + '/app#make/forecast'); await page.reload(); await settled(page)
   const importer = page.getByRole('heading', { name: 'Import weekly forecast', exact: true }).locator('../..')
+  await expect(importer).toBeVisible()
   const csv = 'sku,week,quantity,seasonality\n' + weeks.map((week, i) => `${sku},${week},10,${i === 1 ? '1.5' : '1'}`).join('\n')
   await importer.getByLabel('Forecast CSV', { exact: true }).setInputFiles({ name: 'quarterly-forecast.csv', mimeType: 'text/csv', buffer: Buffer.from(csv) })
   await importer.getByLabel('Import reason', { exact: true }).fill('Equipment customers’ winter demand')
