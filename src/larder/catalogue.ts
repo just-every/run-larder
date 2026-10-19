@@ -1,4 +1,5 @@
 // Items, variants, units, locations and parties.
+import { normalizeCatalogFields } from './catalog-fields'
 import { decimal, format, SCALE } from './decimal'
 import { fail } from './problem'
 import { allow } from './roles'
@@ -60,7 +61,8 @@ export function saveItem(c: Context, p: any, importId?: string): Row {
   }
   const standardCost = p.standardCost === undefined ? '0' : format(decimal(p.standardCost, 'standard cost'))
   const salePrice = p.salePrice === undefined ? '0' : format(decimal(p.salePrice, 'sale price'))
-  const data = { sku, name, kind, baseUnit, template, attributes, conversions: units, standardCost, salePrice, archived: p.archived === true, sourceId: p.sourceId ?? null, importId: importId ?? null }
+  const extended = normalizeCatalogFields(c.s, p, p.id ? get(c.s, 'items', p.id, 'item') : undefined)
+  const data = { ...extended, sku, name, kind, baseUnit, template, attributes, conversions: units, standardCost, salePrice, archived: p.archived === true, sourceId: p.sourceId ?? null, importId: importId ?? null }
   if (!p.id) return row(c, 'items', data)
   const item = get(c.s, 'items', p.id, 'item')
   fresh(item, p.version)
@@ -99,16 +101,22 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
     }
     case 'partyItem.save': {
       allow(c, ['manager', 'buyer', 'sales'])
-      const party = get(c.s, 'parties', p.partyId, 'party'), item = get(c.s, 'items', p.itemId, 'item')
-      const code = text(p.partyCode, 'their code', 64)
-      const clash = c.s.partyItems.find(x => x.id !== p.id && x.partyId === party.id && x.partyCode.toLowerCase() === code.toLowerCase() && x.itemId !== item.id)
-      if (clash) fail('AMBIGUOUS_REFERENCE', `${party.name} already uses code ${code} for another item.`, { partyItemId: clash.id })
-      if (p.unit) toBase(item, '1', p.unit)
-      const data = { partyId: party.id, itemId: item.id, partyCode: code, unit: p.unit ? unitName(p.unit) : item.baseUnit, price: format(decimal(p.price ?? '0', 'price')), leadDays: Number.isSafeInteger(p.leadDays) && p.leadDays >= 0 && p.leadDays < 366 ? p.leadDays : 0, preferred: p.preferred === true }
-      const existing = p.id ? get(c.s, 'partyItems', p.id, 'reference') : null
-      if (!existing) return row(c, 'partyItems', data)
-      fresh(existing, p.version)
-      return bump(existing, data)
+      return savePartyItem(c, p)
     }
   }
+}
+
+
+// Shared catalog write primitive; each public command establishes its role first.
+export function savePartyItem(c: Context, p: any): Row {
+  const party = get(c.s, 'parties', p.partyId, 'party'), item = get(c.s, 'items', p.itemId, 'item')
+  const code = text(p.partyCode, 'their code', 64)
+  const clash = c.s.partyItems.find(x => x.id !== p.id && x.partyId === party.id && x.partyCode.toLowerCase() === code.toLowerCase() && x.itemId !== item.id)
+  if (clash) fail('AMBIGUOUS_REFERENCE', `${party.name} already uses code ${code} for another item.`, { partyItemId: clash.id })
+  if (p.unit) toBase(item, '1', p.unit)
+  const data = { partyId: party.id, itemId: item.id, partyCode: code, unit: p.unit ? unitName(p.unit) : item.baseUnit, price: format(decimal(p.price ?? '0', 'price')), leadDays: Number.isSafeInteger(p.leadDays) && p.leadDays >= 0 && p.leadDays < 366 ? p.leadDays : 0, preferred: p.preferred === true }
+  const existing = p.id ? get(c.s, 'partyItems', p.id, 'reference') : null
+  if (!existing) return row(c, 'partyItems', data)
+  fresh(existing, p.version)
+  return bump(existing, data)
 }

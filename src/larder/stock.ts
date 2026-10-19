@@ -1,5 +1,6 @@
 // Stock truth: positions are sums of append-only movements; available stock is
 // on-hand available status minus reservations. Every write goes through move().
+import { requireCatalogLot } from './catalog-fields'
 import { decimal, divide, format, min, times } from './decimal'
 import { fail } from './problem'
 import { get, newId, type Context, type Movement, type Reservation, type State } from './model'
@@ -45,9 +46,10 @@ type MoveInput = Pick<Movement, 'itemId' | 'locationId' | 'status' | 'kind' | 'd
 
 export function move(c: Context, x: MoveInput): Movement {
   get(c.s, 'locations', x.locationId, 'location')
-  get(c.s, 'items', x.itemId, 'item')
+  const item = get(c.s, 'items', x.itemId, 'item')
   if (x.quantity === 0n) fail('INPUT', 'A movement needs a non-zero quantity.')
   const lotId = x.lotId ?? ''
+  if (x.quantity > 0n) requireCatalogLot(item, c.s.lots.find(l => l.id === lotId && l.itemId === item.id)?.code)
   if (x.quantity < 0n) {
     const lotBalance = balance(c.s, x.itemId, x.locationId, x.status, lotId)
     if (lotBalance + x.quantity < 0n) fail('INSUFFICIENT_STOCK', 'Not enough stock at that location for this movement.', { itemId: x.itemId, locationId: x.locationId, status: x.status, lotId, onHand: format(lotBalance), needed: format(-x.quantity) })
