@@ -104,7 +104,7 @@ export function caseSources(s: State, today: string): CaseSource[] {
   return out
 }
 
-export function caseStillOpen(s: State, source: CaseSource, today: string): boolean {
+export function caseStillOpen(s: State, source: CaseSource, today: string, activeKeys?: ReadonlySet<string>): boolean {
   if (source.key.startsWith('po-late:')) {
     const po = s.purchaseOrders.find(p => p.id === source.id)
     return !!po && purchaseOpen(po, acceptedPurchases(s))
@@ -121,5 +121,5 @@ export function caseStillOpen(s: State, source: CaseSource, today: string): bool
   // Expiring and blocked are stages of the same lot obligation. Aging an
   // expiring lot into a blocked one cannot close its assigned warning.
   if (source.kind === 'expiry') return lotStatuses(s, today).some(l => l.lotId === source.id && decimal(l.onHand) > 0n && l.state !== 'current')
-  return caseSources(s, today).some(current => current.key === source.key)
+  return activeKeys ? activeKeys.has(source.key) : caseSources(s, today).some(current => current.key === source.key)
 }

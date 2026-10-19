@@ -3,7 +3,7 @@
 import { caseSources, caseStillOpen, type CaseSource } from './follow-up-criteria'
 import { bump, type Context, type State } from './model'
 
-export const caseStatus = (s: State, source: CaseSource, today: string) => caseStillOpen(s, source, today) ? 'following up' : 'closed'
+export const caseStatus = (s: State, source: CaseSource, today: string, activeKeys?: ReadonlySet<string>) => (activeKeys?.has(source.key) || caseStillOpen(s, source, today, activeKeys)) ? 'following up' : 'closed'
 
 function legacyKey(key: string) {
   const [kind, ...parts] = key.split(':')
@@ -20,12 +20,13 @@ export function legacyNotes(s: State, key: string) {
 }
 
 export function followUpView(s: State, today: string) {
-  const current = new Map(caseSources(s, today).map(source => [source.key, source]))
+  const current = new Map(caseSources(s, today).map(source => [source.key, source])), activeKeys = new Set(current.keys())
   for (const saved of s.followUps) if (!current.has(saved.key)) current.set(saved.key, saved.source)
   return [...current.values()].map(source => {
-    const saved = s.followUps.find(f => f.key === source.key), status = caseStatus(s, source, today)
+    const saved = s.followUps.find(f => f.key === source.key), status = caseStatus(s, source, today, activeKeys)
+    const related = [...new Map([...(saved?.source.related ?? []), ...source.related].map(link => [`${link.kind}:${link.id}`, link])).values()]
     const history = [...legacyNotes(s, source.key), ...(saved?.history ?? [])]
-    return { ...source, caseId: saved?.id ?? null, version: saved?.version ?? 0,
+    return { ...source, related, caseId: saved?.id ?? null, version: saved?.version ?? 0,
       status, ownerId: saved?.ownerId ?? null, dueOn: saved?.dueOn ?? '', nextAction: saved?.nextAction ?? '',
       escalationOwnerId: saved?.escalationOwnerId ?? null,
       escalationDue: !!saved && status !== 'closed' && saved.dueOn < today,
@@ -35,9 +36,9 @@ export function followUpView(s: State, today: string) {
 }
 
 export function observeFollowUps(c: Context) {
-  const today = c.now.slice(0, 10)
+  const today = c.now.slice(0, 10), activeKeys = new Set(caseSources(c.s, today).map(source => source.key))
   for (const saved of c.s.followUps) {
-    const status = caseStatus(c.s, saved.source, today), history = [...(saved.history ?? [])]
+    const status = caseStatus(c.s, saved.source, today, activeKeys), history = [...(saved.history ?? [])]
     const updates: Record<string, unknown> = {}
     if (status !== saved.observedStatus) {
       history.push({ type: status === 'closed' ? 'closed' : 'reopened', at: c.now, by: c.actor.id, commandId: c.commandId, note: saved.source.criteria, evidence: [] })

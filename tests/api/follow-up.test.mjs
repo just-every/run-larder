@@ -60,6 +60,7 @@ test('AUTO-001 and LARDER-013 owned cases survive restart and close only after a
   const receipt = await h.command('receipt.create', { poId: po.id, supplierReference: 'Steel delivery', lines: [{ lineId: po.lines[0].id, locationId: loc.id, quantity: '4', lot: 'STEEL-1', inspection: 'quarantine' }] })
   const lotId = receipt.lines[0].lotId
   s = await h.state(); assert.equal(getCase(lateKey).status, 'following up')
+  assert.deepEqual(getCase(lateKey).related.filter(x => x.kind === 'salesOrders').map(x => x.id).sort(), orders.map(o => o.id).sort())
   await h.command('quarantine.decide', { itemId: material.id, locationId: loc.id, lotId, quantity: '2', decision: 'release', reason: 'First two plates passed inspection' })
   await h.command('wo.reserve', { workOrderId: works[0].id })
   await h.command('wo.issue', { workOrderId: works[0].id, lines: [{ itemId: material.id, locationId: loc.id, lotId, quantity: '2' }] })

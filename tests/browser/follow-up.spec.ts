@@ -59,7 +59,7 @@ test('AUTO-001 LARDER-013 assign, evidence, in-app escalation and source-cleared
     expect(followUp.status).toBe('following up'); const file = followUp.history.flatMap((e: any) => e.evidence).find((e: any) => e.name === `supplier-${tag}.txt`)
     expect(await (await page.request.get(origin + `/api/larder/attachments/${file.id}`)).text()).toBe('Supplier arrival evidence')
     const receipt = await command(page, 'receipt.create', { poId: po.id, supplierReference: `Delivery ${tag}`, lines: [{ lineId: po.lines[0].id, locationId: loc.id, quantity: '4', lot: `STEEL-${tag}`, inspection: 'quarantine' }] })
-    await page.reload(); await settled(page); await region.locator(':scope > details > summary').click(); await expect(region).toContainText('Following up'); await shot(page, region, 'held-not-closed')
+    await page.reload(); await settled(page); await region.locator(':scope > details > summary').click(); await expect(region).toContainText('Following up'); for (const order of orders) await expect(region.getByRole('link', { name: order.reference, exact: true })).toBeVisible(); await shot(page, region, 'held-not-closed')
     await command(page, 'quarantine.decide', { itemId: item.id, locationId: loc.id, lotId: receipt.lines[0].lotId, quantity: '4', decision: 'release', reason: 'Material passed documented inspection' })
     await page.reload(); await settled(page)
     const closed = page.locator('section.card').filter({ has: page.getByRole('heading', { name: 'Closed follow-up cases', exact: true }) }).getByRole('region', { name: `Follow-up ${title}`, exact: true })
