@@ -430,7 +430,7 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 | 47 | "Wholesale, Shopify and Amazon orders ship from one list" | `LARDER-010`, `CONN-003`, `CONN-005`, `DEMAND-008` | partial |
 | 48 | "Labels, tracking ... sync as they go" | `CONN-007`, `LARDER-010`, `AUTO-003` | partial |
 | 49 | "and invoices sync as they go" | `CONN-001`, `DEMAND-007` | partial |
-| 50 | Materials column (In stock / Gift boxes · PO-5530 Nov 9) | `DEMAND-006` | partial |
+| 50 | Materials column (In stock / Gift boxes · PO-5530 Nov 9) | `DEMAND-006` | done |
 | 51 | "ShipStation · 23 labels · tracking live" | `CONN-007`, `AUTO-003` | missing |
 | 52 | "Shopify · stock updated 3:41 PM" | `CONN-003`, `AUTO-003` | missing |
 | 53 | "Amazon · FBA shipment booked" | `CONN-005` | missing |
@@ -451,15 +451,15 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 
 Judged from the code and tests at commit `ef0f2402bd6a3e0dd3fdc95d3187433ff92327f7` (18 October 2026).
 
-HTTP-001, ENG-004 and STOCK-002 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
+HTTP-001, ENG-004, STOCK-002 and DEMAND-006 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
 
 Homepage claim coverage was completed on 18 October 2026. The baseline retained every pre-existing clause status; subsequent completed journeys are recorded in the Status rows. US-001 was re-judged against the current archive code and remains partial; OPEN-001 and DEMAND-008 are new target clauses. The additional acceptance requirements below remain engineering work wherever their clause is partial or missing.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 3 | 43 | 66 | 112 |
-| All | 19 | 43 | 66 | 128 |
+| Target and push further | 4 | 42 | 66 | 112 |
+| All | 20 | 42 | 66 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -494,7 +494,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `DEMAND-003` | Master production schedule and forecasts | target | missing |  | Master production schedule and forecasts workflow and its acceptance journey are not implemented. |
 | `DEMAND-004` | Make-to-stock and make-to-order policies | target | partial | `src/larder/planning.ts`; `src/larder/production.ts` | Stock work and demand-driven drafts exist; explicit planning policies, reorder/safety levels and lot-sizing rules are absent. |
 | `DEMAND-005` | Allocation priority and customer commitments | target | partial | `src/larder/stock.ts`; `src/larder/sales.ts`; `tests/api/flows.test.mjs` | Hard reservations preserve stock integrity and work orders carry a priority number; explicit order ranking, rank-ordered allocation and displaced-order/commitment workflows are absent. Promise-preserving recovery and changed-customer-date counts are absent. |
-| `DEMAND-006` | Live order material and production status | target | partial | `src/larder/view.ts`; `src/larder/availability.ts`; `src/ui/orders.tsx`; `src/ui/make.tsx`; `tests/api/flows.test.mjs` | Every state read recomputes item availability, shortages and per-line/per-component reservations with no planning run; per-order In stock/Expected-with-date/Not available and production statuses in the SO and MO lists, rank-ordered allocation and status sort/filter are absent. |
+| `DEMAND-006` | Live order material and production status | target | done | `tests/api/order-status.test.mjs`; `tests/browser/order-status.spec.ts` — DEMAND-006 | Ranked shared-supply projection on every read; SO/MO order and line status with current PO/MO references/dates, quarantine exclusion, protected reservations, rank/status sort/filter at 1440/390. |
 | `DEMAND-007` | Order invoicing and payment status | target | partial | `src/larder/handoff.ts`; `src/larder/sales.ts`; `tests/api/flows.test.mjs` | Shipment-driven invoice preparation lines valued at the order price, with ledger acknowledgment and linked corrections for reversed shipments, ship in the accountant handoff; invoice records per order, Invoice all/some, bulk and automatic invoicing, refusal of unshipped quantity, invoice and payment status columns with filters, provider payment readback and the overdue release check are absent. |
 | `DEMAND-008` | One fulfillment list across sales channels | target | missing |  | The common wholesale/Shopify/Amazon fulfillment list, channel identity, channel import and connected shipment journeys are not implemented. |
 | `MRP-001` | Time-phased demand netting | target | partial | `src/larder/planning.ts`; `tests/api/flows.test.mjs` | Aggregate deterministic shortages exist; current netting counts open supply without time-phased multilevel feasibility. |

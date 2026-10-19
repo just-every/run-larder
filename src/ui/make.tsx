@@ -4,6 +4,7 @@ import { Card, Chip, Choose, Empty, Field, Form, Lines, Table, options, readLine
 import { day, dayName, minus, money, positive, qty, when, words } from './format'
 import { covers, firstStart, stories, timing } from './supply'
 import { schedule } from './schedule/plan'
+import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
 
 const tabs = [{ id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }]
 
@@ -71,9 +72,9 @@ function Purchase({ larder, po }: { larder: Larder; po: Rec }) {
 
 const woTone = (status: string) => status === 'released' ? 'info' : status === 'closed' ? 'good' : 'warn'
 function Works({ larder }: { larder: Larder }) {
-  const s = larder.state!, list = [...rows(s, 'workOrders')].sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.requiredBy.localeCompare(b.requiredBy))
-  return <><Card title="Work orders">{list.length === 0 ? <Empty>No work orders yet. Draft one from a shortage or below.</Empty> :
-    <Table head={['Work order', 'Makes', 'Needed by', 'BOM', 'Status', 'Done']} numeric={[5]}>{list.map(w => <tr key={w.id}><td><a href={`#make/wo/${w.id}`}>{w.reference}</a>{w.priority ? <small>priority {w.priority}</small> : null}</td><td>{qty(w.quantity)} {itemName(s, w.itemId)}</td><td>{day(w.requiredBy)}</td><td>{w.bomRevision ? `Rev ${w.bomRevision}` : '—'}</td><td><Chip tone={woTone(w.status)}>{words(w.status)}</Chip></td><td className="num">{qty(w.output)}</td></tr>)}</Table>}</Card>
+  const s = larder.state!, statuses = useOrderStatusList(s, 'work'), list = statuses.list(rows(s, 'workOrders'))
+  return <><Card title="Work orders">{statuses.controls}{list.length === 0 ? <Empty>{rows(s, 'workOrders').length ? 'No work orders match these filters.' : 'No work orders yet. Draft one from a shortage or below.'}</Empty> :
+    <Table head={['Work order', 'Makes', 'Dates', 'BOM', 'Status', 'Materials / production', 'Done']} numeric={[6]}>{list.map(w => <tr key={w.id}><td><a href={`#make/wo/${w.id}`}>{w.reference}</a><OrderRank status={statuses.status(w.id)} /><OrderStatusActions larder={larder} kind="work" order={w} status={statuses.status(w.id)} /></td><td>{qty(w.quantity)} {itemName(s, w.itemId)}</td><td>Needed {day(w.requiredBy)}<small>Expected completion {day(w.expectedOn ?? w.requiredBy)}</small></td><td>{w.bomRevision ? `Rev ${w.bomRevision}` : '—'}</td><td><Chip tone={woTone(w.status)}>{words(w.status)}</Chip></td><td><OrderStatusDisplay s={s} status={statuses.status(w.id)} /></td><td className="num">{qty(w.output)}</td></tr>)}</Table>}</Card>
     {can(s, ['manager', 'production', 'agent']) && <Card title="New work order"><Form submit="Save draft" busy={larder.busy} onSubmit={d => larder.run('wo.draft', { itemId: text(d, 'itemId'), quantity: text(d, 'quantity'), requiredBy: text(d, 'requiredBy'), reason: text(d, 'reason') })}>
       <Choose label="Item to make" name="itemId" options={options(rows(s, 'items').filter(i => i.kind === 'make' && !i.archived), r => `${r.name} · ${r.sku}`)} /><Field label="Quantity" name="quantity" inputMode="decimal" /><Field label="Needed by" name="requiredBy" type="date" /><Field label="Reason" name="reason" /></Form></Card>}</>
 }

@@ -4,6 +4,7 @@ import type { Larder } from './app'
 import { Card, Chip, Choose, Empty, Field, Form, Lines, Table, options, readLines, text } from './controls'
 import { day, isZero, minus, money, negative, perUnit, plus, positive, qty, timesMoney, unitLabel, words } from './format'
 import { NeedsList } from './needs'
+import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
 
 const reservedFor = (s: LarderState, orderId: string, lineId: string) => plus(...rows(s, 'reservations').filter(r => r.demandId === orderId && r.lineId === lineId).map(r => r.quantity))
 const openOf = (l: any) => minus(minus(l.quantity, l.shipped), l.cancelled)
@@ -11,13 +12,14 @@ const statusTone = (status: string) => status === 'confirmed' || status === 'shi
 
 export function Orders({ larder, id }: { larder: Larder; id?: string }) {
   const s = larder.state!
+  const statuses = useOrderStatusList(s, 'sales')
   const order = id ? byId(s, 'salesOrders', id) : undefined
   if (order) return <OrderWorkspace larder={larder} order={order} />
-  const list = [...rows(s, 'salesOrders')].reverse()
+  const list = statuses.list(rows(s, 'salesOrders'))
   return <div className="page">
     <header className="page-head"><p className="eyebrow">Orders</p><h1>Sales orders</h1></header>
-    <Card title="Open and recent orders">{list.length === 0 ? <Empty>No orders yet. Enter a quote below, or move open orders in from Odoo.</Empty> :
-      <Table head={['Order', 'Customer', 'Promised', 'Status', 'Value']} numeric={[4]}>{list.map(o => <tr key={o.id}><td><a href={`#orders/${o.id}`}>{o.reference}</a>{o.sourceReference && <small>Odoo {o.sourceReference}</small>}</td><td>{partyName(s, o.customerId)}</td><td>{day(o.promiseDate)}</td><td><Chip tone={statusTone(o.status)}>{words(o.status)}</Chip></td><td className="num">{money(o.lines.reduce((n: string, l: any) => plus(n, timesMoney(l.quantity, l.unitPrice)), '0'))}</td></tr>)}</Table>}
+    <Card title="Open and recent orders">{statuses.controls}{list.length === 0 ? <Empty>{rows(s, 'salesOrders').length ? 'No orders match these filters.' : 'No orders yet. Enter a quote below, or move open orders in from Odoo.'}</Empty> :
+      <Table head={['Order', 'Customer', 'Promised', 'Status', 'Materials / production', 'Value']} numeric={[5]}>{list.map(o => <tr key={o.id}><td><a href={`#orders/${o.id}`}>{o.reference}</a>{o.sourceReference && <small>Odoo {o.sourceReference}</small>}<OrderRank status={statuses.status(o.id)} /><OrderStatusActions larder={larder} kind="sales" order={o} status={statuses.status(o.id)} /></td><td>{partyName(s, o.customerId)}</td><td>{day(o.promiseDate)}</td><td><Chip tone={statusTone(o.status)}>{words(o.status)}</Chip></td><td><OrderStatusDisplay s={s} status={statuses.status(o.id)} /></td><td className="num">{money(o.lines.reduce((n: string, l: any) => plus(n, timesMoney(l.quantity, l.unitPrice)), '0'))}</td></tr>)}</Table>}
     </Card>
     {can(s, ['manager', 'sales']) && <Card title="New quote"><Form submit="Save quote" busy={larder.busy} onSubmit={async d => { const r = await larder.run('so.quote', { customerId: text(d, 'customerId'), promiseDate: text(d, 'promiseDate'), customerReference: text(d, 'customerReference'), lines: readLines(d) }); if (r) window.location.hash = `orders/${r.id}`; return r }}>
       <Choose label="Customer" name="customerId" options={options(rows(s, 'parties').filter(p => p.kind !== 'supplier'), r => r.name)} />
