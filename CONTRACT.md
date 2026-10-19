@@ -78,7 +78,7 @@ The sixteen published clauses keep their IDs and useful operational guarantees. 
 
 - **ENG-001 — Multilevel BOM explosion.** Engineers build multilevel assemblies and phantom subassemblies with per-unit quantities, yields, effective revisions and make/buy choices. MRP recursively explodes them, detects cycles, and pegs component demand without double counting shared subassemblies. Released work remains pinned. Yield is a good-output fraction greater than zero and at most one; each aggregate recipe requirement divides per-unit inputs by yield and rounds upward to six quantity places. Planning and release select the revision effective today in UTC. Make supply nets shared stock/open and draft supply before exploding only uncovered quantity; buy stops explosion; phantom bypasses subassembly stock and expands its recipe. Draft work contributes its inputs once; released work uses its pinned requirements. Pegs retain the root document and revision path. Future effective revisions are also checked for cycles. **Acceptance evidence:** Create a three-level BOM sharing a component, stock one subassembly, run MRP and inspect net component demand; reject a cycle and preserve released work after revision.
 
-- **ENG-002 — Executable routings and instructions.** A revision includes ordered operations, dependencies, setup/run/queue times, work-center eligibility, labor skills, drawings and step instructions. Operators see the exact approved revision at their task, including a required acknowledgment after an instruction change. **Acceptance evidence:** Release a two-operation job, open its tablet task and drawing, then revise instructions; the released job retains its instructions and a new job requires acknowledgment.
+- **ENG-002 — Executable routings and instructions.** A revision includes ordered operations, dependencies, setup/run/queue times, work-center eligibility, labor skills, drawings and step instructions. Operators see the exact approved revision at their task, including a required acknowledgment after an instruction change. Setup and queue estimates are minutes per job; run time is minutes per base-unit output (legacy `minutes` aliases run time), each finite in the inclusive range 0–100000. Dependencies name unique earlier operation sequence numbers, defaulting to the previous operation; an explicit empty list permits an independent step. Eligible center names match exactly. Under today’s roles the production role authors and operates routings; the owner or manager records a named active production person’s skill authorization for the exact task before starting work that requires those skills. This is a human authorization, never certification. The assigned person and current native role are checked at execution; agents cannot authorize, acknowledge, start or complete tasks. Saving through the authorized engineering door records the authorizing person and time. Release snapshots instructions and original drawing files/digests, and each job starts with unacknowledged tasks. A person acknowledges that job’s exact pinned BOM before starting an instruction/drawing task; predecessor completion and eligible center selection are enforced through both tablet and command API. Future revision/intake doors in ENG-004, ENG-005, CONN-011, MOVE-001 through MOVE-006 and AGENT-005 inherit the same pinning and acknowledgment obligations before shipping. **Acceptance evidence:** Release a two-operation job, open its tablet task and drawing, then revise instructions; the released job retains its instructions and a new job requires acknowledgment.
 
 - **ENG-003 — Configurable and matrix BOMs.** Sales/engineering choose permitted variant attributes, dimensions and options; rules derive component quantities, routing and cost with explainable formulas. Invalid combinations are refused and the resolved configuration is pinned on quote and work. **Acceptance evidence:** Configure two sizes/finishes through the quote form, compare resolved BOM/cost and release both; refuse an invalid combination and keep old work stable after a rule edit.
 
@@ -421,7 +421,7 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 | 38 | "scan every lot" | `FLOOR-008` | missing |
 | 39 | "log good and scrap as they go" (Good 96, Scrap 2) | `LARDER-009` | done |
 | 40 | Phone: held lot LF-0928 refused at issue | `LARDER-008` | done |
-| 41 | Drawing "FW-EG-1218 rev C" on the station | `ENG-002` | partial |
+| 41 | Drawing "FW-EG-1218 rev C" on the station | `ENG-002` | done |
 | 42 | "The planning agent lays out two fixes" (Option A/B with dates and overtime) | `AGENT-001`, `CAP-007` | partial |
 | 43 | "Dana picks one" (Approved by Dana W. · 1:46 PM) | `LARDER-015`, `GOV-002` | partial |
 | 44 | Downtime timeline (spindle fault logged, released, 240/240) | `FLOOR-007`, `CAP-009` | missing |
@@ -451,15 +451,15 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 
 Judged from the code and tests at commit `ef0f2402bd6a3e0dd3fdc95d3187433ff92327f7` (18 October 2026).
 
-HTTP-001, ENG-004, STOCK-002, DEMAND-006 and ENG-001 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
+HTTP-001, ENG-004, STOCK-002, DEMAND-006, ENG-001 and ENG-002 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
 
 Homepage claim coverage was completed on 18 October 2026. The baseline retained every pre-existing clause status; subsequent completed journeys are recorded in the Status rows. US-001 was re-judged against the current archive code and remains partial; OPEN-001 and DEMAND-008 are new target clauses. The additional acceptance requirements below remain engineering work wherever their clause is partial or missing.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 5 | 41 | 66 | 112 |
-| All | 21 | 41 | 66 | 128 |
+| Target and push further | 6 | 40 | 66 | 112 |
+| All | 22 | 40 | 66 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -483,7 +483,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `US-002` | Sales tax and exemption handoff | target | missing |  | Sales tax and exemption handoff workflow and its acceptance journey are not implemented. |
 | `US-003` | Guided real-order setup | target | missing |  | Guided real-order setup workflow and its acceptance journey are not implemented. |
 | `ENG-001` | Multilevel BOM explosion | target | done | `tests/api/multilevel.test.mjs`; `tests/browser/multilevel.spec.ts` — ENG-001 | Recursive topological shared-supply netting, root/revision pegging, stocked subassemblies, make/buy/phantom choices, upward yield arithmetic, effective-date cycle rejection and immutable resolved release pins; recipe, shortage and work screens at 1440/390. |
-| `ENG-002` | Executable routings and instructions | target | partial | `src/larder/bom.ts`; `src/larder/production.ts` | Routing names, work-center text and minutes exist; executable dependencies, detailed instructions and acknowledgments are absent. |
+| `ENG-002` | Executable routings and instructions | target | done | `tests/api/routing.test.mjs`; `tests/browser/routing.spec.ts` — ENG-002 | Ordered executable tasks with predecessor/center checks, setup/run/queue estimates, required skills, retained drawings/instructions, per-person exact-job acknowledgment and immutable release pins. CSV and archive round-trip preserve full definitions/files; old and new revision tasks inspected at 1440/390. |
 | `ENG-003` | Configurable and matrix BOMs | target | missing |  | Configurable and matrix BOMs workflow and its acceptance journey are not implemented. |
 | `ENG-004` | BOM CSV export and bulk revision | target | done | `src/larder/bom-csv.ts`; `src/larder/bom-bulk.ts`; `src/larder/bom.ts`; `tests/api/bom-bulk.test.mjs` (ENG-004) | Authenticated CSV export/edit/preview/approval round-trip for ten BOMs and routings; row errors exclude whole recipes, stock/open-work impact is retained, exact quantities and effective dates create revisions atomically, stale/self approval is refused and released work stays pinned. |
 | `ENG-005` | Engineering change approval and obsolescence | target | missing |  | Engineering change approval and obsolescence workflow and its acceptance journey are not implemented. |
@@ -503,7 +503,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `MRP-004` | Planning scenarios and release fence | target | missing |  | Planning scenarios and release fence workflow and its acceptance journey are not implemented. |
 | `CAP-001` | Work-center calendars | target | missing |  | Work-center calendars workflow and its acceptance journey are not implemented. |
 | `CAP-002` | Labor calendars and skills | target | missing |  | Labor calendars and skills workflow and its acceptance journey are not implemented. |
-| `CAP-003` | Operation dependencies and blocked work | target | partial | `src/larder/production.ts`; `src/larder/stock.ts` | Component reservation/issue integrity exists; operation state, predecessor sequencing and QC task gates are absent. |
+| `CAP-003` | Operation dependencies and blocked work | target | partial | `src/larder/production.ts`; `src/larder/stock.ts` | Component reservation/issue integrity and ENG-002 task state/predecessors exist; transfer-batch/overlap rules and material/QC operation gates remain absent. |
 | `CAP-004` | Finite-capacity Gantt and bottlenecks | target | missing |  | Finite-capacity Gantt and bottlenecks workflow and its acceptance journey are not implemented. |
 | `CAP-005` | Drag and drop rescheduling | target | missing |  | Drag and drop rescheduling workflow and its acceptance journey are not implemented. |
 | `CAP-006` | Alternate centers and sequence-dependent setups | target | missing |  | Alternate centers and sequence-dependent setups workflow and its acceptance journey are not implemented. |
@@ -517,7 +517,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `BUY-005` | Landed costs | target | missing |  | Landed costs workflow and its acceptance journey are not implemented. |
 | `BUY-006` | Supplier returns and credits | target | missing |  | Supplier returns and credits workflow and its acceptance journey are not implemented. |
 | `BUY-007` | Supplier and customer communications | target | missing |  | Supplier and customer communications workflow and its acceptance journey are not implemented. |
-| `FLOOR-001` | Tablet and phone dispatch | target | partial | `src/ui/make.tsx`; `src/larder/production.ts`; `tests/browser/journey.spec.ts` | Responsive issue/output forms ship; per-operation dispatch, start/stop and shared-station workflow are absent. |
+| `FLOOR-001` | Tablet and phone dispatch | target | partial | `src/ui/make.tsx`; `src/larder/production.ts`; `tests/browser/journey.spec.ts` | Responsive issue/output and ENG-002 pinned task start/complete forms ship; assigned ready/blocked dispatch, pause/resume reasons and shared-station reauthentication remain absent. |
 | `FLOOR-002` | Actual labor and operation time | target | missing |  | Actual labor and operation time workflow and its acceptance journey are not implemented. |
 | `FLOOR-003` | WIP and manufacturing backorders | target | partial | `src/larder/production.ts`; `tests/api/flows.test.mjs` | Released work and remaining output exist; operation WIP, transfer batches and explicit manufacturing backorders are absent. |
 | `FLOOR-004` | Rework repair and unbuild | target | partial | `src/larder/production.ts`; `src/larder/reversal.ts`; `src/larder/warehouse.ts` | Scrap, returns and compensating reversals exist; dedicated rework/unbuild workflows and extra-cost attribution are absent. |

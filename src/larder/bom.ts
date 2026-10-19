@@ -1,3 +1,4 @@
+import { normalizeRouting } from './routing'
 // Versioned bills of materials with a simple routing. A revision never changes
 // after it is saved; a released work order pins the revision it was made from.
 import { toBase } from './catalogue'
@@ -24,10 +25,7 @@ export function bom(c: Context, type: string, p: any): Row | undefined {
     return { supply, itemId: component.id, quantity: format(toBase(component, line.quantity, line.unit, `quantity of ${component.name}`)), note: optionalText(line.note, 'note', 200) }
   })
   if (new Set(components.map(l => l.itemId)).size !== components.length) fail('INPUT', 'List each component once per revision.')
-  const routing = (Array.isArray(p.routing) ? p.routing : []).slice(0, 50).map((step: any, i: number) => ({
-    sequence: i + 1, name: text(step.name, 'step name', 120), workCentre: optionalText(step.workCentre, 'work center', 120),
-    minutes: Number.isFinite(step.minutes) && step.minutes >= 0 && step.minutes <= 100000 ? step.minutes : fail('INPUT', 'Step minutes must be between 0 and 100000.'),
-  }))
+  const routing = normalizeRouting(p.routing ?? [], c.s.boms, c)
   const effectiveOn = p.effectiveOn === undefined ? c.now.slice(0, 10) : date(p.effectiveOn, 'effective date')
   if (effectiveOn < c.now.slice(0, 10) || new Date(effectiveOn + 'T00:00:00Z').toISOString().slice(0, 10) !== effectiveOn) fail('INPUT', 'A new BOM revision needs a real effective date today or later.')
   const yieldRate = format(decimal(p.yield ?? '1', 'yield', { positive: true }))
@@ -36,7 +34,7 @@ export function bom(c: Context, type: string, p: any): Row | undefined {
   const previous = activeBom(c.s, item.id, c.now.slice(0, 10))
   if (immediate && previous) bump(previous, { status: 'superseded' })
   const revision = Math.max(0, ...c.s.boms.filter(b => b.itemId === item.id).map(b => b.revision)) + 1
-  const saved = row(c, 'boms', { itemId: item.id, revision, yield: yieldRate, components, routing, note: optionalText(p.note, 'change note', 400), effectiveOn, status: immediate ? 'active' : 'scheduled' })
+  const saved = row(c, 'boms', { itemId: item.id, revision, yield: yieldRate, components, routing, approvedBy: c.actor.id, approvedAt: c.now, note: optionalText(p.note, 'change note', 400), effectiveOn, status: immediate ? 'active' : 'scheduled' })
   validateBomGraph(c.s, c.now.slice(0, 10))
   return saved
 }

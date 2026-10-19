@@ -38,7 +38,7 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       for (const l of resolved.components) totals.set(l.itemId, (totals.get(l.itemId) ?? 0n) + decimal(l.quantity))
       const components = [...totals].map(([itemId, required]) => ({ id: newId(), itemId, perUnit: format(divide(required, quantity)), required: format(required), supplyRequirements: resolved.components.filter(l => l.itemId === itemId).map(l => ({ supply: l.supply, quantity: l.quantity })), issued: '0' }))
       const standardUnitCost = divide(components.reduce((n: bigint, l: any) => n + times(decimal(l.required), averageCost(c.s, l.itemId)), 0n), quantity)
-      bump(w, { status: 'released', bomId: bom.id, bomRevision: bom.revision, bomRevisions: resolved.revisions, components, routing: bom.routing, standardUnitCost: format(standardUnitCost), releasedBy: c.actor.id, releasedAt: c.now })
+      bump(w, { status: 'released', bomId: bom.id, bomRevision: bom.revision, bomRevisions: resolved.revisions, components, routing: structuredClone(bom.routing), operationStates: bom.routing.map((r: any) => ({ sequence: r.sequence, status: 'pending', acknowledgments: [] })), standardUnitCost: format(standardUnitCost), releasedBy: c.actor.id, releasedAt: c.now })
       w.shortages = components.map((l: any) => {
         const got = reserve(c, { demandKind: 'work', demandId: w.id, lineId: l.id, itemId: l.itemId }, decimal(l.required))
         return { itemId: l.itemId, short: format(decimal(l.required) - got) }
@@ -74,6 +74,7 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'production'])
       const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
       if (w.status !== 'released') fail('STATE', 'Record output only on released work.')
+      if (w.routing.some((r: any) => r.instructions || r.drawings?.length || r.requiredSkills?.length) && w.routing.some((r: any) => !w.operationStates?.some((t: any) => t.sequence === r.sequence && t.status === 'done'))) fail('OPERATIONS', 'Complete the pinned operations before recording output.')
       const item = get(c.s, 'items', w.itemId, 'item'), good = decimal(p.quantity ?? '0', 'good quantity'), scrap = decimal(p.scrap ?? '0', 'scrap quantity')
       if (good === 0n && scrap === 0n) fail('INPUT', 'Record a good or scrap quantity.')
       if (decimal(w.output) + decimal(w.scrap) + good + scrap > decimal(w.quantity)) fail('OVER_OUTPUT', `${w.reference} is for ${w.quantity} ${item.baseUnit}; this would exceed it. Release more work instead.`)
@@ -89,6 +90,7 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'production'])
       const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
       if (w.status !== 'released') fail('STATE', 'Only released work can be closed.')
+      if (w.routing.some((r: any) => r.instructions || r.drawings?.length || r.requiredSkills?.length) && w.routing.some((r: any) => !w.operationStates?.some((t: any) => t.sequence === r.sequence && t.status === 'done'))) fail('OPERATIONS', 'Complete the pinned operations before closing work.')
       release(c, w.id)
       const issued = c.s.movements.filter(m => m.documentKind === 'workOrders' && m.documentId === w.id && m.kind === 'issue').reduce((n, m) => n - times(m.quantity, m.unitCost), 0n)
       const reversedIssue = c.s.movements.filter(m => m.documentKind === 'reversals' && m.kind === 'issue-reversal' && c.s.reversals.some(r => r.id === m.documentId && r.targetId === w.id)).reduce((n, m) => n + times(m.quantity, m.unitCost), 0n)

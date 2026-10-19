@@ -15,6 +15,7 @@ import { exportBatch, imports, publishImport } from './odoo/imports'
 import { handoff, handoffCsv } from './handoff'
 import { planning } from './planning'
 import { production } from './production'
+import { operations } from './operations'
 import { proposals } from './proposals'
 import { purchasing } from './purchasing'
 import { reversal } from './reversal'
@@ -37,7 +38,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [catalogue, warehouse, counts, ranking, bom, bomBulk, sales, purchasing, production, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [catalogue, warehouse, counts, ranking, bom, bomBulk, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -63,6 +64,11 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (target!.role === 'owner') fail('OWNER_ROLE', 'The owner keeps owner authority.')
   }
   if (blindSessions(await load(env.DB), actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
+  if (type === 'wo.operation.assign') {
+    if (!['owner', 'manager'].includes(actor.role)) forbidden('Only a manager authorizes operation skills.')
+    const person = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(payload.operatorId).first<{ role: string }>()
+    if (!person || !['owner', 'manager', 'production'].includes(person.role)) fail('INPUT', 'Assign an active production person or manager.')
+  }
   if (type === 'count.schedule') {
     const counter = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(payload.counterId).first<{ role: string }>()
     if (counter?.role !== 'warehouse') fail('INPUT', 'Assign an active warehouse person.')

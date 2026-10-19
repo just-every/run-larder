@@ -5,6 +5,7 @@ import { day, dayName, minus, money, positive, qty, when, words } from './format
 import { covers, firstStart, stories, timing } from './supply'
 import { schedule } from './schedule/plan'
 import { Boms } from './bom-editor'
+import { WorkOperations } from './work-operations'
 import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
 
 const tabs = [{ id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }]
@@ -89,7 +90,7 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
       <p className="meta">Make {qty(w.quantity)} {itemName(s, w.itemId)} by {day(w.requiredBy)}{w.bomRevision && ` · pinned to BOM revision ${w.bomRevision}`}</p><p>{w.reason}</p>
       {w.status === 'draft' && prod && <div className="actions"><button className="button primary" disabled={busy} onClick={() => run('wo.release', { workOrderId: w.id, version: w.version })}>Release and reserve materials</button></div>}
       {w.components.length > 0 && <Table head={['Material', 'Required', 'Issued', 'Reserved']} numeric={[1, 2, 3]}>{w.components.map((l: any) => <tr key={l.id}><td>{itemName(s, l.itemId)}</td><td className="num">{qty(l.required)} {unitOf(s, l.itemId)}</td><td className="num">{qty(l.issued)}</td><td className="num">{reserved(l.id).map(r => `${qty(r.quantity)} at ${locationName(s, r.locationId)}`).join(', ') || '0'}</td></tr>)}</Table>}
-      {w.routing.length > 0 && <ol className="routing">{w.routing.map((r: any) => <li key={r.sequence}>{r.name}{r.workCentre && ` · ${r.workCentre}`} · {r.minutes} min each</li>)}</ol>}
+      <WorkOperations larder={larder} w={w} />
       <p>Output {qty(w.output)} · scrap {qty(w.scrap)} · standard cost {money(w.standardUnitCost)} each</p>
       {w.cost && <p>Materials used {money(w.cost.materials)} · variance {money(w.cost.variance)} · actual {money(w.cost.actualUnitCost)} each</p>}
       {(w.shortages ?? []).length > 0 && <p className="warn-text">Short: {stories(s, w, schedule(s, new Date())).join('; ')}. <button className="link" onClick={() => run('wo.reserve', { workOrderId: w.id })}>Try reserving again</button></p>}

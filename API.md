@@ -22,7 +22,7 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `party.save` | `{id?, version?, name, kind: customer\|supplier\|both, email?, abn?, terms?}` | manager, buyer, sales |
 | `partyItem.save` | `{id?, version?, partyId, itemId, partyCode, unit?, price?, leadDays?, preferred?}` | manager, buyer, sales |
 | `opening.record` | `{locationId, countedOn, valuationBasis: supplier-invoice\|last-purchase\|standard-cost\|owner-estimate, countedBy, evidence: {name, contentType, base64}, lines: [{itemId, quantity, unit?, unitCost, lot?}]}` | manager, warehouse |
-| `bom.revise` | `{itemId, components: [{itemId, quantity, unit?, supply?: make\|buy\|phantom}], yield?: <fraction>, routing?: [{name, workCentre?, minutes}], note?, effectiveOn?}` | manager, production |
+| `bom.revise` | `{itemId, components: [{itemId, quantity, unit?, supply?: make\|buy\|phantom}], yield?: <fraction>, routing?: [{name, workCentre?, minutes?, runMinutes?, setupMinutes?, queueMinutes?, dependsOn?, eligibleCentres?, requiredSkills?, instructions?, drawings?}], note?, effectiveOn?}` | manager, production |
 | `bom.bulkPreview` | `{file: {name, content}}` — CSV rows, errors and stock/open-work impact; creates only the review record | manager, production |
 | `bom.bulkApprove` | `{previewId, version, acceptRejected?: <exact error count>}` — approve all valid whole-BOM groups atomically; changed business state requires a new preview | manager, production (different preparer; owner may approve own) |
 | `order.rank` | `{kind: sales\|work, orderId, version, rank}` — lower positive whole-number ranks first; preserves reservations/promises | manager, production |
@@ -112,3 +112,23 @@ The state API’s `shortages` recursively nets all confirmed sales and released/
 `bom.revise` accepts a `yield` fraction greater than zero and at most one (default `1`) and per-component `supply`: `make`, `buy` or `phantom` (default the item’s kind). Make nets subassembly supply before expanding the uncovered quantity; buy stops expansion; phantom ignores its own stock and expands directly. Make/phantom require a made item. Each aggregate recipe input is `ceil(perUnit × output / yield)` at six quantity places. Today’s UTC effective revision is used; new revisions are checked for cycles now and at every future effectivity boundary.
 
 `plan.draft` optionally takes `supply: make|buy`; `supplyChoices` gives each uncovered quantity when an item has both requirements. Release merges physical requirements by SKU, retains make/buy quantities and pins all resolved phantom revision IDs/yields in `bomRevisions`. Subsequent revisions cannot change that released snapshot. BOM CSV adds `yield` and `supply`; older files remain supported.
+
+
+## Pinned operation tasks (ENG-002)
+
+`bom.revise` retains ordered operations with setup and queue minutes per job and run minutes per base-unit output. Legacy `minutes` is the run-minute alias; if both aliases are supplied they must agree. Each time is finite and between 0 and 100000 inclusive. Sequence numbers follow array order. `dependsOn` contains unique earlier sequence numbers (default: the previous operation; `[]` makes a step independent). `eligibleCentres` contains exact, case-sensitive names and includes `workCentre` when one is named. Required labor skills are a list of names. Instructions are literal text, never executable directives to Larder.
+
+`drawings` accepts up to five evidence files per operation using `{name,contentType,base64}` (each at most 1 MiB), or references to files retained by existing revisions. A file's digest and original bytes are retained. Direct and CSV revisions use the same validator; CSV carries complete routing JSON and may reference retained drawings, never arbitrary file IDs. Saving an authorized revision records its authorizing person/time. Release snapshots the definition and creates pending tasks; revision changes cannot rewrite that snapshot or its files.
+
+All task commands use `workOrderId`, the current work-order `version`, and the pinned operation `sequence` through `/api/larder/commands`:
+
+| Command | Additional input | Behavior |
+| --- | --- | --- |
+| `wo.operation.acknowledge` | `bomId` | Records the current person's acknowledgment of the exact pinned revision. An instruction/drawing task cannot start without it. Every new job starts unacknowledged. |
+| `wo.operation.assign` | `operatorId` | Owner/manager records a named active production person’s skill authorization for this task’s pinned requirements; this is not certification. |
+| `wo.operation.start` | `workCentre` | Requires completed predecessors, acknowledgment and an eligible named station; records operator/time. |
+| `wo.operation.complete` | none | The person who started the running operation records completion/time. |
+
+Tasks retain their acknowledgment and execution history in state and the business archive. Stock output/closure for a routing containing instructions, drawings or skill requirements waits for all its operations to complete. Simple existing routings remain usable with the published material/output flow. Setup/run/queue times are declared routing estimates, not actual labor capture (FLOOR-002) or finite calendar bookings (CAP-001/CAP-002/CAP-004). Engineering change proposals and obsolescence remain ENG-005 work.
+
+The current `production` role authors and operates routings. Task acknowledgment, start and completion require current owner/manager/production authority; agents cannot execute. Skill-required tasks need owner/manager authorization of the exact operator before start, and any assigned task can be started/completed only by that operator (completion also checks the original starter). Authority is rechecked through the same native-session atomic command door.

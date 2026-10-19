@@ -1,3 +1,4 @@
+import { normalizeRouting } from './routing'
 import { activeBom } from './bom'
 import { toBase } from './catalogue'
 import { decimal, format, SCALE } from './decimal'
@@ -17,7 +18,7 @@ export function bomCsv(s: State): string {
   for (const item of s.items.filter(i => i.kind === 'make' && !i.archived)) {
     const bom = activeBom(s, item.id)
     if (!bom) continue
-    const routing = JSON.stringify((bom.routing ?? []).map((step: any) => ({ name: step.name, workCentre: step.workCentre ?? '', minutes: step.minutes })))
+    const routing = JSON.stringify(bom.routing ?? [])
     for (const component of bom.components) {
       const part = s.items.find(i => i.id === component.itemId)
       if (!part) throw new Error(`BOM ${bom.id} references a missing component.`)
@@ -32,17 +33,7 @@ type CsvError = { file: string; row: number; column: string; reason: string }
 type Group = { revision: any; invalid: boolean; seen: Set<string>; metadata: Record<string, string> }
 const reason = (error: unknown) => error instanceof Error ? error.message : String(error)
 
-function routing(value: string) {
-  const parsed = JSON.parse(value)
-  if (!Array.isArray(parsed) || parsed.length > 50) throw new Error('Routing must be an array of at most 50 steps.')
-  return parsed.map((step: any, index: number) => {
-    if (!step || typeof step !== 'object' || Array.isArray(step)
-      || Object.keys(step).some(key => !['name', 'workCentre', 'minutes', 'sequence'].includes(key))) throw new Error(`Routing step ${index + 1} has invalid fields.`)
-    if (step.sequence !== undefined && step.sequence !== index + 1) throw new Error('Routing step sequence must match its array order.')
-    if (typeof step.minutes !== 'number' || !Number.isFinite(step.minutes) || step.minutes < 0 || step.minutes > 100000) throw new Error('Step minutes must be between 0 and 100000.')
-    return { name: text(step.name, 'step name', 120), workCentre: optionalText(step.workCentre, 'work center', 120), minutes: step.minutes }
-  })
-}
+function routing(value: string, boms: Row[]) { return normalizeRouting(JSON.parse(value), boms) }
 
 // Record physical starting lines, including quoted newlines and skipped blank rows.
 function rowLines(content: string): number[] {
@@ -99,7 +90,7 @@ export function parseBomCsv(s: State, content: string, file: string): { revision
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data.effective_on) || !Number.isFinite(timestamp)
       || new Date(timestamp).toISOString().slice(0, 10) !== data.effective_on || data.effective_on < today()) reject('effective_on', 'Use a real date on or after today (YYYY-MM-DD, UTC).')
     let steps: ReturnType<typeof routing> = [], note = ''
-    try { steps = routing(data.routing) } catch (e) { reject('routing', reason(e)) }
+    try { steps = routing(data.routing, s.boms) } catch (e) { reject('routing', reason(e)) }
     try { note = optionalText(unprotect(data.note), 'change note', 400) } catch (e) { reject('note', reason(e)) }
     const source = s.boms.find(b => b.id === group!.revision.sourceBomId)
     const yieldRate = data.yield || source?.yield || '1'
