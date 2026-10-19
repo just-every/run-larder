@@ -70,11 +70,15 @@ test('ENG-005 safety replacement review, eligibility/evidence, effectivity, stoc
   await engineer.run('wo.release', { workOrderId: phantom.id, version: state.workOrders.find(w => w.id === phantom.id).version }, { error: 'EFFECTIVITY' })
   // A second, immediately effective review proves adoption and the inherited
   // instruction/drawing acknowledgment at the operation door.
-  const affected = (await h.state()).workOrders.filter(w => [adopt.id, phantom.id].includes(w.id))
-  let immediate = await engineer.run('engineering.propose', { ...payload, effectiveOn: today(), workTreatments: affected.map(w => ({ workOrderId: w.id, version: w.version, action: 'adopt', reason: 'Approved immediate containment' })) })
+  const keepAgain = await h.command('wo.draft', { itemId: product.id, quantity: '12', requiredBy: tomorrow(), reason: 'Retain prior recipe pending production' })
+  const affected = (await h.state()).workOrders.filter(w => [adopt.id, phantom.id, keepAgain.id].includes(w.id))
+  let immediate = await engineer.run('engineering.propose', { ...payload, effectiveOn: today(), workTreatments: affected.map(w => ({ workOrderId: w.id, version: w.version, action: w.id === keepAgain.id ? 'keep' : 'adopt', reason: 'Approved immediate containment' })) })
   immediate = await manager.run('engineering.approve', { changeId: immediate.id, version: immediate.version })
   immediate = await engineer.run('engineering.acknowledge', { changeId: immediate.id, version: immediate.version, bomId: immediate.bomId, note: 'Immediate safe instructions read' })
   state = await h.state()
+  assert.equal(state.orderStatuses.work.find(w => w.id === keepAgain.id).lines[0].itemId, raw.id, 'Reviewed keep treatment must guide planning before release')
+  assert.equal(state.shortages.find(x => x.itemId === raw.id).shortage, '12')
+  assert.ok(state.shortages.find(x => x.itemId === raw.id).pegs.some(p => p.documentId === keepAgain.id && p.quantity === '24'))
   const adopted = await engineer.run('wo.release', { workOrderId: adopt.id, version: state.workOrders.find(w => w.id === adopt.id).version })
   assert.equal(adopted.bomId, immediate.bomId); assert.equal(adopted.components[0].itemId, replacement.id); assert.equal(adopted.components[0].required, '6')
   const parentWork = await engineer.run('wo.release', { workOrderId: phantom.id, version: state.workOrders.find(w => w.id === phantom.id).version })
@@ -91,7 +95,7 @@ test('ENG-005 safety replacement review, eligibility/evidence, effectivity, stoc
   assert.equal(await (await restored.request('/api/larder/attachments/' + change.attachments[0].id)).text(), 'Independent load-test report')
   // Manager cannot approve their own proposal; stale review remains immutable
   // and can only be declined, then proposed again against current records.
-  const next = await manager.run('engineering.propose', { itemId: product.id, safety: false, reason: 'Routing review', effectiveOn: today(), components: [{ itemId: replacement.id, quantity: '3' }], workTreatments: [], dispositions: [] })
+  const next = await manager.run('engineering.propose', { itemId: product.id, safety: false, reason: 'Routing review', effectiveOn: today(), components: [{ itemId: replacement.id, quantity: '3' }], workTreatments: [{ workOrderId: keepAgain.id, version: state.workOrders.find(w => w.id === keepAgain.id).version, action: 'keep', reason: 'Retain existing reviewed recipe' }], dispositions: [] })
   await manager.run('engineering.approve', { changeId: next.id, version: next.version }, { error: 'FORBIDDEN' })
   await h.command('item.save', { sku: 'OTHER', name: 'Concurrent change', kind: 'buy', baseUnit: 'each' })
   await h.command('engineering.approve', { changeId: next.id, version: next.version }, { error: 'STALE' })

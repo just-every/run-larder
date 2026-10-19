@@ -14,7 +14,7 @@ const due = (w: Rec) => { const d = fromDate(w.requiredBy); d.setHours(SHIFT.end
 
 function Facts({ s, w, plan }: { s: LarderState; w: Rec; plan: Plan }) {
   const short = (w.shortages ?? []).length > 0, item = byId(s, 'items', w.itemId), end = plan.finish.get(w.id), until = short ? coveredBy(s, w, plan) : undefined
-  const bom = w.bomRevision ?? rows(s, 'boms').find(b => b.itemId === w.itemId && b.status === 'active')?.revision
+  const bom = w.bomRevision ?? rows(s, 'boms').find(b => w.engineeringBomId ? b.id === w.engineeringBomId : b.itemId === w.itemId && b.status === 'active')?.revision
   return <dl className="metrics">
     <div><dt>Finishes</dt><dd className="num">{end ? <>{dayName(end)}<small>{clock(end)}</small></> : 'Not scheduled'}</dd></div>
     <div><dt>Materials</dt><dd>{w.status === 'draft' ? 'Not released' : short ? <><span className="red">Short</span>{until && <small>until {dayName(until)}</small>}</> : 'Reserved'}</dd></div>
@@ -84,7 +84,7 @@ function Recovery({ larder, proposal, plan, proposed, now }: { larder: Larder; p
 function Operations({ plan, w }: { plan: Plan; w: Rec }) {
   const ops = plan.ops.filter(o => o.workOrder.id === w.id)
   return <section className="operations"><h3>Operations</h3>
-    {ops.length === 0 ? <p className="muted">No routing steps with minutes on this item's bill of materials.</p> : <ol>{ops.map(o => <li key={o.key}><strong>Op {o.sequence} {o.step}</strong><span>{o.workCenter}</span><span className="num">{dayName(o.start)}, {clock(o.start)} – {o.end.toDateString() === o.start.toDateString() ? clock(o.end) : `${dayName(o.end)}, ${clock(o.end)}`}</span></li>)}</ol>}
+    {ops.length === 0 ? <p className="muted">No routing steps with minutes on this item's bill of materials.</p> : <ol>{ops.map(o => <li key={o.key}><strong>Op {o.sequence} {o.step}</strong><span>{o.workCenter}</span><span className="num"><time dateTime={o.start.toISOString()}>{dayName(o.start)}, {clock(o.start)}</time> – <time dateTime={o.end.toISOString()}>{o.end.toDateString() === o.start.toDateString() ? clock(o.end) : `${dayName(o.end)}, ${clock(o.end)}`}</time></span></li>)}</ol>}
     <a className="button wide" href={`#make/wo/${w.id}`}>Open work order</a>
   </section>
 }

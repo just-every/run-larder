@@ -3,7 +3,7 @@
 import { addDays, forecastDemand } from './forecast-plan'
 import { activeBom } from './bom'
 import { deliveries } from './sales-schedules'
-import { componentQuantity } from './bom-explosion'
+import { componentQuantity, resolvedComponents } from './bom-explosion'
 import { expectedProduction, expectedPurchase } from './availability'
 import { decimal, format, max, min } from './decimal'
 import { fail } from './problem'
@@ -66,8 +66,13 @@ export function netRequirements(s: State): NettedItem[] {
   // Draft output is already supply. Its inputs are separate demand exactly
   // once; consuming that output must never explode the same recipe again.
   for (const w of s.workOrders) if (w.status === 'draft') {
-    const b = activeBom(s, w.itemId, on)
+    const b = w.engineeringBomId ? s.boms.find(b => b.id === w.engineeringBomId) : activeBom(s, w.itemId, on)
     if (!b) continue
+    if (w.engineeringBomIds) {
+      const resolved = resolvedComponents(s, b, decimal(w.quantity), on, w.engineeringBomIds)
+      for (const l of resolved.components) seed(l.itemId, { document: 'workOrders', documentId: w.id, reference: w.reference, date: w.requiredBy, path: resolved.revisions.map(r => ({ itemId: r.itemId, bomId: r.bomId, revision: r.revision })), supply: l.supply, quantity: decimal(l.quantity) })
+      continue
+    }
     for (const l of b.components) seed(l.itemId, { document: 'workOrders', documentId: w.id, reference: w.reference, date: w.requiredBy, path: [{ itemId: w.itemId, bomId: b.id, revision: b.revision }], supply: mode(s, l), quantity: componentQuantity(l.quantity, decimal(w.quantity), b.yield ?? '1') })
   }
   const indegree = new Map([...edges.keys()].map(id => [id, 0]))

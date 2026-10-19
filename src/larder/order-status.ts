@@ -26,8 +26,8 @@ export function orderStatuses(s: State): { sales: OrderStatus[]; work: OrderStat
   for (const { kind, row: r, rank } of entries) {
     const lines: StatusLine[] = []
     if (kind === 'work') {
-      const live = ['draft', 'released'].includes(r.status), bom = r.status === 'draft' ? activeBom(s, r.itemId) : undefined
-      const components = r.status === 'draft' ? (bom ? resolvedComponents(s, bom, decimal(r.quantity)).components : undefined) : r.components
+      const live = ['draft', 'released'].includes(r.status), bom = r.status === 'draft' ? (r.engineeringBomId ? s.boms.find(b => b.id === r.engineeringBomId) : activeBom(s, r.itemId)) : undefined
+      const components = r.status === 'draft' ? (bom ? resolvedComponents(s, bom, decimal(r.quantity), undefined, r.engineeringBomIds).components : undefined) : r.components
       if (live && components) for (const l of components) {
         const need = r.status === 'draft' ? decimal(l.quantity) : max(0n, decimal(l.required) - decimal(l.issued))
         lines.push(allocate(l.itemId, need, r.id, l.id ?? `${r.id}:${l.itemId}`, r.reference))

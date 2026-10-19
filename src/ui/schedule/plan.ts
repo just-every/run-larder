@@ -52,7 +52,7 @@ function slot(spans: Span[], ready: Date, minutes: number): Span {
 }
 
 // Released work keeps the routing it was released with; a draft follows its item's active BOM.
-const routingOf = (s: LarderState, w: Rec): any[] => w.status === 'released' ? w.routing ?? [] : rows(s, 'boms').find(b => b.itemId === w.itemId && b.status === 'active')?.routing ?? []
+const routingOf = (s: LarderState, w: Rec): any[] => w.status === 'released' ? w.routing ?? [] : rows(s, 'boms').find(b => w.engineeringBomId ? b.id === w.engineeringBomId : b.itemId === w.itemId && b.status === 'active')?.routing ?? []
 const remaining = (w: Rec) => Math.max(0, quantityOf(w.quantity) - quantityOf(w.output) - quantityOf(w.scrap))
 export const openWork = (s: LarderState) => rows(s, 'workOrders').filter(w => ['draft', 'released'].includes(w.status))
 // Every routing step the shop can run: open work's routings and each item's active BOM.
@@ -64,7 +64,9 @@ export function schedule(s: LarderState, now: Date, changes: Record<string, { pl
   work.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || (a.plannedStart || '').localeCompare(b.plannedStart || '') || a.requiredBy.localeCompare(b.requiredBy) || a.reference.localeCompare(b.reference))
   const booked = new Map<string, Span[]>(), ops: Op[] = [], finish = new Map<string, Date>(), today = at(now, SHIFT.start)
   for (const w of work) {
-    const planned = w.plannedStart ? at(fromDate(w.plannedStart), SHIFT.start) : today
+    const reviewedDate = rows(s, 'boms').filter(b => Object.values(w.engineeringBomIds ?? {}).includes(b.id)).map(b => b.effectiveOn).filter(Boolean).sort().at(-1)
+    const start = [w.plannedStart, reviewedDate].filter(Boolean).sort().at(-1)
+    const planned = start ? at(fromDate(start), SHIFT.start) : today
     let ready = planned > today ? planned : today
     const steps = routingOf(s, w).filter(r => r.minutes > 0)
     const placed: Op[] = []
