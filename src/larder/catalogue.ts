@@ -11,7 +11,7 @@ export const unitName = (value: unknown, name = 'unit') => text(value, name, 40)
 // base unit and existing conversions are fixed.
 export function itemInUse(s: State, itemId: string) {
   const lines = (rows: Row[], key = 'lines') => rows.some(r => (r[key] ?? []).some((l: any) => l.itemId === itemId))
-  return s.movements.some(m => m.itemId === itemId) || lines(s.salesOrders) || lines(s.purchaseOrders) || s.workOrders.some(w => w.itemId === itemId)
+  return s.forecasts.some(f => f.itemId === itemId) || s.movements.some(m => m.itemId === itemId) || lines(s.salesOrders) || lines(s.purchaseOrders) || s.workOrders.some(w => w.itemId === itemId)
     || s.boms.some(b => b.itemId === itemId || b.components.some((l: any) => l.itemId === itemId)) || s.partyItems.some(p => p.itemId === itemId)
 }
 

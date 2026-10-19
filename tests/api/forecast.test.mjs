@@ -83,6 +83,8 @@ test('DEMAND-003 twelve-week CSV forecast, order consumption, seasonal overrides
   // silently invented supplier and no partial batch if one is missing.
   const bought = await h.command('item.save', { sku: 'PACK', name: 'Service pack', kind: 'buy', baseUnit: 'each' })
   await h.command('forecast.import', { stateVersion: (await h.state()).version, file: { name: 'packs.csv', content: `sku,week,quantity,seasonality\nPACK,${monday},7,1\n` }, reason: 'Service pack forecast' })
+  await h.command('item.save', { ...bought, baseUnit: 'box', conversions: [] }, { error: 'UNIT_FIXED' })
+  assert.equal((await h.state()).items.find(i => i.id === bought.id).baseUnit, 'each')
   const noVendor = await agent.run('mps.preview', { reason: 'Review bought supply' })
   const before = await h.state()
   await manager.run('mps.release', { planId: noVendor.id, version: noVendor.version }, { error: 'NO_SUPPLIER' })
