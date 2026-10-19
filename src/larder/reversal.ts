@@ -5,6 +5,7 @@ import { decimal, format } from './decimal'
 import { fail, Problem } from './problem'
 import { allow } from './roles'
 import { move, reserve } from './stock'
+import { deliveries, refreshPromise } from './sales-schedules'
 import { bump, get, list, oneOf, row, text, type Context, type Movement, type Row } from './model'
 
 const kinds = ['receipts', 'shipments', 'transfers', 'counts', 'openings', 'returns', 'workOrders'] as const
@@ -20,7 +21,7 @@ function effects(c: Context, kind: string, doc: Row, m: Movement) {
     bump(po, {})
   }
   if (kind === 'shipments') {
-    const order = get(c.s, 'salesOrders', doc.orderId), line = doc.lines.find((l: any) => l.itemId === m.itemId && l.locationId === m.locationId)
+    const order = get(c.s, 'salesOrders', doc.orderId), line = doc.lines.find((l: any) => l.movementIds?.includes(m.id)) ?? doc.lines.find((l: any) => l.itemId === m.itemId && l.locationId === m.locationId)
     const orderLine = order.lines.find((l: any) => l.id === line?.lineId)
     if (orderLine) {
       // Goods that came back are counted by the return; reverse it first, or they come back twice.
@@ -28,7 +29,13 @@ function effects(c: Context, kind: string, doc: Row, m: Movement) {
         const back = c.s.returns.find(r => r.orderId === order.id && r.lineId === orderLine.id && r.status !== 'reversed')
         fail('DEPENDENCY', `${back?.reference ?? 'A return'} brought back goods from this shipment. Reverse the return first, then the shipment.`, { blockedBy: back?.reference })
       }
+      const schedules = deliveries(order, orderLine)
+      // The reversal restores demand; the issued shipment's delivery snapshot stays immutable.
+      const issued = line?.deliveryMovements?.find((delivery: any) => delivery.movementId === m.id)?.schedules
+      schedules.push(...(issued ? structuredClone(issued) : [{ quantity: format(q), date: order.promiseDate }]))
+      orderLine.schedules = schedules.sort((a, b) => a.date.localeCompare(b.date))
       orderLine.shipped = format(decimal(orderLine.shipped) - q)
+      refreshPromise(order)
       reserve(c, { demandKind: 'sales', demandId: order.id, lineId: orderLine.id, itemId: m.itemId }, q, m.locationId)
     }
     order.status = order.lines.some((l: any) => decimal(l.shipped) > 0n) ? 'part shipped' : 'confirmed'

@@ -1,11 +1,13 @@
 // Quotes, confirmed orders, atomic reservation, pick/pack/ship and cancellation.
 import { open } from './availability'
+import { customerAttestation, trimOrderReservations } from './order-changes'
+import { commercialSnapshot, pickedQuantity, refreshPromise, removeDeliveries } from './sales-schedules'
 import { toBase } from './catalogue'
 import { decimal, format, max } from './decimal'
 import { fail } from './problem'
 import { allow } from './roles'
 import { consume, release, reserve, reservedQuantity, withdraw } from './stock'
-import { bump, date, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Row, type State } from './model'
+import { bump, date, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Row } from './model'
 
 export function quoteLines(c: Context, lines: unknown) {
   return list(lines).map((line: any) => {
@@ -18,7 +20,7 @@ export function quoteLines(c: Context, lines: unknown) {
 export function createQuote(c: Context, p: any, preparedBy?: string): Row {
   const customer = get(c.s, 'parties', p.customerId, 'customer')
   if (customer.kind === 'supplier') fail('INPUT', `${customer.name} is set up as a supplier only.`)
-  return row(c, 'salesOrders', { reference: nextReference(c.s.salesOrders, 'SO'), customerId: customer.id, customerReference: optionalText(p.customerReference, 'customer reference', 120), promiseDate: date(p.promiseDate, 'promise date'), note: optionalText(p.note, 'note', 1000), lines: quoteLines(c, p.lines), status: 'quote', preparedBy: preparedBy ?? c.actor.id })
+  return row(c, 'salesOrders', { reference: nextReference(c.s.salesOrders, 'SO'), customerId: customer.id, customerReference: optionalText(p.customerReference, 'customer reference', 120), promiseDate: date(p.promiseDate, 'promise date'), note: optionalText(p.note, 'note', 1000), billingAddress: optionalText(p.billingAddress, 'billing address', 2000), shippingAddress: optionalText(p.shippingAddress, 'shipping address', 2000), lines: quoteLines(c, p.lines), status: 'quote', preparedBy: preparedBy ?? c.actor.id })
 }
 
 const lineOf = (order: Row, lineId: unknown) => order.lines.find((l: any) => l.id === lineId) ?? fail('NOT_FOUND', 'That order line was not found.')
@@ -31,9 +33,6 @@ function reserveOrder(c: Context, order: Row, locationId?: string) {
   })
 }
 
-const pickedOpen = (s: State, orderId: string, lineId: string, locationId: string) =>
-  s.shipments.filter(x => x.orderId === orderId && x.status !== 'shipped' && x.status !== 'reversed').flatMap(x => x.lines)
-    .filter((l: any) => l.lineId === lineId && l.locationId === locationId).reduce((n: bigint, l: any) => n + decimal(l.quantity), 0n)
 
 export function sales(c: Context, type: string, p: any): Row | undefined {
   switch (type) {
@@ -41,8 +40,8 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'sales'])
       if (!p.orderId) return createQuote(c, p)
       const order = get(c.s, 'salesOrders', p.orderId, 'order'); fresh(order, p.version)
-      if (order.status !== 'quote') fail('STATE', 'Only a quote can be edited. Confirmed orders change by cancellation or a new order.')
-      return bump(order, { customerReference: optionalText(p.customerReference, 'customer reference', 120), promiseDate: date(p.promiseDate, 'promise date'), note: optionalText(p.note, 'note', 1000), lines: quoteLines(c, p.lines) })
+      if (order.status !== 'quote') fail('STATE', 'Only a quote can be edited here. Prepare a reviewed amendment for a confirmed order.')
+      return bump(order, { customerReference: optionalText(p.customerReference, 'customer reference', 120), promiseDate: date(p.promiseDate, 'promise date'), note: optionalText(p.note, 'note', 1000), billingAddress: p.billingAddress === undefined ? order.billingAddress ?? '' : optionalText(p.billingAddress, 'billing address', 2000), shippingAddress: p.shippingAddress === undefined ? order.shippingAddress ?? '' : optionalText(p.shippingAddress, 'shipping address', 2000), lines: quoteLines(c, p.lines) })
     }
     case 'so.confirm': {
       allow(c, ['manager', 'sales'])
@@ -65,32 +64,39 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
       const order = get(c.s, 'salesOrders', p.orderId, 'order'); fresh(order, p.version)
       const line = lineOf(order, p.lineId), item = get(c.s, 'items', line.itemId, 'item'), q = toBase(item, p.quantity, p.unit)
       if (q > open(line)) fail('INPUT', `Only ${format(open(line))} ${item.baseUnit} is still open on this line.`)
+      if (!['confirmed', 'part shipped'].includes(order.status)) fail('STATE', 'Cancel only open confirmed work.')
+      if (open(line) - q < pickedQuantity(c.s, order.id, line.id)) fail('PICKED_COMMITMENT', 'Undo the picked or packed shipment before cancelling its quantity.')
+      const before = commercialSnapshot(order), customerApproval = customerAttestation(c, p.customerApproval)
+      removeDeliveries(order, line, q, true)
       line.cancelled = format(decimal(line.cancelled) + q)
-      const excess = reservedQuantity(c.s, order.id, line.id) - open(line)
-      if (excess > 0n) {
-        // Release the excess from the last reserved locations first.
-        let left = excess
-        for (const r of [...c.s.reservations].reverse()) if (left > 0n && r.demandId === order.id && r.lineId === line.id) {
-          const take = r.quantity < left ? r.quantity : left
-          r.quantity -= take; left -= take
-        }
-        c.s.reservations = c.s.reservations.filter(r => r.quantity > 0n)
-      }
+      trimOrderReservations(c, order)
+      refreshPromise(order)
       if (order.lines.every((l: any) => open(l) === 0n)) { release(c, order.id); order.status = order.lines.some((l: any) => decimal(l.shipped) > 0n) ? 'shipped' : 'cancelled' }
-      return bump(order, {})
+      bump(order, { commercialRevision: (order.commercialRevision ?? 1) + 1 })
+      order.changeHistory = [...(order.changeHistory ?? []), { kind: 'line cancellation', before, after: commercialSnapshot(order), by: c.actor.id, at: c.now, reason: optionalText(p.reason, 'cancellation reason', 1000), customerApproval }]
+      return order
     }
     case 'shipment.pick': {
       allow(c, ['manager', 'warehouse'])
       const order = get(c.s, 'salesOrders', p.orderId, 'order')
       if (!['confirmed', 'part shipped'].includes(order.status)) fail('STATE', 'Only a confirmed order can be picked.')
+      const selecting = new Map<string, bigint>()
       const lines = list(p.lines).map((l: any) => {
         const line = lineOf(order, l.lineId), item = get(c.s, 'items', line.itemId, 'item'), location = get(c.s, 'locations', l.locationId, 'location')
         const q = toBase(item, l.quantity, l.unit)
         const reservedHere = c.s.reservations.find(r => r.demandId === order.id && r.lineId === line.id && r.locationId === location.id)?.quantity ?? 0n
-        if (pickedOpen(c.s, order.id, line.id, location.id) + q > reservedHere) fail('NOT_RESERVED', `Only ${format(reservedHere - pickedOpen(c.s, order.id, line.id, location.id))} ${item.baseUnit} of ${item.name} is reserved at ${location.name} and not yet picked.`)
-        return { lineId: line.id, itemId: item.id, locationId: location.id, lotId: l.lotId ? get(c.s, 'lots', l.lotId, 'lot').id : '', quantity: format(q) }
+        const selectionKey = `${line.id}:${location.id}`, selected = selecting.get(selectionKey) ?? 0n
+        if (pickedQuantity(c.s, order.id, line.id, location.id) + selected + q > reservedHere) fail('NOT_RESERVED', `Only ${format(reservedHere - pickedQuantity(c.s, order.id, line.id, location.id))} ${item.baseUnit} of ${item.name} is reserved at ${location.name} and not yet picked.`)
+        selecting.set(selectionKey, selected + q)
+        return { lineId: line.id, itemId: item.id, unitPrice: line.unitPrice, promisedSchedules: commercialSnapshot(order).lines.find((snapshot: any) => snapshot.id === line.id)?.schedules, locationId: location.id, lotId: l.lotId ? get(c.s, 'lots', l.lotId, 'lot').id : '', quantity: format(q) }
       })
-      return row(c, 'shipments', { reference: nextReference(c.s.shipments, 'SH'), orderId: order.id, lines, status: 'picked', packages: 0, weightKg: '0', carrier: '', tracking: '' })
+      return row(c, 'shipments', { reference: nextReference(c.s.shipments, 'SH'), orderId: order.id, lines, commercialTerms: { billingAddress: order.billingAddress ?? '', shippingAddress: order.shippingAddress ?? '', customerReference: order.customerReference, promiseDate: order.promiseDate, commercialRevision: order.commercialRevision ?? 1, orderVersion: order.version, recordedAt: c.now }, status: 'picked', packages: 0, weightKg: '0', carrier: '', tracking: '' })
+    }
+    case 'shipment.unpick': {
+      allow(c, ['manager', 'warehouse'])
+      const shipment = get(c.s, 'shipments', p.shipmentId, 'shipment'); fresh(shipment, p.version)
+      if (!['picked', 'packed'].includes(shipment.status)) fail('STATE', 'Only an unshipped pick can be undone.')
+      return bump(shipment, { status: 'cancelled', unpickedBy: c.actor.id, unpickedAt: c.now, unpickReason: text(p.reason, 'unpick reason', 400) })
     }
     case 'shipment.pack': {
       allow(c, ['manager', 'warehouse'])
@@ -107,9 +113,13 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
       for (const l of shipment.lines) {
         const q = decimal(l.quantity), line = lineOf(order, l.lineId)
         consume(c, order.id, l.lineId, l.locationId, q)
-        withdraw(c, { itemId: l.itemId, locationId: l.locationId, status: 'available', lotId: l.lotId, quantity: -q, kind: 'shipment', documentKind: 'shipments', documentId: shipment.id, reason: `Shipped on ${order.reference}` })
+        const movements = withdraw(c, { itemId: l.itemId, locationId: l.locationId, status: 'available', lotId: l.lotId, quantity: -q, kind: 'shipment', documentKind: 'shipments', documentId: shipment.id, reason: `Shipped on ${order.reference}` })
+        l.movementIds = movements.map(movement => movement.id)
+        l.deliveryMovements = movements.map(movement => ({ movementId: movement.id, schedules: removeDeliveries(order, line, -movement.quantity) }))
+        l.deliveries = l.deliveryMovements.flatMap((delivery: any) => delivery.schedules)
         line.shipped = format(decimal(line.shipped) + q)
       }
+      refreshPromise(order)
       order.status = order.lines.every((l: any) => open(l) === 0n) ? 'shipped' : 'part shipped'
       bump(order, {})
       return bump(shipment, { status: 'shipped', carrier: text(p.carrier, 'carrier', 120), tracking: optionalText(p.tracking, 'tracking', 120), shippedAt: c.now, shippedBy: c.actor.id })

@@ -1,4 +1,5 @@
 import { activeBom } from './bom'
+import { deliveries, firstPromise } from './sales-schedules'
 import { resolvedComponents } from './bom-explosion'
 import { open } from './availability'
 import { decimal, format, max, min } from './decimal'
@@ -8,7 +9,7 @@ import { combined, supplyAllocator, type IngredientStatus, type ProductionStatus
 export type OrderStatus = { id: string; rank: number; ingredientStatus: IngredientStatus; productionStatus: ProductionStatus; lines: StatusLine[] }
 type Entry = { kind: 'sales' | 'work'; row: Row; rank: number }
 const explicit = (r: Row) => Number.isSafeInteger(r.rank) && r.rank > 0 && r.rank <= 1000000
-const due = (r: Row) => r.promiseDate ?? r.requiredBy ?? ''
+const due = (r: Row) => r.promiseDate ? firstPromise(r) : r.requiredBy ?? ''
 const remaining = (w: Row) => max(0n, decimal(w.quantity) - decimal(w.output) - decimal(w.scrap))
 const incomplete = (status: IngredientStatus) => status === 'Not available' || status === 'No BOM'
 
@@ -64,6 +65,7 @@ export function orderStatuses(s: State): { sales: OrderStatus[]; work: OrderStat
         }
         line.productionStatus = need === 0n ? 'done' : decimal(line.available) >= need ? 'ready to ship' :
           incomplete(line.ingredientStatus) ? 'blocked' : decimal(l.shipped ?? '0') > 0n ? 'in progress' : 'not started'
+        Object.assign(line, { schedules: deliveries(r, l) })
         lines.push(line)
       }
       result.sales.push({ id: r.id, rank, ingredientStatus: combined(lines), productionStatus: salesProgress(lines), lines })

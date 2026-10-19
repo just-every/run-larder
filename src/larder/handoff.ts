@@ -3,19 +3,20 @@
 // Larder never posts journals; the accountant's ledger stays the authority.
 import { cents, decimal, format, times } from './decimal'
 import { fail } from './problem'
+import { shipmentPrice } from './sales-terms'
 import { allow } from './roles'
 import { bump, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Movement, type Row, type State } from './model'
 
 const internal = new Set(['transfer', 'release', 'transfer-reversal', 'release-reversal'])
 const handedOff = (s: State) => new Map(s.handoffs.flatMap(h => h.lines.flatMap((l: any) => l.movementIds.map((id: string) => [id, { handoffId: h.id, reference: h.reference, lineId: l.id }] as const))))
 
-// A shipment line for invoice preparation is valued at the order price; `m` is the shipment
+// A shipment line for invoice preparation retains its issued price; `m` is the shipment
 // movement itself or the reversal that corrects it, whose sign it carries.
 function invoiced(s: State, shipment: Movement, m: Movement) {
   const sh = s.shipments.find(x => x.id === shipment.documentId), o = s.salesOrders.find(x => x.id === sh?.orderId)
-  const line = o?.lines.find((l: any) => sh?.lines.some((x: any) => x.lineId === l.id && x.itemId === shipment.itemId))
-  const price = decimal(line?.unitPrice ?? '0')
-  return { party: s.parties.find(p => p.id === o?.customerId)?.name ?? '', document: `${sh?.reference} / ${o?.reference}`, partyReference: o?.customerReference ?? '', unitAmount: format(price), amount: times(-m.quantity, price), cost: format(times(m.quantity, m.unitCost)) }
+  const terms = shipmentPrice(s, shipment), price = decimal(terms.unitPrice)
+  return { party: s.parties.find(p => p.id === o?.customerId)?.name ?? '', document: `${sh?.reference} / ${o?.reference}`, partyReference: sh?.commercialTerms?.customerReference ?? o?.customerReference ?? '', unitAmount: format(price), amount: times(-m.quantity, price), cost: format(times(m.quantity, m.unitCost)), priceBasis: terms.priceBasis }
+
 }
 
 function describe(s: State, m: Movement) {
@@ -29,15 +30,28 @@ function describe(s: State, m: Movement) {
   if (m.documentKind === 'workOrders') return { ...base, type: m.kind === 'issue' ? 'Production material issue' : 'Production output', document: s.workOrders.find(x => x.id === m.documentId)?.reference ?? '' }
   if (m.documentKind === 'counts') return { ...base, type: 'Count adjustment', document: s.counts.find(x => x.id === m.documentId)?.reference ?? '' }
   if (m.documentKind === 'openings') return { ...base, type: 'Opening stock', document: s.openings.find(x => x.id === m.documentId)?.reference ?? '' }
-  if (m.documentKind === 'returns') return { ...base, type: 'Customer return', document: s.returns.find(x => x.id === m.documentId)?.reference ?? '' }
+  if (m.documentKind === 'returns') {
+    const record = s.returns.find(record => record.id === m.documentId), source = record?.sources?.find((source: any) => source.returnMovementId === m.id)
+    return source ? { ...base, type: 'Customer return', document: record?.reference ?? '', unitAmount: source.unitPrice, amount: -times(m.quantity, decimal(source.unitPrice)), priceBasis: source.priceBasis }
+      : { ...base, type: 'Customer return', document: record?.reference ?? '', priceBasis: 'legacy return has no recorded issued price; stock cost only' }
+  }
   if (m.documentKind === 'reversals') {
     const document = s.reversals.find(x => x.id === m.documentId)?.targetReference ?? '', original = s.movements.find(x => x.id === m.reversesId)
-    // A reversed shipment corrects an invoice line: value it at the order price so it offsets that line exactly.
+    // A reversed shipment corrects an invoice line: value it at its issued price so it offsets that line exactly.
     if (original?.documentKind === 'shipments') return { ...base, ...invoiced(s, original, m), type: 'Correction (reversal)', document }
+    if (original?.documentKind === 'returns') {
+      const record = s.returns.find(record => record.id === original.documentId), source = record?.sources?.find((source: any) => source.returnMovementId === original.id)
+      if (source) return { ...base, type: 'Correction (reversal)', document, unitAmount: source.unitPrice, amount: -times(m.quantity, decimal(source.unitPrice)), priceBasis: source.priceBasis }
+    }
     return { ...base, type: 'Correction (reversal)', document }
   }
   if (m.kind === 'reject') return { ...base, type: 'Rejected to supplier' }
   return { ...base, type: m.kind }
+}
+
+export function pendingHandoffCount(s: State) {
+  const done = handedOff(s)
+  return s.movements.filter(m => !done.has(m.id) && !internal.has(m.kind)).length
 }
 
 export function handoffLines(s: State) {

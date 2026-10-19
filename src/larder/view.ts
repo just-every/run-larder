@@ -7,7 +7,7 @@ import { format } from './decimal'
 import { exceptions } from './exceptions'
 import { shortages } from './planning'
 import { positions } from './stock'
-import { handoffLines } from './handoff'
+import { pendingHandoffCount } from './handoff'
 import { collections, type Actor, type State } from './model'
 
 export const movementView = (m: State['movements'][number]) => ({ ...m, quantity: format(m.quantity), unitCost: format(m.unitCost) })
@@ -25,7 +25,7 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
     availability: s.items.map(i => availability(s, i.id)),
     shortages: shortages(s),
     exceptions: exceptions(s, new Date().toISOString().slice(0, 10)),
-    pendingHandoff: handoffLines(s).length,
+    pendingHandoff: pendingHandoffCount(s),
     ...extra,
   }
 }

@@ -1,8 +1,9 @@
 // Aggregate every parent before netting a shared component. Physical and open
 // supply are pools, while pegging retains the demand that caused each branch.
 import { activeBom } from './bom'
+import { deliveries } from './sales-schedules'
 import { componentQuantity } from './bom-explosion'
-import { expectedProduction, expectedPurchase, open } from './availability'
+import { expectedProduction, expectedPurchase } from './availability'
 import { decimal, format, max, min } from './decimal'
 import { fail } from './problem'
 import { onHand, reservedQuantity } from './stock'
@@ -37,7 +38,13 @@ export function netRequirements(s: State): NettedItem[] {
   }
   const seed = (id: string, d: Demand) => { add(id, d); discover(id, d.supply, d.date) }
   for (const o of s.salesOrders) if (['confirmed', 'part shipped'].includes(o.status))
-    for (const l of o.lines) seed(l.itemId, { document: 'salesOrders', documentId: o.id, reference: o.reference, date: o.promiseDate, path: [], supply: mode(s, l), quantity: max(0n, open(l) - reservedQuantity(s, o.id, l.id)) })
+    for (const l of o.lines) {
+      let reserved = reservedQuantity(s, o.id, l.id)
+      for (const delivery of deliveries(o, l)) {
+        const quantity = decimal(delivery.quantity), covered = min(reserved, quantity); reserved -= covered
+        seed(l.itemId, { document: 'salesOrders', documentId: o.id, reference: o.reference, date: delivery.date, path: [], supply: mode(s, l), quantity: quantity - covered })
+      }
+    }
   for (const w of s.workOrders) if (w.status === 'released')
     for (const l of w.components) {
       // Released physical requirements may combine distinct make/buy paths.

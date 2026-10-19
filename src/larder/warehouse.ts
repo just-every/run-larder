@@ -1,6 +1,7 @@
 // Opening stock, transfers, counts with approved adjustments, and customer returns.
 import { attach } from './attachments'
 import { toBase } from './catalogue'
+import { returnSources } from './sales-terms'
 import { decimal, format } from './decimal'
 import { fail } from './problem'
 import { allow, approver } from './roles'
@@ -46,10 +47,12 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
       const item = get(c.s, 'items', line.itemId, 'item'), quantity = toBase(item, p.quantity, p.unit)
       if (decimal(line.shipped) - decimal(line.returned) < quantity) fail('RETURN_EXCEEDS', `Only ${format(decimal(line.shipped) - decimal(line.returned))} ${item.baseUnit} shipped on this line can come back.`)
       const location = get(c.s, 'locations', p.locationId, 'location'), disposition = oneOf(p.disposition, ['restock', 'quarantine'] as const, 'disposition')
-      const shipped = c.s.movements.filter(m => m.documentKind === 'shipments' && m.itemId === item.id && c.s.shipments.some(s => s.id === m.documentId && s.orderId === order.id))
-      const unitCost = shipped.at(-1)?.unitCost ?? 0n
-      const r = row(c, 'returns', { reference: nextReference(c.s.returns, 'RT'), orderId: order.id, lineId: line.id, itemId: item.id, quantity: format(quantity), locationId: location.id, disposition, reason: text(p.reason, 'reason', 400) })
-      move(c, { itemId: item.id, locationId: location.id, status: disposition === 'restock' ? 'available' : 'quarantine', quantity, unitCost, kind: 'return', documentKind: 'returns', documentId: r.id, reason: r.reason })
+      const sources = returnSources(c.s, order, line, quantity)
+      const r = row(c, 'returns', { reference: nextReference(c.s.returns, 'RT'), orderId: order.id, lineId: line.id, itemId: item.id, quantity: format(quantity), locationId: location.id, disposition, reason: text(p.reason, 'reason', 400), sources })
+      for (const source of sources) {
+        const movement = move(c, { itemId: item.id, locationId: location.id, status: disposition === 'restock' ? 'available' : 'quarantine', quantity: decimal(source.quantity), unitCost: decimal(source.unitCost), kind: 'return', documentKind: 'returns', documentId: r.id, reason: r.reason })
+        Object.assign(source, { returnMovementId: movement.id })
+      }
       line.returned = format(decimal(line.returned) + quantity)
       bump(order, {})
       return r

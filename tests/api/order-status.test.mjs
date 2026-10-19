@@ -64,7 +64,7 @@ test('DEMAND-006 next-read ranked SO/MO status recomputes receipts, quarantine, 
   await viewer.run('order.rank', { kind: 'sales', orderId: sales[0].id, version: s.salesOrders.find(o => o.id === sales[0].id).version, rank: 1 }, { error: 'FORBIDDEN' })
   await h.command('order.rank', { kind: 'sales', orderId: sales[0].id, version: sales[0].version - 1, rank: 1 }, { error: 'STALE' })
   const cancel = s.salesOrders.find(o => o.id === sales[2].id)
-  await h.command('so.cancelLine', { orderId: cancel.id, version: cancel.version, lineId: cancel.lines[0].id, quantity: '2' })
+  await h.command('so.cancelLine', { orderId: cancel.id, version: cancel.version, lineId: cancel.lines[0].id, quantity: '2', customerApproval: { name: 'Customer buyer', reference: 'Cancellation email', approvedOn: new Date().toISOString().slice(0, 10) } })
   s = await h.state()
   assert.equal(record(s, 'sales', sales[1].id).ingredientStatus, 'In stock')
   // A real released MO protects its component reservations. Sales consuming
