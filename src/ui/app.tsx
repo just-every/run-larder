@@ -6,6 +6,7 @@ import { Today } from './today'
 import { Orders } from './orders'
 import { Schedule } from './schedule/schedule'
 import { Stock } from './stock'
+import { BlindCounts } from './counts'
 import { MakeBuy } from './make'
 import { Handoff } from './handoff'
 import { More } from './more'
@@ -33,7 +34,7 @@ export function LarderApp() {
   const [mode, setMode] = useState<Mode>('week')
   useEffect(() => { const update = () => { setRoute(readHash()); larder.setNotice('') }; update(); window.addEventListener('hashchange', update); return () => window.removeEventListener('hashchange', update) }, [])
   // The shop starts on its schedule once there is work to schedule; a new installation starts on Today's first steps.
-  const view = route.view || (state && rows(state, 'workOrders').length ? 'schedule' : 'today')
+  const view = state?.blindCounting ? 'stock' : route.view || (state && rows(state, 'workOrders').length ? 'schedule' : 'today')
   return <div className="larder">
     <TopBar larder={larder} view={view} mode={mode} setMode={setMode} />
     <Rail larder={larder} view={view} />
@@ -42,7 +43,7 @@ export function LarderApp() {
       <main className="main" aria-busy={busy}>
         {error && <div className="alert" role="alert"><strong>That did not go through.</strong> {error}{details !== null && <Details value={details} s={state ?? undefined} />}</div>}
         {notice && <p className="notice" role="status">{notice}</p>}
-        {!state ? <p role="status" className="loading">{error ? 'Records have not loaded.' : 'Loading your records…'}</p> : <>
+        {!state ? <p role="status" className="loading">{error ? 'Records have not loaded.' : 'Loading your records…'}</p> : state.blindCounting ? <BlindCounts larder={larder} /> : <>
           {view === 'today' && <Today larder={larder} />}
           {view === 'orders' && <Orders larder={larder} id={route.rest[0]} />}
           {view === 'schedule' && <Schedule larder={larder} mode={mode} />}

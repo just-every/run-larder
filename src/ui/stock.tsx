@@ -1,5 +1,6 @@
 import { can, itemName, locationName, personName, rows, sku, type LarderState } from './api'
 import type { Larder } from './app'
+import { CountSessions } from './counts'
 import { Card, Chip, Choose, Empty, Field, Form, Table, fileBase64, options, readLines, text } from './controls'
 import { plus, qty, when, words } from './format'
 
@@ -18,6 +19,7 @@ export function Stock({ larder }: { larder: Larder }) {
   const lot = (id: string) => rows(s, 'lots').find(l => l.id === id)?.code
   return <div className="page">
     <header className="page-head"><p className="eyebrow">Stock</p><h1>Stock on hand</h1><p className="meta">Every quantity is the sum of its recorded movements. Reserved stock cannot be moved or sold twice.</p></header>
+    <CountSessions larder={larder} />
     <Card title="By item">{s.availability.length === 0 ? <Empty>No items yet. Add items under More → Items, contacts and locations, or move them in from Odoo.</Empty> :
       <Table head={['Item', 'On hand', 'Reserved', 'Available', 'Quarantine', 'Expected', 'To promise']} numeric={[1, 2, 3, 4, 5, 6]}>{s.availability.map((a: any) => <tr key={a.itemId}><td><strong>{itemName(s, a.itemId)}</strong><small>{sku(s, a.itemId)}</small></td><td className="num">{qty(a.onHand)}</td><td className="num">{qty(a.reserved)}</td><td className="num">{qty(a.available)}</td><td className="num">{qty(a.quarantine)}</td><td className="num">{qty(plus(a.expectedPurchase, a.expectedProduction))}</td><td className="num"><strong>{qty(a.availableToPromise)}</strong></td></tr>)}</Table>}
     </Card>
@@ -36,11 +38,9 @@ export function Stock({ larder }: { larder: Larder }) {
         <label className="field wide"><span>Count sheet or photo</span><input type="file" name="evidence" required accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.txt,.xlsx" /></label>
         <OpeningLines items={items} />
       </Form></Card>
-      <Card title="Move and count">
+      <Card title="Stock movements">
         <Form title="Transfer" submit="Transfer" busy={busy} onSubmit={d => run('transfer.create', { itemId: text(d, 'itemId'), fromLocationId: text(d, 'from'), toLocationId: text(d, 'to'), quantity: text(d, 'quantity'), reason: text(d, 'reason') })}>
           <Choose label="Item" name="itemId" options={items} /><Choose label="From" name="from" options={locs} /><Choose label="To" name="to" options={locs} /><Field label="Quantity" name="quantity" inputMode="decimal" /><Field label="Reason" name="reason" /></Form>
-        <Form title="Count" submit="Record count" busy={busy} note="A different person approves any difference before stock changes." onSubmit={d => run('count.record', { itemId: text(d, 'itemId'), locationId: text(d, 'locationId'), counted: text(d, 'counted'), note: text(d, 'note') })}>
-          <Choose label="Item" name="itemId" options={items} /><Choose label="Location" name="locationId" options={locs} /><Field label="Counted quantity" name="counted" inputMode="decimal" /><Field label="Note" name="note" required={false} /></Form>
         {can(s, ['manager', 'warehouse', 'production']) && documents(s).length > 0 && <Form title="Correct a recorded movement" submit="Reverse" quiet busy={busy} note="Posts the exact opposite movement and keeps the original. Refused while later work depends on the stock." onSubmit={d => { const [kind, id] = text(d, 'doc').split(':'); return run('movement.reverse', { documentKind: kind, documentId: id, reason: text(d, 'reason') }) }}>
           <Choose label="Document" name="doc" options={documents(s).map(x => ({ value: `${x.kind}:${x.id}`, label: x.label }))} /><Field label="Reason" name="reason" /></Form>}
       </Card>

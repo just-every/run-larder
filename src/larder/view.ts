@@ -1,5 +1,6 @@
 // What a signed-in person or agent reads: records, formatted ledger, positions,
 // availability, shortages and the exception queue.
+import { blindView } from './count-visibility'
 import { availability } from './availability'
 import { format } from './decimal'
 import { exceptions } from './exceptions'
@@ -11,6 +12,8 @@ import { collections, type Actor, type State } from './model'
 export const movementView = (m: State['movements'][number]) => ({ ...m, quantity: format(m.quantity), unitCost: format(m.unitCost) })
 
 export function stateView(s: State, actor: Actor, extra: Record<string, unknown>) {
+  const blind = blindView(s, actor, extra)
+  if (blind) return blind
   const records = Object.fromEntries(collections.map(k => [k, s[k]]))
   return {
     version: s.version, actor, ...records,

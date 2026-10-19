@@ -7,6 +7,8 @@ import { archive, restore } from './archive'
 import { bom } from './bom'
 import { bomBulk } from './bom-bulk'
 import { bomCsv } from './bom-csv'
+import { counts } from './counts'
+import { blindSessions } from './count-visibility'
 import { catalogue } from './catalogue'
 import { exportBatch, imports, publishImport } from './odoo/imports'
 import { handoff, handoffCsv } from './handoff'
@@ -34,10 +36,10 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [catalogue, warehouse, bom, bomBulk, sales, purchasing, production, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [catalogue, warehouse, counts, bom, bomBulk, sales, purchasing, production, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
-  const named = (await env.DB.prepare('SELECT id,display_name AS name FROM oa_operators').all()).results
+  const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
   const operators = actor.role === 'owner' ? (await env.DB.prepare(`SELECT o.id,o.email,o.display_name AS name,o.status,${roleSql} AS role FROM oa_operators o ORDER BY o.created_at`).all()).results : []
   const commands = (await env.DB.prepare('SELECT id,actor_id AS actorId,type,created_at AS createdAt FROM larder_commands ORDER BY created_at DESC LIMIT 200').all()).results
   return { people: named, operators, commands }
@@ -59,12 +61,18 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (!target) fail('NOT_FOUND', 'Choose an invited person.')
     if (target!.role === 'owner') fail('OWNER_ROLE', 'The owner keeps owner authority.')
   }
+  if (blindSessions(await load(env.DB), actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
+  if (type === 'count.schedule') {
+    const counter = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(payload.counterId).first<{ role: string }>()
+    if (counter?.role !== 'warehouse') fail('INPUT', 'Assign an active warehouse person.')
+  }
   const digest = sha256(canonicalJson({ type, payload }))
   const previous = await saved(env.DB, commandId, digest, actor)
   if (previous) return json(previous)
   // A command that loses a concurrent write is recomputed against the new state.
   for (let attempt = 0; attempt < 8; attempt++) {
     const before = await load(env.DB), s = structuredClone(before)
+    if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
     const c: Context = { s, actor, commandId, now: new Date().toISOString(), attachments: [] }
     let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
@@ -94,6 +102,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const env = runtimeBindings(original), actor = await current(request, env)
     const path = url.pathname.slice('/api/larder'.length)
     if (request.method === 'POST' && path === '/commands') return await command(env, actor, request)
+    if (path !== '/state' && blindSessions(await load(env.DB), actor).length) forbidden('Downloads are unavailable during your assigned blind count.')
     if (request.method === 'POST' && path === '/archive/restore') return json(await restore(env, actor, request))
     if (request.method !== 'GET') throw new Problem('METHOD', 'Use GET to read or POST /api/larder/commands to act.', null, 405)
     const ok = await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>()
