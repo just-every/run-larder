@@ -1,5 +1,6 @@
 // Work orders: draft, release (pins the BOM revision and reserves components),
 // material issue, output with scrap, and close with cost variance.
+import { requireCatalogLot } from './catalog-fields'
 import { activeBom } from './bom'
 import { resolvedComponents } from './bom-explosion'
 import { toBase } from './catalogue'
@@ -79,6 +80,7 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       if (good === 0n && scrap === 0n) fail('INPUT', 'Record a good or scrap quantity.')
       if (decimal(w.output) + decimal(w.scrap) + good + scrap > decimal(w.quantity)) fail('OVER_OUTPUT', `${w.reference} is for ${w.quantity} ${item.baseUnit}; this would exceed it. Release more work instead.`)
       if (good > 0n) {
+        requireCatalogLot(item, p.lot)
         const location = get(c.s, 'locations', p.locationId, 'location'), code = optionalText(p.lot, 'batch', 80)
         const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: null, source: 'production', documentId: w.id, status: 'released' }) : null
         move(c, { itemId: item.id, locationId: location.id, status: 'available', lotId: lot?.id, quantity: good, unitCost: decimal(w.standardUnitCost), kind: 'output', documentKind: 'workOrders', documentId: w.id, reason: `Output of ${w.reference}` })

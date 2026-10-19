@@ -1,5 +1,6 @@
 // Purchase orders: draft, approve, supplier confirmation, revised delivery,
 // partial receipt with supplier lots, and quarantine decisions.
+import { requireCatalogLot } from './catalog-fields'
 import { attach } from './attachments'
 import { toBase } from './catalogue'
 import { decimal, format, times } from './decimal'
@@ -68,6 +69,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
         const outstanding = decimal(line.quantity) - decimal(line.received)
         if (q > outstanding) fail('OVER_RECEIPT', `Only ${format(outstanding)} ${item.baseUnit} of ${item.name} is still expected on ${po.reference}.`, { lineId: line.id })
         const inspection = oneOf(l.inspection ?? 'accept', ['accept', 'quarantine'] as const, 'inspection')
+        requireCatalogLot(item, l.lot)
         const code = optionalText(l.lot, 'supplier lot', 80)
         const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: po.supplierId, source: 'receipt', documentId: receipt.id, status: inspection === 'quarantine' ? 'quarantined' : 'released' }) : null
         move(c, { itemId: item.id, locationId: location.id, status: inspection === 'quarantine' ? 'quarantine' : 'available', lotId: lot?.id, quantity: q, unitCost: decimal(line.unitPrice), kind: 'receipt', documentKind: 'receipts', documentId: receipt.id, reason: `Received on ${po.reference}` })

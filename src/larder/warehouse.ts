@@ -1,4 +1,5 @@
 // Opening stock, transfers, counts with approved adjustments, and customer returns.
+import { requireCatalogLot } from './catalog-fields'
 import { attach } from './attachments'
 import { toBase } from './catalogue'
 import { returnSources } from './sales-terms'
@@ -23,6 +24,7 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
         if (c.s.movements.some(m => m.itemId === item.id && m.locationId === location.id)) fail('OPENING_EXISTS', `${item.name} already has stock history at ${location.name}. Use a count to correct it.`, { itemId: item.id })
         if (opening.lines.some((l: any) => l.itemId === item.id && (l.lot ?? '') === (line.lot ?? ''))) fail('INPUT', `${item.name} appears twice on this opening count.`)
         const quantity = toBase(item, line.quantity, line.unit), unitCost = decimal(line.unitCost, 'unit cost')
+        requireCatalogLot(item, line.lot)
         const lot = optionalText(line.lot, 'lot', 80)
         const lotRow = lot ? row(c, 'lots', { itemId: item.id, code: lot, supplierId: null, source: 'opening', documentId: opening.id, status: 'released' }) : null
         move(c, { itemId: item.id, locationId: location.id, status: 'available', lotId: lotRow?.id, quantity, unitCost, kind: 'opening', documentKind: 'openings', documentId: opening.id, reason: `Opening count ${countedOn} (${basis})` })

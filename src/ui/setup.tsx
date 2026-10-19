@@ -1,3 +1,4 @@
+import { CatalogBulk } from './catalog-bulk'
 import { can, itemName, partyName, rows } from './api'
 import type { Larder } from './app'
 import { Card, Choose, Empty, Field, Form, Table, options, text } from './controls'
@@ -9,6 +10,7 @@ const attributes = (raw: string) => Object.fromEntries(raw.split(',').map(x => x
 export function Setup({ larder }: { larder: Larder }) {
   const s = larder.state!, run = larder.run, busy = larder.busy
   return <>
+    <CatalogBulk larder={larder} />
     <Card title="Items">{rows(s, 'items').length === 0 ? <Empty>No items yet.</Empty> :
       <Table head={['Item', 'Made or bought', 'Unit', 'Other units', 'Variant', 'List price']} numeric={[5]}>{rows(s, 'items').map(i => <tr key={i.id}><td><strong>{i.name}</strong><small>{i.sku}{i.archived && ' · archived'}{i.sourceId && ' · from Odoo'}</small></td><td>{i.kind === 'make' ? 'Made' : 'Bought'}</td><td>{i.baseUnit}</td><td>{i.conversions.map((c: any) => `${c.unit} = ${c.factor} ${i.baseUnit}`).join(', ') || '—'}</td><td>{i.template ? `${i.template}: ${Object.entries(i.attributes).map(([k, v]) => `${k} ${v}`).join(', ')}` : '—'}</td><td className="num">{isZero(i.salePrice) ? '—' : money(i.salePrice)}</td></tr>)}</Table>}
       {can(s, ['manager', 'buyer']) && <Form title="Add an item" submit="Add item" busy={busy} onSubmit={d => run('item.save', { sku: text(d, 'sku'), name: text(d, 'name'), kind: text(d, 'kind'), baseUnit: text(d, 'baseUnit'), conversions: conversions(text(d, 'conversions')), template: text(d, 'template'), attributes: attributes(text(d, 'attributes')), standardCost: text(d, 'standardCost') || '0', salePrice: text(d, 'salePrice') || '0' })}>

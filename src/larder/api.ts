@@ -10,6 +10,8 @@ import { bomCsv } from './bom-csv'
 import { ranking } from './order-ranking'
 import { counts } from './counts'
 import { blindSessions } from './count-visibility'
+import { catalogBulk } from './catalog-bulk'
+import { catalogCsv } from './catalog-csv'
 import { catalogue } from './catalogue'
 import { exportBatch, imports, publishImport } from './odoo/imports'
 import { handoff, handoffCsv } from './handoff'
@@ -40,7 +42,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -118,6 +120,10 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (ok?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
     if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, await people(env, actor))) }
     if (path === '/archive') return json(await archive(env, actor))
+    if (path === '/catalog.csv') {
+      if (!['owner', 'manager', 'buyer', 'production'].includes(actor.role)) forbidden('Only catalog managers, buyers or engineers export the catalog.')
+      return new Response(catalogCsv(await load(env.DB)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-catalog.csv"' } })
+    }
     if (path === '/boms.csv') {
       if (!['owner', 'manager', 'production'].includes(actor.role)) forbidden('Only manufacturing engineers or managers export BOMs.')
       return new Response(bomCsv(await load(env.DB)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-boms.csv"' } })
