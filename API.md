@@ -2,7 +2,7 @@
 
 The app and agents use the same door. Every request needs a native session cookie (an invited person signs in through the emailed link); agents are invited people given the `agent` role.
 
-- `GET /api/larder/state` — every record, the formatted movement ledger, reservations, positions, availability per item, shortages, weekly forecasts/MPS, the exception queue, recent recorded actions and (for the owner) the team.
+- `GET /api/larder/state` — every record, the formatted movement ledger, reservations, positions, availability per item, shortages, weekly forecasts/MPS, the exception queue and owned `followUpCases` (including closed-case history), recent recorded actions and (for the owner) the team.
 - `POST /api/larder/commands` — `{ "commandId": "<8–100 of A-Z a-z 0-9 _ ->", "type": "...", "payload": { ... } }` with `content-type: application/json` and the installation's own `Origin`. Repeating a `commandId` returns its recorded outcome; reusing it with other content or by someone else is refused (`IDEMPOTENCY`). Replies are `{ ok: true, result, version }` or `{ ok: false, error: { code, message, details } }`.
 - `GET /api/larder/handoffs/<id>.csv` — a handoff batch as CSV (owner, manager, accounts).
 - `GET /api/larder/attachments/<id>` — an evidence file.
@@ -58,7 +58,10 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `movement.reverse` | `{documentKind: receipts\|shipments\|transfers\|counts\|openings\|returns\|workOrders, documentId, movementIds?, reason}` | manager, warehouse, production |
 | `handoff.prepare` | `{note?}` | manager, accounts |
 | `handoff.acknowledge` | `{handoffId, version, entries: [{lineId, ledgerId, amount, note?}]}` | manager, accounts |
-| `exception.resolve` | `{key, note}` (decisions only: shortages, late purchases, ledger mismatches, rejected move-in rows, work short of materials) | manager |
+| `exception.resolve` | `{key, note}` — compatibility decision-note door; retains history and does not hide a continuing failure (AUTO-001 / LARDER-013) | manager |
+| `exception.assign` | `{key, version, ownerId, dueOn, nextAction, escalationOwnerId, note}` — version 0 for a new owned case; active human writer and active owner/manager destinations | manager |
+| `exception.followUp` | `{key, version, dueOn, nextAction, note, evidence?: [file]}` — original files use the same attachment shape as opening evidence, up to five | current assignee, manager |
+| `exception.escalate` | `{key, version, note, evidence?: [file]}` — records in-app escalation to the case's current escalation owner; never sends mail/chat | manager |
 | `proposal.prepare` | `{kind, summary, evidence: [string], assumptions?, plan}` — see below | any role but viewer |
 | `proposal.approve` / `proposal.reject` | `{proposalId, version, note?}` | by kind; never the preparer (the owner may), never an agent |
 | `import.preview` | `{label, files: [{name, model?, content}], opening?: {countedOn, valuationBasis, countedBy}}` | manager, agent |
@@ -220,3 +223,9 @@ State includes `dispatch` with each released operation’s assigned person, live
 Open/draft supply must have an explicit physical bin. `inventory.supplyAssign {policyId,kind:workOrders|purchaseOrders,documentId,lineId?,version,orderId?,orderLineId?,reason}` records an unlocated document’s bin and optional exact customer peg under manager/production authority, without changing terms/quantities. Assigned commitments cannot silently move.
 
 `inventory.approve {planId,version}` is owner/manager/production only, independently from preparation except the owner; agents only prepare. Any intervening write refuses the preview. Approval atomically records line planning bins, reserves the exact reviewed common physical quantities and creates pegged draft work/purchases. Receipt/output, production release and spend retain their existing separate doors. Unlocated supply or missing BOM blocks approval; all prior reviews and policies survive archive restore. Existing shortage/MPS shortcuts refuse configured items and direct the person to this policy preview. Explicit manual drafts remain manual operations.
+
+## Owned exception follow-up (AUTO-001 / LARDER-013)
+
+The owner also holds every manager authority. Assignees are active human write-capable roles; viewers and agents cannot own cases, and viewers retain read-only access. Assignment/escalation validates current targets in both the handler and atomic commit. Updates bind the case version and current caller; identical command identities replay the saved outcome, including after the former target changes role.
+
+Use the state API's stable case key and version. A note, ETA revision, draft purchase/work or retry submission cannot certify physical acceptance, work completion or ledger reconciliation. `status` is recomputed from source evidence as `following up` or `closed`; history and original file digests remain available after closure and through business archive/restore. Date-derived overdue escalation starts on the UTC day after `dueOn` and is a Today notice in this app. Provider-confirmed failed-sync closure is inherited by CONN-001–CONN-015 before those capabilities ship; today's ledger evidence is the accountant's exact issued-line acknowledgment.

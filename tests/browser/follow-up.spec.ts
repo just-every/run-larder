@@ -8,7 +8,7 @@ async function command(page: Page, type: string, payload: object) {
   const b = await r.json(); expect(b.ok, JSON.stringify(b.error)).toBe(true); return b.result
 }
 async function settled(page: Page) { await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false'); await expect(page.getByRole('alert')).toHaveCount(0) }
-const form = (region: Locator, button: string) => region.locator('form').filter({ has: region.getByRole('button', { name: button, exact: true }) })
+const form = (region: Locator, button: string) => region.locator('form').filter({ has: region.page().getByRole('button', { name: button, exact: true }) })
 async function save(page: Page, f: Locator, button: string) {
   const reply = page.waitForResponse(r => r.url() === origin + '/api/larder/commands' && r.request().method() === 'POST')
   await f.getByRole('button', { name: button, exact: true }).click(); const b = await (await reply).json(); expect(b.ok, JSON.stringify(b.error)).toBe(true); await settled(page)

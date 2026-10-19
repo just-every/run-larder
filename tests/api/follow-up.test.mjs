@@ -121,4 +121,18 @@ test('AUTO-001 and LARDER-013 owned cases survive restart and close only after a
   await h.command('quarantine.decide', { itemId: material.id, locationId: loc.id, quantity: '2', decision: 'reject', reason: 'Second inbound failed inspection' })
   s = await h.state(); assert.equal(getCase(`po-late:${pooled[1].id}`).status, 'following up'); assert.ok(!s.exceptions.some(e => e.kind === 'quarantine'))
 
+  let expiredPo = await h.command('po.draft', { supplierId: supplier.id, expectedDate: day(-1), reason: 'Expired arrival is not usable acceptance', lines: [{ itemId: material.id, quantity: '1', unitPrice: '3' }] })
+  expiredPo = await h.command('po.approve', { poId: expiredPo.id, version: expiredPo.version })
+  await manager.run('exception.assign', { ...assignment, key: `po-late:${expiredPo.id}`, version: 0 })
+  await h.command('receipt.create', { poId: expiredPo.id, supplierReference: 'Expired arrival', lines: [{ lineId: expiredPo.lines[0].id, locationId: loc.id, quantity: '1', lot: 'EXPIRED-ARRIVAL', dates: { expiresOn: day(-1) } }] })
+  s = await h.state(); assert.equal(getCase(`po-late:${expiredPo.id}`).status, 'following up')
+  const archived = await (await h.request('/api/larder/archive')).json()
+  const restored = await installation(); t.after(() => restored.close())
+  const reply = await (await restored.request('/api/larder/archive/restore', { method: 'POST', body: archived })).json()
+  assert.equal(reply.ok, true)
+  const restoredState = await restored.invariant(), restoredCase = restoredState.followUpCases.find(x => x.key === lateKey)
+  assert.equal(restoredCase.status, 'closed'); assert.equal(restoredCase.ownerId, buyer.id)
+  assert.deepEqual(restoredCase.history, getCase(lateKey).history)
+  assert.equal(await (await restored.request(`/api/larder/attachments/${file.id}`)).text(), 'Supplier arrival commitment')
+
 })
