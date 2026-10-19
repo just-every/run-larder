@@ -19,7 +19,7 @@ try {
   const port = await freePort()
   await command(join(root, 'node_modules/.bin/rer'), ['setup', '--owner-email', 'owner@example.test', '--non-interactive', '--port', String(port)], root)
   runtime = await startDev(root, port)
-  const output = await command(join(workspace, 'node_modules/.bin/playwright'), ['test', '--config', join(workspace, 'tests/browser/playwright.config.ts'), '--workers=1'], workspace, { LARDER_BASE_URL: runtime.origin, LARDER_SITE_URL: runtime.site, LARDER_OPEN: runtime.entry, LARDER_SCREENSHOTS: screenshots, LARDER_BROWSER_OUTPUT: evidence })
+  const output = await command(join(workspace, 'node_modules/.bin/playwright'), ['test', '--config', join(workspace, 'tests/browser/playwright.config.ts'), '--workers=1', ...process.argv.slice(2)], workspace, { LARDER_BASE_URL: runtime.origin, LARDER_SITE_URL: runtime.site, LARDER_OPEN: runtime.entry, LARDER_SCREENSHOTS: screenshots, LARDER_BROWSER_OUTPUT: evidence })
   console.log(redact(output))
   console.log(`Real setup/dev and desktop/mobile UI journeys passed. Screenshots: ${screenshots}`)
 } catch (error) {

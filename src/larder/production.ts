@@ -11,6 +11,7 @@ import { fail } from './problem'
 import { allow, approver } from './roles'
 import { averageCost, consume, move, release, reserve, reservedQuantity, withdraw } from './stock'
 import { lotDates } from './lot-dates'
+import { holdReason, openHolds, plansFor } from './quality'
 import { bump, date, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Row } from './model'
 
 export function draftWork(c: Context, p: any, preparedBy?: string): Row {
@@ -81,6 +82,9 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       if (w.routing.some((r: any) => r.instructions || r.drawings?.length || r.requiredSkills?.length) && w.routing.some((r: any) => !w.operationStates?.some((t: any) => t.sequence === r.sequence && t.status === 'done'))) fail('OPERATIONS', 'Complete the pinned operations before recording output.')
       const item = get(c.s, 'items', w.itemId, 'item'), good = decimal(p.quantity ?? '0', 'good quantity'), scrap = decimal(p.scrap ?? '0', 'scrap quantity')
       if (good === 0n && scrap === 0n) fail('INPUT', 'Record a good or scrap quantity.')
+      const hold = openHolds(c.s, w.id)[0]
+      if (hold) fail('QUALITY_HOLD', `${w.reference} cannot record output. ${holdReason(hold)}`, { holdId: hold.id })
+      if (good > 0n && !p.lot && ['in-process', 'final'].some(stage => plansFor(c.s, stage, w.itemId, w.bomRevision).some(plan => plan.required))) fail('INPUT', 'Record a batch lot: required inspections hold this output by lot.', { field: 'lot' })
       if (decimal(w.output) + decimal(w.scrap) + good + scrap > decimal(w.quantity)) fail('OVER_OUTPUT', `${w.reference} is for ${w.quantity} ${item.baseUnit}; this would exceed it. Release more work instead.`)
       if (good > 0n) {
         requireCatalogLot(item, p.lot)

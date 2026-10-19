@@ -12,9 +12,10 @@ import { schedule } from './schedule/plan'
 import { Forecasts } from './forecasts'
 import { Boms } from './bom-editor'
 import { WorkOperations } from './work-operations'
+import { QualityPlans, WorkQuality } from './quality'
 import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
 
-const tabs = [{ id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }, { id: 'forecast', title: 'Forecast & MPS' }, { id: 'dispatch', title: 'Shop-floor dispatch' }, { id: 'policies', title: 'Inventory policies' }]
+const tabs = [{ id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }, { id: 'forecast', title: 'Forecast & MPS' }, { id: 'dispatch', title: 'Shop-floor dispatch' }, { id: 'quality', title: 'Quality plans' }, { id: 'policies', title: 'Inventory policies' }]
 
 export function MakeBuy({ larder, section = 'plan', id }: { larder: Larder; section?: string; id?: string }) {
   const s = larder.state!
@@ -22,6 +23,7 @@ export function MakeBuy({ larder, section = 'plan', id }: { larder: Larder; sect
     <header className="page-head"><p className="eyebrow">Make &amp; buy</p><h1>{tabs.find(t => t.id === section)?.title ?? 'Shortages'}</h1>
       <nav className="tabs" aria-label="Make and buy">{tabs.map(t => <a key={t.id} href={`#make/${t.id}`} aria-current={section === t.id ? 'page' : undefined}>{t.title}</a>)}</nav></header>
     {section === 'policies' && <InventoryPolicies larder={larder} />}
+    {section === 'quality' && <QualityPlans larder={larder} />}
     {section === 'dispatch' && <Dispatch larder={larder} onSignOut={() => void signOut()} />}
     {section === 'plan' && <Shortages larder={larder} />}
     {section === 'po' && (id && byId(s, 'purchaseOrders', id) ? <Purchase larder={larder} po={byId(s, 'purchaseOrders', id)!} /> : <Purchases larder={larder} />)}
@@ -105,6 +107,7 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
       {w.cost && <p>Materials used {money(w.cost.materials)} · variance {money(w.cost.variance)} · actual {money(w.cost.actualUnitCost)} each</p>}
       {(w.shortages ?? []).length > 0 && <p className="warn-text">Short: {stories(s, w, schedule(s, new Date())).join('; ')}. <button className="link" onClick={() => run('wo.reserve', { workOrderId: w.id })}>Try reserving again</button></p>}
     </Card>
+    <WorkQuality larder={larder} w={w} />
     {w.status === 'released' && <Card title="Record the work">
       {can(s, ['manager', 'production', 'warehouse']) && <Form title="Issue materials" submit="Issue" busy={busy} onSubmit={d => run('wo.issue', { workOrderId: w.id, lines: w.components.map((l: any) => ({ itemId: l.itemId, locationId: text(d, 'locationId'), quantity: text(d, `q.${l.id}`) })).filter((l: any) => l.quantity && positive(l.quantity)) })}>
         <Choose label="From location" name="locationId" options={options(rows(s, 'locations'), r => r.name)} />

@@ -1,5 +1,6 @@
 // ENG-002: execution refers only to the released instruction snapshot.
 import { activeMaintenance, assertEquipmentAvailable } from './maintenance-availability'
+import { holdReason, openHolds } from './quality'
 import { allow } from './roles'
 import { fail } from './problem'
 import { bump, fresh, get, text, type Actor, type Context, type Row, type State } from './model'
@@ -8,7 +9,7 @@ type Gate = { code: string; message: string }
 
 // The read projection and the command share actual start gates. Form inputs
 // (station, chosen center and reason) are validated only when submitted.
-export function operationStartGates(s: Pick<State, 'maintenance'>, actor: Pick<Actor, 'id' | 'role'>, w: Row, step: any, now: string, workCentre?: string): Gate[] {
+export function operationStartGates(s: Pick<State, 'maintenance' | 'qualityHolds'>, actor: Pick<Actor, 'id' | 'role'>, w: Row, step: any, now: string, workCentre?: string): Gate[] {
   const states: any[] = w.operationStates ?? []
   const task = states.find(t => t.sequence === step.sequence)
   const predecessors: number[] = step.dependsOn ?? (step.sequence > 1 ? [step.sequence - 1] : [])
@@ -18,6 +19,7 @@ export function operationStartGates(s: Pick<State, 'maintenance'>, actor: Pick<A
     ...(!['owner', 'manager', 'production'].includes(actor.role) ? [{ code: 'FORBIDDEN', message: 'Your current role cannot execute operations.' }] : []),
     ...(w.status !== 'released' ? [{ code: 'STATE', message: 'Operate only on released work.' }] : []),
     ...(task && task.status !== 'pending' ? [{ code: 'STATE', message: task.status === 'done' ? 'This operation is complete.' : 'This operation has already started.' }] : []),
+    ...openHolds(s, w.id).map(h => ({ code: 'QUALITY_HOLD', message: holdReason(h) })),
     ...(blocked.length ? [{ code: 'DEPENDENCY', message: `Complete predecessor operation ${blocked.join(', ')} first.` }] : []),
     ...((step.instructions || step.drawings?.length) && !task?.acknowledgments?.some((a: any) => a.by === actor.id && a.bomId === w.bomId) ? [{ code: 'ACKNOWLEDGMENT', message: 'Read and acknowledge this job’s pinned instructions and drawings before starting.' }] : []),
     ...(task?.assignment && task.assignment.operatorId !== actor.id ? [{ code: 'ASSIGNMENT', message: 'Only the assigned person can start this operation.' }] : []),

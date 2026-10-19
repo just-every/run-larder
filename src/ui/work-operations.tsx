@@ -15,7 +15,7 @@ export function operationReadiness(s: LarderState, w: Rec, step: any) {
   const acknowledged = task.acknowledgments?.some((ack: any) => ack.by === s.actor.id && ack.bomId === w.bomId)
   const wrongOperator = task.assignment && task.assignment.operatorId !== s.actor.id
   const now = new Date().toISOString()
-  const reasons = operationStartGates({ maintenance: rows(s, 'maintenance') }, s.actor, w, step, now).map(gate => gate.message)
+  const reasons = operationStartGates({ maintenance: rows(s, 'maintenance'), qualityHolds: rows(s, 'qualityHolds') }, s.actor, w, step, now).map(gate => gate.message)
   return { task, centres, predecessors, needsAck, acknowledged, wrongOperator, reasons }
 }
 
@@ -43,7 +43,9 @@ export function WorkOperations({ larder, w, sequence: onlySequence }: { larder: 
           <h4>Safety and quality checks</h4>
           <p>{needsAck ? acknowledged ? 'Pinned instruction and drawing acknowledgment recorded for you.' : 'Your acknowledgment of the pinned instructions and drawings is required.' : 'No instruction or drawing acknowledgment configured for this operation.'}</p>
           <p>{(task.workCentre ? [task.workCentre] : centres).map(center => `${center}: ${activeMaintenance({ maintenance: rows(s, 'maintenance') }, center, new Date().toISOString()).length ? 'maintenance release required' : 'no active maintenance hold recorded'}`).join('; ') || 'Choose a named center when starting; no eligible centers are pinned.'}</p>
-          <p className="muted">Operation-specific inspection and safety checklists are not configured. Review the pinned instructions and actual station conditions.</p>
+          <p>{rows(s, 'inspectionPlans').filter(p => p.status === 'approved' && p.stage === 'in-process' && p.operationSequence === sequence && p.itemId === w.itemId && (p.revision === null || p.revision === w.bomRevision)).map(p => `In-process inspection after this step: ${p.name}, ${p.sampleSize} sampled`).join('; ') || 'No in-process inspection plan follows this operation.'}</p>
+          {rows(s, 'qualityHolds').filter(h => h.status === 'open' && h.subjectId === w.id).map(h => <p key={h.id} className="warn-text">{`Quality hold: ${h.planName} failed; this job’s pending operations stay blocked until an owner or manager releases it.`}</p>)}
+          <p className="muted">Operation safety checklists are not configured. Review the pinned instructions and actual station conditions.</p>
         </section>
         {step.instructions && <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{step.instructions}</p>}
         {step.drawings?.length > 0 && <ul>{step.drawings.map((drawing: any) => <li key={drawing.id}><a href={`/api/larder/attachments/${drawing.id}`} target="_blank" rel="noreferrer">Open drawing: {drawing.name}</a></li>)}</ul>}

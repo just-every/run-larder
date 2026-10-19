@@ -21,6 +21,7 @@ import { certificates } from './certificates'
 import { certificatePack } from './certificate-pack'
 import { maintenance } from './maintenance'
 import { expiry } from './lot-dates'
+import { quality } from './quality'
 import { downtime } from './downtime'
 import { engineering } from './engineering'
 import { planning } from './planning'
@@ -51,7 +52,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [followUps, inventory, certificates, expiry, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
