@@ -94,7 +94,8 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
       const name = text(p.name, 'name', 200), kind = oneOf(p.kind, ['customer', 'supplier', 'both'] as const, 'kind')
       const twin = c.s.parties.find(x => x.id !== p.id && x.name.toLowerCase() === name.toLowerCase())
       if (twin) fail('DUPLICATE_PARTY', `${name} already exists. Use the existing record or give it a distinguishing name.`, { partyId: twin.id })
-      const data = { name, kind, email: optionalText(p.email, 'email', 200), abn: optionalText(p.abn, 'EIN', 20), terms: optionalText(p.terms, 'terms', 200) }
+      const minShelfLifeDays = p.minShelfLifeDays === undefined || p.minShelfLifeDays === null || p.minShelfLifeDays === '' ? undefined : Number.isSafeInteger(p.minShelfLifeDays) && p.minShelfLifeDays >= 0 && p.minShelfLifeDays <= 3650 ? p.minShelfLifeDays as number : fail('INPUT', 'Minimum remaining shelf life must be a whole number of days from 0 to 3650.', { field: 'minShelfLifeDays' })
+      const data = { name, kind, email: optionalText(p.email, 'email', 200), abn: optionalText(p.abn, 'EIN', 20), terms: optionalText(p.terms, 'terms', 200), minShelfLifeDays }
       if (!p.id) return row(c, 'parties', { ...data, sourceId: null, importId: null })
       const party = get(c.s, 'parties', p.id, 'party'); fresh(party, p.version)
       return bump(party, data)

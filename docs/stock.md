@@ -22,6 +22,10 @@ Record each location's opening count once, before other movements there: the dat
 
 Stock received or returned into quarantine cannot be promised or picked. Under **Quality decisions**, **Release to stock** or **Reject (return or scrap)** each quantity with a reason.
 
+## Lot dates, expiry and FEFO
+
+When you receive, count or make a named lot you can record its manufacture, expiry and retest dates, the supplier's shelf life and storage conditions. Dates are UTC days, and a lot is usable through its expiry and retest dates. Give a customer a minimum shelf life on arrival under **Customers and suppliers**; picks for that customer take only lots with enough shelf life left on the promised ship day, earliest expiry first. **Lot dates and expiry** on Stock shows each dated lot, and Today lists lots expiring within 30 days and lots already expired or due for retest. Expired and retest-due stock stays on hand but cannot be reserved, picked, issued or transferred until an owner or manager records a documented disposition: extend it after a passed retest, or scrap it.
+
 ## Correcting a mistake
 
 **Correct a recorded movement** reverses a receipt, transfer, opening count, count adjustment or return by posting its exact opposite, pointing back to the original. The original stays in the record. If later work already uses that stock (it was shipped, issued or reserved), the reversal is refused: reverse the later work first, newest first.

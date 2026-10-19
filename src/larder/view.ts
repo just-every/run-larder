@@ -11,6 +11,7 @@ import { format } from './decimal'
 import { exceptions } from './exceptions'
 import { shortages } from './planning'
 import { positions } from './stock'
+import { fefoPlans, lotStatuses } from './lot-dates'
 import { pendingHandoffCount } from './handoff'
 import { collections, type Actor, type State } from './model'
 
@@ -33,6 +34,8 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
     availability: s.items.map(i => availability(s, i.id)),
     shortages: shortages(s),
     exceptions: exceptions(s, new Date().toISOString().slice(0, 10)),
+    lotStatuses: lotStatuses(s, new Date().toISOString().slice(0, 10)),
+    fefoPlans: fefoPlans(s, new Date().toISOString().slice(0, 10)),
     pendingHandoff: pendingHandoffCount(s),
     ...extra,
   }

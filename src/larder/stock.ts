@@ -1,6 +1,7 @@
 // Stock truth: positions are sums of append-only movements; available stock is
 // on-hand available status minus reservations. Every write goes through move().
 import { requireCatalogLot } from './catalog-fields'
+import { blockedQuantity, fefoOrder, lotBlock, utcToday } from './lot-dates'
 import { decimal, divide, format, min, times } from './decimal'
 import { fail } from './problem'
 import { get, newId, type Context, type Movement, type Reservation, type State } from './model'
@@ -17,7 +18,11 @@ export function reservedAt(s: State, itemId: string, locationId: string): bigint
   return n
 }
 
-export const availableAt = (s: State, itemId: string, locationId: string) => balance(s, itemId, locationId) - reservedAt(s, itemId, locationId)
+// Expired or retest-due lots (TRACE-003) are on hand but not available.
+export const availableAt = (s: State, itemId: string, locationId: string, on = utcToday()) => balance(s, itemId, locationId) - blockedQuantity(s, itemId, on, locationId) - reservedAt(s, itemId, locationId)
+
+// Available on-hand stock outside expired or retest-due lots.
+export const usableOnHand = (s: State, itemId: string, on = utcToday()) => onHand(s, itemId) - blockedQuantity(s, itemId, on)
 
 export function onHand(s: State, itemId: string, status = 'available') {
   let n = 0n
@@ -67,14 +72,22 @@ export function move(c: Context, x: MoveInput): Movement {
 }
 
 // Take stock out of a location. With no lot named, draw from the unlotted
-// stock first, then from lots oldest first, posting one movement per lot.
+// stock first, then from lots first-expiry-first-out, posting one movement per
+// lot. Shipments, issues and transfers never use available stock in an expired
+// or retest-due lot; counts still record it.
+const usesStock = ['shipment', 'issue', 'transfer']
 export function withdraw(c: Context, x: Omit<MoveInput, 'lotId'> & { lotId?: string }): Movement[] {
-  if (x.lotId !== undefined && x.lotId !== '') return [move(c, x)]
+  const today = c.now.slice(0, 10), blocked = (lotId: string) => x.status === 'available' && usesStock.includes(x.kind) ? lotBlock(c.s.lots.find(l => l.id === lotId), today) : ''
+  if (x.lotId !== undefined && x.lotId !== '') {
+    if (blocked(x.lotId)) fail('LOT_BLOCKED', `Lot ${c.s.lots.find(l => l.id === x.lotId)?.code} ${blocked(x.lotId)} and cannot be used until an owner or manager records its disposition.`, { lotId: x.lotId })
+    return [move(c, x)]
+  }
   const need = -x.quantity
   if (need <= 0n) return [move(c, { ...x, lotId: '' })]
-  const lots = [...new Set(c.s.movements.filter(m => m.itemId === x.itemId && m.locationId === x.locationId && m.status === x.status).map(m => m.lotId))]
-    .sort((a, b) => (a === '' ? -1 : b === '' ? 1 : 0))
+  const present = [...new Set(c.s.movements.filter(m => m.itemId === x.itemId && m.locationId === x.locationId && m.status === x.status).map(m => m.lotId))]
+  const lots = [...(present.includes('') ? [''] : []), ...fefoOrder(c.s, present.filter(lot => lot !== '' && !blocked(lot)))]
   const total = lots.reduce((n, lot) => n + balance(c.s, x.itemId, x.locationId, x.status, lot), 0n)
+  if (total < need && present.some(lot => lot && blocked(lot))) fail('LOT_BLOCKED', 'Only expired or retest-due lots cover the rest; an owner or manager records their disposition first.', { itemId: x.itemId, locationId: x.locationId, usable: format(total), needed: format(need) })
   if (total < need) return [move(c, { ...x, lotId: '' })]
   const out: Movement[] = []
   let left = need

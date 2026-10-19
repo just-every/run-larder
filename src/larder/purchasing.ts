@@ -8,6 +8,7 @@ import { decimal, format, times } from './decimal'
 import { fail } from './problem'
 import { allow, approver } from './roles'
 import { balance, move } from './stock'
+import { lotDates } from './lot-dates'
 import { bump, date, fresh, get, list, newId, nextReference, oneOf, optionalText, row, text, type Context, type Row } from './model'
 
 export function draftPurchase(c: Context, p: any, preparedBy?: string): Row {
@@ -75,8 +76,8 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
           text(l.lot, 'lot required for controlled certificates', 80)
           inspection = 'quarantine'
         }
-        const code = optionalText(l.lot, 'supplier lot', 80)
-        const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: po.supplierId, source: 'receipt', documentId: receipt.id, status: inspection === 'quarantine' ? 'quarantined' : 'released' }) : null
+        const code = optionalText(l.lot, 'supplier lot', 80), dates = lotDates(l.dates, code, c.now.slice(0, 10))
+        const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: po.supplierId, source: 'receipt', documentId: receipt.id, status: inspection === 'quarantine' ? 'quarantined' : 'released', ...dates }) : null
         move(c, { itemId: item.id, locationId: location.id, status: inspection === 'quarantine' ? 'quarantine' : 'available', lotId: lot?.id, quantity: q, unitCost: decimal(line.unitPrice), kind: 'receipt', documentKind: 'receipts', documentId: receipt.id, reason: `Received on ${po.reference}` })
         line.received = format(decimal(line.received) + q)
         receipt.lines.push({ lineId: line.id, itemId: item.id, locationId: location.id, quantity: format(q), lotId: lot?.id ?? '', inspection })

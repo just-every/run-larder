@@ -4,6 +4,7 @@
 import { day } from './day'
 import { shortages } from './planning'
 import { positions } from './stock'
+import { lotStatuses } from './lot-dates'
 import { fail } from './problem'
 import { allow } from './roles'
 import { row, text, type Context, type Row, type State } from './model'
@@ -24,6 +25,9 @@ export function exceptions(s: State, today: string): Exception[] {
   for (const h of s.handoffs.filter(h => h.status !== 'acknowledged')) out.push({ key: `handoff:${h.id}:${h.version}`, kind: h.status === 'mismatch' ? 'mismatch' : 'handoff', title: `${h.reference} ${h.status === 'mismatch' ? 'has amounts that differ from the ledger' : 'is not fully acknowledged'}`, detail: `${h.lines.length} lines`, view: 'handoff', id: h.id, resolvable: h.status === 'mismatch' })
   for (const w of s.workOrders.filter(w => w.status === 'released' && (w.shortages ?? []).length)) out.push({ key: `wo-short:${w.id}:${w.version}`, kind: 'shortage', title: `${w.reference} is missing materials`, detail: w.shortages.map((x: any) => `${name(x.itemId)} ${x.short}`).join(', '), view: 'make', id: w.id, resolvable: true })
   for (const i of s.imports.filter(i => i.status === 'previewed' && i.rejected.length)) out.push({ key: `import:${i.id}:${i.version}`, kind: 'import', title: `Move-in preview has ${i.rejected.length} rejected rows`, detail: i.label, view: 'move-in', id: i.id, resolvable: true })
+  for (const l of lotStatuses(s, today).filter(l => l.onHand !== '0' && l.state !== 'current')) out.push(l.state === 'expiring'
+    ? { key: `expiring:${l.lotId}:${l.expiresOn}`, kind: 'expiry', title: `Lot ${l.code} of ${name(l.itemId)} expires ${day(l.expiresOn)} (${l.remainingDays} days)`, detail: `${l.onHand} on hand`, view: 'stock', id: l.lotId, resolvable: true }
+    : { key: `blocked-lot:${l.lotId}:${l.expiresOn}:${l.retestOn}`, kind: 'expiry', title: `Lot ${l.code} of ${name(l.itemId)} ${l.reason}`, detail: `${l.onHand} on hand is blocked until an owner or manager records its disposition`, view: 'stock', id: l.lotId, resolvable: false })
   const resolved = new Set(s.resolutions.map(r => r.key))
   return out.filter(x => !resolved.has(x.key))
 }

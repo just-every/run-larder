@@ -1,7 +1,7 @@
 // Weekly commercial demand and MPS quantities; this is not a capacity promise.
 import { decimal, format, max, min, times } from './decimal'
 import { deliveries, deliveryDate } from './sales-schedules'
-import { onHand, reservedQuantity } from './stock'
+import { reservedQuantity, usableOnHand } from './stock'
 import { type Row, type State } from './model'
 
 export const addDays = (day: string, n: number) => new Date(Date.parse(day + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10)
@@ -53,7 +53,7 @@ export function masterSchedule(s: State) {
   const balances = new Map<string, bigint>(), used = new Set<string>()
   return [...keys].sort((a, b) => a.split('|')[1].localeCompare(b.split('|')[1]) || a.localeCompare(b)).map(key => {
     const [itemId, week] = key.split('|'), f = s.forecasts.find(f => f.itemId === itemId && f.week === week), o = orders.get(key)
-    let balance = balances.get(itemId) ?? max(0n, onHand(s, itemId) - s.reservations.filter(r => r.itemId === itemId).reduce((n, r) => n + r.quantity, 0n))
+    let balance = balances.get(itemId) ?? max(0n, usableOnHand(s, itemId) - s.reservations.filter(r => r.itemId === itemId).reduce((n, r) => n + r.quantity, 0n))
     const supply: any[] = []
     for (const w of s.workOrders.filter(w => w.itemId === itemId && ['draft', 'released'].includes(w.status) && (w.expectedOn ?? w.requiredBy) <= addDays(week, 6))) {
       const id = 'wo:' + w.id

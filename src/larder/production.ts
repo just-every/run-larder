@@ -10,6 +10,7 @@ import { decimal, divide, format, max, min, times } from './decimal'
 import { fail } from './problem'
 import { allow, approver } from './roles'
 import { averageCost, consume, move, release, reserve, reservedQuantity, withdraw } from './stock'
+import { lotDates } from './lot-dates'
 import { bump, date, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Row } from './model'
 
 export function draftWork(c: Context, p: any, preparedBy?: string): Row {
@@ -85,8 +86,9 @@ export function production(c: Context, type: string, p: any): Row | undefined {
         requireCatalogLot(item, p.lot)
         const controlled = requiredTypes(c.s, item.id).length > 0
         if (controlled) text(p.lot, 'lot required for controlled certificates', 80)
-        const location = get(c.s, 'locations', p.locationId, 'location'), code = optionalText(p.lot, 'batch', 80)
-        const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: null, source: 'production', documentId: w.id, status: controlled ? 'quarantined' : 'released' }) : null
+        const location = get(c.s, 'locations', p.locationId, 'location'), code = optionalText(p.lot, 'batch', 80), today = c.now.slice(0, 10)
+        const dates = p.dates ? lotDates(p.dates, code, today, today) : {}
+        const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: null, source: 'production', documentId: w.id, status: controlled ? 'quarantined' : 'released', ...dates }) : null
         move(c, { itemId: item.id, locationId: location.id, status: controlled ? 'quarantine' : 'available', lotId: lot?.id, quantity: good, unitCost: decimal(w.standardUnitCost), kind: 'output', documentKind: 'workOrders', documentId: w.id, reason: `Output of ${w.reference}` })
       }
       w.outputs = [...(w.outputs ?? []), { at: c.now, by: c.actor.id, good: format(good), scrap: format(scrap), scrapReason: scrap > 0n ? text(p.scrapReason, 'scrap reason', 400) : '' }]

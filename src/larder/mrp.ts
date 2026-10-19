@@ -7,7 +7,7 @@ import { componentQuantity, resolvedComponents } from './bom-explosion'
 import { expectedProduction, expectedPurchase } from './availability'
 import { decimal, format, max, min } from './decimal'
 import { fail } from './problem'
-import { onHand, reservedQuantity } from './stock'
+import { reservedQuantity, usableOnHand } from './stock'
 import type { Row, State } from './model'
 
 type Mode = 'make' | 'buy' | 'phantom'
@@ -90,7 +90,7 @@ export function netRequirements(s: State): NettedItem[] {
   for (const id of ordered) {
     const rows = (demands.get(id) ?? []).sort((a, b) => a.date.localeCompare(b.date) || a.reference.localeCompare(b.reference) || a.documentId.localeCompare(b.documentId) || JSON.stringify(a.path).localeCompare(JSON.stringify(b.path)) || a.supply.localeCompare(b.supply))
     if (!rows.length) continue
-    const available = max(0n, onHand(s, id) - s.reservations.filter(r => r.itemId === id).reduce((n, r) => n + r.quantity, 0n))
+    const available = max(0n, usableOnHand(s, id) - s.reservations.filter(r => r.itemId === id).reduce((n, r) => n + r.quantity, 0n))
     const drafted = s.purchaseOrders.filter(p => p.status === 'draft').flatMap(p => p.lines).filter((l: any) => l.itemId === id).reduce((n: bigint, l: any) => n + decimal(l.quantity), 0n)
       + s.workOrders.filter(w => w.status === 'draft' && w.itemId === id).reduce((n, w) => n + decimal(w.quantity), 0n)
     const expected = expectedPurchase(s, id) + expectedProduction(s, id) + drafted

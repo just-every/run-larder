@@ -19,9 +19,9 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | --- | --- | --- |
 | `item.save` | `{id?, version?, sku, name, kind: make\|buy, baseUnit, conversions?: [{unit, factor}], template?, attributes?: {name: value}, standardCost?, salePrice?, archived?}` | manager, buyer |
 | `location.save` | `{id?, version?, name, note?, archived?}` | manager, warehouse |
-| `party.save` | `{id?, version?, name, kind: customer\|supplier\|both, email?, abn?, terms?}` | manager, buyer, sales |
+| `party.save` | `{id?, version?, name, kind: customer\|supplier\|both, email?, abn?, terms?, minShelfLifeDays?}` | manager, buyer, sales |
 | `partyItem.save` | `{id?, version?, partyId, itemId, partyCode, unit?, price?, leadDays?, preferred?}` | manager, buyer, sales |
-| `opening.record` | `{locationId, countedOn, valuationBasis: supplier-invoice\|last-purchase\|standard-cost\|owner-estimate, countedBy, evidence: {name, contentType, base64}, lines: [{itemId, quantity, unit?, unitCost, lot?}]}` | manager, warehouse |
+| `opening.record` | `{locationId, countedOn, valuationBasis: supplier-invoice\|last-purchase\|standard-cost\|owner-estimate, countedBy, evidence: {name, contentType, base64}, lines: [{itemId, quantity, unit?, unitCost, lot?, dates?}]}` | manager, warehouse |
 | `bom.revise` | `{itemId, components: [{itemId, quantity, unit?, supply?: make\|buy\|phantom}], yield?: <fraction>, routing?: [{name, workCentre?, minutes?, runMinutes?, setupMinutes?, queueMinutes?, dependsOn?, eligibleCentres?, requiredSkills?, instructions?, drawings?}], note?, effectiveOn?}` | manager, production |
 | `bom.bulkPreview` | `{file: {name, content}}` — CSV rows, errors and stock/open-work impact; creates only the review record | manager, production |
 | `bom.bulkApprove` | `{previewId, version, acceptRejected?: <exact error count>}` — approve all valid whole-BOM groups atomically; changed business state requires a new preview | manager, production (different preparer; owner may approve own) |
@@ -39,13 +39,14 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `po.approve` | `{poId, version, note?}` | manager, buyer (never an agent) |
 | `po.confirm` | `{poId, version, supplierReference, confirmedDate, evidence?}` | manager, buyer |
 | `po.revise` | `{poId, version, expectedDate, note}` | manager, buyer |
-| `receipt.create` | `{poId, supplierReference, lines: [{lineId, quantity, unit?, locationId, lot?, inspection?: accept\|quarantine}]}` | manager, warehouse |
+| `receipt.create` | `{poId, supplierReference, lines: [{lineId, quantity, unit?, locationId, lot?, dates?, inspection?: accept\|quarantine}]}` | manager, warehouse |
 | `quarantine.decide` | `{itemId, locationId, lotId?, quantity, decision: release\|reject, reason}` | manager, warehouse |
+| `lot.dispose` | `{lotId, version, decision: extend\|scrap, expiresOn?, retestOn?, locationId?, reason, evidence: [{name, contentType, base64}]}` — documented disposition of an expired or retest-due lot | manager (never an agent) |
 | `wo.draft` | `{itemId, quantity, requiredBy, reason, priority?, plannedStart?}` | manager, production, agent |
 | `wo.release` | `{workOrderId, version}` | manager, production |
 | `wo.reserve` | `{workOrderId}` | manager, production, warehouse |
 | `wo.issue` | `{workOrderId, lines: [{itemId, locationId, quantity, unit?, lotId?, note?}]}` | manager, production, warehouse |
-| `wo.output` | `{workOrderId, version, locationId?, quantity?, scrap?, scrapReason?, lot?}` | manager, production |
+| `wo.output` | `{workOrderId, version, locationId?, quantity?, scrap?, scrapReason?, lot?, dates?}` | manager, production |
 | `wo.close` | `{workOrderId, version}` | manager, production |
 | `transfer.create` | `{itemId, fromLocationId, toLocationId, quantity, unit?, lotId?, reason}` | manager, warehouse |
 | `count.schedule` | `{locationId, scheduledOn, basis: value\|risk\|bin, counterId, recountTolerance?, minimumValue?, risk?: high\|medium\|low, itemId?}` | manager |
@@ -199,6 +200,8 @@ Unreleased equipment blocks operation start/resume/completion after its start re
 `certificate.requirements` takes `{itemId, customerId?, version?, types, note}`. Owner/manager configures the general SKU policy (empty customer) or additive customer types: `coa`, `sds`, `test-report`, `specification`, `coc`. Send the current policy version for an update; empty types clears that policy with history/reason. General requirements force receipts/openings/finished output/returns into quarantine with a named lot; customer requirements are additionally checked at shipment.
 
 `certificate.prepare` takes `{itemId, lotId, type, documentVersion, declaredLot, issuer, expiresOn, evidence}`. Owner/manager/production/warehouse/agent can prepare. Exact original files/digests and logical revisions remain retained; expiry is an inclusive real UTC date. `certificate.approve` and `certificate.revoke` take `{certificateId, version, note}` and require owner/manager. Approval is independent except for the owner, refuses expired or mismatched-lot evidence, and never claims external certification. Preparing a replacement leaves the current decision usable; latest approved/revoked revision controls and revocation never falls back to an older approval.
+
+Lot `dates` are `{manufacturedOn?, expiresOn?, retestOn?, supplierShelfLifeDays?, storage?}` as UTC `YYYY-MM-DD` days on a named lot (TRACE-003). State carries `lotStatuses` and `fefoPlans` (each open reserved line's lots in FEFO order with eligibility on the promise date or today, whichever is later). `shipment.pick` refuses an ineligible named lot and otherwise takes eligible lots first-expiry-first-out (`FEFO_INELIGIBLE`); shipment, issue and transfer refuse expired or retest-due lots (`LOT_BLOCKED`).
 
 `quarantine.decide` release and positive available-stock count adjustments require current general certificates. `shipment.ship` rechecks general plus customer requirements per actual physical lot movement, then freezes the exact approved document snapshots. `GET /api/larder/shipments/<id>/certificates.json` downloads shipment/order/lot/SKU/quantity trace with those document versions, digests and base64 original files. Later certificate decisions never rewrite earlier packets. Business archives preserve the policies, evidence, history and snapshots. Existing session/Origin/version/role guards apply.
 

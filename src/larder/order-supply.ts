@@ -1,5 +1,5 @@
 import { decimal, format, max, min } from './decimal'
-import { onHand } from './stock'
+import { usableOnHand } from './stock'
 import type { State } from './model'
 
 export type IngredientStatus = 'In stock' | 'Expected' | 'Not available' | 'No BOM'
@@ -12,7 +12,7 @@ type Pool = Omit<Supply, 'quantity'> & { itemId: string; left: bigint }
 // free stock before any ranked demand is considered, including another order's.
 export function supplyAllocator(s: State) {
   const pools: Pool[] = s.items.map(i => ({ itemId: i.id, kind: 'stock', documentId: '', reference: i.sku, date: '',
-    left: max(0n, onHand(s, i.id) - s.reservations.filter(r => r.itemId === i.id).reduce((n, r) => n + r.quantity, 0n)) }))
+    left: max(0n, usableOnHand(s, i.id) - s.reservations.filter(r => r.itemId === i.id).reduce((n, r) => n + r.quantity, 0n)) }))
   for (const p of s.purchaseOrders) if (['approved', 'confirmed', 'part received'].includes(p.status))
     for (const l of p.lines) pools.push({ itemId: l.itemId, kind: 'purchase', documentId: p.id, reference: p.reference, date: p.expectedDate,
       left: max(0n, decimal(l.quantity) - decimal(l.received)) })

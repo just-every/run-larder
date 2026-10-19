@@ -5,6 +5,7 @@ import type { Larder } from './app'
 import { Card, Chip, Choose, Details, Empty, Field, Form, Lines, Table, options, readLines, text } from './controls'
 import { day, isZero, minus, money, negative, perUnit, plus, positive, qty, timesMoney, unitLabel, words } from './format'
 import { NeedsList } from './needs'
+import { FefoPick } from './lot-expiry'
 import { OrderChanges } from './order-changes'
 import { commercialValue } from './order-value'
 import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
@@ -91,15 +92,16 @@ function OrderWorkspace({ larder, order }: { larder: Larder; order: Rec }) {
       <Card title="Pick, pack and ship" className="pick"><span id="pick" />
         {shipments.length === 0 && <Empty>Nothing picked yet.</Empty>}
         {shipments.map(x => <article key={x.id} className="shipment"><h3>{x.reference} <Chip tone={x.status === 'shipped' ? 'good' : ['reversed', 'cancelled'].includes(x.status) ? 'bad' : 'info'}>{words(x.status)}</Chip></h3>
-          <ul>{x.lines.map((l: any, i: number) => <li key={i}>{qty(l.quantity)} {itemName(s, l.itemId)} from {locationName(s, l.locationId)}</li>)}</ul>
+          <ul>{x.lines.map((l: any, i: number) => <li key={i}>{qty(l.quantity)} {itemName(s, l.itemId)} from {locationName(s, l.locationId)}{l.lotId && `, lot ${rows(s, 'lots').find(x => x.id === l.lotId)?.code ?? ''}`}</li>)}</ul>
           {x.commercialTerms && <Details label="Shipment commercial terms" value={x.commercialTerms} s={s} />}{x.status === 'shipped' && <p className="muted">{x.carrier}{x.tracking && ` · ${x.tracking}`}</p>}
           <ShipmentCertificates shipment={x} />
           {warehouse && x.status === 'picked' && <Form submit="Mark packed" busy={busy} onSubmit={d => run('shipment.pack', { shipmentId: x.id, version: x.version, packages: Number(text(d, 'packages')), weightKg: text(d, 'weightKg') || '0' })}><Field label="Packages" name="packages" type="number" min="1" defaultValue="1" /><Field label="Weight (kg)" name="weightKg" inputMode="decimal" required={false} /></Form>}
           {warehouse && ['picked', 'packed'].includes(x.status) && <Form title={`Undo ${x.reference} pick`} submit="Undo pick" quiet busy={busy} note="Use before dispatch. Stock and reservations stay with the order; record a separate cancellation to release them." onSubmit={d => run('shipment.unpick', { shipmentId: x.id, version: x.version, reason: text(d, 'reason') })}><Field label="Reason for undoing pick" name="reason" /></Form>}
           {warehouse && x.status === 'packed' && <Form submit="Ship" busy={busy} onSubmit={d => run('shipment.ship', { shipmentId: x.id, version: x.version, carrier: text(d, 'carrier'), tracking: text(d, 'tracking') })}><Field label="Carrier" name="carrier" /><Field label="Tracking" name="tracking" required={false} /></Form>}
         </article>)}
-        {open && warehouse && reservations.length > 0 && <Form title="Pick reserved stock" submit="Pick" busy={busy} onSubmit={d => run('shipment.pick', { orderId: order.id, lines: reservations.map(r => ({ lineId: r.lineId, locationId: r.locationId, quantity: text(d, r.id) })).filter(l => l.quantity && !isZero(l.quantity)) })}>
+        {open && warehouse && reservations.length > 0 && <Form title="Pick reserved stock" submit="Pick" busy={busy} onSubmit={d => run('shipment.pick', { orderId: order.id, lines: reservations.map(r => ({ lineId: r.lineId, locationId: r.locationId, quantity: text(d, r.id), lotId: ['', 'fefo'].includes(text(d, `lot.${r.id}`)) ? undefined : text(d, `lot.${r.id}`) })).filter(l => l.quantity && !isZero(l.quantity)) })}>
           {reservations.map(r => <Field key={`${r.id}:${r.quantity}`} label={`${itemName(s, r.itemId)} at ${locationName(s, r.locationId)} (reserved ${qty(r.quantity)})`} name={r.id} defaultValue={r.quantity} inputMode="decimal" required={false} />)}
+          {reservations.map(r => <FefoPick key={`fefo:${r.id}`} s={s} orderId={order.id} reservation={r} />)}
         </Form>}
         {open && reservations.length === 0 && <Empty>Reserve stock before picking.</Empty>}
       </Card>

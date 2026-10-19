@@ -8,6 +8,7 @@ import { decimal, format } from './decimal'
 import { fail } from './problem'
 import { allow, approver } from './roles'
 import { availableAt, balance, move, withdraw } from './stock'
+import { lotDates } from './lot-dates'
 import { bump, date, fresh, get, list, nextReference, oneOf, optionalText, row, text, type Context, type Row } from './model'
 
 export const valuationBases = ['supplier-invoice', 'last-purchase', 'standard-cost', 'owner-estimate'] as const
@@ -28,8 +29,8 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
         requireCatalogLot(item, line.lot)
         const controlled = requiredTypes(c.s, item.id).length > 0
         if (controlled) text(line.lot, 'lot required for controlled certificates', 80)
-        const lot = optionalText(line.lot, 'lot', 80)
-        const lotRow = lot ? row(c, 'lots', { itemId: item.id, code: lot, supplierId: null, source: 'opening', documentId: opening.id, status: controlled ? 'quarantined' : 'released' }) : null
+        const lot = optionalText(line.lot, 'lot', 80), dates = lotDates(line.dates, lot, c.now.slice(0, 10))
+        const lotRow = lot ? row(c, 'lots', { itemId: item.id, code: lot, supplierId: null, source: 'opening', documentId: opening.id, status: controlled ? 'quarantined' : 'released', ...dates }) : null
         move(c, { itemId: item.id, locationId: location.id, status: controlled ? 'quarantine' : 'available', lotId: lotRow?.id, quantity, unitCost, kind: 'opening', documentKind: 'openings', documentId: opening.id, reason: `Opening count ${countedOn} (${basis})` })
         opening.lines.push({ itemId: item.id, quantity: format(quantity), unitCost: format(unitCost), lotId: lotRow?.id ?? '' })
       }

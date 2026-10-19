@@ -8,6 +8,7 @@ import { decimal, format, max } from './decimal'
 import { fail } from './problem'
 import { allow } from './roles'
 import { consume, release, reserve, reservedQuantity, withdraw } from './stock'
+import { dated, pickLots, shipBlock } from './lot-dates'
 import { bump, date, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Row } from './model'
 
 export function quoteLines(c: Context, lines: unknown) {
@@ -82,14 +83,15 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
       const order = get(c.s, 'salesOrders', p.orderId, 'order')
       if (!['confirmed', 'part shipped'].includes(order.status)) fail('STATE', 'Only a confirmed order can be picked.')
       const selecting = new Map<string, bigint>()
-      const lines = list(p.lines).map((l: any) => {
+      const lines = list(p.lines).flatMap((l: any) => {
         const line = lineOf(order, l.lineId), item = get(c.s, 'items', line.itemId, 'item'), location = get(c.s, 'locations', l.locationId, 'location')
         const q = toBase(item, l.quantity, l.unit)
         const reservedHere = c.s.reservations.find(r => r.demandId === order.id && r.lineId === line.id && r.locationId === location.id)?.quantity ?? 0n
         const selectionKey = `${line.id}:${location.id}`, selected = selecting.get(selectionKey) ?? 0n
         if (pickedQuantity(c.s, order.id, line.id, location.id) + selected + q > reservedHere) fail('NOT_RESERVED', `Only ${format(reservedHere - pickedQuantity(c.s, order.id, line.id, location.id))} ${item.baseUnit} of ${item.name} is reserved at ${location.name} and not yet picked.`)
         selecting.set(selectionKey, selected + q)
-        return { lineId: line.id, itemId: item.id, unitPrice: line.unitPrice, promisedSchedules: commercialSnapshot(order).lines.find((snapshot: any) => snapshot.id === line.id)?.schedules, locationId: location.id, lotId: l.lotId ? get(c.s, 'lots', l.lotId, 'lot').id : '', quantity: format(q) }
+        const promisedSchedules = commercialSnapshot(order).lines.find((snapshot: any) => snapshot.id === line.id)?.schedules
+        return pickLots(c, order, item.id, location.id, q, l.lotId ? get(c.s, 'lots', l.lotId, 'lot').id : '').map(x => ({ lineId: line.id, itemId: item.id, unitPrice: line.unitPrice, promisedSchedules, locationId: location.id, lotId: x.lotId, quantity: format(x.quantity) }))
       })
       return row(c, 'shipments', { reference: nextReference(c.s.shipments, 'SH'), orderId: order.id, lines, commercialTerms: { billingAddress: order.billingAddress ?? '', shippingAddress: order.shippingAddress ?? '', customerReference: order.customerReference, promiseDate: order.promiseDate, commercialRevision: order.commercialRevision ?? 1, orderVersion: order.version, recordedAt: c.now }, status: 'picked', packages: 0, weightKg: '0', carrier: '', tracking: '' })
     }
@@ -113,6 +115,8 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
       const order = get(c.s, 'salesOrders', shipment.orderId, 'order')
       for (const l of shipment.lines) {
         const q = decimal(l.quantity), line = lineOf(order, l.lineId)
+        const shelf = dated(c.s, l.itemId, order.customerId) ? shipBlock(c.s, l.lotId, c.now.slice(0, 10), order.customerId) : ''
+        if (shelf) fail('FEFO_INELIGIBLE', `${shipment.reference} cannot ship lot ${c.s.lots.find(lot => lot.id === l.lotId)?.code ?? 'unlotted'}: ${shelf}. Undo the pick and pick an eligible lot.`, { lotId: l.lotId })
         consume(c, order.id, l.lineId, l.locationId, q)
         const movements = withdraw(c, { itemId: l.itemId, locationId: l.locationId, status: 'available', lotId: l.lotId, quantity: -q, kind: 'shipment', documentKind: 'shipments', documentId: shipment.id, reason: `Shipped on ${order.reference}` })
         l.certificates = movements.map(m => ({ movementId: m.id, itemId: m.itemId, lotId: m.lotId, lot: c.s.lots.find(lot => lot.id === m.lotId)?.code ?? '', sku: get(c.s, 'items', m.itemId).sku, quantity: format(-m.quantity), documents: structuredClone(approvedCertificates(c.s, m.itemId, m.lotId, c.now.slice(0, 10), order.customerId)) }))

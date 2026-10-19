@@ -2,6 +2,7 @@ import { Certificates } from './certificates'
 import { can, itemName, locationName, personName, rows, sku, type LarderState } from './api'
 import type { Larder } from './app'
 import { CountSessions } from './counts'
+import { LotDateFields, LotExpiry, readLotDates } from './lot-expiry'
 import { Card, Chip, Choose, Empty, Field, Form, Table, fileBase64, options, readLines, text } from './controls'
 import { plus, qty, when, words } from './format'
 
@@ -22,8 +23,9 @@ export function Stock({ larder }: { larder: Larder }) {
     <header className="page-head"><p className="eyebrow">Stock</p><h1>Stock on hand</h1><p className="meta">Every quantity is the sum of its recorded movements. Reserved stock cannot be moved or sold twice.</p></header>
     <CountSessions larder={larder} />
     <Certificates larder={larder} />
+    <LotExpiry larder={larder} />
     <Card title="By item">{s.availability.length === 0 ? <Empty>No items yet. Add items under More → Items, contacts and locations, or move them in from Odoo.</Empty> :
-      <Table head={['Item', 'On hand', 'Reserved', 'Available', 'Quarantine', 'Expected', 'To promise']} numeric={[1, 2, 3, 4, 5, 6]}>{s.availability.map((a: any) => <tr key={a.itemId}><td><strong>{itemName(s, a.itemId)}</strong><small>{sku(s, a.itemId)}</small></td><td className="num">{qty(a.onHand)}</td><td className="num">{qty(a.reserved)}</td><td className="num">{qty(a.available)}</td><td className="num">{qty(a.quarantine)}</td><td className="num">{qty(plus(a.expectedPurchase, a.expectedProduction))}</td><td className="num"><strong>{qty(a.availableToPromise)}</strong></td></tr>)}</Table>}
+      <Table head={['Item', 'On hand', 'Reserved', 'Expired', 'Available', 'Quarantine', 'Expected', 'To promise']} numeric={[1, 2, 3, 4, 5, 6, 7]}>{s.availability.map((a: any) => <tr key={a.itemId}><td><strong>{itemName(s, a.itemId)}</strong><small>{sku(s, a.itemId)}</small></td><td className="num">{qty(a.onHand)}</td><td className="num">{qty(a.reserved)}</td><td className="num">{qty(a.expired)}</td><td className="num">{qty(a.available)}</td><td className="num">{qty(a.quarantine)}</td><td className="num">{qty(plus(a.expectedPurchase, a.expectedProduction))}</td><td className="num"><strong>{qty(a.availableToPromise)}</strong></td></tr>)}</Table>}
     </Card>
     <Card title="By location">{s.positions.length === 0 ? <Empty>No stock recorded yet. Record an opening count below.</Empty> :
       <Table head={['Location', 'Item', 'Lot', 'Status', 'Quantity']} numeric={[4]}>{s.positions.map((p: any, i: number) => <tr key={i}><td>{locationName(s, p.locationId)}</td><td>{itemName(s, p.itemId)}</td><td>{lot(p.lotId) ?? '—'}</td><td><Chip tone={p.status === 'quarantine' ? 'warn' : 'good'}>{words(p.status)}</Chip></td><td className="num">{qty(p.quantity)}</td></tr>)}</Table>}
@@ -33,7 +35,7 @@ export function Stock({ larder }: { larder: Larder }) {
     {wh && <div className="split">
       <Card title="Opening stock"><Form submit="Record opening count" busy={busy} note="Use once per item and location, before other movements. Later differences are counts." onSubmit={async d => {
         const file = (d.get('evidence') as File | null)
-        return run('opening.record', { locationId: text(d, 'locationId'), countedOn: text(d, 'countedOn'), valuationBasis: text(d, 'valuationBasis'), countedBy: text(d, 'countedBy'), evidence: file && file.size ? { name: file.name, contentType: file.type || 'application/octet-stream', base64: await fileBase64(file) } : undefined, lines: readLines(d).map(l => ({ itemId: l.itemId, quantity: l.quantity, unitCost: l.unitPrice ?? '0', lot: l.lot })) })
+        return run('opening.record', { locationId: text(d, 'locationId'), countedOn: text(d, 'countedOn'), valuationBasis: text(d, 'valuationBasis'), countedBy: text(d, 'countedBy'), evidence: file && file.size ? { name: file.name, contentType: file.type || 'application/octet-stream', base64: await fileBase64(file) } : undefined, lines: readLines(d).map((l, i) => ({ itemId: l.itemId, quantity: l.quantity, unitCost: l.unitPrice ?? '0', lot: l.lot, dates: readLotDates(d, `dates.${i}.`) })) })
       }}>
         <Choose label="Location" name="locationId" options={locs} /><Field label="Counted on" name="countedOn" type="date" /><Field label="Counted by" name="countedBy" />
         <Choose label="Valuation basis" name="valuationBasis" options={[{ value: 'supplier-invoice', label: 'Supplier invoices' }, { value: 'last-purchase', label: 'Last purchase price' }, { value: 'standard-cost', label: 'Standard cost' }, { value: 'owner-estimate', label: 'Owner estimate' }]} />
@@ -56,6 +58,6 @@ export function Stock({ larder }: { larder: Larder }) {
 function OpeningLines({ items }: { items: { value: string; label: string }[] }) {
   return <fieldset className="lines wide"><legend>Counted lines</legend>{[0, 1, 2].map(i => <div className="line" key={i}>
     <Choose label={`Item ${i + 1}`} name={`lines.${i}.itemId`} options={items} required={i === 0} /><Field label="Quantity" name={`lines.${i}.quantity`} inputMode="decimal" required={false} />
-    <Field label="Unit cost" name={`lines.${i}.unitPrice`} inputMode="decimal" required={false} /><Field label="Lot" name={`lines.${i}.lot`} required={false} /></div>)}</fieldset>
+    <Field label="Unit cost" name={`lines.${i}.unitPrice`} inputMode="decimal" required={false} /><Field label="Lot" name={`lines.${i}.lot`} required={false} /><LotDateFields prefix={`dates.${i}.`} /></div>)}</fieldset>
 }
 
