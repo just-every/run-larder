@@ -1,8 +1,40 @@
 // ENG-002: execution refers only to the released instruction snapshot.
-import { assertEquipmentAvailable } from './maintenance-availability'
+import { activeMaintenance, assertEquipmentAvailable } from './maintenance-availability'
 import { allow } from './roles'
 import { fail } from './problem'
-import { bump, fresh, get, text, type Context, type Row } from './model'
+import { bump, fresh, get, text, type Actor, type Context, type Row, type State } from './model'
+
+type Gate = { code: string; message: string }
+
+// The read projection and the command share actual start gates. Form inputs
+// (station, chosen center and reason) are validated only when submitted.
+export function operationStartGates(s: Pick<State, 'maintenance'>, actor: Pick<Actor, 'id' | 'role'>, w: Row, step: any, now: string, workCentre?: string): Gate[] {
+  const states: any[] = w.operationStates ?? []
+  const task = states.find(t => t.sequence === step.sequence)
+  const predecessors: number[] = step.dependsOn ?? (step.sequence > 1 ? [step.sequence - 1] : [])
+  const blocked = predecessors.filter(n => !states.some(t => t.sequence === n && t.status === 'done'))
+  const centres: string[] = step.eligibleCentres?.length ? step.eligibleCentres : step.workCentre ? [step.workCentre] : []
+  return [
+    ...(!['owner', 'manager', 'production'].includes(actor.role) ? [{ code: 'FORBIDDEN', message: 'Your current role cannot execute operations.' }] : []),
+    ...(w.status !== 'released' ? [{ code: 'STATE', message: 'Operate only on released work.' }] : []),
+    ...(task && task.status !== 'pending' ? [{ code: 'STATE', message: task.status === 'done' ? 'This operation is complete.' : 'This operation has already started.' }] : []),
+    ...(blocked.length ? [{ code: 'DEPENDENCY', message: `Complete predecessor operation ${blocked.join(', ')} first.` }] : []),
+    ...((step.instructions || step.drawings?.length) && !task?.acknowledgments?.some((a: any) => a.by === actor.id && a.bomId === w.bomId) ? [{ code: 'ACKNOWLEDGMENT', message: 'Read and acknowledge this job’s pinned instructions and drawings before starting.' }] : []),
+    ...(task?.assignment && task.assignment.operatorId !== actor.id ? [{ code: 'ASSIGNMENT', message: 'Only the assigned person can start this operation.' }] : []),
+    ...(step.requiredSkills?.length && !task?.assignment ? [{ code: 'SKILLS', message: 'A manager must authorize a named person for these skill requirements before starting.' }] : []),
+    ...(!step.requiredSkills?.length && !task?.assignment ? [{ code: 'ASSIGNMENT', message: 'A manager must assign a named operator before starting.' }] : []),
+    ...(workCentre && centres.length && !centres.includes(workCentre) ? [{ code: 'WORK_CENTER', message: 'Choose an eligible work center from the pinned routing.' }] : []),
+    ...((workCentre ? activeMaintenance(s, workCentre, now).length > 0 : centres.length > 0 && centres.every(center => activeMaintenance(s, center, now).length > 0)) ? [{ code: 'MAINTENANCE', message: 'Eligible equipment is unavailable until maintenance release.' }] : []),
+  ]
+}
+
+export function dispatchTasks(s: State, actor: Actor, now = new Date().toISOString()) {
+  return s.workOrders.filter(w => w.status === 'released').flatMap(w => w.routing.map((step: any) => {
+    const task = w.operationStates?.find((t: any) => t.sequence === step.sequence)
+    const gates = operationStartGates(s, actor, w, step, now)
+    return { workOrderId: w.id, version: w.version, sequence: step.sequence, operatorId: task?.assignment?.operatorId ?? null, status: task?.status ?? 'pending', ready: (!task || task.status === 'pending') && gates.length === 0, gates, asOf: now }
+  }))
+}
 
 export function operations(c: Context, type: string, p: any): Row | undefined {
   if (!['wo.operation.acknowledge', 'wo.operation.assign', 'wo.operation.start', 'wo.operation.complete'].includes(type)) return
@@ -18,26 +50,28 @@ export function operations(c: Context, type: string, p: any): Row | undefined {
     if (p.bomId !== w.bomId) fail('STALE', 'Acknowledge the exact pinned instruction revision.')
     if (!task.acknowledgments.some((a: any) => a.by === c.actor.id && a.bomId === w.bomId)) task.acknowledgments.push({ by: c.actor.id, at: c.now, bomId: w.bomId })
   } else if (type === 'wo.operation.assign') {
-    if (task.status !== 'pending') fail('STATE', 'Assign a person before starting the operation.')
-    task.assignment = { operatorId: text(p.operatorId, 'operator'), by: c.actor.id, at: c.now, skills: [...(step.requiredSkills ?? [])], bomId: w.bomId }
+    const operatorId = text(p.operatorId, 'operator')
+    const legacy = ['running', 'paused'].includes(task.status) && !task.assignment && Boolean(task.startedBy)
+    if (task.status !== 'pending' && !legacy) fail('STATE', 'Assign a person before starting the operation.')
+    if (legacy && operatorId !== task.startedBy) fail('ASSIGNMENT', 'Record the existing starter as the operator of this legacy active task.')
+    const reason = legacy ? text(p.reason, 'legacy assignment reason') : ''
+    task.assignment = { operatorId, by: c.actor.id, at: c.now, skills: [...(step.requiredSkills ?? [])], bomId: w.bomId, ...(legacy ? { legacy: true, reason } : {}) }
+    task.assignmentHistory = [...(task.assignmentHistory ?? []), structuredClone(task.assignment)]
   } else if (type === 'wo.operation.start') {
-    if (task.status !== 'pending') fail('STATE', 'This operation has already started.')
-    const predecessors = step.dependsOn ?? (step.sequence > 1 ? [step.sequence - 1] : [])
-    const blocked = predecessors.filter((n: number) => !w.operationStates.some((r: any) => r.sequence === n && r.status === 'done'))
-    if (blocked.length) fail('DEPENDENCY', `Complete predecessor operation ${blocked.join(', ')} first.`, { predecessors: blocked })
-    if ((step.instructions || step.drawings?.length) && !task.acknowledgments.some((a: any) => a.by === c.actor.id && a.bomId === w.bomId)) fail('ACKNOWLEDGMENT', 'Read and acknowledge this job’s pinned instructions and drawings before starting.')
-    if (task.assignment && task.assignment.operatorId !== c.actor.id) fail('ASSIGNMENT', 'Only the assigned person can start this operation.')
-    if (step.requiredSkills?.length && !task.assignment) fail('SKILLS', 'A manager must authorize a named person for these skill requirements before starting.')
+    const gate = operationStartGates(c.s, c.actor, w, step, c.now, typeof p.workCentre === 'string' ? p.workCentre.trim() : undefined)[0]
+    if (gate) fail(gate.code, gate.message)
     const workCentre = text(p.workCentre, 'work center', 120)
-    const eligible = step.eligibleCentres ?? (step.workCentre ? [step.workCentre] : [])
-    if (eligible.length && !eligible.includes(workCentre)) fail('WORK_CENTER', 'Choose an eligible work center from the pinned routing.')
-    assertEquipmentAvailable(c.s, workCentre, c.now)
-    Object.assign(task, { status: 'running', startedBy: c.actor.id, startedAt: c.now, workCentre })
+    const station = text(p.station, 'station', 120), reason = text(p.reason, 'start reason')
+    Object.assign(task, { status: 'running', startedBy: c.actor.id, startedAt: c.now, workCentre, station, startReason: reason })
+    task.events = [...(task.events ?? []), { type: 'started', by: c.actor.id, operatorId: c.actor.id, at: c.now, workCentre, station, reason }]
   } else {
     assertEquipmentAvailable(c.s, task.workCentre, c.now)
     if (task.status !== 'running') fail('STATE', 'Start this operation before completing it.')
     if (task.startedBy !== c.actor.id) fail('ASSIGNMENT', 'The person who started this operation must complete it.')
-    Object.assign(task, { status: 'done', completedBy: c.actor.id, completedAt: c.now })
+    if (task.assignment?.operatorId !== c.actor.id) fail('ASSIGNMENT', 'Only the assigned person can complete this operation. A manager must record the existing starter for a legacy active task.')
+    const reason = text(p.reason, 'completion reason')
+    Object.assign(task, { status: 'done', completedBy: c.actor.id, completedAt: c.now, completionReason: reason })
+    task.events = [...(task.events ?? []), { type: 'completed', by: c.actor.id, operatorId: c.actor.id, at: c.now, workCentre: task.workCentre, station: task.station ?? null, reason }]
   }
   return bump(w, {})
 }

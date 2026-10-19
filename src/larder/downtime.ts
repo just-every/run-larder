@@ -46,7 +46,8 @@ export function downtime(c: Context, type: string, p: any): Row | undefined {
     if (Date.parse(anticipatedResumeAt) < Date.parse(c.now)) fail('INPUT', 'Anticipated resume time cannot be before now.')
     const last = intervals.at(-1)
     if (last && Date.parse(last.stoppedAt) > Date.parse(c.now)) fail('STATE', 'A new pause cannot overlap an earlier downtime interval.')
-    task.downtime = [...intervals, { id: newId(), commandId: c.commandId, reason, note, startedAt: c.now, startedBy: c.actor.id, escalationOwnerId, anticipatedResumeAt, notification: 'recorded in app' }]
+    task.downtime = [...intervals, { id: newId(), commandId: c.commandId, reason, note, startedAt: c.now, startedBy: c.actor.id, operatorId: task.startedBy, station: task.station ?? null, workCentre: task.workCentre, escalationOwnerId, anticipatedResumeAt, notification: 'recorded in app' }]
+    task.events = [...(task.events ?? []), { type: 'paused', downtimeId: task.downtime.at(-1).id, reason, note, by: c.actor.id, operatorId: task.startedBy, station: task.station ?? null, workCentre: task.workCentre, at: c.now }]
     task.status = 'paused'
   } else if (type === 'wo.operation.resume') {
     assertEquipmentAvailable(c.s, task.workCentre, c.now)
@@ -55,7 +56,7 @@ export function downtime(c: Context, type: string, p: any): Row | undefined {
     if (Date.parse(c.now) < Date.parse(interval.startedAt)) fail('STATE', 'Resume time cannot precede the recorded pause.')
     const reason = text(p.reason, 'resume reason')
     Object.assign(interval, { stoppedAt: c.now, stoppedBy: c.actor.id, resumeReason: reason })
-    task.events = [...(task.events ?? []), { type: 'resumed', downtimeId: interval.id, reason, by: c.actor.id, at: c.now }]
+    task.events = [...(task.events ?? []), { type: 'resumed', downtimeId: interval.id, reason, by: c.actor.id, operatorId: task.startedBy, station: task.station ?? null, workCentre: task.workCentre, at: c.now }]
     task.status = 'running'
   } else {
     const completed = decimal(p.completedQuantity, 'completed quantity')

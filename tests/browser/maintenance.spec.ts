@@ -34,6 +34,8 @@ test('CAP-009 schedule maintenance, log breakdown, assign repair/ETA, inspect re
   const item = await command(page, 'item.save', { sku: `BRACKET-${tag}`, name: `Ohio bracket ${tag}`, kind: 'make', baseUnit: 'each' })
   await command(page, 'bom.revise', { itemId: item.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'Machine bracket', workCentre: center, minutes: 45 }, { name: 'Finish bracket', workCentre: `Bench ${tag}`, minutes: 10 }] })
   let work = await command(page, 'wo.draft', { itemId: item.id, quantity: '4', requiredBy: today, reason: 'Customer brackets' }); work = await command(page, 'wo.release', { workOrderId: work.id, version: work.version })
+  const dispatchActor = (await (await page.request.get(origin + '/api/larder/state')).json()).actor
+  work = await command(page, 'wo.operation.assign', { workOrderId: work.id, version: work.version, sequence: 1, operatorId: dispatchActor.id })
   const next = await command(page, 'wo.draft', { itemId: item.id, quantity: '2', requiredBy: today, reason: 'Following customer order' })
   const before = await planTimes(page, work.reference)
   const card = page.getByRole('heading', { name: 'Equipment maintenance', exact: true }).locator('../..')
@@ -105,6 +107,8 @@ test('CAP-009 schedule maintenance, log breakdown, assign repair/ETA, inspect re
   expect(Date.parse((await recovery.getAttribute('datetime'))!)).toBeGreaterThanOrEqual(Date.parse(pm.expectedReturnAt))
   await shots(page, 'preventive', card)
   await page.goto(origin + `/app#make/wo/${work.id}`); await settled(page)
+  await page.getByLabel('Step 1 station', { exact: true }).fill('Shared fabrication tablet')
+  await page.getByLabel('Step 1 start reason', { exact: true }).fill('Assigned job ready after equipment check')
   await page.getByRole('button', { name: 'Start step 1', exact: true }).click(); await settled(page)
   await expect(page.getByRole('region', { name: 'Pinned operation tasks', exact: true })).toContainText('Started by')
   await shots(page, 'available-work', page.getByRole('region', { name: 'Pinned operation tasks', exact: true }))

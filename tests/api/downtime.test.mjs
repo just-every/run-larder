@@ -10,7 +10,8 @@ test('FLOOR-007 broken-tool pause, supervisor notice/ack, real intervals, progre
   await h.command('bom.revise', { itemId: product.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'Drill', workCentre: 'Drill press', minutes: 2 }, { name: 'Deburr', workCentre: 'Bench', minutes: 1 }] })
   let work = await h.command('wo.draft', { itemId: product.id, quantity: '10', requiredBy: '2026-12-10', reason: 'Customer plates' })
   work = await h.command('wo.release', { workOrderId: work.id, version: work.version })
-  const start = { workOrderId: work.id, version: work.version, sequence: 1, workCentre: 'Drill press' }
+  work = await h.command('wo.operation.assign', { workOrderId: work.id, version: work.version, sequence: 1, operatorId: operator.id })
+  const start = { workOrderId: work.id, version: work.version, sequence: 1, workCentre: 'Drill press', station: 'Fabrication tablet', reason: 'Assigned production work' }
   work = await operator.run('wo.operation.start', start)
   const before = await h.state(), resume = new Date(Date.now() + 2 * 86400000).toISOString()
   const pausePayload = { workOrderId: work.id, version: work.version, sequence: 1, reason: 'breakdown', note: 'Drill bit snapped; replacement tool required', escalationOwnerId: manager.id, anticipatedResumeAt: resume }
@@ -27,7 +28,7 @@ test('FLOOR-007 broken-tool pause, supervisor notice/ack, real intervals, progre
   assert.equal(interval.notification, 'recorded in app'); assert.equal(interval.escalationOwnerId, manager.id)
   assert.equal(interval.anticipatedResumeAt, resume)
   await operator.run('wo.operation.pause', { ...pausePayload, version: work.version }, { error: 'STATE' })
-  await operator.run('wo.operation.complete', { workOrderId: work.id, version: work.version, sequence: 1 }, { error: 'STATE' })
+  await operator.run('wo.operation.complete', { workOrderId: work.id, version: work.version, sequence: 1, reason: 'Inspected operation complete' }, { error: 'STATE' })
   await operator.run('wo.operation.start', { workOrderId: work.id, version: work.version, sequence: 2, workCentre: 'Bench' }, { error: 'DEPENDENCY' })
   let state = await h.state(manager.cookie), report = state.lostTimeReport.find(d => d.id === interval.id)
   assert.equal(report.status, 'open'); assert.equal(report.operationStatus, 'paused'); assert.equal(report.workOrderReference, work.reference)
@@ -75,7 +76,7 @@ test('FLOOR-007 broken-tool pause, supervisor notice/ack, real intervals, progre
   const recordedPause = await operator.run('wo.operation.pause', pausePayload, { commandId: identity })
   assert.equal(recordedPause.operationStates[0].downtime.length, 1)
   assert.equal(recordedPause.operationStates[0].downtime[0].id, interval.id)
-  work = await operator.run('wo.operation.complete', { workOrderId: work.id, version: work.version, sequence: 1 })
+  work = await operator.run('wo.operation.complete', { workOrderId: work.id, version: work.version, sequence: 1, reason: 'Inspected operation complete' })
   assert.equal(work.operationStates[0].status, 'done'); assert.equal(work.output, '0')
   const archive = await (await h.request('/api/larder/archive')).json()
   assert.deepEqual(archive.records.workOrders.find(w => w.id === work.id).operationStates, work.operationStates)

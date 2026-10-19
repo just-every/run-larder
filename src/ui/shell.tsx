@@ -9,7 +9,7 @@ import { clock, dayName, words } from './format'
 
 export type Mode = 'day' | 'week'
 
-async function signOut() {
+export async function signOut() {
   await fetch('/auth/signout', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: '{}' })
   window.location.href = '/signin'
 }

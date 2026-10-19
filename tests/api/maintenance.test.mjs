@@ -22,7 +22,8 @@ test('CAP-009 preventive maintenance and breakdowns retain repair/CMMS evidence,
   await manager.run('maintenance.create', { ...payload, note: 'Changed intent' }, { commandId, error: 'IDEMPOTENCY' })
   assert.equal(m.kind, 'breakdown'); assert.equal(m.status, 'unreleased'); assert.equal(m.repairOwner, payload.repairOwner); assert.equal(m.cmmsId, payload.cmmsId)
   assert.ok(Date.parse(m.startsAt) <= Date.now()); assert.equal(m.history[0].note, payload.note)
-  const start = { workOrderId: work.id, version: work.version, sequence: 1, workCentre: 'Drill press' }
+  work = await h.command('wo.operation.assign', { workOrderId: work.id, version: work.version, sequence: 1, operatorId: operator.id })
+  const start = { workOrderId: work.id, version: work.version, sequence: 1, workCentre: 'Drill press', station: 'Fabrication tablet', reason: 'Assigned production work' }
   await operator.run('wo.operation.start', start, { error: 'MAINTENANCE' })
   await manager.run('maintenance.release', { maintenanceId: m.id, version: m.version, note: 'No evidence' }, { error: 'EVIDENCE' })
   const old = m
@@ -50,9 +51,9 @@ test('CAP-009 preventive maintenance and breakdowns retain repair/CMMS evidence,
   const preventive = await h.command('maintenance.create', { ...payload, kind: 'preventive', startsAt: new Date(Date.now() + 1000).toISOString(), expectedReturnAt: new Date(Date.now() + 3600000).toISOString(), note: 'Scheduled lubrication' })
   await h.command('maintenance.release', { maintenanceId: preventive.id, version: preventive.version, note: repair, evidence: evidence(repair) }, { error: 'STATE' })
   await new Promise(resolve => setTimeout(resolve, 1100))
-  await operator.run('wo.operation.complete', { workOrderId: work.id, version: work.version, sequence: 1 }, { error: 'MAINTENANCE' })
+  await operator.run('wo.operation.complete', { workOrderId: work.id, version: work.version, sequence: 1, reason: 'Inspected operation complete' }, { error: 'MAINTENANCE' })
   await h.command('maintenance.release', { maintenanceId: preventive.id, version: preventive.version, note: 'Lubricated and inspected', evidence: evidence('PM inspection') })
-  work = await operator.run('wo.operation.complete', { workOrderId: work.id, version: work.version, sequence: 1 })
+  work = await operator.run('wo.operation.complete', { workOrderId: work.id, version: work.version, sequence: 1, reason: 'Inspected operation complete' })
   assert.equal(work.operationStates[0].status, 'done'); assert.equal(work.output, '0'); assert.equal(work.requiredBy, '2026-12-01')
   const after = await h.invariant()
   assert.deepEqual(after.movements, before.movements); assert.deepEqual(after.reservations, before.reservations)

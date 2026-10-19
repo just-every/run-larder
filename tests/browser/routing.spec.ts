@@ -1,3 +1,4 @@
+import { drawing } from './drawing'
 import { test, expect, type Page } from '@playwright/test'
 import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -13,17 +14,6 @@ async function shot(page: Page, stage: string) {
   await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true })
   await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-ENG-002-${stage}.png`), fullPage: true })
 }
-// A genuine one-page dimensioned drawing, uploaded and downloaded through the app.
-function drawing(label: string) {
-  const stream = `BT /F1 18 Tf 50 740 Td (${label}) Tj ET\n50 600 240 70 re S\nBT /F1 12 Tf 70 570 Td (Hole spacing 3 inches. Deburr all edges.) Tj ET`
-  const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>', `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`]
-  let pdf = '%PDF-1.4\n', offsets = [0]
-  objects.forEach((object, i) => { offsets.push(Buffer.byteLength(pdf)); pdf += `${i + 1} 0 obj\n${object}\nendobj\n` })
-  const xref = Buffer.byteLength(pdf)
-  pdf += `xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(n => `${String(n).padStart(10, '0')} 00000 n \n`).join('')}trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
-  return Buffer.from(pdf)
-}
-
 test('ENG-002 author routing, open tablet tasks/drawing, execute dependencies and retain instructions after revision at 1440/390', async ({ page }) => {
   if (!process.env.LARDER_OPEN) throw new Error('A private local owner entry is required.')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
@@ -77,10 +67,19 @@ test('ENG-002 author routing, open tablet tasks/drawing, execute dependencies an
   await tasks.getByRole('button', { name: 'Authorize step 1 operator', exact: true }).click()
   await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false')
   await tasks.getByLabel('Step 1 work center', { exact: true }).selectOption('Router 2')
+  await tasks.getByLabel('Step 1 station', { exact: true }).fill('Shared router tablet')
+  await tasks.getByLabel('Step 1 start reason', { exact: true }).fill('Fixture A and guards checked')
   await tasks.getByRole('button', { name: 'Start step 1', exact: true }).click()
+  await tasks.getByLabel('Step 1 completion reason', { exact: true }).fill('Machined to pinned drawing')
   await tasks.getByRole('button', { name: 'Complete step 1', exact: true }).click()
   await tasks.getByRole('button', { name: 'Acknowledge step 2 instructions and drawings' }).click()
+  await tasks.getByLabel('Step 2 authorized operator', { exact: true }).selectOption(session.actor.id)
+  await tasks.getByRole('button', { name: 'Authorize step 2 operator', exact: true }).click()
+  await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false')
+  await tasks.getByLabel('Step 2 station', { exact: true }).fill('Shared finishing tablet')
+  await tasks.getByLabel('Step 2 start reason', { exact: true }).fill('Machining accepted, finish edges')
   await tasks.getByRole('button', { name: 'Start step 2', exact: true }).click()
+  await tasks.getByLabel('Step 2 completion reason', { exact: true }).fill('All edges deburred and inspected')
   await tasks.getByRole('button', { name: 'Complete step 2', exact: true }).click()
   await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false')
   await page.reload(); await expect(tasks.getByText('Done', { exact: true })).toHaveCount(2)

@@ -133,3 +133,8 @@
   .facts.counts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .facts.counts > div { padding: 10px 12px; }
 }
+
+/* Shared-station controls keep the established shop-floor components usable in gloves. */
+.dispatch :is(button, input, select, summary, a.button) { min-height: 48px; }
+.dispatch summary { display: flex; align-items: center; padding: 10px 0; cursor: pointer; }
+.dispatch .lines { min-width: 0; overflow-wrap: anywhere; }
