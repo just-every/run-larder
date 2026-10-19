@@ -1,5 +1,6 @@
 // What a signed-in person or agent reads: records, formatted ledger, positions,
 // availability, shortages and the exception queue.
+import { orderStatuses } from './order-status'
 import { blindView } from './count-visibility'
 import { availability } from './availability'
 import { format } from './decimal'
@@ -17,6 +18,7 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
   const records = Object.fromEntries(collections.map(k => [k, s[k]]))
   return {
     version: s.version, actor, ...records,
+    orderStatuses: orderStatuses(s),
     movements: s.movements.map(movementView),
     reservations: s.reservations.map(r => ({ ...r, quantity: format(r.quantity) })),
     positions: positions(s),
