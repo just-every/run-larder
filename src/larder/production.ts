@@ -1,5 +1,6 @@
 // Work orders: draft, release (pins the BOM revision and reserves components),
 // material issue, output with scrap, and close with cost variance.
+import { engineeringReleaseBom } from './engineering-policy'
 import { requireCatalogLot } from './catalog-fields'
 import { activeBom } from './bom'
 import { resolvedComponents } from './bom-explosion'
@@ -32,9 +33,9 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
       approver(c, ['manager', 'production'])
       if (w.status !== 'draft') fail('STATE', 'Only a draft work order can be released.')
-      const bom = activeBom(c.s, w.itemId, c.now.slice(0, 10)) ?? fail('NO_BOM', 'Give this item a bill of materials before releasing work.')
+      const bom = engineeringReleaseBom(c, w) ?? activeBom(c.s, w.itemId, c.now.slice(0, 10)) ?? fail('NO_BOM', 'Give this item a bill of materials before releasing work.')
       const quantity = decimal(w.quantity)
-      const resolved = resolvedComponents(c.s, bom, quantity, c.now.slice(0, 10))
+      const resolved = resolvedComponents(c.s, bom, quantity, c.now.slice(0, 10), w.engineeringBomIds)
       const totals = new Map<string, bigint>()
       for (const l of resolved.components) totals.set(l.itemId, (totals.get(l.itemId) ?? 0n) + decimal(l.quantity))
       const components = [...totals].map(([itemId, required]) => ({ id: newId(), itemId, perUnit: format(divide(required, quantity)), required: format(required), supplyRequirements: resolved.components.filter(l => l.itemId === itemId).map(l => ({ supply: l.supply, quantity: l.quantity })), issued: '0' }))

@@ -1,3 +1,4 @@
+import { guardEngineeringRevision } from './engineering-policy'
 import { normalizeRouting } from './routing'
 // Versioned bills of materials with a simple routing. A revision never changes
 // after it is saved; a released work order pins the revision it was made from.
@@ -15,6 +16,13 @@ export const activeBom = (s: State, itemId: string, on = new Date().toISOString(
 export function bom(c: Context, type: string, p: any): Row | undefined {
   if (type !== 'bom.revise') return
   allow(c, ['manager', 'production'])
+  guardEngineeringRevision(c.s, p.itemId)
+  return saveBom(c, p)
+}
+
+// Internal validated revision writer; reviewed engineering approval uses this
+// only after its own exact-state and authority checks.
+export function saveBom(c: Context, p: any): Row {
   const item = get(c.s, 'items', p.itemId, 'item')
   if (item.kind !== 'make') fail('NOT_MADE', `${item.name} is bought, not made. Mark it as made before giving it a bill of materials.`)
   const components = list(p.components, 'components', 200).map((line: any) => {
@@ -25,7 +33,7 @@ export function bom(c: Context, type: string, p: any): Row | undefined {
     return { supply, itemId: component.id, quantity: format(toBase(component, line.quantity, line.unit, `quantity of ${component.name}`)), note: optionalText(line.note, 'note', 200) }
   })
   if (new Set(components.map(l => l.itemId)).size !== components.length) fail('INPUT', 'List each component once per revision.')
-  const routing = normalizeRouting(p.routing ?? [], c.s.boms, c)
+  const routing = normalizeRouting(p.routing ?? [], [...c.s.boms, ...c.s.engineeringChanges.flatMap(e => e.prospectiveBom ? [e.prospectiveBom] : [])], c)
   const effectiveOn = p.effectiveOn === undefined ? c.now.slice(0, 10) : date(p.effectiveOn, 'effective date')
   if (effectiveOn < c.now.slice(0, 10) || new Date(effectiveOn + 'T00:00:00Z').toISOString().slice(0, 10) !== effectiveOn) fail('INPUT', 'A new BOM revision needs a real effective date today or later.')
   const yieldRate = format(decimal(p.yield ?? '1', 'yield', { positive: true }))

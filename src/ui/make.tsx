@@ -89,7 +89,7 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
   return <div className="split">
     <Card title={<>{w.reference} <Chip tone={woTone(w.status)}>{words(w.status)}</Chip></>}>
       {w.bomRevisions?.length > 0 && <p className="muted">Pinned recipes: {w.bomRevisions.map((b: any) => `${itemName(s, b.itemId)} rev ${b.revision} (yield ${b.yield})`).join('; ')}</p>}
-      <p className="meta">Make {qty(w.quantity)} {itemName(s, w.itemId)} by {day(w.requiredBy)}{w.bomRevision && ` · pinned to BOM revision ${w.bomRevision}`}</p><p>{w.reason}</p>
+      <p className="meta">Make {qty(w.quantity)} {itemName(s, w.itemId)} by {day(w.requiredBy)}{w.bomRevision && ` · pinned to BOM revision ${w.bomRevision}`}</p><p>{w.reason}</p>{w.engineeringBomIds && <p>Engineering review pins: {Object.entries(w.engineeringBomIds).map(([itemId, bomId]) => `${itemName(s, itemId)} rev ${byId(s, 'boms', bomId)?.revision}`).join('; ')}. <a href="#make/boms">Review and acknowledge engineering changes</a>.</p>}
       {w.status === 'draft' && prod && <div className="actions"><button className="button primary" disabled={busy} onClick={() => run('wo.release', { workOrderId: w.id, version: w.version })}>Release and reserve materials</button></div>}
       {w.components.length > 0 && <Table head={['Material', 'Required', 'Issued', 'Reserved']} numeric={[1, 2, 3]}>{w.components.map((l: any) => <tr key={l.id}><td>{itemName(s, l.itemId)}</td><td className="num">{qty(l.required)} {unitOf(s, l.itemId)}</td><td className="num">{qty(l.issued)}</td><td className="num">{reserved(l.id).map(r => `${qty(r.quantity)} at ${locationName(s, r.locationId)}`).join(', ') || '0'}</td></tr>)}</Table>}
       <WorkOperations larder={larder} w={w} />

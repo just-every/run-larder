@@ -30,7 +30,7 @@ export function validateBomGraph(s: State, from: string) {
   }
 }
 
-export function resolvedComponents(s: State, bom: Row, quantity: bigint, on = new Date().toISOString().slice(0, 10)) {
+export function resolvedComponents(s: State, bom: Row, quantity: bigint, on = new Date().toISOString().slice(0, 10), overrides: Record<string, string> = {}) {
   const totals = new Map<string, { itemId: string; quantity: bigint; supply: string }>()
   const recipes = new Map<string, Row>(), ordered: string[] = [], visiting = new Set<string>()
   const discover = (b: Row) => {
@@ -38,7 +38,7 @@ export function resolvedComponents(s: State, bom: Row, quantity: bigint, on = ne
     if (recipes.has(b.itemId)) return
     visiting.add(b.itemId)
     for (const line of b.components) if (line.supply === 'phantom') {
-      const child = activeBom(s, line.itemId, on) ?? fail('NO_BOM', 'A phantom assembly needs an effective BOM.', { itemId: line.itemId })
+      const child = (overrides[line.itemId] ? s.boms.find(b => b.id === overrides[line.itemId] && b.itemId === line.itemId) : activeBom(s, line.itemId, on)) ?? fail('NO_BOM', 'A phantom assembly needs an effective BOM.', { itemId: line.itemId })
       discover(child)
     }
     visiting.delete(b.itemId); recipes.set(b.itemId, b); ordered.push(b.itemId)
