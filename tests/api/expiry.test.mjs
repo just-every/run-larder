@@ -104,4 +104,32 @@ test('TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; ex
   assert.deepEqual([stock().onHand, stock().expired], ['7', '0'])
   assert.deepEqual(s.exceptions.filter(x => x.kind === 'expiry' && !x.resolvable), [])
   assert.equal(s.lotStatuses.find(l => l.lotId === R).state, 'current')
+
+  // Opening dates obey the same validation. Inclusive expiry/retest days stay
+  // usable, and an unlotted balance precedes dated lots when no minimum applies.
+  const boundary = await h.command('item.save', { sku: 'DATE-BOUNDARY', name: 'Boundary stock', kind: 'buy', baseUnit: 'each' })
+  const opening = { locationId: cold.id, countedOn: today, countedBy: 'Olive', valuationBasis: 'supplier-invoice', evidence: evidence(), lines: [{ itemId: boundary.id, quantity: '1', unitCost: '1', dates: { expiresOn: today } }] }
+  await h.command('opening.record', opening, { error: 'INPUT' })
+  opening.lines[0].dates = undefined
+  await h.command('opening.record', opening)
+  let datedPo = await h.command('po.draft', { supplierId: supplier.id, expectedDate: today, reason: 'Inclusive lot dates', lines: [{ itemId: boundary.id, quantity: '2', unitPrice: '1' }] })
+  datedPo = await h.command('po.approve', { poId: datedPo.id, version: datedPo.version })
+  await h.command('receipt.create', { poId: datedPo.id, supplierReference: 'Bad retest', lines: [{ lineId: datedPo.lines[0].id, locationId: cold.id, quantity: '2', lot: 'TODAY', dates: { expiresOn: today, retestOn: day(1) } }] }, { error: 'INPUT' })
+  const datedReceipt = await h.command('receipt.create', { poId: datedPo.id, supplierReference: 'Inclusive dates', lines: [{ lineId: datedPo.lines[0].id, locationId: cold.id, quantity: '2', lot: 'TODAY', dates: { expiresOn: today, retestOn: today } }] })
+  const todayLot = datedReceipt.lines[0].lotId
+  s = await h.state()
+  assert.deepEqual(s.availability.find(x => x.itemId === boundary.id), { itemId: boundary.id, onHand: '3', quarantine: '0', reserved: '0', expired: '0', available: '3', expectedPurchase: '0', expectedProduction: '0', unreservedDemand: '0', availableToPromise: '3' })
+  let boundaryOrder = await h.command('so.quote', { customerId: deli.id, promiseDate: today, lines: [{ itemId: boundary.id, quantity: '2', unitPrice: '3' }] })
+  boundaryOrder = await h.command('so.confirm', { orderId: boundaryOrder.id, version: boundaryOrder.version }); await h.command('so.reserve', { orderId: boundaryOrder.id })
+  const boundaryPick = await h.command('shipment.pick', { orderId: boundaryOrder.id, lines: [{ lineId: boundaryOrder.lines[0].id, locationId: cold.id, quantity: '2' }] })
+  assert.deepEqual(boundaryPick.lines.map(l => [l.lotId, l.quantity]), [['', '1'], [todayLot, '1']])
+  const boundaryPacked = await h.command('shipment.pack', { shipmentId: boundaryPick.id, version: boundaryPick.version, packages: 1 })
+  // A newly recorded customer rule is checked again at dispatch: a previous
+  // eligible pick cannot prove an undated balance meets that rule.
+  await h.command('party.save', { id: deli.id, version: deli.version, name: deli.name, kind: 'customer', minShelfLifeDays: 0 })
+  await h.command('shipment.ship', { shipmentId: boundaryPacked.id, version: boundaryPacked.version, carrier: 'UPS' }, { error: 'FEFO_INELIGIBLE' })
+  s = await h.state()
+  assert.equal(s.shipments.find(x => x.id === boundaryPacked.id).status, 'packed')
+  assert.equal(s.movements.filter(m => m.documentId === boundaryPacked.id).length, 0)
+
 })

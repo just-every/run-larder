@@ -40,7 +40,7 @@ export function LarderApp() {
     <Rail larder={larder} view={view} />
     <div className="workspace">
       <PlannerStrip larder={larder} />
-      <main className="main" aria-busy={busy}>
+      <main className="main" aria-busy={busy || (!state && !error)}>
         {error && <div className="alert" role="alert"><strong>That did not go through.</strong> {error}{details !== null && <Details value={details} s={state ?? undefined} />}</div>}
         {notice && <p className="notice" role="status">{notice}</p>}
         {!state ? <p role="status" className="loading">{error ? 'Records have not loaded.' : 'Loading your records…'}</p> : state.blindCounting ? <BlindCounts larder={larder} /> : <>

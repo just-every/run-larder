@@ -18,11 +18,10 @@ const form = (page: Page, title: string) => page.locator('form').filter({ has: p
 
 test('TRACE-003 receive dated lots, pick FEFO for a customer shelf-life rule and dispose of an expired lot at 1440/390', async ({ page }) => {
   const runId = crypto.randomUUID().slice(0, 6), entry = process.env.LARDER_OPEN
-  page.on('pageerror', e => console.log('TRACE-003 page error:', e.message, e.stack?.split('\n').slice(0, 4).join(' | ')))
-  page.on('response', r => { if (r.status() >= 400) console.log('TRACE-003 response:', r.status(), r.url()) })
   if (!entry) throw new Error('A private local entry is required.')
   await page.goto(entry); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  await settled(page)
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
     const tag = `${width}-${runId}`, cold = await command(page, 'location.save', { name: `Cold room ${tag}` })
@@ -30,8 +29,7 @@ test('TRACE-003 receive dated lots, pick FEFO for a customer shelf-life rule and
     const supplier = await command(page, 'party.save', { name: `Botanicals ${tag}`, kind: 'supplier' }), customer = await command(page, 'party.save', { name: `Fresh Market ${tag}`, kind: 'customer', minShelfLifeDays: 60 })
     let po = await command(page, 'po.draft', { supplierId: supplier.id, expectedDate: day(0), reason: 'Dated extract', lines: [{ itemId: item.id, quantity: '35', unitPrice: '5' }] })
     po = await command(page, 'po.approve', { poId: po.id, version: po.version })
-    await page.goto(origin + `/app#make/po/${po.id}`); await page.reload(); await settled(page)
-    if (!(await form(page, 'Receive delivery').count())) console.log('TRACE-003 main:', (await page.locator('main').innerText()).slice(0, 1500))
+    await page.goto(origin + `/app#make/po/${po.id}`); await settled(page); await page.reload(); await settled(page)
     for (const [lot, quantity, dates] of [[`A-${tag}`, '10', { Expires: day(20), 'Storage conditions': 'Refrigerate 2-8 °C' }], [`B-${tag}`, '20', { Manufactured: day(-5), 'Supplier shelf life (days)': '120' }], [`X-${tag}`, '5', { Expires: day(-1) }]] as const) {
       const receive = form(page, 'Receive delivery')
       await receive.getByLabel('Packing slip', { exact: true }).fill(`Slip ${lot}`); await receive.getByLabel('Into location', { exact: true }).selectOption(cold.id)

@@ -76,10 +76,10 @@ export function shipBlock(s: State, lotId: string, on: string, customerId: strin
   return remaining < minimum ? `${remaining} days of shelf life left on ${on}; the customer needs ${minimum}` : ''
 }
 
-// Lots in first-expiry-first-out order: dated lots by expiry, then undated
-// lots in receipt order, then unlotted stock.
+// Lots in first-expiry-first-out order: unlotted stock first, then dated
+// lots by expiry, then undated lots in receipt order.
 export function fefoOrder(s: State, lotIds: string[]): string[] {
-  const at = (id: string) => (id ? s.lots.find(l => l.id === id)?.dates?.expiresOn || '9999-12-31' : '~')
+  const at = (id: string) => (id ? s.lots.find(l => l.id === id)?.dates?.expiresOn || '9999-12-31' : '')
   return [...lotIds].sort((a, b) => (at(a) < at(b) ? -1 : at(a) > at(b) ? 1 : 0))
 }
 
