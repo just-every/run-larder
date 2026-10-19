@@ -3,7 +3,7 @@ import { fail } from './problem'
 export const collections = [
   'items', 'locations', 'parties', 'partyItems', 'boms', 'salesOrders', 'purchaseOrders', 'workOrders',
   'receipts', 'lots', 'shipments', 'returns', 'transfers', 'counts', 'openings', 'reversals', 'handoffs',
-  'forecasts', 'productionPlans', 'proposals', 'approvals', 'orderChanges', 'bomChanges', 'catalogChanges', 'engineeringChanges', 'countSessions', 'resolutions', 'imports', 'roles',
+  'maintenance', 'forecasts', 'productionPlans', 'proposals', 'approvals', 'orderChanges', 'bomChanges', 'catalogChanges', 'engineeringChanges', 'countSessions', 'resolutions', 'imports', 'roles',
 ] as const
 export type Collection = (typeof collections)[number]
 export type Row = { id: string; version: number; [key: string]: any }

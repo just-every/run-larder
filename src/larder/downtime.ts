@@ -1,4 +1,6 @@
 // FLOOR-007: reported progress estimates effort; only explicit completion ends a task.
+import { timestamp } from './timestamp'
+import { assertEquipmentAvailable } from './maintenance-availability'
 import { decimal, format } from './decimal'
 import { bump, fresh, get, newId, oneOf, text, type Context, type Row, type State } from './model'
 import { fail, forbidden } from './problem'
@@ -7,14 +9,6 @@ import { allow, approver } from './roles'
 const commands = ['wo.operation.pause', 'wo.operation.resume', 'wo.operation.progress', 'wo.operation.escalationAck']
 const reasons = ['breakdown', 'waiting-material', 'changeover', 'quality', 'other'] as const
 
-function timestamp(value: unknown, label: string): string {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value))
-    fail('INPUT', `${label} must be an ISO UTC timestamp.`, { field: label })
-  const ms = Date.parse(value as string)
-  const normalized = (value as string).replace(/(?:\.(\d{1,3}))?Z$/, (_, part) => `.${(part ?? '').padEnd(3, '0')}Z`)
-  if (!Number.isFinite(ms) || new Date(ms).toISOString() !== normalized) fail('INPUT', `${label} must be a valid ISO UTC timestamp.`, { field: label })
-  return new Date(ms).toISOString()
-}
 
 export function downtime(c: Context, type: string, p: any): Row | undefined {
   if (!commands.includes(type)) return
@@ -55,6 +49,7 @@ export function downtime(c: Context, type: string, p: any): Row | undefined {
     task.downtime = [...intervals, { id: newId(), commandId: c.commandId, reason, note, startedAt: c.now, startedBy: c.actor.id, escalationOwnerId, anticipatedResumeAt, notification: 'recorded in app' }]
     task.status = 'paused'
   } else if (type === 'wo.operation.resume') {
+    assertEquipmentAvailable(c.s, task.workCentre, c.now)
     const interval = intervals.at(-1)
     if (task.status !== 'paused' || open.length !== 1 || interval !== open[0]) fail('STATE', 'Resume only a paused operation with one open downtime interval.')
     if (Date.parse(c.now) < Date.parse(interval.startedAt)) fail('STATE', 'Resume time cannot precede the recorded pause.')

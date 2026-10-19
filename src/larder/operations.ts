@@ -1,4 +1,5 @@
 // ENG-002: execution refers only to the released instruction snapshot.
+import { assertEquipmentAvailable } from './maintenance-availability'
 import { allow } from './roles'
 import { fail } from './problem'
 import { bump, fresh, get, text, type Context, type Row } from './model'
@@ -30,8 +31,10 @@ export function operations(c: Context, type: string, p: any): Row | undefined {
     const workCentre = text(p.workCentre, 'work center', 120)
     const eligible = step.eligibleCentres ?? (step.workCentre ? [step.workCentre] : [])
     if (eligible.length && !eligible.includes(workCentre)) fail('WORK_CENTER', 'Choose an eligible work center from the pinned routing.')
+    assertEquipmentAvailable(c.s, workCentre, c.now)
     Object.assign(task, { status: 'running', startedBy: c.actor.id, startedAt: c.now, workCentre })
   } else {
+    assertEquipmentAvailable(c.s, task.workCentre, c.now)
     if (task.status !== 'running') fail('STATE', 'Start this operation before completing it.')
     if (task.startedBy !== c.actor.id) fail('ASSIGNMENT', 'The person who started this operation must complete it.')
     Object.assign(task, { status: 'done', completedBy: c.actor.id, completedAt: c.now })

@@ -1,3 +1,4 @@
+import { activeMaintenance } from '../larder/maintenance-availability'
 import { can, personName, rows, type Rec } from './api'
 import type { Larder } from './app'
 import { Choose, Field, Form, text } from './controls'
@@ -8,6 +9,7 @@ const localTime = () => { const d = new Date(Date.now() + 3600000); return new D
 export function WorkDowntime({ larder, w, task, sequence }: { larder: Larder; w: Rec; task: any; sequence: number }) {
   const s = larder.state!, active = ['running', 'paused'].includes(task.status), supervisor = can(s, ['manager'])
   const report = active && can(s, ['manager', 'production']) && (supervisor || task.startedBy === s.actor.id)
+  const maintenance = activeMaintenance({ maintenance: rows(s, 'maintenance') }, task.workCentre, new Date().toISOString())
   const payload = { workOrderId: w.id, version: w.version, sequence }
   return <section aria-label={`Step ${sequence} progress and downtime`}>
     {task.progress && <p>Reported operation progress: {qty(task.progress.completedQuantity)} of {qty(w.quantity)} · {qty(task.progress.remainingMinutes)} job minutes remaining · {personName(s, task.progress.by)} {when(task.progress.at)}. This report does not post finished stock.</p>}
@@ -20,7 +22,7 @@ export function WorkDowntime({ larder, w, task, sequence }: { larder: Larder; w:
       <Choose label={`Step ${sequence} escalation owner`} name="supervisor" options={rows(s, 'people').filter(p => ['owner', 'manager'].includes(p.role)).map(p => ({ value: p.id, label: p.name }))} />
       <Field label={`Step ${sequence} estimated resume (local time)`} name="resume" type="datetime-local" defaultValue={localTime()} />
     </Form>}
-    {report && task.status === 'paused' && <Form submit={`Resume step ${sequence}`} busy={larder.busy} onSubmit={data => larder.run('wo.operation.resume', { ...payload, reason: text(data, 'reason') })}><Field label={`Step ${sequence} resume reason`} name="reason" /></Form>}
+    {report && task.status === 'paused' && <Form submit={`Resume step ${sequence}`} busy={larder.busy || maintenance.length > 0} onSubmit={data => larder.run('wo.operation.resume', { ...payload, reason: text(data, 'reason') })}><Field label={`Step ${sequence} resume reason`} name="reason" /></Form>}
     {report && <Form title={`Step ${sequence} progress report`} submit={`Record step ${sequence} progress`} busy={larder.busy} note="Completed operation units and remaining effort are reports, separate from good output or shipment. Zero remaining effort does not complete the task." onSubmit={data => larder.run('wo.operation.progress', { ...payload, completedQuantity: text(data, 'completed'), remainingMinutes: Number(text(data, 'remaining')), note: text(data, 'note'), reason: text(data, 'note') })}>
       <Field label={`Step ${sequence} reported completed quantity`} name="completed" inputMode="decimal" defaultValue={task.progress?.completedQuantity ?? '0'} />
       <Field label={`Step ${sequence} remaining job minutes`} name="remaining" type="number" min="0" max="1000000" step="any" defaultValue={task.progress?.remainingMinutes ?? ''} />

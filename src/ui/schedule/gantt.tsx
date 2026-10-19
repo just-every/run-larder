@@ -46,7 +46,7 @@ function parts(op: Op, from: Date, to: Date) {
 }
 
 // due: when open supply covers each short job's missing materials (supply.ts).
-const flagOf = (op: Op, due: Map<string, Date>) => op.short ? (due.has(op.workOrder.id) ? `Short until ${dayName(due.get(op.workOrder.id)!)}` : 'Short of materials') : op.late ? `Late · needed ${dayName(fromDate(op.workOrder.requiredBy))}` : ''
+const flagOf = (op: Op, due: Map<string, Date>) => op.provisional ? 'Provisional · maintenance release required' : op.short ? (due.has(op.workOrder.id) ? `Short until ${dayName(due.get(op.workOrder.id)!)}` : 'Short of materials') : op.late ? `Late · needed ${dayName(fromDate(op.workOrder.requiredBy))}` : ''
 
 function Bar({ p, top, moveTo, due, moving, selected, onSelect }: { p: Placed; top: number; moveTo: string; due: Map<string, Date>; moving?: boolean; selected?: boolean; onSelect: (id: string) => void }) {
   const { op, ghost, tag, continues } = p, flag = flagOf(op, due), text = lines(op, ghost, flag, moveTo, continues ? weekday(continues) : '', !!tag)
@@ -131,7 +131,7 @@ export function Agenda({ plan, ghosts, due, from, mode, selected, onSelect }: { 
     return <section key={center} className="agenda-center">
       <header><h3>{center}</h3><p className="num">{l.percent}% · {l.hours} / {l.capacity} hrs</p></header>
       {ops.length === 0 ? <p className="muted">Nothing booked in this span.</p> : <ul>{ops.map(o => {
-        const ghost = 'ghost' in o, flag = o.short ? flagOf(o, due) : o.late ? 'Late' : ''
+        const ghost = 'ghost' in o, flag = o.provisional ? 'Provisional · maintenance release required' : o.short ? flagOf(o, due) : o.late ? 'Late' : ''
         return <li key={(ghost ? 'ghost:' : '') + o.key}><button type="button" className={`agenda-op ${ghost ? 'ghost' : flag ? 'exception' : ''} ${selected === o.workOrder.id ? 'selected' : ''}`} aria-pressed={selected === o.workOrder.id} onClick={() => onSelect(o.workOrder.id)}>
           <span className="when num">{dayName(o.start)}, {clock(o.start)} – {o.end.toDateString() === o.start.toDateString() ? clock(o.end) : `${dayName(o.end)}, ${clock(o.end)}`}</span>
           <strong>{o.reference} · Op {o.sequence} {o.step}{ghost && ' (proposed)'}</strong>

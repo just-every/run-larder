@@ -1,3 +1,4 @@
+import { activeMaintenance } from '../larder/maintenance-availability'
 import { WorkDowntime } from './work-downtime'
 import { can, personName, rows, type Rec } from './api'
 import type { Larder } from './app'
@@ -22,11 +23,13 @@ export function WorkOperations({ larder, w }: { larder: Larder; w: Rec }) {
       const assignment = task?.assignment, wrongOperator = assignment && assignment.operatorId !== actor.id
       const reasons = [
         ...(!released ? ['This job is not released.'] : []),
+        ...(centres.length > 0 && centres.every(center => activeMaintenance({ maintenance: rows(s, 'maintenance') }, center, new Date().toISOString()).length > 0) ? ['Eligible equipment is unavailable until maintenance release.'] : []),
         ...(uncompleted.length ? [`Waiting for step ${uncompleted.join(', ')} to complete.`] : []),
         ...(needsAck && !acknowledged ? ['Acknowledge the pinned instructions and drawings before starting.'] : []),
         ...(skills.length && !assignment ? ['A manager must authorize an operator for the required skills.'] : []),
         ...(wrongOperator ? [`Assigned to ${personName(s, assignment.operatorId)}.`] : []),
       ]
+      const maintenance = activeMaintenance({ maintenance: rows(s, 'maintenance') }, task.workCentre || step.workCentre, new Date().toISOString())
       const payload = { workOrderId: w.id, version: w.version, sequence }
       return <fieldset className="lines wide" key={sequence}>
         <legend>Step {sequence}: {step.name}</legend>
@@ -37,6 +40,7 @@ export function WorkOperations({ larder, w }: { larder: Larder; w: Rec }) {
         {step.drawings?.length > 0 && <ul>{step.drawings.map((drawing: any) => <li key={drawing.id}><a href={`/api/larder/attachments/${drawing.id}`} target="_blank" rel="noreferrer">Open drawing: {drawing.name}</a></li>)}</ul>}
         {task?.acknowledgments?.length > 0 && <ul>{task.acknowledgments.map((ack: any, i: number) => <li key={i}>{personName(s, ack.by)} acknowledged revision {w.bomRevision} · {when(ack.at)}</li>)}</ul>}
         {assignment && <p>Skill authorization: {personName(s, assignment.operatorId)} · authorized by {personName(s, assignment.by)} {when(assignment.at)}{assignment.skills?.length ? ` · ${assignment.skills.join('; ')}` : ''}</p>}
+        {maintenance.length > 0 && <p className="warn-text">Equipment unavailable: {maintenance.map(m => m.reference).join(', ')}. <a href="#schedule">Maintenance release required</a>.</p>}
         {task?.startedBy && <p>Started by {personName(s, task.startedBy)} {when(task.startedAt)} · {task.workCentre}</p>}
         {task?.completedBy && <p>Completed by {personName(s, task.completedBy)} {when(task.completedAt)}</p>}
         {status === 'pending' && reasons.length > 0 && <ul className="warn-text">{reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}
@@ -47,7 +51,7 @@ export function WorkOperations({ larder, w }: { larder: Larder; w: Rec }) {
         {released && task && operate && status === 'pending' && <Form submit={`Start step ${sequence}`} busy={larder.busy || reasons.length > 0} onSubmit={data => larder.run('wo.operation.start', { ...payload, workCentre: text(data, 'workCentre') })}>
           <>{centres.length ? <Choose label={`Step ${sequence} work center`} name="workCentre" options={centres.map(centre => ({ value: centre, label: centre }))} required={centres.length > 0} defaultValue={centres.length === 1 ? centres[0] : ''} /> : <Field label={`Step ${sequence} work center`} name="workCentre" />}</>
         </Form>}
-        {released && task && operate && status === 'running' && <div className="actions"><button type="button" className="button primary" disabled={larder.busy || task.startedBy !== actor.id} onClick={() => larder.run('wo.operation.complete', payload)}>Complete step {sequence}</button></div>}
+        {released && task && operate && status === 'running' && <div className="actions"><button type="button" className="button primary" disabled={larder.busy || maintenance.length > 0 || task.startedBy !== actor.id} onClick={() => larder.run('wo.operation.complete', payload)}>Complete step {sequence}</button></div>}
         {released && <WorkDowntime larder={larder} w={w} task={task} sequence={sequence} />}
       </fieldset>
     })}

@@ -1,5 +1,6 @@
 // Schedule: where the shop starts each shift. The chart and the selected job's panel share one plan, computed
 // from the records on every load; a planner's reschedule proposal is drawn as ghosts until a person decides.
+import { Maintenance } from '../maintenance'
 import { useState } from 'react'
 import { rows } from '../api'
 import type { Larder } from '../app'
@@ -53,5 +54,6 @@ export function Schedule({ larder, mode }: { larder: Larder; mode: Mode }) {
         <Worklog s={s} />
       </div>
     </div>}
+    <Maintenance larder={larder} plan={plan} />
   </div>
 }

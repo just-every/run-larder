@@ -84,19 +84,20 @@ function Recovery({ larder, proposal, plan, proposed, now }: { larder: Larder; p
 function Operations({ plan, w }: { plan: Plan; w: Rec }) {
   const ops = plan.ops.filter(o => o.workOrder.id === w.id)
   return <section className="operations"><h3>Operations</h3>
-    {ops.length === 0 ? <p className="muted">No routing steps with minutes on this item's bill of materials.</p> : <ol>{ops.map(o => <li key={o.key}><strong>Op {o.sequence} {o.step}</strong><span>{w.operationStates?.find((t: any) => t.sequence === o.sequence)?.status ?? 'pending'} · {qty(o.minutes)} job minutes remaining</span><span>{o.workCenter}</span><span className="num"><time dateTime={o.start.toISOString()}>{dayName(o.start)}, {clock(o.start)}</time> – <time dateTime={o.end.toISOString()}>{o.end.toDateString() === o.start.toDateString() ? clock(o.end) : `${dayName(o.end)}, ${clock(o.end)}`}</time></span></li>)}</ol>}
+    {ops.length === 0 ? <p className="muted">No routing steps with minutes on this item's bill of materials.</p> : <ol>{ops.map(o => <li key={o.key}><strong>Op {o.sequence} {o.step}</strong><span>{w.operationStates?.find((t: any) => t.sequence === o.sequence)?.status ?? 'pending'} · {qty(o.minutes)} job minutes remaining</span><span>{o.workCenter}{o.provisional && ' · Provisional: maintenance release required'}</span><span className="num"><time dateTime={o.start.toISOString()}>{dayName(o.start)}, {clock(o.start)}</time> – <time dateTime={o.end.toISOString()}>{o.end.toDateString() === o.start.toDateString() ? clock(o.end) : `${dayName(o.end)}, ${clock(o.end)}`}</time></span></li>)}</ol>}
     <a className="button wide" href={`#make/wo/${w.id}`}>Open work order</a>
   </section>
 }
 
 export function JobPanel({ larder, w, plan, proposed, proposal, now }: { larder: Larder; w: Rec; plan: Plan; proposed?: Plan; proposal?: Rec; now: Date }) {
   const s = larder.state!, item = byId(s, 'items', w.itemId), ops = plan.ops.filter(o => o.workOrder.id === w.id)
-  const late = ops.some(o => o.late), short = ops.some(o => o.short)
+  const provisional = ops.some(o => o.provisional), late = ops.some(o => o.late), short = ops.some(o => o.short)
   const involved = proposal && proposed && proposal.plan.changes.some((ch: any) => ch.workOrderId === w.id)
   return <aside className="job-panel card">
-    <header className="job-head"><h2>{w.reference}</h2><Chip tone={short || late ? 'bad' : w.status === 'draft' ? 'neutral' : 'go'}>{short ? 'Short' : late ? 'Late' : w.status === 'draft' ? 'Draft' : 'On track'}</Chip></header>
+    <header className="job-head"><h2>{w.reference}</h2><Chip tone={short || late ? 'bad' : w.status === 'draft' ? 'neutral' : 'go'}>{provisional ? 'Release required' : short ? 'Short' : late ? 'Late' : w.status === 'draft' ? 'Draft' : 'On track'}</Chip></header>
     <p className="job-item">{item?.name ?? 'Removed item'}</p>
     <p className="job-meta"><span className="num">{qty(w.quantity)} {unitLabel(item?.baseUnit)}</span><b aria-hidden="true">•</b><span>needed {dayName(fromDate(w.requiredBy))}</span><b aria-hidden="true">•</b><span>{words(w.status)}</span></p>
+    {provisional && <p>Provisional recovery after maintenance ETA; authorized equipment release is still required.</p>}
     <Facts s={s} w={w} plan={plan} />
     {w.status === 'released' && (w.shortages ?? []).length > 0 && <p className="job-short">Short: {stories(s, w, plan).join('; ')}.</p>}
     {involved ? <Recovery larder={larder} proposal={proposal!} plan={plan} proposed={proposed!} now={now} /> : <Operations plan={plan} w={w} />}

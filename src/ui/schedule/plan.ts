@@ -11,6 +11,7 @@ const DAY = 86400000
 export type Op = {
   key: string; workOrder: Rec; reference: string; item: string; sku: string; quantity: number; step: string; sequence: number; workCenter: string
   minutes: number; start: Date; end: Date; late: boolean; short: boolean
+  maintenanceIds: string[]; provisional: boolean
 }
 export type Plan = { ops: Op[]; centers: string[]; finish: Map<string, Date> }
 
@@ -41,15 +42,17 @@ function addWorking(t: Date, minutes: number) {
 }
 
 // The earliest gap on a center, at or after ready, that holds the step whole.
-type Span = { begin: Date; end: Date }
+type Span = { begin: Date; end: Date; maintenanceIds: string[] }
 function slot(spans: Span[], ready: Date, minutes: number): Span {
   let begin = working(ready)
+  const maintenanceIds = new Set<string>()
   for (const b of spans) {
     if (b.end <= begin) continue
     if (addWorking(begin, minutes) <= b.begin) break
+    for (const id of b.maintenanceIds) maintenanceIds.add(id)
     begin = working(b.end)
   }
-  return { begin, end: addWorking(begin, minutes) }
+  return { begin, end: addWorking(begin, minutes), maintenanceIds: [...maintenanceIds] }
 }
 
 // Released work keeps the routing it was released with; a draft follows its item's active BOM.
@@ -63,7 +66,21 @@ const routed = (s: LarderState) => [...openWork(s).flatMap(w => routingOf(s, w))
 export function schedule(s: LarderState, now: Date, changes: Record<string, { plannedStart?: string; priority?: number }> = {}): Plan {
   const work: Rec[] = openWork(s).map(w => ({ ...w, ...changes[w.id] }))
   work.sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || (a.plannedStart || '').localeCompare(b.plannedStart || '') || a.requiredBy.localeCompare(b.requiredBy) || a.reference.localeCompare(b.reference))
-  const booked = new Map<string, Span[]>(), ops: Op[] = [], finish = new Map<string, Date>(), today = at(now, SHIFT.start)
+  const booked = new Map<string, Span[]>(), ops: Op[] = [], finish = new Map<string, Date>(), today = working(now)
+  const maintenance = rows(s, 'maintenance')
+  // An ETA only projects capacity after repair. Dispatch remains blocked until
+  // an authorized release; every dependent projection carries its record IDs.
+  for (const m of maintenance) {
+    const begin = new Date(m.startsAt)
+    const eta = Date.parse(m.expectedReturnAt)
+    const projectedReturn = eta <= now.getTime() ? now.getTime() + 60000 : eta
+    const end = new Date(m.status === 'released' ? m.releasedAt : projectedReturn)
+    if (end <= begin) continue
+    const spans = booked.get(m.workCentre) ?? []
+    spans.push({ begin, end, maintenanceIds: m.status === 'unreleased' ? [m.id] : [] })
+    booked.set(m.workCentre, spans)
+  }
+  for (const spans of booked.values()) spans.sort((a, b) => a.begin.getTime() - b.begin.getTime())
   for (const w of work) {
     const reviewedDate = rows(s, 'boms').filter(b => Object.values(w.engineeringBomIds ?? {}).includes(b.id)).map(b => b.effectiveOn).filter(Boolean).sort().at(-1)
     const start = [w.plannedStart, reviewedDate].filter(Boolean).sort().at(-1)
@@ -71,13 +88,19 @@ export function schedule(s: LarderState, now: Date, changes: Record<string, { pl
     let ready = planned > today ? planned : today
     const steps = routingOf(s, w).filter(r => (r.minutes > 0 || r.setupMinutes > 0 || r.queueMinutes > 0 || w.operationStates?.some((t: any) => t.sequence === r.sequence && t.progress)) && !w.operationStates?.some((t: any) => t.sequence === r.sequence && t.status === 'done'))
     const placed: Op[] = []
+    const readinessMaintenance = new Set<string>()
     for (const r of steps) {
-      const center = r.workCentre || 'Unassigned', minutes = operationEffort(w, r)
+      const task = w.operationStates?.find((t: any) => t.sequence === r.sequence)
+      const startedCenter = task && (task.startedAt || ['running', 'paused'].includes(task.status)) ? task.workCentre : undefined
+      const center = startedCenter || r.workCentre || 'Unassigned', minutes = operationEffort(w, r)
       const reportedReady = operationReady(w, r, now)
       if (reportedReady && reportedReady > ready) ready = reportedReady
-      const { begin, end } = slot(booked.get(center) ?? [], ready, minutes)
-      booked.set(center, [...(booked.get(center) ?? []), { begin, end }].sort((a, b) => a.begin.getTime() - b.begin.getTime())); ready = end
-      placed.push({ key: `${w.id}:${r.sequence}`, workOrder: w, reference: w.reference, item: itemName(s, w.itemId), sku: byId(s, 'items', w.itemId)?.sku ?? '', quantity: remaining(w), step: r.name, sequence: r.sequence, workCenter: center, minutes, start: begin, end, late: false, short: (w.shortages ?? []).length > 0 })
+      const { begin, end, maintenanceIds: conflicts } = slot(booked.get(center) ?? [], ready, minutes)
+      for (const id of conflicts) readinessMaintenance.add(id)
+      for (const m of maintenance) if (m.status === 'unreleased' && m.workCentre === center && Date.parse(m.startsAt) <= end.getTime()) readinessMaintenance.add(m.id)
+      const maintenanceIds = [...readinessMaintenance]
+      booked.set(center, [...(booked.get(center) ?? []), { begin, end, maintenanceIds }].sort((a, b) => a.begin.getTime() - b.begin.getTime())); ready = end
+      placed.push({ key: `${w.id}:${r.sequence}`, workOrder: w, reference: w.reference, item: itemName(s, w.itemId), sku: byId(s, 'items', w.itemId)?.sku ?? '', quantity: remaining(w), step: r.name, sequence: r.sequence, workCenter: center, minutes, start: begin, end, late: false, short: (w.shortages ?? []).length > 0, maintenanceIds, provisional: maintenanceIds.length > 0 })
     }
     if (!placed.length) continue
     const due = at(fromDate(w.requiredBy), SHIFT.end), late = ready > due
@@ -86,7 +109,7 @@ export function schedule(s: LarderState, now: Date, changes: Record<string, { pl
   }
   // Every center a routing uses gets a row, idle ones at 0%, in routing order: the earliest step that uses each comes
   // first, and centers with nothing booked follow by their routing step.
-  const steps = routed(s), centers = [...new Set(steps.map(r => r.workCentre || 'Unassigned'))]
+  const steps = routed(s), centers = [...new Set([...steps.map(r => r.workCentre || 'Unassigned'), ...ops.map(o => o.workCenter), ...maintenance.map(m => m.workCentre)])]
   const order = (c: string) => Math.min(...ops.filter(o => o.workCenter === c).map(o => o.sequence * 1e13 + o.start.getTime()), ...steps.filter(r => (r.workCentre || 'Unassigned') === c).map(r => r.sequence * 1e13 + 9e12))
   centers.sort((a, b) => order(a) - order(b))
   return { ops, centers, finish }

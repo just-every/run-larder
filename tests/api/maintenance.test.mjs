@@ -1,0 +1,68 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { randomUUID, createHash } from 'node:crypto'
+import { installation, evidence } from './harness.mjs'
+
+test('CAP-009 preventive maintenance and breakdowns retain repair/CMMS evidence, block equipment beyond ETA and release with authority', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const manager = await h.person('maintenance-supervisor@example.test', 'manager'), operator = await h.person('machinist@example.test', 'production'), agent = await h.person('agent@example.test', 'agent')
+  const raw = await h.command('item.save', { sku: 'RAW', name: 'Blank', kind: 'buy', baseUnit: 'each' })
+  const item = await h.command('item.save', { sku: 'MADE', name: 'Machined plate', kind: 'make', baseUnit: 'each' })
+  await h.command('bom.revise', { itemId: item.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'Drill', workCentre: 'Drill press', eligibleCentres: ['Drill press', 'Backup drill'], minutes: 5 }] })
+  let work = await h.command('wo.draft', { itemId: item.id, quantity: '3', requiredBy: '2026-12-01', reason: 'Plate order' })
+  work = await h.command('wo.release', { workOrderId: work.id, version: work.version })
+  const before = await h.state()
+  const payload = { workCentre: 'Drill press', kind: 'breakdown', repairOwner: 'Alex / Ohio Machine Repair', expectedReturnAt: new Date(Date.now() + 86400000).toISOString(), note: 'Spindle bearing fault', cmmsId: 'CMMS-WO-402', evidence: evidence('Spindle inspection') }
+  await operator.run('maintenance.create', payload, { error: 'FORBIDDEN' }); await agent.run('maintenance.create', payload, { error: 'FORBIDDEN' })
+  await manager.run('maintenance.create', { ...payload, workCentre: 'Unknown machine' }, { error: 'WORK_CENTER' })
+  await manager.run('maintenance.create', { ...payload, expectedReturnAt: '2026-02-30T00:00:00Z' }, { error: 'INPUT' })
+  const commandId = randomUUID()
+  let m = await manager.run('maintenance.create', payload, { commandId })
+  assert.deepEqual(await manager.run('maintenance.create', payload, { commandId }), m)
+  await manager.run('maintenance.create', { ...payload, note: 'Changed intent' }, { commandId, error: 'IDEMPOTENCY' })
+  assert.equal(m.kind, 'breakdown'); assert.equal(m.status, 'unreleased'); assert.equal(m.repairOwner, payload.repairOwner); assert.equal(m.cmmsId, payload.cmmsId)
+  assert.ok(Date.parse(m.startsAt) <= Date.now()); assert.equal(m.history[0].note, payload.note)
+  const start = { workOrderId: work.id, version: work.version, sequence: 1, workCentre: 'Drill press' }
+  await operator.run('wo.operation.start', start, { error: 'MAINTENANCE' })
+  await manager.run('maintenance.release', { maintenanceId: m.id, version: m.version, note: 'No evidence' }, { error: 'EVIDENCE' })
+  const old = m
+  m = await manager.run('maintenance.update', { maintenanceId: m.id, version: m.version, repairOwner: 'Alex', expectedReturnAt: new Date(Date.now() + 2 * 86400000).toISOString(), note: 'Replacement bearing ordered', evidence: evidence('Supplier repair parts confirmation'), cmmsId: 'CMMS-WO-402-R1' })
+  await manager.run('maintenance.update', { maintenanceId: m.id, version: old.version, repairOwner: 'Other', expectedReturnAt: payload.expectedReturnAt, note: 'Stale' }, { error: 'STALE' })
+  await agent.run('maintenance.release', { maintenanceId: m.id, version: m.version, note: 'Agent release', evidence: evidence() }, { error: 'FORBIDDEN' })
+  const repair = 'Bearing replaced and test run passed'
+  m = await manager.run('maintenance.release', { maintenanceId: m.id, version: m.version, note: repair, evidence: evidence(repair) })
+  assert.equal(m.status, 'released'); assert.equal(m.releasedBy, manager.id); assert.equal(m.repairNote, repair)
+  assert.deepEqual(m.history.map(h => h.type), ['created', 'updated', 'released'])
+  const file = await h.request('/api/larder/attachments/' + m.evidence.at(-1).id)
+  assert.equal(await file.text(), repair); assert.equal(m.evidence.at(-1).sha256, createHash('sha256').update(repair).digest('hex'))
+  work = await operator.run('wo.operation.start', start)
+  const owner = before.actor.id
+  work = await operator.run('wo.operation.pause', { workOrderId: work.id, version: work.version, sequence: 1, reason: 'breakdown', note: 'Another spindle fault', escalationOwnerId: owner, anticipatedResumeAt: payload.expectedReturnAt })
+  // Real time passes beyond this ETA. No database clock or state mutation.
+  let expired = await h.command('maintenance.create', { ...payload, expectedReturnAt: new Date(Date.now() + 700).toISOString() })
+  await new Promise(resolve => setTimeout(resolve, 750))
+  assert.ok(Date.parse(expired.expectedReturnAt) < Date.now())
+  await operator.run('wo.operation.resume', { workOrderId: work.id, version: work.version, sequence: 1, reason: 'ETA passed' }, { error: 'MAINTENANCE' })
+  await h.command('role.set', { operatorId: manager.id, role: 'viewer' })
+  await manager.run('maintenance.release', { maintenanceId: expired.id, version: expired.version, note: repair, evidence: evidence(repair) }, { error: 'FORBIDDEN' })
+  expired = await h.command('maintenance.release', { maintenanceId: expired.id, version: expired.version, note: repair, evidence: evidence(repair) })
+  work = await operator.run('wo.operation.resume', { workOrderId: work.id, version: work.version, sequence: 1, reason: 'Repair released' })
+  const preventive = await h.command('maintenance.create', { ...payload, kind: 'preventive', startsAt: new Date(Date.now() + 1000).toISOString(), expectedReturnAt: new Date(Date.now() + 3600000).toISOString(), note: 'Scheduled lubrication' })
+  await h.command('maintenance.release', { maintenanceId: preventive.id, version: preventive.version, note: repair, evidence: evidence(repair) }, { error: 'STATE' })
+  await new Promise(resolve => setTimeout(resolve, 1100))
+  await operator.run('wo.operation.complete', { workOrderId: work.id, version: work.version, sequence: 1 }, { error: 'MAINTENANCE' })
+  await h.command('maintenance.release', { maintenanceId: preventive.id, version: preventive.version, note: 'Lubricated and inspected', evidence: evidence('PM inspection') })
+  work = await operator.run('wo.operation.complete', { workOrderId: work.id, version: work.version, sequence: 1 })
+  assert.equal(work.operationStates[0].status, 'done'); assert.equal(work.output, '0'); assert.equal(work.requiredBy, '2026-12-01')
+  const after = await h.invariant()
+  assert.deepEqual(after.movements, before.movements); assert.deepEqual(after.reservations, before.reservations)
+  assert.equal(after.maintenance.length, 3); assert.equal(after.maintenance[0].history.length, 3)
+  const archive = await (await h.request('/api/larder/archive')).json()
+  assert.deepEqual(archive.records.maintenance, after.maintenance)
+  const restored = await installation(); t.after(() => restored.close())
+  const restoredReply = await restored.request('/api/larder/archive/restore', { method: 'POST', body: archive })
+  assert.equal(restoredReply.status, 200, await restoredReply.text())
+  assert.deepEqual((await restored.state()).maintenance, after.maintenance)
+  assert.equal(await (await restored.request('/api/larder/attachments/' + m.evidence.at(-1).id)).text(), repair)
+  await h.command('maintenance.update', { maintenanceId: m.id, version: m.version, note: 'Change released repair' }, { error: 'STATE' })
+})

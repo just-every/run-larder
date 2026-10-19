@@ -138,7 +138,7 @@ The sixteen published clauses keep their IDs and useful operational guarantees. 
 
 - **CAP-008 — Grouped jobs and nesting.** Planners group compatible operations/batches and import nesting results with material yield, offcuts, setup sharing and per-job quantity/cost allocation. Groups retain each customer/job identity, required revision and due date. **Acceptance evidence:** Group three sheet-metal jobs, import a nesting output, approve consumption and recoverable offcuts; trace each output and allocated cost to its original job.
 
-- **CAP-009 — Maintenance and downtime planning.** Supervisors schedule preventive maintenance and log unplanned breakdowns with owner, expected return and repair evidence; equipment stays unavailable until authorized release. Maintenance changes feed production recovery, while specialist CMMS records can link by ID. **Acceptance evidence:** Take a machine out of service, assign repair and ETA, reschedule affected work, then release after recorded repair and inspect the plan and downtime trail.
+- **CAP-009 — Maintenance and downtime planning.** Supervisors schedule preventive maintenance and log unplanned breakdowns with owner, expected return and repair evidence; equipment stays unavailable until authorized release. Maintenance changes feed production recovery, while specialist CMMS records can link by ID. Under current roles owner/manager acts as supervisor and creates, updates and releases maintenance with a reason; production and agents cannot manage or release equipment. Repair owner is named responsibility text, not an access grant; existing operational read scopes apply. A record names an exact existing routing center, UTC start and expected return, CMMS reference and retained original evidence/digests. Breakdowns start at server time; preventive windows start at their scheduled instant. Once started, unreleased maintenance blocks operation start, resume and completion even after its ETA. Release requires a new repair evidence file and note, records the authorized person/server time and retains the immutable released record plus prior owner/ETA history. The current weekday planner moves whole affected operations and following bookings past the maintenance interval, uses the actual center for started tasks, and marks after-ETA recovery and dependent work provisional until release; these are forecasts, never dispatch authorization. Overdue unreleased ETAs project no earlier than one minute after the current read. Open work never projects before the current read. Released intervals end at actual release, not the old ETA. No maintenance action posts output, stock or changes customer promises. **Acceptance evidence:** At 1440/390 schedule preventive maintenance and log a breakdown, assign repair/ETA/CMMS ID, inspect affected and following work rescheduled with explicit provisional labels, revise owner/ETA and release after recorded repair; inspect the recovered plan, downloadable evidence/digest and full downtime trail after reload and archive restore. Assert start/resume/completion refusal while unavailable including past ETA, pre-start release refusal, unauthorized/agent/revoked-role and stale/changed-replay refusal, idempotent replay, and unchanged stock/output/promises.
 
 
 ### Purchasing and suppliers
@@ -424,7 +424,7 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 | 41 | Drawing "FW-EG-1218 rev C" on the station | `ENG-002` | done |
 | 42 | "The planning agent lays out two fixes" (Option A/B with dates and overtime) | `AGENT-001`, `CAP-007` | partial |
 | 43 | "Dana picks one" (Approved by Dana W. · 1:46 PM) | `LARDER-015`, `GOV-002` | partial |
-| 44 | Downtime timeline (spindle fault logged, released, 240/240) | `FLOOR-007`, `CAP-009` | partial |
+| 44 | Downtime timeline (spindle fault logged, released, 240/240) | `FLOOR-007`, `CAP-009` | done |
 | 45 | "Customer dates changed: 0" | `DEMAND-005` | partial |
 | 46 | "SO-1184 · 21 cartons · out Fri Nov 6, 3:40 PM" | `LARDER-010` | done |
 | 47 | "Wholesale, Shopify and Amazon orders ship from one list" | `LARDER-010`, `CONN-003`, `CONN-005`, `DEMAND-008` | partial |
@@ -458,8 +458,8 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 11 | 38 | 63 | 112 |
-| All | 27 | 38 | 63 | 128 |
+| Target and push further | 12 | 38 | 62 | 112 |
+| All | 28 | 38 | 62 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -509,7 +509,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `CAP-006` | Alternate centers and sequence-dependent setups | target | missing |  | Alternate centers and sequence-dependent setups workflow and its acceptance journey are not implemented. |
 | `CAP-007` | Live dependency-preserving reflow | target | missing |  | Live dependency-preserving reflow workflow and its acceptance journey are not implemented. |
 | `CAP-008` | Grouped jobs and nesting | target | missing |  | Grouped jobs and nesting workflow and its acceptance journey are not implemented. |
-| `CAP-009` | Maintenance and downtime planning | target | missing |  | Maintenance and downtime planning workflow and its acceptance journey are not implemented. |
+| `CAP-009` | Maintenance and downtime planning | target | done | `src/larder/maintenance.ts`; `src/larder/maintenance-availability.ts`; `src/ui/maintenance.tsx`; `src/ui/schedule/plan.ts`; `tests/api/maintenance.test.mjs`; `tests/browser/maintenance.spec.ts` (CAP-009) | Named public Worker and native-dev journeys prove preventive/breakdown records, repair/evidence/release trail, execution blocks beyond ETA, provisional recovery, archive restore and unchanged physical output/promises at 1440/390. |
 | `BUY-001` | Supplier contracts and delivery rules | target | partial | `src/larder/catalogue.ts`; `src/larder/purchasing.ts`; `tests/api/flows.test.mjs` | Supplier prices/codes, basic terms and PO date history exist; structured vendor constraints, scheduled lines and performance do not. |
 | `BUY-002` | Receiving against production demand | target | partial | `src/larder/purchasing.ts`; `src/larder/planning.ts`; `tests/api/flows.test.mjs` | Partial receipt/quarantine and shortage reasons ship; demand pegging, tolerances and downstream receipt allocation are absent. |
 | `BUY-003` | Purchasing approvals and three-way match | target | partial | `src/larder/purchasing.ts`; `src/larder/roles.ts`; `tests/api/flows.test.mjs` | Role-gated exact PO approvals ship; thresholds, invoice capture, three-way matching and PO billing/payment status in the PO list are absent. |
