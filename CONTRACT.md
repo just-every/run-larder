@@ -451,15 +451,15 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 
 Judged from the code and tests at commit `ef0f2402bd6a3e0dd3fdc95d3187433ff92327f7` (18 October 2026).
 
-HTTP-001 and ENG-004 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
+HTTP-001, ENG-004 and STOCK-002 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
 
 Homepage claim coverage was completed on 18 October 2026. The baseline retained every pre-existing clause status; subsequent completed journeys are recorded in the Status rows. US-001 was re-judged against the current archive code and remains partial; OPEN-001 and DEMAND-008 are new target clauses. The additional acceptance requirements below remain engineering work wherever their clause is partial or missing.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 2 | 44 | 66 | 112 |
-| All | 18 | 44 | 66 | 128 |
+| Target and push further | 3 | 43 | 66 | 112 |
+| All | 19 | 43 | 66 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
