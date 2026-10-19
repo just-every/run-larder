@@ -1,3 +1,4 @@
+import { InventoryPolicies } from './inventory-policies'
 import { Dispatch } from './dispatch'
 import { signOut } from './shell'
 import { DowntimeReport } from './downtime-report'
@@ -12,13 +13,14 @@ import { Boms } from './bom-editor'
 import { WorkOperations } from './work-operations'
 import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
 
-const tabs = [{ id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }, { id: 'forecast', title: 'Forecast & MPS' }, { id: 'dispatch', title: 'Shop-floor dispatch' }]
+const tabs = [{ id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }, { id: 'forecast', title: 'Forecast & MPS' }, { id: 'dispatch', title: 'Shop-floor dispatch' }, { id: 'policies', title: 'Inventory policies' }]
 
 export function MakeBuy({ larder, section = 'plan', id }: { larder: Larder; section?: string; id?: string }) {
   const s = larder.state!
   return <div className="page">
     <header className="page-head"><p className="eyebrow">Make &amp; buy</p><h1>{tabs.find(t => t.id === section)?.title ?? 'Shortages'}</h1>
       <nav className="tabs" aria-label="Make and buy">{tabs.map(t => <a key={t.id} href={`#make/${t.id}`} aria-current={section === t.id ? 'page' : undefined}>{t.title}</a>)}</nav></header>
+    {section === 'policies' && <InventoryPolicies larder={larder} />}
     {section === 'dispatch' && <Dispatch larder={larder} onSignOut={() => void signOut()} />}
     {section === 'plan' && <Shortages larder={larder} />}
     {section === 'po' && (id && byId(s, 'purchaseOrders', id) ? <Purchase larder={larder} po={byId(s, 'purchaseOrders', id)!} /> : <Purchases larder={larder} />)}
@@ -68,7 +70,7 @@ function Purchase({ larder, po }: { larder: Larder; po: Rec }) {
       {buyer && ['approved', 'confirmed'].includes(po.status) && <Form title="Record supplier confirmation" submit="Save confirmation" busy={busy} onSubmit={d => run('po.confirm', { poId: po.id, version: po.version, supplierReference: text(d, 'ref'), confirmedDate: text(d, 'date') })}><Field label="Supplier reference" name="ref" /><Field label="Confirmed delivery" name="date" type="date" /></Form>}
       {buyer && open && <Form title="Revise expected delivery" submit="Revise date" quiet busy={busy} onSubmit={d => run('po.revise', { poId: po.id, version: po.version, expectedDate: text(d, 'date'), note: text(d, 'note') })}><Field label="New expected date" name="date" type="date" /><Field label="Why" name="note" /></Form>}
       {open && can(s, ['manager', 'warehouse']) && <Form title="Receive delivery" submit="Receive" busy={busy} onSubmit={d => run('receipt.create', { poId: po.id, supplierReference: text(d, 'ref'), lines: po.lines.map((l: any) => ({ lineId: l.id, quantity: text(d, `q.${l.id}`), locationId: text(d, 'locationId'), lot: text(d, `lot.${l.id}`), inspection: text(d, 'inspection') })).filter((l: any) => l.quantity && positive(l.quantity)) })}>
-        <Field label="Packing slip" name="ref" /><Choose label="Into location" name="locationId" options={options(rows(s, 'locations'), r => r.name)} />
+        <Field label="Packing slip" name="ref" /><Choose label="Into location" name="locationId" defaultValue={po.inventoryPolicy?.locationId ?? ''} options={options(rows(s, 'locations'), r => r.name)} />
         <Choose label="Inspection" name="inspection" options={[{ value: 'accept', label: 'Accept into stock' }, { value: 'quarantine', label: 'Hold in quarantine' }]} />
         {po.lines.filter((l: any) => positive(minus(l.quantity, l.received))).map((l: any) => <div className="line" key={l.id}><Field label={`${itemName(s, l.itemId)} (outstanding ${qty(minus(l.quantity, l.received))})`} name={`q.${l.id}`} inputMode="decimal" required={false} /><Field label="Supplier lot" name={`lot.${l.id}`} required={false} /></div>)}
       </Form>}
@@ -96,6 +98,7 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
       <p className="meta">Make {qty(w.quantity)} {itemName(s, w.itemId)} by {day(w.requiredBy)}{w.bomRevision && ` · pinned to BOM revision ${w.bomRevision}`}</p><p>{w.reason}</p>{w.engineeringBomIds && <p>Engineering review pins: {Object.entries(w.engineeringBomIds).map(([itemId, bomId]) => `${itemName(s, itemId)} rev ${byId(s, 'boms', bomId)?.revision}`).join('; ')}. <a href="#make/boms">Review and acknowledge engineering changes</a>.</p>}
       {w.status === 'draft' && prod && <div className="actions"><button className="button primary" disabled={busy} onClick={() => run('wo.release', { workOrderId: w.id, version: w.version })}>Release and reserve materials</button></div>}
       {w.components.length > 0 && <Table head={['Material', 'Required', 'Issued', 'Reserved']} numeric={[1, 2, 3]}>{w.components.map((l: any) => <tr key={l.id}><td>{itemName(s, l.itemId)}</td><td className="num">{qty(l.required)} {unitOf(s, l.itemId)}</td><td className="num">{qty(l.issued)}</td><td className="num">{reserved(l.id).map(r => `${qty(r.quantity)} at ${locationName(s, r.locationId)}`).join(', ') || '0'}</td></tr>)}</Table>}
+      {w.inventoryPolicy && <section aria-label="Inventory policy demand pegs"><h3>Inventory policy supply</h3><p>Planned destination: {locationName(s, w.inventoryPolicy.locationId)}.</p>{(w.inventoryPolicy.pegs ?? []).map((peg: any, i: number) => <p key={i}><a href={`#orders/${peg.orderId}`}>{byId(s, 'salesOrders', peg.orderId)?.reference ?? 'Original customer order'}</a> · {qty(peg.quantity)} · required {day(peg.requiredBy)}</p>)}</section>}
       <WorkOperations larder={larder} w={w} />
       <p>Output {qty(w.output)} · scrap {qty(w.scrap)} · standard cost {money(w.standardUnitCost)} each</p>
       {w.cost && <p>Materials used {money(w.cost.materials)} · variance {money(w.cost.variance)} · actual {money(w.cost.actualUnitCost)} each</p>}
@@ -106,7 +109,7 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
         <Choose label="From location" name="locationId" options={options(rows(s, 'locations'), r => r.name)} />
         {w.components.map((l: any) => <Field key={l.id} label={`${itemName(s, l.itemId)} actually used (${unitOf(s, l.itemId)})`} name={`q.${l.id}`} defaultValue={positive(minus(l.required, l.issued)) ? minus(l.required, l.issued) : ''} inputMode="decimal" required={false} />)}</Form>}
       {prod && <Form title="Record output" submit="Record output" busy={busy} onSubmit={d => run('wo.output', { workOrderId: w.id, version: w.version, locationId: text(d, 'locationId'), quantity: text(d, 'quantity') || '0', scrap: text(d, 'scrap') || '0', scrapReason: text(d, 'scrapReason'), lot: text(d, 'lot') })}>
-        <Choose label="Into location" name="locationId" options={options(rows(s, 'locations'), r => r.name)} /><Field label="Good quantity" name="quantity" inputMode="decimal" required={false} /><Field label="Scrapped" name="scrap" inputMode="decimal" required={false} /><Field label="Scrap reason" name="scrapReason" required={false} /><Field label="Batch" name="lot" required={false} /></Form>}
+        <Choose label="Into location" name="locationId" defaultValue={w.inventoryPolicy?.locationId ?? ''} options={options(rows(s, 'locations'), r => r.name)} /><Field label="Good quantity" name="quantity" inputMode="decimal" required={false} /><Field label="Scrapped" name="scrap" inputMode="decimal" required={false} /><Field label="Scrap reason" name="scrapReason" required={false} /><Field label="Batch" name="lot" required={false} /></Form>}
       {prod && <Form submit="Close work order" quiet busy={busy} note="Releases leftover reservations and records the material cost and variance." onSubmit={() => run('wo.close', { workOrderId: w.id, version: w.version })}><span /></Form>}
     </Card>}
   </div>

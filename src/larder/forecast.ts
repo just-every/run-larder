@@ -57,6 +57,7 @@ export function forecasts(c: Context, type: string, p: any): Row | undefined {
     if (plan.stateVersion !== c.s.version) fail('STALE', 'Business records changed. Prepare and review a new MPS.')
     const documents = plan.rows.filter((r: any) => decimal(r.proposed) > 0n).map((r: any) => {
       const item = get(c.s, 'items', r.itemId)
+      if (c.s.inventoryPolicies.some(p => p.itemId === item.id && p.effectiveOn <= c.now.slice(0, 10))) fail('INVENTORY_POLICY', 'Use the SKU/location inventory policy preview for this configured item before drafting supply.')
       if (item.archived) fail('ARCHIVED', `${item.name} is archived; revise its forecast before releasing supply.`)
       const reason = `${plan.reason}; MPS week ${r.week}`
       const due = addDays(r.week, 6)

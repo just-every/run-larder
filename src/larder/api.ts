@@ -16,6 +16,7 @@ import { catalogue } from './catalogue'
 import { exportBatch, imports, publishImport } from './odoo/imports'
 import { handoff, handoffCsv } from './handoff'
 import { forecasts } from './forecast'
+import { inventory } from './inventory'
 import { certificates } from './certificates'
 import { certificatePack } from './certificate-pack'
 import { maintenance } from './maintenance'
@@ -47,7 +48,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [ certificates, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [inventory, certificates, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
