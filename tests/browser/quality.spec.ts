@@ -96,7 +96,9 @@ test('TRACE-004 define and approve a fill-weight plan, record passing and failin
     await expect(card(page, 'Quality checks')).toContainText(`lot BX-${tag} (Released)`)
     await expect(badResults.locator('tr')).toHaveCount(3)
     await shot(page, 'released')
+    const current = (await (await page.request.get(origin + '/api/larder/state')).json()).workOrders.find((w: any) => w.id === bad.id)
+    await command(page, 'wo.operation.complete', { workOrderId: bad.id, version: current.version, sequence: 1, reason: 'Filled' })
     await open(page, 'make/dispatch')
-    await expect(card(page, `${bad.reference} · Lid`)).toContainText('Ready')
+    await expect(card(page, `${bad.reference} · Lid`)).toContainText('Ready'); await expect(card(page, `${bad.reference} · Lid`)).not.toContainText('Quality hold')
   }
 })
