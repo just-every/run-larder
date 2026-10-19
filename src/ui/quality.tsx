@@ -33,7 +33,7 @@ export function QualityPlans({ larder }: { larder: Larder }) {
       <Choose label="Item" name="itemId" options={options(made, r => `${r.name} · ${r.sku}`)} /><Field label="BOM revision" name="revision" inputMode="numeric" required={false} hint="Leave empty for every revision" />
       <Choose label="Stage" name="stage" options={[{ value: 'receipt', label: 'Receipt' }, { value: 'in-process', label: 'In-process' }, { value: 'final', label: 'Final' }]} />
       <Field label="After operation" name="operationSequence" inputMode="numeric" required={false} hint="In-process checks only" /><Field label="Plan name" name="name" /><Field label="Sample size" name="sampleSize" inputMode="numeric" />
-      <Choose label="Failure effect" name="required" options={[{ value: 'required', label: 'Required: a failure holds stock and work' }, { value: 'advisory', label: 'Advisory: record only' }]} />
+      <Choose label="Failure effect" name="required" defaultValue="required" options={[{ value: 'required', label: 'Required: a failure holds stock and work' }, { value: 'advisory', label: 'Advisory: record only' }]} />
       <Field label="Measurement" name="m.name" /><Field label="Unit" name="m.unit" /><Field label="Target" name="m.target" inputMode="decimal" /><Field label="Lower limit" name="m.lower" inputMode="decimal" /><Field label="Upper limit" name="m.upper" inputMode="decimal" />
       {fileInput('Specification or drawing', 'spec')}
     </Form></Card>}
