@@ -22,7 +22,7 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `party.save` | `{id?, version?, name, kind: customer\|supplier\|both, email?, abn?, terms?}` | manager, buyer, sales |
 | `partyItem.save` | `{id?, version?, partyId, itemId, partyCode, unit?, price?, leadDays?, preferred?}` | manager, buyer, sales |
 | `opening.record` | `{locationId, countedOn, valuationBasis: supplier-invoice\|last-purchase\|standard-cost\|owner-estimate, countedBy, evidence: {name, contentType, base64}, lines: [{itemId, quantity, unit?, unitCost, lot?}]}` | manager, warehouse |
-| `bom.revise` | `{itemId, components: [{itemId, quantity, unit?, supply?: make|buy|phantom}], yield?: <fraction>, routing?: [{name, workCentre?, minutes}], note?, effectiveOn?}` | manager, production |
+| `bom.revise` | `{itemId, components: [{itemId, quantity, unit?, supply?: make\|buy\|phantom}], yield?: <fraction>, routing?: [{name, workCentre?, minutes}], note?, effectiveOn?}` | manager, production |
 | `bom.bulkPreview` | `{file: {name, content}}` — CSV rows, errors and stock/open-work impact; creates only the review record | manager, production |
 | `bom.bulkApprove` | `{previewId, version, acceptRejected?: <exact error count>}` — approve all valid whole-BOM groups atomically; changed business state requires a new preview | manager, production (different preparer; owner may approve own) |
 | `order.rank` | `{kind: sales\|work, orderId, version, rank}` — lower positive whole-number ranks first; preserves reservations/promises | manager, production |
