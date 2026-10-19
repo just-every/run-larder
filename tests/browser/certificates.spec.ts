@@ -21,6 +21,8 @@ test('TRACE-007 require CoA and CoC, refuse a mismatched lot, approve exact reco
   if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  await expect(page.getByRole('navigation', { name: 'Larder', exact: true })).toBeVisible()
+  await expect(page.locator('.loading')).toHaveCount(0)
   const tag = crypto.randomUUID().slice(0, 6), today = new Date().toISOString().slice(0, 10), lotCode = `FIN-${tag}`
   const location = await command(page, 'location.save', { name: `QC shelf ${tag}` })
   const raw = await command(page, 'item.save', { sku: `STOCK-${tag}`, name: `Steel blank ${tag}`, kind: 'buy', baseUnit: 'each' })
@@ -28,7 +30,9 @@ test('TRACE-007 require CoA and CoC, refuse a mismatched lot, approve exact reco
   const customer = await command(page, 'party.save', { name: `Dayton Instruments ${tag}`, kind: 'customer' })
   await command(page, 'bom.revise', { itemId: item.id, components: [{ itemId: raw.id, quantity: '1' }] })
   await command(page, 'opening.record', { locationId: location.id, countedOn: today, valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: { name: 'steel-count.txt', contentType: 'text/plain', base64: Buffer.from('Counted two steel blanks at invoiced cost').toString('base64') }, lines: [{ itemId: raw.id, quantity: '2', unitCost: '8' }] })
-  await page.goto(origin + '/app#stock'); await page.reload(); await settled(page)
+  await page.goto(origin + '/app'); await page.reload(); await settled(page)
+  await page.getByRole('navigation', { name: 'Larder', exact: true }).getByRole('link', { name: 'Stock', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Stock on hand', exact: true })).toBeVisible()
   const card = page.getByRole('heading', { name: 'Controlled lot documents', exact: true }).locator('../..')
   await card.getByText('Configure required certificates', { exact: true }).click()
   await card.getByLabel('Certificate requirement SKU', { exact: true }).selectOption(item.id)
