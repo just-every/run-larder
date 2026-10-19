@@ -2,7 +2,7 @@
 
 The app and agents use the same door. Every request needs a native session cookie (an invited person signs in through the emailed link); agents are invited people given the `agent` role.
 
-- `GET /api/larder/state` — every record, the formatted movement ledger, reservations, positions, availability per item, shortages, the exception queue, recent recorded actions and (for the owner) the team.
+- `GET /api/larder/state` — every record, the formatted movement ledger, reservations, positions, availability per item, shortages, weekly forecasts/MPS, the exception queue, recent recorded actions and (for the owner) the team.
 - `POST /api/larder/commands` — `{ "commandId": "<8–100 of A-Z a-z 0-9 _ ->", "type": "...", "payload": { ... } }` with `content-type: application/json` and the installation's own `Origin`. Repeating a `commandId` returns its recorded outcome; reusing it with other content or by someone else is refused (`IDEMPOTENCY`). Replies are `{ ok: true, result, version }` or `{ ok: false, error: { code, message, details } }`.
 - `GET /api/larder/handoffs/<id>.csv` — a handoff batch as CSV (owner, manager, accounts).
 - `GET /api/larder/attachments/<id>` — an evidence file.
@@ -151,3 +151,11 @@ New shipments snapshot billing/shipping addresses, customer reference, commercia
 `shipment.unpick` (manager, warehouse, owner) accepts `{shipmentId, version, reason}` for a picked/packed parcel that has not shipped. It records the undo and marks that pick `cancelled`; stock and reservations remain available to its order until separately released or cancelled. This provides the public resolution for an amendment blocked by picked commitments.
 
 Order-list commercial value uses issued shipment prices plus the current outstanding quantity at the revised price; missing historical prices are labelled unrecorded. Existing direct-cancellation callers must now supply customer approval evidence; the DEMAND-006 cancellation journey was updated to supply the required attestation.
+
+## Forecasts and master production schedule (DEMAND-003)
+
+`forecast.import` takes `{stateVersion, file: {name, content}, reason}`; CSV columns are `sku,week,quantity,seasonality`, with Monday-start UTC weeks and base-unit quantities. Imports are atomic, keep original bytes/digest and retain before/after history for replacements. `forecast.adjust` takes `{forecastId, version, seasonality?, overrideQuantity?: string|null, reason}`. Omitted fields stay unchanged; null removes the override. `forecast.undo` takes `{forecastId, version, historyId, reason}` and appends compensation for the latest non-undo change with an earlier basis. Manager/production maintain adjustments; manager/buyer/production/agent prepare imports.
+
+The state API returns `forecasts`, retained `productionPlans` and the current `masterSchedule`. Weekly rows distinguish baseline, seasonality, override, actual demand, outstanding/reserved, consumed/residual forecast, net demand, signed error, usable supply, proposed supply, closing stock and source documents. Adjusted baseline multiplies at six decimal places, half away from zero; an explicit override replaces it. Actual outstanding schedules and issued deliveries consume that same SKU/week once. Missing historical issued delivery dates are explicit and block MPS preparation. Supply arriving by the week’s Sunday covers that week; this quantity plan makes no capacity or customer-date promise.
+
+`mps.preview` takes `{reason}` and retains the exact rows/state version. Existing planning roles prepare. `mps.release` takes `{planId, version}`; owner/manager/production approve, with a different preparer except the owner and no agent release. Any business write after preview makes it stale. Release creates linked draft work or purchases for uncovered weekly quantities; bought items require a recorded supplier, and a missing supplier refuses the whole batch. Work release and purchasing approval stay separate. Draft/open supply prevents a second schedule from duplicating the first. Original forecasts, overrides, undo entries and released MPS snapshots are included in the complete archive.

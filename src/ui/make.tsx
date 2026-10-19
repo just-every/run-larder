@@ -4,11 +4,12 @@ import { Card, Chip, Choose, Empty, Field, Form, Lines, Table, options, readLine
 import { day, dayName, minus, money, positive, qty, when, words } from './format'
 import { covers, firstStart, stories, timing } from './supply'
 import { schedule } from './schedule/plan'
+import { Forecasts } from './forecasts'
 import { Boms } from './bom-editor'
 import { WorkOperations } from './work-operations'
 import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
 
-const tabs = [{ id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }]
+const tabs = [{ id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }, { id: 'forecast', title: 'Forecast & MPS' }]
 
 export function MakeBuy({ larder, section = 'plan', id }: { larder: Larder; section?: string; id?: string }) {
   const s = larder.state!
@@ -18,6 +19,7 @@ export function MakeBuy({ larder, section = 'plan', id }: { larder: Larder; sect
     {section === 'plan' && <Shortages larder={larder} />}
     {section === 'po' && (id && byId(s, 'purchaseOrders', id) ? <Purchase larder={larder} po={byId(s, 'purchaseOrders', id)!} /> : <Purchases larder={larder} />)}
     {section === 'wo' && (id && byId(s, 'workOrders', id) ? <Work larder={larder} w={byId(s, 'workOrders', id)!} /> : <Works larder={larder} />)}
+    {section === 'forecast' && <Forecasts larder={larder} />}
     {section === 'boms' && <Boms larder={larder} />}
   </div>
 }

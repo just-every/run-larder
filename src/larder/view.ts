@@ -1,5 +1,6 @@
 // What a signed-in person or agent reads: records, formatted ledger, positions,
 // availability, shortages and the exception queue.
+import { masterSchedule } from './forecast-plan'
 import { orderStatuses } from './order-status'
 import { blindView } from './count-visibility'
 import { availability } from './availability'
@@ -19,6 +20,7 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
   return {
     version: s.version, actor, ...records,
     orderStatuses: orderStatuses(s),
+    masterSchedule: masterSchedule(s),
     movements: s.movements.map(movementView),
     reservations: s.reservations.map(r => ({ ...r, quantity: format(r.quantity) })),
     positions: positions(s),

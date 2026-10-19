@@ -1,5 +1,5 @@
 // Deterministic shortages and drafted purchase or work orders. The numbers come
-// from orders, released work, stock and open supply only; nothing is forecast.
+// from confirmed orders, residual forecasts, released work, stock and open supply.
 import { activeBom } from './bom'
 import { day } from './day'
 import { decimal, format } from './decimal'

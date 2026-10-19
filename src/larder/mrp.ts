@@ -1,5 +1,6 @@
 // Aggregate every parent before netting a shared component. Physical and open
 // supply are pools, while pegging retains the demand that caused each branch.
+import { addDays, forecastDemand } from './forecast-plan'
 import { activeBom } from './bom'
 import { deliveries } from './sales-schedules'
 import { componentQuantity } from './bom-explosion'
@@ -45,6 +46,7 @@ export function netRequirements(s: State): NettedItem[] {
         seed(l.itemId, { document: 'salesOrders', documentId: o.id, reference: o.reference, date: delivery.date, path: [], supply: mode(s, l), quantity: quantity - covered })
       }
     }
+  for (const f of forecastDemand(s)) seed(f.itemId, { document: 'forecasts', documentId: f.forecastId, reference: `Forecast ${f.week}`, date: addDays(f.week, 6), path: [], supply: mode(s, f), quantity: decimal(f.quantity) })
   for (const w of s.workOrders) if (w.status === 'released')
     for (const l of w.components) {
       // Released physical requirements may combine distinct make/buy paths.
