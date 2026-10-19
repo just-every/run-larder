@@ -46,6 +46,9 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `wo.output` | `{workOrderId, version, locationId?, quantity?, scrap?, scrapReason?, lot?}` | manager, production |
 | `wo.close` | `{workOrderId, version}` | manager, production |
 | `transfer.create` | `{itemId, fromLocationId, toLocationId, quantity, unit?, lotId?, reason}` | manager, warehouse |
+| `count.schedule` | `{locationId, scheduledOn, basis: value\|risk\|bin, counterId, recountTolerance?, minimumValue?, risk?: high\|medium\|low, itemId?}` | manager |
+| `count.submit` | `{sessionId, lineId, version, counted, serials?: [string], note?}` | assigned warehouse counter |
+| `count.recount` | `{sessionId, lineId, version, note}` | manager |
 | `count.record` | `{itemId, locationId, counted, lotId?, note?}` | manager, warehouse |
 | `count.approve` / `count.reject` | `{countId, version, note?}` | manager (not the counter), owner |
 | `return.receive` | `{orderId, lineId, quantity, unit?, locationId, disposition: restock\|quarantine, reason}` | manager, warehouse |
@@ -79,3 +82,13 @@ Download `/api/larder/boms.csv`, edit component SKUs, quantities, units, routing
 The preview lists file/row/column errors and the affected SKUs, existing stock positions, component changes, and open work. A bad row excludes that entire BOM, preventing a truncated recipe. Approval needs the preview's version and, when errors exist, the exact rejected-row count. An intervening business write makes the preview stale. A different production engineer or manager approves; the owner can approve their own preview. The original CSV, preview, approver and created revision IDs remain in the state/archive.
 
 Approval creates immutable new revisions in one transaction. Future revisions become eligible on their effective UTC date; release pins the effective revision at release time. Released work, reservations and physical movements stay unchanged. Changing released work requires a separate reviewed workflow; bulk CSV approval never changes it. Re-download to inspect the newly effective component quantities and routings.
+
+## Blind counts (STOCK-002)
+
+Schedule by bin, minimum position value (highest first), or a selected item/risk classification. Locations serve as count bins. Each session records the due date, assigned warehouse counter, quantity tolerance and immutable observations. Only available stock is counted; quarantine is a separate disposition. A risk selection records the manager's assessment for that session. A zero-stock item can be explicitly selected.
+
+On its due UTC date the counter enters a server-enforced blind workspace. State exposes task identities, SKU, base unit and lot code, with all balances, costs, observations and other business records excluded. Other downloads and commands (including old command replays) are refused until the session is complete. The counter can sign out normally. Other people continue warehouse work.
+
+Reconcile mode snapshots a movement frontier per position. Intervening movements invalidate approval and require a new snapshot/recount; they are never silently netted against an observation. The first variance exceeding the session tolerance requires a second blind observation. Managers can request additional recounts or reject an observation. All attempts, physical/base-unit basis, time, person, lot and optional observed serial identities remain in the archive. Observed serials must be unique and match the counted quantity; these are count evidence, not a claim that the unfinished serial-tracking workflow has shipped.
+
+A different manager approves each latest observation; no self-approval exception applies to sessions. Approval appends valued compensating movements, links their IDs and approval, and records the exact financial variance at the observation's recorded weighted-average cost. Zero-variance approval posts no movement. The financial adjustment enters the existing accountant handoff CSV once. Existing individual `count.record` commands retain their prior independent-approval behavior.

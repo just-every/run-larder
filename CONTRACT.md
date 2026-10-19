@@ -451,15 +451,15 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 
 Judged from the code and tests at commit `ef0f2402bd6a3e0dd3fdc95d3187433ff92327f7` (18 October 2026).
 
-HTTP-001 and ENG-004 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
+HTTP-001, ENG-004 and STOCK-002 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
 
 Homepage claim coverage was completed on 18 October 2026. The baseline retained every pre-existing clause status; subsequent completed journeys are recorded in the Status rows. US-001 was re-judged against the current archive code and remains partial; OPEN-001 and DEMAND-008 are new target clauses. The additional acceptance requirements below remain engineering work wherever their clause is partial or missing.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 2 | 44 | 66 | 112 |
-| All | 18 | 44 | 66 | 128 |
+| Target and push further | 3 | 43 | 66 | 112 |
+| All | 19 | 43 | 66 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -534,7 +534,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `TRACE-006` | Recall execution and reconciliation | target | missing |  | Recall execution and reconciliation workflow and its acceptance journey are not implemented. |
 | `TRACE-007` | Certificates and controlled release records | target | missing |  | Certificates and controlled release records workflow and its acceptance journey are not implemented. |
 | `STOCK-001` | Bins sites and replenishment | target | partial | `src/larder/warehouse.ts`; `src/larder/availability.ts`; `tests/api/flows.test.mjs` | Locations/free-stock transfers exist; sites/bins, in-transit receipt, ownership, putaway policies and multi-order batch/wave picking are absent. |
-| `STOCK-002` | Cycle counts and stocktake | target | partial | `src/larder/warehouse.ts`; `tests/api/flows.test.mjs` | Physical counts and stale/independent approval checks ship; scheduled blind cycle-count sessions and recount policies are absent. |
+| `STOCK-002` | Cycle counts and stocktake | target | done | `tests/api/counts.test.mjs`; `tests/browser/counts.spec.ts` — STOCK-002 | Scheduled value/risk/bin blind sessions, server-enforced blind reads, stale receipt/recount handling, retained lot/serial observations, independent quantity/value approval, handoff and restore. |
 | `COST-001` | Actual job costing | target | partial | `src/larder/production.ts`; `src/larder/stock.ts`; `tests/api/flows.test.mjs` | Actual material cost and pinned standard output value ship; labor, overhead, subcontract roll-up and actual output revaluation are absent. |
 | `COST-002` | WIP valuation and aging | target | partial | `src/larder/production.ts`; `src/larder/handoff.ts` | Work/material costs and valued movements exist; ongoing WIP valuation/aging and period roll-forward do not. |
 | `COST-003` | Estimate to actual variance | target | partial | `src/larder/production.ts`; `tests/api/flows.test.mjs` | Closed jobs report material standard/actual variance; full component variance reports and labor/overhead analysis are absent. Sales-order quoted/actual margin and cost-variance reconciliation across jobs is absent. |
