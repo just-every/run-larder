@@ -70,7 +70,7 @@ export function netRequirements(s: State): NettedItem[] {
     if (!b) continue
     if (w.engineeringBomIds) {
       const resolved = resolvedComponents(s, b, decimal(w.quantity), on, w.engineeringBomIds)
-      for (const l of resolved.components) seed(l.itemId, { document: 'workOrders', documentId: w.id, reference: w.reference, date: w.requiredBy, path: resolved.revisions.map(r => ({ itemId: r.itemId, bomId: r.bomId, revision: r.revision })), supply: l.supply, quantity: decimal(l.quantity) })
+      for (const l of resolved.components) seed(l.itemId, { document: 'workOrders', documentId: w.id, reference: w.reference, date: w.requiredBy, path: resolved.revisions.map(r => ({ itemId: r.itemId, bomId: r.bomId, revision: r.revision })), supply: mode(s, l), quantity: decimal(l.quantity) })
       continue
     }
     for (const l of b.components) seed(l.itemId, { document: 'workOrders', documentId: w.id, reference: w.reference, date: w.requiredBy, path: [{ itemId: w.itemId, bomId: b.id, revision: b.revision }], supply: mode(s, l), quantity: componentQuantity(l.quantity, decimal(w.quantity), b.yield ?? '1') })

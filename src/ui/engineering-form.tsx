@@ -7,7 +7,7 @@ import { RoutingEditor, routingFromForm } from './routing-editor'
 
 export function EngineeringProposal({ larder }: { larder: Larder }) {
   const s = larder.state!, today = new Date().toISOString().slice(0, 10)
-  const sources = rows(s, 'items').filter(i => i.kind === 'make').map(i => rows(s, 'boms').filter(b => b.itemId === i.id && ['active', 'scheduled'].includes(b.status) && b.effectiveOn <= today).sort((a, b) => b.effectiveOn.localeCompare(a.effectiveOn) || b.revision - a.revision)[0]).filter(Boolean)
+  const sources = rows(s, 'items').filter(i => i.kind === 'make').map(i => rows(s, 'boms').filter(b => b.itemId === i.id && ['active', 'scheduled'].includes(b.status) && (!b.effectiveOn || b.effectiveOn <= today)).sort((a, b) => (b.effectiveOn ?? '').localeCompare(a.effectiveOn ?? '') || b.revision - a.revision)[0]).filter(Boolean)
   const [selected, setSelected] = useState('')
   const source = sources.find(b => b.id === selected) ?? sources[0]
   return <Card title="Propose engineering change">
