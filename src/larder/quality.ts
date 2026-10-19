@@ -73,7 +73,7 @@ function holdLot(c: Context, hold: Row, lotId: string) {
   bump(lot, { status: 'quality hold' })
 }
 
-const subjectLots = (s: State, subjectKind: string, subjectId: string) => subjectKind === 'lots' ? [subjectId] : s.lots.filter(l => l.source === 'production' && l.documentId === subjectId).map(l => l.id)
+const subjectLots = (s: State, subjectKind: string, subjectId: string) => subjectKind === 'lots' ? [subjectId] : s.lots.filter(l => ['production', 'rework'].includes(l.source) && l.documentId === subjectId).map(l => l.id)
 
 export function quality(c: Context, type: string, p: any): Row | undefined {
   switch (type) {
@@ -102,8 +102,11 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'production'])
       const plan = get(c.s, 'inspectionPlans', p.planId, 'inspection plan'); fresh(plan, p.planVersion)
       if (plan.status !== 'approved') fail('STATE', 'Record results only against the current approved plan.')
-      let subjectKind: 'workOrders' | 'lots', subject: Row
-      if (plan.stage === 'receipt') {
+      let subjectKind: 'workOrders' | 'lots' | 'reworkOrders', subject: Row
+      if (p.reworkOrderId) {
+        subjectKind = 'reworkOrders'; subject = get(c.s, 'reworkOrders', p.reworkOrderId, 'repair/unbuild order')
+        if (subject.status !== 'quarantine' || !subject.outputLots.some((x: any) => x.itemId === plan.itemId) || (plan.revision !== null && plan.revision !== subject.bomRevision)) fail('INPUT', 'Inspect executed repair/recovery output against its pinned revision.')
+      } else if (plan.stage === 'receipt') {
         subjectKind = 'lots'; subject = get(c.s, 'lots', p.lotId, 'lot')
         if (subject.itemId !== plan.itemId || subject.source !== 'receipt') fail('INPUT', 'Inspect a received lot of the plan’s item.')
       } else {
@@ -136,6 +139,7 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
       if (!Array.isArray(p.evidence) || !p.evidence.length) fail('EVIDENCE', 'Attach the retest or disposition record.')
       const evidence = files(c, p.evidence, 'release evidence'), released: any[] = []
       for (const x of hold.held) {
+        if (hold.subjectKind === 'reworkOrders') continue // Only the dedicated evidence-backed release can make repair output available.
         const lot = get(c.s, 'lots', x.lotId, 'lot'), still = balance(c.s, lot.itemId, x.locationId, 'quarantine', lot.id), quantity = still < decimal(x.quantity) ? still : decimal(x.quantity)
         if (quantity <= 0n) continue
         const out = move(c, { itemId: lot.itemId, locationId: x.locationId, status: 'quarantine', lotId: lot.id, quantity: -quantity, kind: 'quality-release', documentKind: 'qualityHolds', documentId: hold.id, reason })

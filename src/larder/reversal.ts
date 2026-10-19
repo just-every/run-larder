@@ -60,6 +60,7 @@ export function reversal(c: Context, type: string, p: any): Row | undefined {
   const reversed = new Set(c.s.movements.filter(m => m.reversesId).map(m => m.reversesId))
   let targets = c.s.movements.filter(m => m.documentKind === kind && m.documentId === doc.id && !reversed.has(m.id))
   if (p.movementIds !== undefined) { const ids = new Set(list<string>(p.movementIds, 'movements')); targets = targets.filter(m => ids.has(m.id)) }
+  if (c.s.reworkOrders.some(w => ['quarantine', 'released'].includes(w.status) && targets.some(m => w.sourceMovementIds.includes(m.id)))) fail('DEPENDENCY', 'Repair/unbuild consumed this original stock. Its genealogy must be retained.')
   if (!targets.length) fail('NOTHING_TO_REVERSE', 'Those movements are already reversed or do not exist.')
   const r = row(c, 'reversals', { targetKind: kind, targetId: doc.id, targetReference: doc.reference ?? '', reason: text(p.reason, 'reason', 400), movements: [] })
   for (const m of [...targets].sort((a, b) => b.sequence - a.sequence)) {

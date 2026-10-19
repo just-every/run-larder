@@ -49,6 +49,13 @@ export function averageCost(s: State, itemId: string): bigint {
 
 type MoveInput = Pick<Movement, 'itemId' | 'locationId' | 'status' | 'kind' | 'documentKind' | 'documentId' | 'reason'> & { quantity: bigint; lotId?: string; unitCost?: bigint; reversesId?: string | null; importId?: string | null }
 
+// A recovery lot carries its approved allocation, including extra repair costs.
+// Preserve that lot's basis instead of blending it into other unrepaired stock.
+function recoveryCost(s: State, lotId: string) {
+  if (!s.lots.some(l => l.id === lotId && l.source === 'rework')) return undefined
+  return s.movements.find(m => m.lotId === lotId && ['repair-output', 'recovered-component'].includes(m.kind))?.unitCost
+}
+
 export function move(c: Context, x: MoveInput): Movement {
   get(c.s, 'locations', x.locationId, 'location')
   const item = get(c.s, 'items', x.itemId, 'item')
@@ -63,7 +70,7 @@ export function move(c: Context, x: MoveInput): Movement {
   }
   const m: Movement = {
     id: newId(), sequence: (c.s.movements.at(-1)?.sequence ?? 0) + 1, itemId: x.itemId, locationId: x.locationId, status: x.status, lotId,
-    quantity: x.quantity, unitCost: x.unitCost ?? averageCost(c.s, x.itemId), kind: x.kind, documentKind: x.documentKind, documentId: x.documentId,
+    quantity: x.quantity, unitCost: x.unitCost ?? (recoveryCost(c.s, lotId) ?? averageCost(c.s, x.itemId)), kind: x.kind, documentKind: x.documentKind, documentId: x.documentId,
     reversesId: x.reversesId ?? null, actorId: c.actor.id, commandId: c.commandId, importId: x.importId ?? null, reason: x.reason, createdAt: c.now,
   }
   if (m.unitCost < 0n) fail('INPUT', 'Unit cost cannot be negative.')

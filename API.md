@@ -47,6 +47,10 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `wo.reserve` | `{workOrderId}` | manager, production, warehouse |
 | `wo.issue` | `{workOrderId, lines: [{itemId, locationId, quantity, unit?, lotId?, note?}]}` | manager, production, warehouse |
 | `wo.output` | `{workOrderId, version, locationId?, quantity?, scrap?, scrapReason?, lot?, dates?}` | manager, production |
+| `rework.draft` | `{kind: rework\|unbuild, sourceLotId, sourceJobId, locationId, sourceStatus: available\|quarantine, quantity, disposition, instructions, evidence: [file], outputs: [{itemId, quantity, lot, value}], materials?: [{itemId, locationId, lotId?, quantity}], labor?: [{person, hours, rate, note}], scrapValue?}` | manager, production |
+| `rework.approve` | `{orderId, version, reason}` | manager, independent preparer (owner exception) |
+| `rework.execute` | `{orderId, version}` — consume source/extras and post quarantined outputs at approved allocation | manager, production |
+| `rework.release` | `{orderId, version, reason, evidence: [file]}` — approve usable repair/recovery, existing QC/certificate gates apply | manager, independent executor (owner exception) |
 | `wo.close` | `{workOrderId, version}` | manager, production |
 | `transfer.create` | `{itemId, fromLocationId, toLocationId, quantity, unit?, lotId?, reason}` | manager, warehouse |
 | `count.schedule` | `{locationId, scheduledOn, basis: value\|risk\|bin, counterId, recountTolerance?, minimumValue?, risk?: high\|medium\|low, itemId?}` | manager |

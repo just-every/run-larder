@@ -27,6 +27,7 @@ function describe(s: State, m: Movement) {
     return { ...base, type: 'Supplier receipt', party: s.parties.find(p => p.id === po?.supplierId)?.name ?? '', document: `${r?.reference} / ${po?.reference}`, partyReference: r?.supplierReference ?? '' }
   }
   if (m.documentKind === 'shipments') return { ...base, ...invoiced(s, m, m), type: 'Customer shipment (invoice preparation)' }
+  if (m.documentKind === 'reworkOrders') return { ...base, type: m.kind, document: s.reworkOrders.find(x => x.id === m.documentId)?.reference ?? '' }
   if (m.documentKind === 'workOrders') return { ...base, type: m.kind === 'issue' ? 'Production material issue' : 'Production output', document: s.workOrders.find(x => x.id === m.documentId)?.reference ?? '' }
   if (m.documentKind === 'counts') return { ...base, type: 'Count adjustment', document: s.counts.find(x => x.id === m.documentId)?.reference ?? '' }
   if (m.documentKind === 'openings') return { ...base, type: 'Opening stock', document: s.openings.find(x => x.id === m.documentId)?.reference ?? '' }

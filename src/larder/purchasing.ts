@@ -87,6 +87,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       return receipt
     }
     case 'quarantine.decide': {
+      if (p.decision === 'release' && c.s.reworkOrders.some(w => w.status !== 'released' && w.outputLots?.some((x: any) => x.lotId === p.lotId))) fail('REWORK_RELEASE', 'Use the repair/unbuild order release with approved evidence.')
       allow(c, ['manager', 'warehouse'])
       if (c.actor.role === 'agent') fail('FORBIDDEN', 'Agents cannot release stock.')
       const item = get(c.s, 'items', p.itemId, 'item'), location = get(c.s, 'locations', p.locationId, 'location')

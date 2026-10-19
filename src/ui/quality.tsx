@@ -61,9 +61,9 @@ export function WorkQuality({ larder, w }: { larder: Larder; w: Rec }) {
   </Card>
 }
 
-function InspectForm({ larder, plan, workOrderId, lots }: { larder: Larder; plan: Rec; workOrderId?: string; lots?: Rec[] }) {
+export function InspectForm({ larder, plan, workOrderId, reworkOrderId, lots }: { larder: Larder; plan: Rec; workOrderId?: string; reworkOrderId?: string; lots?: Rec[] }) {
   return <Form title={`Record ${plan.name}`} submit="Record inspection" busy={larder.busy} note={`${stageLabel(plan)} · ${plan.sampleSize} samples per measurement. Separate samples with spaces, commas or new lines.`} onSubmit={async d => larder.run('quality.inspect', {
-    planId: plan.id, planVersion: plan.version, workOrderId, lotId: text(d, 'lotId') || undefined, note: text(d, 'note'), evidence: await upload(d, 'evidence'),
+    planId: plan.id, planVersion: plan.version, workOrderId, reworkOrderId, lotId: text(d, 'lotId') || undefined, note: text(d, 'note'), evidence: await upload(d, 'evidence'),
     samples: Object.fromEntries(plan.measurements.map((m: Rec, i: number) => [m.name, text(d, `samples.${i}`).split(/[\s,]+/).filter(Boolean)])),
   })}>
     {lots && <Choose label="Received lot" name="lotId" options={options(lots, r => `Lot ${r.code}`)} />}
@@ -72,7 +72,7 @@ function InspectForm({ larder, plan, workOrderId, lots }: { larder: Larder; plan
   </Form>
 }
 
-function InspectionResults({ s, subjectId, title }: { s: LarderState; subjectId: string; title: string }) {
+export function InspectionResults({ s, subjectId, title }: { s: LarderState; subjectId: string; title: string }) {
   const results = rows(s, 'inspections').filter(x => x.subjectId === subjectId)
   if (!results.length) return null
   return <section aria-label={`Inspection results for ${title}`}><h3>Inspection results · {title}</h3>
@@ -84,7 +84,7 @@ function InspectionResults({ s, subjectId, title }: { s: LarderState; subjectId:
   </section>
 }
 
-function HoldRelease({ larder, hold }: { larder: Larder; hold: Rec }) {
+export function HoldRelease({ larder, hold }: { larder: Larder; hold: Rec }) {
   const s = larder.state!
   return <section aria-label={`Quality hold ${hold.planName}`}><p className="warn-text" role="status">Quality hold: {hold.planName} failed on {String(hold.failedAt).slice(0, 10)} ({hold.failures.join('; ')}). {hold.held.length ? `Held ${hold.held.map((x: Rec) => `${x.quantity} of lot ${byId(s, 'lots', x.lotId)?.code}`).join(', ')} in quarantine.` : 'No available stock was held.'}{hold.unreserved.length > 0 && ` Released ${hold.unreserved.length} reservation(s) the held stock covered.`}</p>
     {qualified(s) && <Form title={`Release hold ${hold.planName}`} submit="Release after passing retest" busy={larder.busy} note="Release needs a later passing result under the same approved plan; both results stay on record." onSubmit={async d => larder.run('quality.release', { holdId: hold.id, version: hold.version, reason: text(d, 'reason'), evidence: await upload(d, 'evidence') })}>

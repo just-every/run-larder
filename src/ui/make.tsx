@@ -1,3 +1,4 @@
+import { ReworkOrders } from './rework'
 import { InventoryPolicies } from './inventory-policies'
 import { Dispatch } from './dispatch'
 import { signOut } from './shell'
@@ -86,7 +87,7 @@ function Purchase({ larder, po }: { larder: Larder; po: Rec }) {
 const woTone = (status: string) => status === 'released' ? 'info' : status === 'closed' ? 'good' : 'warn'
 function Works({ larder }: { larder: Larder }) {
   const s = larder.state!, statuses = useOrderStatusList(s, 'work'), list = statuses.list(rows(s, 'workOrders'))
-  return <><DowntimeReport larder={larder} /><Card title="Work orders">{statuses.controls}{list.length === 0 ? <Empty>{rows(s, 'workOrders').length ? 'No work orders match these filters.' : 'No work orders yet. Draft one from a shortage or below.'}</Empty> :
+  return <><ReworkOrders larder={larder} /><DowntimeReport larder={larder} /><Card title="Work orders">{statuses.controls}{list.length === 0 ? <Empty>{rows(s, 'workOrders').length ? 'No work orders match these filters.' : 'No work orders yet. Draft one from a shortage or below.'}</Empty> :
     <Table head={['Work order', 'Makes', 'Dates', 'BOM', 'Status', 'Materials / production', 'Done']} numeric={[6]}>{list.map(w => <tr key={w.id}><td><a href={`#make/wo/${w.id}`}>{w.reference}</a><OrderRank status={statuses.status(w.id)} /><OrderStatusActions larder={larder} kind="work" order={w} status={statuses.status(w.id)} /></td><td>{qty(w.quantity)} {itemName(s, w.itemId)}</td><td>Needed {day(w.requiredBy)}<small>Expected completion {day(w.expectedOn ?? w.requiredBy)}</small></td><td>{w.bomRevision ? `Rev ${w.bomRevision}` : '—'}</td><td><Chip tone={woTone(w.status)}>{words(w.status)}</Chip></td><td><OrderStatusDisplay s={s} status={statuses.status(w.id)} /></td><td className="num">{qty(w.output)}</td></tr>)}</Table>}</Card>
     {can(s, ['manager', 'production', 'agent']) && <Card title="New work order"><Form submit="Save draft" busy={larder.busy} onSubmit={d => larder.run('wo.draft', { itemId: text(d, 'itemId'), quantity: text(d, 'quantity'), requiredBy: text(d, 'requiredBy'), reason: text(d, 'reason') })}>
       <Choose label="Item to make" name="itemId" options={options(rows(s, 'items').filter(i => i.kind === 'make' && !i.archived), r => `${r.name} · ${r.sku}`)} /><Field label="Quantity" name="quantity" inputMode="decimal" /><Field label="Needed by" name="requiredBy" type="date" /><Field label="Reason" name="reason" /></Form></Card>}</>
@@ -107,6 +108,7 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
       {w.cost && <p>Materials used {money(w.cost.materials)} · variance {money(w.cost.variance)} · actual {money(w.cost.actualUnitCost)} each</p>}
       {(w.shortages ?? []).length > 0 && <p className="warn-text">Short: {stories(s, w, schedule(s, new Date())).join('; ')}. <button className="link" onClick={() => run('wo.reserve', { workOrderId: w.id })}>Try reserving again</button></p>}
     </Card>
+    <ReworkOrders larder={larder} jobId={w.id} />
     <WorkQuality larder={larder} w={w} />
     {w.status === 'released' && <Card title="Record the work">
       {can(s, ['manager', 'production', 'warehouse']) && <Form title="Issue materials" submit="Issue" busy={busy} onSubmit={d => run('wo.issue', { workOrderId: w.id, lines: w.components.map((l: any) => ({ itemId: l.itemId, locationId: text(d, 'locationId'), quantity: text(d, `q.${l.id}`) })).filter((l: any) => l.quantity && positive(l.quantity)) })}>
