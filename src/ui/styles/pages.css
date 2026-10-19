@@ -138,3 +138,6 @@
 .dispatch :is(button, input, select, summary, a.button) { min-height: 48px; }
 .dispatch summary { display: flex; align-items: center; padding: 10px 0; cursor: pointer; }
 .dispatch .lines { min-width: 0; overflow-wrap: anywhere; }
+
+/* Shelf-life refusal reasons are complete sentences, including on stacked tables. */
+.fefo-proposal .chip { white-space: normal; overflow-wrap: anywhere; }

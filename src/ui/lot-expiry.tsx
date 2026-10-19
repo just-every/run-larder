@@ -51,7 +51,7 @@ export function LotExpiry({ larder }: { larder: Larder }) {
 export function FefoPick({ s, orderId, reservation }: { s: LarderState; orderId: string; reservation: Rec }) {
   const plan = (s.fefoPlans ?? []).find((p: Rec) => p.orderId === orderId && p.lineId === reservation.lineId && p.locationId === reservation.locationId)
   if (!plan) return null
-  return <div className="wide" aria-label={`FEFO for ${itemName(s, reservation.itemId)}`}>
+  return <div className="wide fefo-proposal" aria-label={`FEFO for ${itemName(s, reservation.itemId)}`}>
     <p className="muted">First expiry first out for shipping {day(plan.on)}{plan.minShelfLifeDays !== null && `; the customer needs ${plan.minShelfLifeDays} days of shelf life`}.</p>
     <Table head={['Lot', 'Expires', 'Shelf life left', 'Available', 'Eligible']} numeric={[3]}>{plan.lots.map((x: Rec) => <tr key={x.lotId || 'unlotted'}><td>{x.code || 'Unlotted'}</td><td>{x.expiresOn ? day(x.expiresOn) : '—'}</td><td>{x.remainingDays === null ? 'no expiry' : `${x.remainingDays} days`}</td><td className="num">{qty(x.quantity)}</td><td>{x.eligible ? <Chip tone="good">Eligible</Chip> : <Chip tone="bad">{x.reason}</Chip>}</td></tr>)}</Table>
     <Choose label={`Lot for ${itemName(s, reservation.itemId)}`} name={`lot.${reservation.id}`} required={false} options={[{ value: 'fefo', label: 'First eligible to expire (FEFO)' }, ...plan.lots.filter((x: Rec) => x.eligible && x.lotId).map((x: Rec) => ({ value: x.lotId, label: `Lot ${x.code}` }))]} defaultValue="fefo" />
