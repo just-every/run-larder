@@ -115,8 +115,10 @@ test('owner runs an order from Odoo move-in to accountant handoff at 1440px', as
   // The confirmed order: reserve, then draft and make the shortfall.
   await page.goto(`${origin}/app#orders`)
   await shot(page, 'orders')
-  await page.getByRole('link', { name: 'SO-0001' }).click()
-  await expect(page.getByRole('heading', { name: 'SO-0001' })).toBeVisible()
+  const importedOrder = (await state(page)).salesOrders.find((o: any) => o.sourceReference === 'S00031')
+  expect(importedOrder, 'The confirmed Odoo source order must have moved in').toBeTruthy()
+  await page.getByRole('link', { name: importedOrder.reference, exact: true }).click()
+  await expect(page.getByRole('heading', { name: importedOrder.reference, exact: true })).toBeVisible()
   await act(page, () => page.getByRole('button', { name: 'Reserve stock' }).click())
   await act(page, () => page.getByRole('button', { name: 'Draft work order for 24 short' }).click())
   await expect(page).toHaveURL(/#make\/wo\//)
@@ -144,7 +146,7 @@ test('owner runs an order from Odoo move-in to accountant handoff at 1440px', as
   await act(page, () => page.getByRole('button', { name: 'Close work order' }).click())
   await expect(page.getByText(/Materials used/)).toBeVisible()
   // Back on the order: reserve the new stock, then pick, pack and ship part of it.
-  const order = (await state(page)).salesOrders.find((o: any) => o.reference === 'SO-0001')
+  const order = (await state(page)).salesOrders.find((o: any) => o.id === importedOrder.id)
   await page.goto(`${origin}/app#orders/${order.id}`)
   await act(page, () => page.getByRole('button', { name: 'Reserve stock' }).click())
   const lines = card(page, 'Order lines')
@@ -155,7 +157,7 @@ test('owner runs an order from Odoo move-in to accountant handoff at 1440px', as
   await pick.getByLabel('Carrier').fill('StarTrack')
   await act(page, () => pick.getByRole('button', { name: 'Ship', exact: true }).click())
   await expect(page.locator('.chip', { hasText: 'Part shipped' })).toBeVisible()
-  const large = (await state(page)).salesOrders.find((o: any) => o.reference === 'SO-0001').lines[0]
+  const large = (await state(page)).salesOrders.find((o: any) => o.id === importedOrder.id).lines[0]
   expect([large.shipped, large.quantity]).toEqual(['27', '28'])
   await shot(page, 'order')
   await page.goto(`${origin}/app#stock`)
