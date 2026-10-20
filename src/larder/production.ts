@@ -1,5 +1,6 @@
 // Work orders: draft, release (pins the BOM revision and reserves components),
 // material issue, output with scrap, and close with cost variance.
+import { workRecalls, recallReason } from './recall-policy'
 import { batchAllocation, workMaterialPool } from './production-trace'
 import { attach } from './attachments'
 import { materialCost } from './production-cost'
@@ -107,6 +108,8 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'production'])
       const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
       if (w.status !== 'released') fail('STATE', 'Record output only on released work.')
+      const recall = workRecalls(c.s, w)[0]
+      if (recall) fail('RECALL_HOLD', recallReason(recall))
       if (w.routing.some((r: any) => r.instructions || r.drawings?.length || r.requiredSkills?.length) && w.routing.some((r: any) => !w.operationStates?.some((t: any) => t.sequence === r.sequence && t.status === 'done'))) fail('OPERATIONS', 'Complete the pinned operations before recording output.')
       const item = get(c.s, 'items', w.itemId, 'item'), good = decimal(p.quantity ?? '0', 'good quantity'), scrap = decimal(p.scrap ?? '0', 'scrap quantity')
       if (good === 0n && scrap === 0n) fail('INPUT', 'Record a good or scrap quantity.')
