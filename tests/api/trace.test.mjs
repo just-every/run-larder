@@ -47,6 +47,11 @@ test('TRACE-001 exact batch allocations isolate forward/backward recall and refu
   const source = lot => oldState.movements.find(m => m.kind === 'issue' && m.lotId === lot.id).id
   const next = { workOrderId: oldJob.id, version: oldJob.version, quantity: '2', lot: 'LEGACY-OUT-B', locationId: oldState.locations[0].id, allocations: [{ movementId: source(sourceB), quantity: '2' }] }
   await continuation.command('wo.output', next, { error: 'TRACE_LEGACY_ALLOCATION' })
+  const backfill = { workOrderId: oldJob.id, version: oldJob.version, batchIndex: 0, allocations: [{ movementId: source(sourceA), quantity: '2' }], reason: 'Original traveler names heat A', evidence: evidence('Original legacy traveler: heat A into first batch') }
+  const assistant = await continuation.person('legacy-agent@example.test', 'agent')
+  await assistant.run('wo.batch.allocate', backfill, { error: 'FORBIDDEN' })
+  const { evidence: omitted, ...noFile } = backfill
+  await continuation.command('wo.batch.allocate', noFile, { error: 'EVIDENCE' })
   oldJob = await continuation.command('wo.batch.allocate', { workOrderId: oldJob.id, version: oldJob.version, batchIndex: 0, allocations: [{ movementId: source(sourceA), quantity: '2' }], reason: 'Original traveler names heat A', evidence: evidence('Original legacy traveler: heat A into first batch') })
   assert.equal(oldJob.outputs[0].allocationRecorded.reason, 'Original traveler names heat A')
   await continuation.command('wo.batch.allocate', { workOrderId: oldJob.id, version: oldJob.version, batchIndex: 0, allocations: [], reason: 'Overwrite', evidence: evidence() }, { error: 'TRACE_ALLOCATION' })
