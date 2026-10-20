@@ -458,8 +458,8 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 20 | 33 | 59 | 112 |
-| All | 36 | 33 | 59 | 128 |
+| Target and push further | 21 | 33 | 58 | 112 |
+| All | 37 | 33 | 58 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -513,7 +513,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `BUY-001` | Supplier contracts and delivery rules | target | partial | `src/larder/catalogue.ts`; `src/larder/purchasing.ts`; `tests/api/flows.test.mjs` | Supplier prices/codes, basic terms and PO date history exist; structured vendor constraints, scheduled lines and performance do not. |
 | `BUY-002` | Receiving against production demand | target | partial | `src/larder/purchasing.ts`; `src/larder/planning.ts`; `tests/api/flows.test.mjs` | Partial receipt/quarantine and shortage reasons ship; demand pegging, tolerances and downstream receipt allocation are absent. |
 | `BUY-003` | Purchasing approvals and three-way match | target | partial | `src/larder/purchasing.ts`; `src/larder/roles.ts`; `tests/api/flows.test.mjs` | Role-gated exact PO approvals ship; thresholds, invoice capture, three-way matching and PO billing/payment status in the PO list are absent. |
-| `BUY-004` | Subcontract and free-issue production | target | missing |  | Subcontract and free-issue production workflow and its acceptance journey are not implemented. |
+| `BUY-004` | Subcontract and free-issue production | target | done | `src/larder/subcontract.ts`; `src/larder/subcontract-custody.ts`; `src/ui/subcontract.tsx`; `tests/api/subcontract.test.mjs`; `tests/browser/subcontract.spec.ts` | — |
 | `BUY-005` | Landed costs | target | missing |  | Landed costs workflow and its acceptance journey are not implemented. |
 | `BUY-006` | Supplier returns and credits | target | missing |  | Supplier returns and credits workflow and its acceptance journey are not implemented. |
 | `BUY-007` | Supplier and customer communications | target | missing |  | Supplier and customer communications workflow and its acceptance journey are not implemented. |

@@ -12,7 +12,7 @@ for (const width of [1440, 390]) test(`BUY-004 outside finishing, partial receip
   await page.setViewportSize({ width, height: 1000 })
   if (!process.env.LARDER_OPEN) throw new Error('Private local entry required')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
-  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Start with my empty workshop' }).click(); await page.waitForURL('**/app') }
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup' }).click(); await page.waitForURL('**/app') }
   await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false')
   const shop = await command(page, 'location.save', { name: `Finishing workshop ${width}` }), vendor = await command(page, 'location.save', { name: `Coastal custody ${width}` })
   const supplier = await command(page, 'party.save', { name: `Coastal Finishing ${width}`, kind: 'supplier' })
