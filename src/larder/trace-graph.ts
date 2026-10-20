@@ -13,7 +13,7 @@ export function traceGraph(s: State) {
   const document = (kind: string, id: string): TraceRow => {
     const r = (s as any)[kind]?.find((r: Row) => r.id === id), order = r?.orderId ? s.salesOrders.find(o => o.id === r.orderId) : r?.poId ? s.purchaseOrders.find(o => o.id === r.poId) : undefined
     const owner = s.parties.find(p => p.id === (r?.supplierId ?? order?.supplierId ?? order?.customerId ?? r?.customerId))
-    return { documentKind: kind, documentId: id, reference: r?.reference ?? '', orderReference: order?.reference ?? '', party: owner?.name ?? '' }
+    return { documentKind: kind, documentId: id, reference: r?.reference ?? r?.targetReference ?? '', orderReference: order?.reference ?? '', party: owner?.name ?? '' }
   }
   const measure = (itemId: string, quantity: string): TraceRow => ({ itemId, unit: s.items.find(i => i.id === itemId)?.baseUnit ?? '', quantity })
   const effective = (m: Movement) => m.quantity + s.movements.filter(r => r.reversesId === m.id).reduce((n, r) => n + r.quantity, 0n)

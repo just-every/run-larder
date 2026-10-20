@@ -13,7 +13,7 @@ export async function traceProof(h, lotId, direction, expectedLots = []) {
   for (const [i, row] of trace.rows.entries()) for (const field of header) assert.equal(exported[i][field], row[field] ?? '', `${row.id} ${field}`)
   const ids = trace.rows.filter(r => r.recordType === 'movement').map(r => r.id); assert.equal(new Set(ids).size, ids.length)
   for (const row of trace.rows.filter(r => r.recordType === 'movement')) {
-    const m = s.movements.find(m => m.id === row.id); assert.ok(m); assert.equal(row.lotId, m.lotId); assert.equal(row.quantity, m.quantity); assert.equal(row.date, m.createdAt); assert.equal(row.documentId, m.documentId); assert.equal(row.locationId, m.locationId)
+    const m = s.movements.find(m => m.id === row.id); assert.ok(m); assert.equal(row.lotId, m.lotId); assert.equal(row.quantity, m.quantity); assert.equal(row.date, m.createdAt); assert.equal(row.documentId, m.documentId); assert.equal(row.locationId, m.locationId); assert.equal(row.reversesId, m.reversesId ?? '')
   }
   for (const row of trace.rows.filter(r => r.recordType === 'custody')) {
     const e = s.subcontractCustody.find(e => e.id === row.id); assert.ok(e); assert.equal(row.quantity, e.quantity); assert.equal(row.lotId, e.lotId)
