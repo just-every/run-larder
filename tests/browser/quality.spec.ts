@@ -150,6 +150,7 @@ test('TRACE-005 contain part of a lot, record CAPA and supplier action, release 
     await inspection.getByLabel('Thickness samples (mm)', { exact: true }).fill('2')
     await upload(inspection); await inspection.getByRole('button', { name: 'Record inspection', exact: true }).click(); await expect(region.getByText('Passed', { exact: true })).toBeVisible(); await settled(page)
     const disposition = form(page, `Disposition ${n.reference}`)
+    await disposition.getByLabel('Decision', { exact: true }).selectOption('release')
     await disposition.getByLabel('Disposition quantity', { exact: true }).fill('2')
     await disposition.getByLabel('Passing case inspection', { exact: true }).selectOption((await disposition.getByLabel('Passing case inspection', { exact: true }).locator('option').last().getAttribute('value'))!)
     await disposition.getByLabel('Disposition reason', { exact: true }).fill('Two inspected units passed')
