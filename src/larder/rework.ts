@@ -48,7 +48,7 @@ export function rework(c: Context, type: string, p: any): Row | undefined {
     const nonconformance = w.nonconformanceId ? get(c.s, 'nonconformances', w.nonconformanceId) : undefined
     if (nonconformance && (nonconformance.status !== 'open' || decimal(w.quantity) > decimal(nonconformance.remaining))) fail('NONCONFORMANCE', 'The case no longer holds the approved repair quantity.')
     const source = get(c.s, 'lots', w.sourceLotId), base = { documentKind: 'reworkOrders', documentId: w.id, reason: `${w.reference}: ${w.disposition}` }
-    const consumed = move(c, { ...base, itemId: w.itemId, locationId: w.locationId, status: w.sourceStatus, lotId: source.id, quantity: -decimal(w.quantity), kind: 'rework-source' })
+    const consumed = move(c, { ...base, itemId: w.itemId, locationId: w.locationId, status: w.sourceStatus, lotId: source.id, quantity: -decimal(w.quantity), ...(nonconformance ? { unitCost: decimal(nonconformance.unitCost) } : {}), kind: 'rework-source' })
     let materialCost = 0n
     for (const m of w.materials) for (const movement of withdraw(c, { ...base, ...m, status: 'available', lotId: m.lotId || undefined, quantity: -decimal(m.quantity), kind: 'issue' })) materialCost -= times(movement.quantity, movement.unitCost)
     const sourceCost = times(-consumed.quantity, consumed.unitCost), laborCost = w.labor.reduce((n: bigint, l: any) => n + times(decimal(l.hours), decimal(l.rate)), 0n)

@@ -111,8 +111,8 @@ test('TRACE-005 contain part of a lot, record CAPA and supplier action, release 
   await settled(page)
   const runId = crypto.randomUUID().slice(0, 6)
   const upload = (f: ReturnType<typeof form>) => f.locator('input[type=file]').setInputFiles({ name: 'nc-evidence.txt', mimeType: 'text/plain', buffer: Buffer.from('Complaint, inspection and disposition record') })
-  const screen = async (name: string) => {
-    if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-TRACE-005-${name}.png`), fullPage: true })
+  const screen = async (name: string, target: ReturnType<typeof card>) => {
+    if (process.env.LARDER_SCREENSHOTS) await target.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-TRACE-005-${name}.png`) })
   }
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
@@ -132,13 +132,14 @@ test('TRACE-005 contain part of a lot, record CAPA and supplier action, release 
     await create.getByLabel('Supplier or customer complaint', { exact: true }).fill(`Rough edges ${tag}`)
     await create.getByLabel('Case due date', { exact: true }).fill(today)
     await create.locator('input[type=file]').setInputFiles({ name: 'nc-evidence.txt', mimeType: 'text/plain', buffer: Buffer.from('Complaint photographs') })
+    await screen('opening-form', create)
     await create.getByRole('button', { name: 'Contain affected units', exact: true }).click(); await expect(card(page, 'Nonconformances')).toContainText(`Rough edges ${tag}`); await settled(page)
     const state = await (await page.request.get(origin + '/api/larder/state')).json(), n = state.nonconformances.find((x: any) => x.lotId === receipt.lines[0].lotId)
     expect(n).toBeTruthy()
     const region = page.getByRole('region', { name: `Nonconformance ${n.reference}`, exact: true })
     await expect(region).toContainText('affected 4 · still held 4'); await expect(region).toContainText(`Rough edges ${tag}`)
     expect(state.positions.filter((p: any) => p.lotId === n.lotId).map((p: any) => [p.status, p.quantity]).sort()).toEqual([['available', '6'], ['quarantine', '4']])
-    await screen('held')
+    await screen('held', region)
     const follow = form(page, `Follow up ${n.reference}`)
     for (const [label, value] of [['Root cause', 'Worn tooling'], ['Corrective action', 'Replace tooling; inspect next batch'], ['Next action', 'Supplier investigates finish']]) await follow.getByLabel(label, { exact: true }).fill(value)
     await follow.getByLabel('Supplier action', { exact: true }).selectOption(supplier.id)
@@ -153,7 +154,7 @@ test('TRACE-005 contain part of a lot, record CAPA and supplier action, release 
     await disposition.getByLabel('Passing case inspection', { exact: true }).selectOption((await disposition.getByLabel('Passing case inspection', { exact: true }).locator('option').last().getAttribute('value'))!)
     await disposition.getByLabel('Disposition reason', { exact: true }).fill('Two inspected units passed')
     await upload(disposition); await disposition.getByRole('button', { name: 'Approve disposition', exact: true }).click(); await settled(page)
-    await expect(region).toContainText('still held 2'); await expect(region).toContainText('release 2'); await screen('passing-only-release')
+    await expect(region).toContainText('still held 2'); await expect(region).toContainText('release 2'); await screen('passing-only-release', region)
     await disposition.getByLabel('Decision', { exact: true }).selectOption('reject')
     await disposition.getByLabel('Disposition quantity', { exact: true }).fill('2')
     await disposition.getByLabel('Disposition reason', { exact: true }).fill('Remaining units rejected')
@@ -164,7 +165,7 @@ test('TRACE-005 contain part of a lot, record CAPA and supplier action, release 
     await open(page, 'make/quality')
     await expect(region).toContainText(`${n.reference} · Case item ${tag} · closed`)
     await expect(region).toContainText('Effectiveness verified: Next batch inspected: no repeat defects'); await expect(region).toContainText('nc-evidence.txt')
-    await screen('closed')
+    await screen('closed', region)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   }
 })

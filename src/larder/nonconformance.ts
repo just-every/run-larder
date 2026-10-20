@@ -37,7 +37,7 @@ export function nonconformance(c: Context, type: string, p: any): Row | undefine
     }
     const out = move(c, { itemId: lot.itemId, locationId: location.id, lotId: lot.id, status: 'available', quantity: -quantity, kind: 'nonconformance-hold', documentKind: 'nonconformances', documentId: n.id, reason: n.complaint })
     move(c, { ...out, quantity, status: 'quarantine' })
-    Object.assign(n, { unreserved, sourceMovementIds: c.s.movements.filter(m => m.lotId === lot.id && m.quantity > 0n && m.documentKind !== 'nonconformances').map(m => m.id) })
+    Object.assign(n, { unreserved, unitCost: format(out.unitCost), sourceMovementIds: c.s.movements.filter(m => m.lotId === lot.id && m.quantity > 0n && m.documentKind !== 'nonconformances').map(m => m.id) })
     return n
   }
   const n = get(c.s, 'nonconformances', p.caseId, 'nonconformance'); fresh(n, p.version)
@@ -80,7 +80,7 @@ export function nonconformance(c: Context, type: string, p: any): Row | undefine
     const decision = type === 'nonconformance.release' ? 'release' : type === 'nonconformance.return' ? 'return' : 'reject'
     const supplier = decision === 'return' ? get(c.s, 'parties', p.supplierId, 'supplier') : undefined
     if (supplier?.kind === 'customer') fail('INPUT', 'Return to a named supplier.')
-    const out = move(c, { itemId: n.itemId, lotId: n.lotId, locationId: n.locationId, status: 'quarantine', quantity: -quantity, kind: `nonconformance-${decision}`, documentKind: 'nonconformances', documentId: n.id, reason })
+    const out = move(c, { itemId: n.itemId, lotId: n.lotId, locationId: n.locationId, status: 'quarantine', quantity: -quantity, unitCost: decimal(n.unitCost), kind: `nonconformance-${decision}`, documentKind: 'nonconformances', documentId: n.id, reason })
     if (decision === 'release') move(c, { ...out, status: 'available', quantity })
     n.decisions.push({ by: c.actor.id, at: c.now, decision, ...(supplier ? { supplierId: supplier.id, supplierReference: text(p.supplierReference, 'supplier return reference', 200), delivery: 'recorded in app; not provider-confirmed' } : {}), quantity: format(quantity), reason, evidence, inspectionId, inspectionIds: c.s.inspections.filter(i => i.subjectId === n.id).map(i => i.id) })
     return bump(n, { remaining: format(decimal(n.remaining) - quantity) })
