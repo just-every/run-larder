@@ -45,6 +45,8 @@ export function rework(c: Context, type: string, p: any): Row | undefined {
   if (type === 'rework.execute') {
     allow(c, ['manager', 'production'])
     if (w.status !== 'approved') fail('STATE', 'Execute only approved instructions, once.')
+    const nonconformance = w.nonconformanceId ? get(c.s, 'nonconformances', w.nonconformanceId) : undefined
+    if (nonconformance && (nonconformance.status !== 'open' || decimal(w.quantity) > decimal(nonconformance.remaining))) fail('NONCONFORMANCE', 'The case no longer holds the approved repair quantity.')
     const source = get(c.s, 'lots', w.sourceLotId), base = { documentKind: 'reworkOrders', documentId: w.id, reason: `${w.reference}: ${w.disposition}` }
     const consumed = move(c, { ...base, itemId: w.itemId, locationId: w.locationId, status: w.sourceStatus, lotId: source.id, quantity: -decimal(w.quantity), kind: 'rework-source' })
     let materialCost = 0n
@@ -59,6 +61,10 @@ export function rework(c: Context, type: string, p: any): Row | undefined {
       const lot = row(c, 'lots', { itemId: x.itemId, code: x.lot, source: 'rework', documentId: w.id, originalLotId: source.id, originalJobId: w.sourceJobId, status: 'quarantined', supplierId: null, ...(source.dates ? { dates: structuredClone(source.dates) } : {}) })
       const m = move(c, { ...base, itemId: x.itemId, locationId: w.locationId, status: 'quarantine', lotId: lot.id, quantity: q, unitCost, kind: w.kind === 'rework' ? 'repair-output' : 'recovered-component' })
       outputLots.push({ lotId: lot.id, movementId: m.id, itemId: x.itemId, quantity: x.quantity, value: x.value })
+    }
+    if (nonconformance) {
+      nonconformance.decisions.push({ by: c.actor.id, at: c.now, decision: 'rework', orderId: w.id, quantity: w.quantity, approval: structuredClone(w.approval) })
+      bump(nonconformance, { remaining: format(decimal(nonconformance.remaining) - decimal(w.quantity)) })
     }
     return bump(w, { status: 'quarantine', executedBy: c.actor.id, executedAt: c.now, consumedMovementId: consumed.id, outputLots, cost: { source: format(sourceCost), extraMaterials: format(materialCost), labor: format(laborCost), total: format(total), outputs: format(allocated), scrap: w.scrapValue } })
   }

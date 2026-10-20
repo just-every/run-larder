@@ -65,7 +65,7 @@ export function move(c: Context, x: MoveInput): Movement {
   if (x.quantity > 0n) requireCatalogLot(item, c.s.lots.find(l => l.id === lotId && l.itemId === item.id)?.code)
   if (x.quantity < 0n) {
     if (x.status === 'quarantine') {
-      const held = c.s.nonconformances.filter(n => n.status === 'open' && n.itemId === x.itemId && n.locationId === x.locationId && n.lotId === lotId && !(x.documentKind === 'nonconformances' && x.documentId === n.id)).reduce((n, r) => n + decimal(r.remaining), 0n)
+      const held = c.s.nonconformances.filter(n => n.status === 'open' && n.itemId === x.itemId && n.locationId === x.locationId && n.lotId === lotId && !(x.documentKind === 'nonconformances' && x.documentId === n.id) && !(x.kind === 'rework-source' && x.documentKind === 'reworkOrders' && c.s.reworkOrders.some(w => w.id === x.documentId && w.nonconformanceId === n.id))).reduce((n, r) => n + decimal(r.remaining), 0n)
       if (balance(c.s, x.itemId, x.locationId, 'quarantine', lotId) + x.quantity < held) fail('NONCONFORMANCE', 'This quantity is protected by an open nonconformance; use its evidenced disposition.')
     }
     const lotBalance = balance(c.s, x.itemId, x.locationId, x.status, lotId)

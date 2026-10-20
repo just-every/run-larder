@@ -49,12 +49,13 @@ export function nonconformance(c: Context, type: string, p: any): Row | undefine
     const reworkOrderId = p.reworkOrderId ? get(c.s, 'reworkOrders', p.reworkOrderId).id : ''
     if (reworkOrderId) {
       const w = get(c.s, 'reworkOrders', reworkOrderId)
-      if (w.sourceLotId !== n.lotId || w.locationId !== n.locationId || decimal(w.quantity) > decimal(n.remaining)) fail('SOURCE', 'Route a rework order for this case’s lot, location and remaining quantity.')
+      if (w.status !== 'draft' || w.sourceStatus !== 'quarantine' || (w.nonconformanceId && w.nonconformanceId !== n.id) || w.sourceLotId !== n.lotId || w.locationId !== n.locationId || decimal(w.quantity) > decimal(n.remaining)) fail('SOURCE', 'Route an uncommitted quarantined rework order for this case’s lot, location and remaining quantity.')
+      bump(w, { nonconformanceId: n.id })
     }
     n.actions.push({ by: c.actor.id, at: c.now, nextAction: action, supplierId, reworkOrderId, evidence: files(c, p.evidence), delivery: 'recorded in app' })
     return bump(n, { rootCause: text(p.rootCause, 'root cause', 2000), correctiveAction: text(p.correctiveAction, 'corrective action', 2000), dueOn: date(p.dueOn, 'due date') })
   }
-  if (type === 'nonconformance.release' || type === 'nonconformance.reject') {
+  if (['nonconformance.release', 'nonconformance.reject', 'nonconformance.return'].includes(type)) {
     approver(c, ['manager'], n.createdBy)
     const quantity = qty(p.quantity)
     if (quantity > decimal(n.remaining)) fail('QUANTITY', 'Disposition exceeds the quantity still held by this case.')
@@ -76,15 +77,18 @@ export function nonconformance(c: Context, type: string, p: any): Row | undefine
       }
       inspectionId = inspection.id
     }
-    const decision = type === 'nonconformance.release' ? 'release' : 'reject'
+    const decision = type === 'nonconformance.release' ? 'release' : type === 'nonconformance.return' ? 'return' : 'reject'
+    const supplier = decision === 'return' ? get(c.s, 'parties', p.supplierId, 'supplier') : undefined
+    if (supplier?.kind === 'customer') fail('INPUT', 'Return to a named supplier.')
     const out = move(c, { itemId: n.itemId, lotId: n.lotId, locationId: n.locationId, status: 'quarantine', quantity: -quantity, kind: `nonconformance-${decision}`, documentKind: 'nonconformances', documentId: n.id, reason })
     if (decision === 'release') move(c, { ...out, status: 'available', quantity })
-    n.decisions.push({ by: c.actor.id, at: c.now, decision, quantity: format(quantity), reason, evidence, inspectionId, inspectionIds: c.s.inspections.filter(i => i.subjectId === n.id).map(i => i.id) })
+    n.decisions.push({ by: c.actor.id, at: c.now, decision, ...(supplier ? { supplierId: supplier.id, supplierReference: text(p.supplierReference, 'supplier return reference', 200), delivery: 'recorded in app; not provider-confirmed' } : {}), quantity: format(quantity), reason, evidence, inspectionId, inspectionIds: c.s.inspections.filter(i => i.subjectId === n.id).map(i => i.id) })
     return bump(n, { remaining: format(decimal(n.remaining) - quantity) })
   }
   if (type === 'nonconformance.close') {
     if (decimal(n.remaining) !== 0n) fail('QUANTITY', 'Dispose of every affected unit before closure.')
     if (!n.rootCause || !n.correctiveAction || !n.actions.length) fail('EFFECTIVENESS', 'Record root cause, corrective action and follow-up before closure.')
+    if (n.decisions.some((d: any) => d.decision === 'rework' && get(c.s, 'reworkOrders', d.orderId).status !== 'released')) fail('REWORK_RELEASE', 'Record passing inspection and authorized release of case-linked repair output before closure.')
     if (p.effective !== true) fail('EFFECTIVENESS', 'A failed effectiveness check cannot close the case.')
     return bump(n, { status: 'closed', effectiveness: { by: c.actor.id, at: c.now, effective: true, check: text(p.check, 'effectiveness check', 2000), evidence: files(c, p.evidence) } })
   }
