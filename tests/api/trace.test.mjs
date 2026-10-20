@@ -53,6 +53,7 @@ test('TRACE-001 exact batch allocations isolate forward/backward recall and refu
   const source = lot => oldState.movements.find(m => m.kind === 'issue' && m.lotId === lot.id).id
   const next = { workOrderId: oldJob.id, version: oldJob.version, quantity: '2', lot: 'LEGACY-OUT-B', locationId: oldState.locations[0].id, allocations: [{ movementId: source(sourceB), quantity: '2' }] }
   await continuation.command('wo.output', next, { error: 'TRACE_LEGACY_ALLOCATION' })
+  await continuation.command('wo.close', { workOrderId: oldJob.id, version: oldJob.version }, { error: 'TRACE_ALLOCATION' })
   const backfill = { workOrderId: oldJob.id, version: oldJob.version, batchIndex: 0, allocations: [{ movementId: source(sourceA), quantity: '2' }], reason: 'Original traveler names heat A', evidence: evidence('Original legacy traveler: heat A into first batch') }
   const assistant = await continuation.person('legacy-agent@example.test', 'agent')
   await assistant.run('wo.batch.allocate', backfill, { error: 'FORBIDDEN' })
