@@ -59,6 +59,10 @@ test('TRACE-001 exact batch allocations isolate forward/backward recall and refu
   const { evidence: omitted, ...noFile } = backfill
   await continuation.command('wo.batch.allocate', noFile, { error: 'EVIDENCE' })
   oldJob = await continuation.command('wo.batch.allocate', { workOrderId: oldJob.id, version: oldJob.version, batchIndex: 0, allocations: [{ movementId: source(sourceA), quantity: '2' }], reason: 'Original traveler names heat A', evidence: evidence('Original legacy traveler: heat A into first batch') })
+  assert.deepEqual((await continuation.state()).movements, oldState.movements)
+  assert.deepEqual([oldJob.outputs[0].good, oldJob.outputs[0].scrap], [oldState.workOrders[0].outputs[0].good, oldState.workOrders[0].outputs[0].scrap])
+  const originalFile = oldJob.outputs[0].allocationRecorded.evidence
+  assert.equal(await (await continuation.request('/api/larder/attachments/' + originalFile.id)).text(), 'Original legacy traveler: heat A into first batch')
   assert.equal(oldJob.outputs[0].allocationRecorded.reason, 'Original traveler names heat A')
   await continuation.command('wo.batch.allocate', { workOrderId: oldJob.id, version: oldJob.version, batchIndex: 0, allocations: [], reason: 'Overwrite', evidence: evidence() }, { error: 'TRACE_ALLOCATION' })
   oldJob = await continuation.command('wo.output', { ...next, version: oldJob.version })
