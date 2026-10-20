@@ -6,7 +6,7 @@ Invite your team, give each person a role, and let agents prepare work that a pe
 
 Only the owner manages people. On **More → People and roles**, fill in **Invite someone** with their name and email and press **Send invitation**. They receive a sign-in link and join as a viewer until you give them a role under **Set a role**.
 
-## The nine roles
+## The ten roles
 
 | Role | What they can do |
 | --- | --- |
@@ -16,6 +16,7 @@ Only the owner manages people. On **More → People and roles**, fill in **Invit
 | Buyer | Purchase orders and supplier terms |
 | Production | Bills of materials and work orders |
 | Warehouse | Receiving, shipping, transfers and counts |
+| Quality | Inspection plans and results, quality holds, nonconformance cases and deviations, certificates, expiry decisions and recalls |
 | Accounts | Handoff batches and ledger acknowledgements |
 | Agent | Prepares drafts and proposals; never approves or posts |
 | Viewer | Reads everything, changes nothing |
