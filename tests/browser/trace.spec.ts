@@ -1,6 +1,9 @@
 import { test, expect, type Page } from '@playwright/test'
-import { readFile, mkdir } from 'node:fs/promises'
-import { join } from 'node:path'
+import { readFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { fileURLToPath } from 'node:url'
+import { freshCopy, freePort, command as runtimeCommand, startDev, stopDev } from './runtime.mjs'
 const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787', today = new Date().toISOString().slice(0, 10)
 const evidence = { name: 'count.txt', contentType: 'text/plain', base64: Buffer.from('Counted original inputs for trace').toString('base64') }
 async function command(page: Page, type: string, payload: object) { const r = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type, payload } }); const b = await r.json(); expect(b.ok, JSON.stringify(b.error)).toBe(true); return b.result }
@@ -8,20 +11,27 @@ async function settled(page: Page) { await expect(page.locator('main')).toHaveAt
 async function shot(page: Page, name: string) { if (!process.env.LARDER_SCREENSHOTS) return; await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true }); await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-TRACE-001-${name}.png`), fullPage: true }) }
 test('TRACE-001 legacy disclosure, evidenced allocation and exact continuation at 1440/390', async ({ page }) => {
   if (!process.env.LARDER_OPEN) throw new Error('Private local entry required')
-  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
+  const temporary = await mkdtemp(join(tmpdir(), 'larder-legacy-browser-')), root = join(temporary, 'installation')
+  let runtime
+  try {
+  await freshCopy(resolve(fileURLToPath(new URL('../..', import.meta.url))), root)
+  const port = await freePort(); await runtimeCommand(join(root, 'node_modules/.bin/rer'), ['setup', '--owner-email', 'owner@example.test', '--non-interactive', '--port', String(port)], root)
+  runtime = await startDev(root, port); const legacyOrigin = runtime.origin
+  await page.goto(runtime.entry); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
   await settled(page)
   const archive = JSON.parse(await readFile(new URL('../../fixtures/trace/legacy.json', import.meta.url), 'utf8'))
-  const restored = await page.request.post(origin + '/api/larder/archive/restore', { headers: { Origin: origin }, data: archive }); expect(restored.status()).toBe(200)
-  let s = await (await page.request.get(origin + '/api/larder/state')).json(), w = s.workOrders[0]
+  const restored = await page.request.post(legacyOrigin + '/api/larder/archive/restore', { headers: { Origin: origin }, data: archive }); expect(restored.status()).toBe(200)
+  let s = await (await page.request.get(legacyOrigin + '/api/larder/state')).json(), w = s.workOrders[0]
   await page.reload(); await settled(page); await page.evaluate(id => { location.hash = `make/wo/${id}` }, w.id)
   const history = page.locator('section.card').filter({ has: page.getByRole('heading', { name: 'Historical output allocations', exact: true }) })
   for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await expect(history).toBeVisible(); await shot(page, 'legacy-before') }
   await history.getByLabel(/lot LEGACY-A/).fill('2'); await history.getByLabel('Historical allocation reason').fill('Original batch traveler identifies heat A'); await history.locator('input[type=file]').setInputFiles({ name: 'legacy-traveler.txt', mimeType: 'text/plain', buffer: Buffer.from('Original batch traveler: heat A used for output A') }); await history.getByRole('button', { name: 'Record historical batch inputs' }).click(); await settled(page); await expect(history).toHaveCount(0)
   const outputForm = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Record output', exact: true }) }); await outputForm.getByLabel('Into location').selectOption(s.locations[0].id); await outputForm.getByLabel('Good quantity', { exact: true }).fill('2'); await outputForm.getByLabel('Batch', { exact: true }).fill('LEGACY-OUT-B'); await outputForm.getByLabel(/lot LEGACY-B/).fill('2'); await outputForm.getByRole('button', { name: 'Record output', exact: true }).click(); await settled(page)
   for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await shot(page, 'legacy-continued') }
-  s = await (await page.request.get(origin + '/api/larder/state')).json(); w = s.workOrders[0]
+  s = await (await page.request.get(legacyOrigin + '/api/larder/state')).json(); w = s.workOrders[0]
   expect(w.outputs[0].allocationRecorded.evidence.sha256).toBeTruthy(); expect(w.outputs[1].allocations[0].lotId).toBe(s.lots.find((l: any) => l.code === 'LEGACY-B').id)
+  } finally { await stopDev(root, runtime); await rm(temporary, { recursive: true, force: true }) }
 })
 for (const width of [1440, 390]) test(`TRACE-001 upstream/downstream trace and matching physical CSV at ${width}`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1000 })
