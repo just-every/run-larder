@@ -12,7 +12,7 @@ export function Subcontract({ larder }: { larder: Larder }) {
     {rows(s, 'subcontractCustody').length > 0 && <Card title="Customer property custody ledger"><Table head={['Customer / lot', 'Location', 'Event', 'Quantity', 'Owned value']} numeric={[3, 4]}>{rows(s, 'subcontractCustody').map(e => <tr key={e.id}><td>{partyName(s, e.ownerId)} · {byId(s, 'lots', e.lotId)?.code}</td><td>{locationName(s, e.locationId)}</td><td>{e.kind} · {when(e.createdAt)}</td><td>{e.quantity}</td><td>{money(e.ownedValue)}</td></tr>)}</Table></Card>}
     {rows(s, 'subcontractOrders').map(o => <Card key={o.id} title={`${o.reference} · ${o.operation}`}>
       <Chip>{o.status}</Chip><p>{partyName(s, o.supplierId)} · custody at {locationName(s, o.vendorLocationId)} · due {o.expectedDate}</p>
-      <p>{qty(o.quantity)} {itemName(s, o.itemId)} · service {money(o.serviceRate)} per good or scrapped unit · approved exposure {money(o.exposure)}</p>
+      <p>{qty(o.quantity)} {itemName(s, o.itemId)} · service {money(o.serviceRate)} per good or scrapped unit · {o.approval ? 'approved exposure' : 'service exposure'} {money(o.exposure)}</p>
       <p>{o.customerId ? `Customer property: ${partyName(s, o.customerId)} · zero owned inventory value` : 'Owned free-issue materials'}</p>
       <p>Good {qty(o.good)} · scrap {qty(o.scrap)} · yield ratio {o.yield ?? '—'} · accrued service {money(o.serviceAccrued)}</p>
       {o.status === 'draft' && buyer && <button className="button" disabled={busy} onClick={() => run('subcontract.approve', { orderId: o.id, version: o.version })}>Approve service order</button>}

@@ -5,7 +5,7 @@ const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787', today = n
 const file = { name: 'finisher-slip.txt', mimeType: 'text/plain', buffer: Buffer.from('Coastal Finishing: dispatch, receipt and service bill evidence') }
 async function command(page: Page, type: string, payload: object) { const r = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type, payload } }); const b = await r.json(); expect(b.ok, JSON.stringify(b.error)).toBe(true); return b.result }
 const card = (page: Page, title: string) => page.locator('section.card').filter({ has: page.getByRole('heading', { name: title, exact: true }) })
-const form = (c: Locator, title: string) => c.locator('form').filter({ has: c.getByRole('heading', { name: title, exact: true }) })
+const form = (c: Locator, title: string) => c.locator('form').filter({ has: c.page().getByRole('heading', { name: title, exact: true }) })
 async function settled(page: Page) { await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false'); await expect(page.getByRole('alert')).toHaveCount(0) }
 async function shot(page: Page, name: string) { if (!process.env.LARDER_SCREENSHOTS) return; await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true }); await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-BUY-004-${name}.png`), fullPage: true }) }
 for (const width of [1440, 390]) test(`BUY-004 outside finishing, partial receipt/scrap, custody return and bill at ${width}`, async ({ page }) => {
