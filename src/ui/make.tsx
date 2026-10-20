@@ -1,3 +1,4 @@
+import { Subcontract } from './subcontract'
 import { WorkTransfers } from './work-transfers'
 import { ReworkOrders } from './rework'
 import { InventoryPolicies } from './inventory-policies'
@@ -17,13 +18,14 @@ import { WorkOperations } from './work-operations'
 import { QualityPlans, WorkQuality } from './quality'
 import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
 
-const tabs = [{ id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }, { id: 'forecast', title: 'Forecast & MPS' }, { id: 'dispatch', title: 'Shop-floor dispatch' }, { id: 'quality', title: 'Quality plans' }, { id: 'policies', title: 'Inventory policies' }]
+const tabs = [{ id: 'subcontract', title: 'Subcontract' }, { id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }, { id: 'forecast', title: 'Forecast & MPS' }, { id: 'dispatch', title: 'Shop-floor dispatch' }, { id: 'quality', title: 'Quality plans' }, { id: 'policies', title: 'Inventory policies' }]
 
 export function MakeBuy({ larder, section = 'plan', id }: { larder: Larder; section?: string; id?: string }) {
   const s = larder.state!
   return <div className="page">
     <header className="page-head"><p className="eyebrow">Make &amp; buy</p><h1>{tabs.find(t => t.id === section)?.title ?? 'Shortages'}</h1>
       <nav className="tabs" aria-label="Make and buy">{tabs.map(t => <a key={t.id} href={`#make/${t.id}`} aria-current={section === t.id ? 'page' : undefined}>{t.title}</a>)}</nav></header>
+    {section === 'subcontract' && <Subcontract larder={larder} />}
     {section === 'policies' && <InventoryPolicies larder={larder} />}
     {section === 'quality' && <QualityPlans larder={larder} />}
     {section === 'dispatch' && <Dispatch larder={larder} onSignOut={() => void signOut()} />}

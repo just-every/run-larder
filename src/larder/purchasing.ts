@@ -1,3 +1,4 @@
+import { plansFor } from './quality-holds'
 // Purchase orders: draft, approve, supplier confirmation, revised delivery,
 // partial receipt with supplier lots, and quarantine decisions.
 import { assertLotNotHeld } from './quality'
@@ -87,6 +88,10 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       return receipt
     }
     case 'quarantine.decide': {
+      if (c.s.subcontractOrders.some(o => o.vendorLocationId === p.locationId && o.issued.some((i: any) => i.lotId === p.lotId))) fail('SUBCONTRACT_CUSTODY', 'Use the service order to receive work or return unused material.')
+      if (p.decision === 'release' && c.s.lots.some(l => l.id === p.lotId && l.source === 'subcontract')) {
+        for (const plan of plansFor(c.s, 'receipt', p.itemId, null).filter(p => p.required)) if (!c.s.inspections.filter(i => i.planId === plan.id && i.subjectId === p.lotId).at(-1)?.passed) fail('RETEST', 'Record a passing subcontract receipt inspection first.')
+      }
       if (p.decision === 'release' && c.s.reworkOrders.some(w => w.status !== 'released' && w.outputLots?.some((x: any) => x.lotId === p.lotId))) fail('REWORK_RELEASE', 'Use the repair/unbuild order release with approved evidence.')
       allow(c, ['manager', 'warehouse'])
       if (c.actor.role === 'agent') fail('FORBIDDEN', 'Agents cannot release stock.')

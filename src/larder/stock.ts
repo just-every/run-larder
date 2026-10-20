@@ -52,8 +52,8 @@ type MoveInput = Pick<Movement, 'itemId' | 'locationId' | 'status' | 'kind' | 'd
 // A recovery lot carries its approved allocation, including extra repair costs.
 // Preserve that lot's basis instead of blending it into other unrepaired stock.
 function recoveryCost(s: State, lotId: string) {
-  if (!s.lots.some(l => l.id === lotId && l.source === 'rework')) return undefined
-  return s.movements.find(m => m.lotId === lotId && ['repair-output', 'recovered-component'].includes(m.kind))?.unitCost
+  if (!s.lots.some(l => l.id === lotId && ['rework', 'subcontract'].includes(l.source))) return undefined
+  return s.movements.find(m => m.lotId === lotId && ['repair-output', 'recovered-component', 'subcontract-output'].includes(m.kind))?.unitCost
 }
 
 export function move(c: Context, x: MoveInput): Movement {
@@ -61,6 +61,7 @@ export function move(c: Context, x: MoveInput): Movement {
   const item = get(c.s, 'items', x.itemId, 'item')
   if (x.quantity === 0n) fail('INPUT', 'A movement needs a non-zero quantity.')
   const lotId = x.lotId ?? ''
+  if (c.s.lots.some(l => l.id === lotId && l.ownerId)) fail('OWNERSHIP', 'Customer property cannot enter owned inventory.')
   if (x.quantity > 0n) requireCatalogLot(item, c.s.lots.find(l => l.id === lotId && l.itemId === item.id)?.code)
   if (x.quantity < 0n) {
     const lotBalance = balance(c.s, x.itemId, x.locationId, x.status, lotId)
