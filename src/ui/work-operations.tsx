@@ -16,7 +16,7 @@ export function operationReadiness(s: LarderState, w: Rec, step: any) {
   const acknowledged = task.acknowledgments?.some((ack: any) => ack.by === s.actor.id && ack.bomId === w.bomId)
   const wrongOperator = task.assignment && task.assignment.operatorId !== s.actor.id
   const now = new Date().toISOString()
-  const reasons = operationStartGates({ maintenance: rows(s, 'maintenance'), qualityHolds: rows(s, 'qualityHolds') }, s.actor, w, step, now).map(gate => gate.message)
+  const reasons = operationStartGates({ maintenance: rows(s, 'maintenance'), qualityHolds: rows(s, 'qualityHolds'), recalls: rows(s, 'recalls') }, s.actor, w, step, now).map(gate => gate.message)
   return { task, centres, predecessors, needsAck, acknowledged, wrongOperator, reasons }
 }
 

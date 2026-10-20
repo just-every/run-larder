@@ -6,6 +6,7 @@
 // rounded half away from zero to six places. A measurement passes when it has
 // exactly the plan's sample size and every sample lies within its inclusive
 // lower and upper limits; a result passes when every measurement passes.
+import { lotRecalls, recallReason } from './recall-policy'
 import { attach } from './attachments'
 import { holdReason, openHolds } from './quality-holds'
 import { SCALE, decimal, divide, format } from './decimal'
@@ -34,6 +35,8 @@ const lotHolds = (s: State, lotId: string) => s.qualityHolds.filter(h => h.statu
 // Refuse using a lot under an open quality hold (pick, ship, quarantine release).
 // Quarantine rejection (scrap or return) stays open without a retest.
 export function assertLotNotHeld(s: State, lotId: string, action: string) {
+  const recall = lotRecalls(s, lotId)[0]
+  if (recall) fail('RECALL_HOLD', recallReason(recall))
   const h = lotId ? lotHolds(s, lotId)[0] : undefined
   if (h) fail('QUALITY_HOLD', `Lot ${s.lots.find(l => l.id === lotId)?.code} cannot be ${action}. ${holdReason(h)}`, { lotId, holdId: h.id })
 }

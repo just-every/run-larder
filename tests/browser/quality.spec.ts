@@ -170,3 +170,45 @@ test('TRACE-005 contain part of a lot, record CAPA and supplier action, release 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   }
 })
+
+test('TRACE-006 recall WIP gate has the same live reason in dispatch, job detail and the command door at 1440/390', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('A private local entry is required.')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  await settled(page)
+  const tag = crypto.randomUUID().slice(0, 7), me = (await (await page.request.get(origin + '/api/larder/state')).json()).actor.id
+  const location = await command(page, 'location.save', { name: `Recall line ${tag}` })
+  const raw = await command(page, 'item.save', { sku: `RC-RAW-${tag}`, name: `Recall ingredient ${tag}`, kind: 'buy', baseUnit: 'kg' })
+  const product = await command(page, 'item.save', { sku: `RC-TIN-${tag}`, name: `Recall tin ${tag}`, kind: 'make', baseUnit: 'each' })
+  const evidence = { name: 'warning.txt', contentType: 'text/plain', base64: Buffer.from('Supplier contaminated batch warning').toString('base64') }
+  await command(page, 'opening.record', { locationId: location.id, countedOn: today, countedBy: 'Owner', valuationBasis: 'supplier-invoice', evidence, lines: [{ itemId: raw.id, quantity: '4', unitCost: '2', lot: `RC-ING-${tag}` }] })
+  await command(page, 'bom.revise', { itemId: product.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'Fill recall batch', workCentre: 'Filler', minutes: 1 }] })
+  const source = (await (await page.request.get(origin + '/api/larder/state')).json()).lots.find((l: any) => l.code === `RC-ING-${tag}`)
+  let w = await command(page, 'wo.draft', { itemId: product.id, quantity: '2', requiredBy: today, reason: 'Recall WIP' })
+  w = await command(page, 'wo.release', { workOrderId: w.id, version: w.version })
+  w = await command(page, 'wo.issue', { workOrderId: w.id, lines: [{ itemId: raw.id, locationId: location.id, lotId: source.id, quantity: '2' }] })
+  w = await command(page, 'wo.operation.assign', { workOrderId: w.id, version: w.version, sequence: 1, operatorId: me })
+  await open(page, 'make/dispatch')
+  const task = page.locator('section.card').filter({ has: page.getByRole('heading', { name: `${w.reference} · Fill recall batch`, exact: true }) })
+  await expect(task.getByRole('button', { name: 'Start step 1', exact: true })).toBeEnabled()
+  const recall = await command(page, 'recall.open', { lotId: source.id, reason: 'Contamination reported by supplier', evidence: [evidence] })
+  const state = await (await page.request.get(origin + '/api/larder/state')).json()
+  const reason = state.dispatch.find((d: any) => d.workOrderId === w.id).gates.find((g: any) => g.code === 'RECALL_HOLD').message
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await open(page, 'make/dispatch')
+    await expect(task).toContainText(reason)
+    await expect(task.getByRole('button', { name: 'Start step 1', exact: true })).toBeDisabled()
+    expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-006-dispatch.png`), fullPage: true })
+    await open(page, `make/wo/${w.id}`)
+    await expect(page.getByRole('region', { name: 'Pinned operation tasks' })).toContainText(reason)
+    await expect(page.getByRole('button', { name: 'Start step 1', exact: true })).toBeDisabled()
+    expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-006-work.png`), fullPage: true })
+  }
+  const denied = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type: 'wo.operation.start', payload: { workOrderId: w.id, version: w.version, sequence: 1, workCentre: 'Filler', station: 'Tablet', reason: 'Try bypass' } } })
+  expect((await denied.json()).error).toMatchObject({ code: 'RECALL_HOLD', message: reason })
+  const pack = await page.request.get(origin + `/api/larder/recalls/${recall.id}.json`)
+  expect(pack.status()).toBe(200); expect((await pack.json()).complete).toBe(false)
+})

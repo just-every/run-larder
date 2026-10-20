@@ -1,5 +1,6 @@
 // Stock truth: positions are sums of append-only movements; available stock is
 // on-hand available status minus reservations. Every write goes through move().
+import { lotRecalls, workRecalls, recallReason } from './recall-policy'
 import { requireCatalogLot } from './catalog-fields'
 import { blockedQuantity, fefoOrder, lotBlock, utcToday } from './lot-dates'
 import { decimal, divide, format, min, times } from './decimal'
@@ -62,6 +63,12 @@ export function move(c: Context, x: MoveInput): Movement {
   if (x.quantity === 0n) fail('INPUT', 'A movement needs a non-zero quantity.')
   const lotId = x.lotId ?? ''
   if (c.s.lots.some(l => l.id === lotId && l.ownerId)) fail('OWNERSHIP', 'Customer property cannot enter owned inventory.')
+  const recall = lotRecalls(c.s, lotId)[0]
+  const containment = x.kind === 'recall-hold' && x.documentKind === 'recalls' && c.s.recalls.some(r => r.id === x.documentId)
+  if (recall && !containment && (x.quantity < 0n || x.status === 'available')) fail('RECALL_HOLD', recallReason(recall))
+  const work = x.documentKind === 'workOrders' ? c.s.workOrders.find(w => w.id === x.documentId) : undefined
+  const workRecall = work && workRecalls(c.s, work)[0]
+  if (workRecall && x.quantity > 0n && x.kind === 'output') fail('RECALL_HOLD', recallReason(workRecall))
   if (x.quantity > 0n) requireCatalogLot(item, c.s.lots.find(l => l.id === lotId && l.itemId === item.id)?.code)
   if (x.quantity < 0n) {
     if (x.status === 'quarantine') {
