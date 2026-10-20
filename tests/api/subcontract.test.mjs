@@ -1,8 +1,9 @@
+import { traceProof } from './trace-proof.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { installation, evidence } from './harness.mjs'
 const today = new Date().toISOString().slice(0, 10)
-test('BUY-004 two-lot free issue, partial good/scrap, service bill, customer ownership and finished-lot genealogy', async t => {
+test('TRACE-001 / BUY-004 two-lot free issue, partial good/scrap, service bill, customer ownership and finished-lot genealogy', async t => {
   const h = await installation(); t.after(() => h.close())
   const buyer = await h.person('buyer@example.test', 'buyer'), accounts = await h.person('accounts@example.test', 'accounts'), agent = await h.person('agent@example.test', 'agent')
   const shop = await h.command('location.save', { name: 'Workshop' }), vendor = await h.command('location.save', { name: 'Outside finisher custody' })
@@ -76,6 +77,11 @@ test('BUY-004 two-lot free issue, partial good/scrap, service bill, customer own
   assert.ok(s.subcontractCustody.every(e => e.ownerId === customer.id && e.ownedValue === '0'))
   assert.equal(s.subcontractCustody.filter(e => e.lotId === co.receipts[0].lotId).reduce((n, e) => n + Number(e.quantity), 0), 3)
   await h.command('transfer.create', { itemId: output.id, fromLocationId: shop.id, toLocationId: vendor.id, lotId: co.receipts[0].lotId, quantity: '1', reason: 'Try owned movement' }, { error: 'OWNERSHIP' })
+  const traced = await traceProof(h, o.receipts[1].lotId, 'upstream', lots.map(l => l.id))
+  assert.ok(traced.rows.some(r => r.reference === o.reference && r.party === supplier.name))
+  const customerTrace = await traceProof(h, co.receipts[0].lotId, 'upstream', [property.id])
+  assert.ok(customerTrace.rows.some(r => r.recordType === 'custody' && r.lotId === property.id))
+  assert.ok(customerTrace.rows.every(r => r.recordType !== 'movement'))
   await h.command('role.set', { operatorId: buyer.id, role: 'viewer' })
   await buyer.run('subcontract.draft', draft(), { error: 'FORBIDDEN' })
 })

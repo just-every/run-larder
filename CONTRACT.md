@@ -181,7 +181,7 @@ The sixteen published clauses keep their IDs and useful operational guarantees. 
 
 ### Stock trace and quality
 
-- **TRACE-001 — Lot and batch genealogy.** From any receipt, output or shipment lot, buyers trace upstream inputs and suppliers and downstream split and merged batches, subcontract work, rework, shipments and customers with quantities and dates. Searches handle a lot spread across locations and consumption across multiple input lots. **Acceptance evidence:** Make one batch from two input lots, split it across shipments and rework one return; query both forward and backward trace and reconcile every quantity. From either forward or backward trace, download CSV retaining the selected lot, linked input/output lots, production and shipment/order references, quantities and dates; reconcile every exported row with the displayed trace and physical movements.
+- **TRACE-001 — Lot and batch genealogy.** From any receipt, output or shipment lot, buyers trace upstream inputs and suppliers and downstream split and merged batches, subcontract work, rework, shipments and customers with quantities and dates. Searches handle a lot spread across locations and consumption across multiple input lots. Every new production output report records exact component issue movement IDs, lot IDs and quantities against its output batch; a single final batch can retain all remaining issued inputs without a choice. Partial or ambiguous batches require the operator's actual allocation. Allocation cannot reuse reversed/previously allocated issues, exceed a job's issued component WIP, or leave issued quantities unallocated at final output/close. Split/merge work shares the original issue pool within its connected work lineage, constrained by each job's recorded component WIP; it never invents a proportional component-lot assignment. Historical outputs without batch input records are labelled "job-level ancestry; component lots per output batch not recorded". Their original quantities and movements remain intact; production/manager may add an evidence-backed, dated, attributed historical allocation once, with a reason, and only a uniquely identified original output movement can acquire that allocation. New output/closure waits until missing historical allocations in its work lineage are resolved. Forward/backward queries for new exact batches include only the affected output/input lots. The graph distinguishes physical movements and zero-owned-value customer custody from relationship, production/scrap-report and WIP-allocation rows. Each physical row occurs once, compensating reversals remain visible, and balances sum signed quantities per lot/item/location/status; component and output units are never summed together. JSON, Stock screens and CSV use the same selected-lot/direction result with stable record IDs, dates, suppliers/customers and production/shipment/order references. Future lot/serial records and doors in TRACE-002, FLOOR-006, CONN-011, CONN-012 and MOVE-001–MOVE-006 inherit exact genealogy and matching export obligations before shipping. **Acceptance evidence:** Make one batch from two input lots, split it across shipments and rework one return; query both forward and backward trace and reconcile every quantity. From either forward or backward trace, download CSV retaining the selected lot, linked input/output lots, production and shipment/order references, quantities and dates; reconcile every exported row with the displayed trace and physical movements.
 
 - **TRACE-002 — Serial-number lifecycle.** Items can require unique serials at receipt/output, issue, assembly, shipment, service and return. Serial-to-assembly/component relationships and warranty/customer history are searchable; duplicate serials and impossible serial quantities are refused. Every serial-aware physical door honors ENG-007’s configured serial policy before shipping; until then a configured serial item refuses physical receipt/output rather than creating untracked stock. **Acceptance evidence:** Assemble serialized components into two serialized products, ship and return one; trace the exact customer/component and refuse a duplicate or previously shipped serial.
 
@@ -385,7 +385,7 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 | 2 | "plans your materials" | `LARDER-006`, `MRP-001` | partial |
 | 3 | "and machines" | `CAP-001`, `CAP-002`, `CAP-004` | missing |
 | 4 | "runs the shop floor" | `FLOOR-001`, `LARDER-009` | done |
-| 5 | "traces every lot" | `TRACE-001`, `LARDER-008` | partial |
+| 5 | "traces every lot" | `TRACE-001`, `LARDER-008` | done |
 | 6 | "costs every job" | `COST-001`, `LARDER-009` | partial |
 | 7 | "keeps QuickBooks in sync" | `CONN-001`, `LARDER-012` | partial |
 | 8 | "100% free, open source alternative to Katana, MRPeasy and Fishbowl" | `OPEN-001`, `MOVE-001`, `MOVE-002`, `MOVE-003`, `MRP-001`, `CAP-004`, `LARDER-008`, `LARDER-009`, `CONN-001` | partial |
@@ -393,7 +393,7 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 | 10 | "Router 2 down 2 hrs → 3 jobs moved to Router 1 · Nov 6 still on" | `AGENT-001`, `CAP-007`, `CAP-009` | partial |
 | 11 | "QC · fill weight 4.0 oz · passed" | `TRACE-004` | done |
 | 12 | "Order margin 41.6%" | `COST-004` | missing |
-| 13 | "Lot BB-1020 · 480 tins · Oct 20 · exp Apr 2028" | `TRACE-001`, `TRACE-003` | partial |
+| 13 | "Lot BB-1020 · 480 tins · Oct 20 · exp Apr 2028" | `TRACE-001`, `TRACE-003` | done |
 | 14 | "Larder checks walnut, machines and people before it offers a ship date" | `DEMAND-001`, `CAP-001`, `CAP-002` | partial |
 | 15 | "then prices the job to the cent" (Q-0412 lines, $25,010.00) | `LARDER-004`, `US-001`, `DEMAND-001` | partial |
 | 16 | Ship date options (three capable-to-promise dates) | `DEMAND-001` | partial |
@@ -410,7 +410,7 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 | 27 | "Next chase Oct 21 if no ship notice" | `AGENT-002` | partial |
 | 28 | "Lots ... are recorded as you make" | `LARDER-008`, `LARDER-009` | done |
 | 29 | "checks and expiry are recorded as you make" | `TRACE-003`, `TRACE-004` | done |
-| 30 | "Trace any lot forward to every order or back to every input" (genealogy, Trace forward/back, Export trace CSV) | `TRACE-001` | partial |
+| 30 | "Trace any lot forward to every order or back to every input" (genealogy, Trace forward/back, Export trace CSV) | `TRACE-001` | done |
 | 31 | Held lot BW-0911 "held · CoA missing", swapped for BW-0930 | `LARDER-008`, `TRACE-007` | done |
 | 32 | "Actual $4.18/tin · plan $4.10" | `LARDER-009`, `COST-003` | partial |
 | 33 | "QC · fill weight 4.0 oz · passed", "20 sampled · avg 4.03 oz · limits 3.95–4.15" | `TRACE-004` | done |
@@ -458,8 +458,8 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 21 | 33 | 58 | 112 |
-| All | 37 | 33 | 58 | 128 |
+| Target and push further | 22 | 32 | 58 | 112 |
+| All | 38 | 32 | 58 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -526,7 +526,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `FLOOR-007` | Downtime reasons and production progress | target | done | `src/larder/downtime.ts`; `src/larder/operation-effort.ts`; `tests/api/downtime.test.mjs`; `tests/browser/downtime.spec.ts` (FLOOR-007) | Named Worker and real-dev journeys exercise real pause/resume intervals and reasons, supervisor notice/ack, progress/effort history and bounds, schedule effects, current supervisor authority and unchanged physical completion/promises at 1440/390. |
 | `FLOOR-008` | Barcode scanning workflows | target | missing |  | Barcode scanning workflows workflow and its acceptance journey are not implemented. |
 | `FLOOR-009` | Zebra and printable labels | target | missing |  | Zebra and printable labels workflow and its acceptance journey are not implemented. |
-| `TRACE-001` | Lot and batch genealogy | target | partial | `src/larder/stock.ts`; `src/larder/purchasing.ts`; `src/larder/production.ts`; `src/larder/sales.ts` | Lot-linked physical movements exist; complete genealogy traversal, allocations and buyer trace views are absent. Forward/backward trace CSV is absent. |
+| `TRACE-001` | Lot and batch genealogy | target | done | `src/larder/trace.ts`; `src/larder/trace-graph.ts`; `src/larder/production-trace.ts`; `src/ui/lot-trace.tsx`; `tests/api/trace.test.mjs`; `tests/api/rework.test.mjs`; `tests/api/work-transfers.test.mjs`; `tests/api/subcontract.test.mjs`; `tests/browser/trace.spec.ts` | — |
 | `TRACE-002` | Serial-number lifecycle | target | missing |  | Serial-number lifecycle workflow and its acceptance journey are not implemented. |
 | `TRACE-003` | Expiry and FEFO | target | done | `src/larder/lot-dates.ts`; `src/ui/lot-expiry.tsx`; `tests/api/expiry.test.mjs`; `tests/browser/expiry.spec.ts` |  |
 | `TRACE-004` | Quality checkpoints and measurements | target | done | `src/larder/quality.ts`; `src/larder/operations.ts`; `src/ui/quality.tsx`; `tests/api/quality.test.mjs`; `tests/browser/quality.spec.ts` (TRACE-004) | Named public Worker and native-dev journeys prove approved plans, a failed dimensional check with measurement evidence refusing the next start (same live dispatch reason), output, pick/ship and quarantine release, authorized release after a passing retest with both results kept, and passing/failing 20-sample fill-weight batches with count, mean and pass/fail at 1440/390. |

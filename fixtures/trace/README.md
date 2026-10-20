@@ -1,0 +1,1 @@
+`legacy.json` is synthetic test data generated through Larder's public commands, then represented in the earlier archive format without batch component allocations. It describes a partly completed two-heat job. It exercises honest legacy trace disclosure and evidence-backed continuation; it is not a customer archive.

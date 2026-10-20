@@ -1,32 +1,39 @@
+import { traceProof } from './trace-proof.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { installation, evidence } from './harness.mjs'
 const today = new Date().toISOString().slice(0, 10)
 
-test('FLOOR-004 return defective assemblies, unbuild recovered parts, repair the rest with extra material/labor and ship approved output preserving cost and genealogy', async t => {
+test('TRACE-001 / FLOOR-004 return defective assemblies, unbuild recovered parts, repair the rest with extra material/labor and ship approved output preserving cost and genealogy', async t => {
   const h = await installation(); t.after(() => h.close())
   const production = await h.person('repairer@example.test', 'production'), manager = await h.person('supervisor@example.test', 'manager'), agent = await h.person('assistant@example.test', 'agent')
   const location = await h.command('location.save', { name: 'Repair bench' })
+  const secondLocation = await h.command('location.save', { name: 'Second heat rack' })
   const part = await h.command('item.save', { sku: 'CORE', name: 'Motor core', kind: 'buy', baseUnit: 'each' })
   const extra = await h.command('item.save', { sku: 'SEAL', name: 'Replacement seal', kind: 'buy', baseUnit: 'each' })
   const motor = await h.command('item.save', { sku: 'MOTOR', name: 'Workshop motor', kind: 'make', baseUnit: 'each' })
   const customer = await h.command('party.save', { name: 'Harbor Tools', kind: 'customer' })
   await h.command('bom.revise', { itemId: motor.id, components: [{ itemId: part.id, quantity: '1' }] })
-  await h.command('opening.record', { locationId: location.id, countedOn: today, valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: part.id, quantity: '3', unitCost: '10', lot: 'CORE-A' }, { itemId: extra.id, quantity: '5', unitCost: '2', lot: 'SEALS' }] })
+  await h.command('opening.record', { locationId: location.id, countedOn: today, valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: part.id, quantity: '1', unitCost: '10', lot: 'CORE-A' }, { itemId: extra.id, quantity: '5', unitCost: '2', lot: 'SEALS' }] })
+  await h.command('opening.record', { locationId: secondLocation.id, countedOn: today, valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: part.id, quantity: '2', unitCost: '10', lot: 'CORE-B' }] })
+  await h.command('transfer.create', { itemId: part.id, fromLocationId: secondLocation.id, toLocationId: location.id, quantity: '2', reason: 'Bring second heat to the production bench' })
   const draft = await h.command('wo.draft', { itemId: motor.id, quantity: '3', requiredBy: today, reason: 'Customer batch' })
   let job = await h.command('wo.release', { workOrderId: draft.id, version: draft.version })
   job = await h.command('wo.issue', { workOrderId: job.id, lines: [{ itemId: part.id, locationId: location.id, quantity: '3' }] })
   job = await h.command('wo.output', { workOrderId: job.id, version: job.version, locationId: location.id, quantity: '3', lot: 'MOTOR-A', dates: { expiresOn: `${new Date().getUTCFullYear() + 1}-12-31` } })
   const original = (await h.state()).lots.find(l => l.code === 'MOTOR-A')
-  const ship = async (quantity, lotId) => {
+  const ship = async (quantity, lotId, shipQuantity = quantity) => {
     const q = await h.command('so.quote', { customerId: customer.id, promiseDate: today, lines: [{ itemId: motor.id, quantity, unitPrice: '30' }] })
     const so = await h.command('so.confirm', { orderId: q.id, version: q.version })
-    let sh = await h.command('shipment.pick', { orderId: so.id, lines: [{ lineId: so.lines[0].id, locationId: location.id, quantity, lotId }] })
+    let sh = await h.command('shipment.pick', { orderId: so.id, lines: [{ lineId: so.lines[0].id, locationId: location.id, quantity: shipQuantity, lotId }] })
     sh = await h.command('shipment.pack', { shipmentId: sh.id, version: sh.version, packages: 1 })
     sh = await h.command('shipment.ship', { shipmentId: sh.id, version: sh.version, carrier: 'Customer collection' })
     return { so, sh }
   }
-  const sold = await ship('3', original.id)
+  const sold = await ship('3', original.id, '2')
+  let remainder = await h.command('shipment.pick', { orderId: sold.so.id, lines: [{ lineId: sold.so.lines[0].id, locationId: location.id, quantity: '1', lotId: original.id }] })
+  remainder = await h.command('shipment.pack', { shipmentId: remainder.id, version: remainder.version, packages: 1 })
+  await h.command('shipment.ship', { shipmentId: remainder.id, version: remainder.version, carrier: 'Second customer collection' })
   const returned = await h.command('return.receive', { orderId: sold.so.id, lineId: sold.so.lines[0].id, quantity: '3', locationId: location.id, disposition: 'quarantine', reason: 'Defective seals and one damaged housing' })
   const base = { sourceLotId: original.id, sourceJobId: job.id, locationId: location.id, sourceStatus: 'quarantine', quantity: '1', instructions: 'Disassemble on repair bench, inspect core and segregate failed housings', disposition: 'Recover one core; damaged remainder stays quarantined', evidence: [evidence('Approved repair sheet')] }
   await agent.run('rework.draft', { ...base, kind: 'unbuild', outputs: [{ itemId: part.id, quantity: '1', value: '8', lot: 'RECOVERED' }] }, { error: 'FORBIDDEN' })
@@ -81,6 +88,15 @@ test('FLOOR-004 return defective assemblies, unbuild recovered parts, repair the
   assert.deepEqual(s.positions.filter(p => p.lotId === original.id).map(p => [p.status, p.quantity]), [['quarantine', '1']])
   assert.equal(s.movements.filter(m => m.documentId === shippedRepair.sh.id && m.kind === 'shipment')[0].unitCost, '17')
   assert.ok(repaired.sourceMovementIds.includes(returned.sources[0].returnMovementId))
+  const coreLots = s.lots.filter(l => l.itemId === part.id && l.source === 'opening').map(l => l.id)
+  const backwards = await traceProof(h, repairLot, 'upstream', [original.id, ...coreLots])
+  const forwards = await traceProof(h, coreLots[0], 'downstream', [original.id, repairLot, recoveredLot])
+  assert.equal(forwards.rows.filter(r => r.recordType === 'movement' && r.kind === 'shipment' && r.lotId === original.id).length, 2)
+  assert.ok(backwards.rows.some(r => r.reference === repaired.reference)); assert.ok(forwards.rows.some(r => r.orderReference === sold.so.reference))
+  assert.ok(forwards.rows.some(r => r.party === 'Harbor Tools'))
+  assert.equal((await h.request(`/api/larder/lots/${repairLot}/trace`, { as: '' })).status, 401)
+  assert.equal((await h.request(`/api/larder/lots/${repairLot}/trace?direction=sideways`)).status, 409)
+  assert.equal((await h.request(`/api/larder/lots/${crypto.randomUUID()}/trace`)).status, 409)
   const archive = await (await h.request('/api/larder/archive')).json()
   const restored = await installation(); t.after(() => restored.close())
   const res = await restored.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(res.status, 200, await res.text())

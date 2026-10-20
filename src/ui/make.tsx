@@ -1,3 +1,4 @@
+import { WorkBatchHistory } from './work-batch-history'
 import { Subcontract } from './subcontract'
 import { WorkTransfers } from './work-transfers'
 import { ReworkOrders } from './rework'
@@ -111,6 +112,7 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
       {w.cost && <p>Materials used {money(w.cost.materials)} · variance {money(w.cost.variance)} · actual {money(w.cost.actualUnitCost)} each</p>}
       {(w.shortages ?? []).length > 0 && <p className="warn-text">Short: {stories(s, w, schedule(s, new Date())).join('; ')}. <button className="link" onClick={() => run('wo.reserve', { workOrderId: w.id })}>Try reserving again</button></p>}
     </Card>
+    <WorkBatchHistory larder={larder} w={w} />
     <WorkTransfers larder={larder} w={w} />
     <ReworkOrders larder={larder} jobId={w.id} />
     <WorkQuality larder={larder} w={w} />
@@ -118,8 +120,10 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
       {can(s, ['manager', 'production', 'warehouse']) && <Form title="Issue materials" submit="Issue" busy={busy} onSubmit={d => run('wo.issue', { workOrderId: w.id, lines: w.components.map((l: any) => ({ itemId: l.itemId, locationId: text(d, 'locationId'), quantity: text(d, `q.${l.id}`) })).filter((l: any) => l.quantity && positive(l.quantity)) })}>
         <Choose label="From location" name="locationId" options={options(rows(s, 'locations'), r => r.name)} />
         {w.components.map((l: any) => <Field key={l.id} label={`${itemName(s, l.itemId)} actually used (${unitOf(s, l.itemId)})`} name={`q.${l.id}`} defaultValue={positive(minus(l.required, l.issued)) ? minus(l.required, l.issued) : ''} inputMode="decimal" required={false} />)}</Form>}
-      {prod && <Form title="Record output" submit="Record output" busy={busy} onSubmit={d => run('wo.output', { workOrderId: w.id, version: w.version, locationId: text(d, 'locationId'), quantity: text(d, 'quantity') || '0', scrap: text(d, 'scrap') || '0', scrapReason: text(d, 'scrapReason'), lot: text(d, 'lot'), dates: readLotDates(d, 'dates.') })}>
-        <Choose label="Into location" name="locationId" defaultValue={w.inventoryPolicy?.locationId ?? ''} options={options(rows(s, 'locations'), r => r.name)} /><Field label="Good quantity" name="quantity" inputMode="decimal" required={false} /><Field label="Scrapped" name="scrap" inputMode="decimal" required={false} /><Field label="Scrap reason" name="scrapReason" required={false} /><Field label="Batch" name="lot" required={false} /><LotDateFields prefix="dates." manufactured={false} /></Form>}
+      {prod && <Form title="Record output" submit="Record output" busy={busy} onSubmit={d => run('wo.output', { workOrderId: w.id, version: w.version, locationId: text(d, 'locationId'), quantity: text(d, 'quantity') || '0', scrap: text(d, 'scrap') || '0', scrapReason: text(d, 'scrapReason'), lot: text(d, 'lot'), dates: readLotDates(d, 'dates.'), ...(Object.keys(Object.fromEntries(d)).some(k => k.startsWith('allocation.') && text(d, k)) ? { allocations: (s.workMaterialPools?.[w.id] ?? []).filter((a: Rec) => text(d, `allocation.${a.movementId}`)).map((a: Rec) => ({ movementId: a.movementId, quantity: text(d, `allocation.${a.movementId}`) })) } : {}) })}>
+        <Choose label="Into location" name="locationId" defaultValue={w.inventoryPolicy?.locationId ?? ''} options={options(rows(s, 'locations'), r => r.name)} /><Field label="Good quantity" name="quantity" inputMode="decimal" required={false} /><Field label="Scrapped" name="scrap" inputMode="decimal" required={false} /><Field label="Scrap reason" name="scrapReason" required={false} /><Field label="Batch" name="lot" required={false} /><LotDateFields prefix="dates." manufactured={false} />
+        {w.traceAllocationVersion && <fieldset className="lines wide"><legend>Component lots used in this output batch</legend><p>For a partial batch, enter actual quantities from each issued lot. A single final batch uses all remaining issued inputs automatically. Split/merge jobs share source lots; choose the actual lot quantities within this job's WIP allowance.</p>{(s.workMaterialPools?.[w.id] ?? []).map((a: Rec) => <Field key={a.movementId} label={`${itemName(s, a.itemId)} · lot ${byId(s, 'lots', a.lotId)?.code ?? 'unlotted'} · source ${byId(s, 'workOrders', a.workOrderId)?.reference}`} name={`allocation.${a.movementId}`} required={false} hint={`Source unallocated ${a.quantity}; this job remaining ${a.jobRemaining}`} />)}</fieldset>}
+      </Form>}
       {prod && <Form submit="Close work order" quiet busy={busy} note="Releases leftover reservations and records the material cost and variance." onSubmit={() => run('wo.close', { workOrderId: w.id, version: w.version })}><span /></Form>}
     </Card>}
   </div>

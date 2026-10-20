@@ -26,6 +26,7 @@ import { downtime } from './downtime'
 import { engineering } from './engineering'
 import { planning } from './planning'
 import { workTransfers } from './work-transfers'
+import { lotTrace, traceCsv } from './trace'
 import { subcontract } from './subcontract'
 import { rework } from './rework'
 import { production } from './production'
@@ -148,6 +149,11 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const ok = await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>()
     if (ok?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
     if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, await people(env, actor))) }
+    const trace = /^\/lots\/([-0-9a-f]{36})\/trace(\.csv)?$/.exec(path)
+    if (trace) {
+      const result = lotTrace(await load(env.DB), trace[1], url.searchParams.get('direction') ?? 'upstream')
+      return trace[2] ? new Response(traceCsv(result), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-lot-trace.csv"' } }) : json(result)
+    }
     if (path === '/archive') return json(await archive(env, actor))
     if (path === '/catalog.csv') {
       if (!['owner', 'manager', 'buyer', 'production'].includes(actor.role)) forbidden('Only catalog managers, buyers or engineers export the catalog.')

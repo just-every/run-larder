@@ -1,9 +1,10 @@
+import { traceProof } from './trace-proof.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { installation, evidence, parse } from './harness.mjs'
 const today = new Date().toISOString().slice(0, 10)
 
-test('FLOOR-005 split partly completed work between centers and merge compatible remaining WIP without duplicating quantities, demand, lots, time, costs or reservations', async t => {
+test('TRACE-001 / FLOOR-005 split partly completed work between centers and merge compatible remaining WIP without duplicating quantities, demand, lots, time, costs or reservations', async t => {
   const h = await installation(); t.after(() => h.close())
   const operator = await h.person('machinist@example.test', 'production'), agent = await h.person('planner-agent@example.test', 'agent')
   const loc = await h.command('location.save', { name: 'Machine shop' })
@@ -23,7 +24,7 @@ test('FLOOR-005 split partly completed work between centers and merge compatible
   const parts = [{ quantity: '4', centres: { 2: 'Bench A' } }, { quantity: '4', centres: { 2: 'Bench B' } }]
   await operator.run('wo.split', { workOrderId: source.id, version: source.version, parts, reason: 'Two centers' }, { error: 'ACTIVE_CLOCK' })
   source = await operator.run('wo.operation.complete', { workOrderId: source.id, version: source.version, sequence: 1, reason: 'Preparation complete' })
-  source = await operator.run('wo.output', { workOrderId: source.id, version: source.version, quantity: '2', locationId: loc.id, lot: 'FIRST-2' })
+  source = await operator.run('wo.output', { workOrderId: source.id, version: source.version, quantity: '2', locationId: loc.id, lot: 'FIRST-2', allocations: [{ movementId: (await h.state()).movements.find(m => m.kind === 'issue' && m.documentId === source.id).id, quantity: '2' }] })
   const before = await h.invariant(), events = structuredClone(source.operationStates[0]), physical = before.movements
   await agent.run('wo.split', { workOrderId: source.id, version: source.version, parts, reason: 'Agent' }, { error: 'FORBIDDEN' })
   await operator.run('wo.split', { workOrderId: source.id, version: source.version, parts: [{ quantity: '9' }], reason: 'Too much' }, { error: 'QUANTITY' })
@@ -117,6 +118,12 @@ test('FLOOR-005 split partly completed work between centers and merge compatible
   assert.deepEqual(again.preview.demand.map(d => [d.orderId, d.shortage]), policyOrders.map(o => [o.id, '0']))
   s = await h.state(); const combined = s.workOrders.find(w => w.id === policyMerge.destinations[0])
   assert.deepEqual(combined.inventoryPolicy.pegs.map(p => [p.orderId, p.quantity]), [[policyOrders[0].id, '1'], [policyOrders[1].id, '2']])
+  const traced = await traceProof(h, (await h.state()).lots.find(l => l.code === 'BLANKS-A').id, 'downstream')
+  for (const transfer of (await h.state()).workTransfers) for (const [index, allocation] of transfer.transfers.entries()) {
+    if (!traced.nodes.some(n => n.id === `workOrders:${allocation.sourceId}`)) continue
+    const link = traced.rows.find(r => r.id === `wip:${transfer.id}:${index}`); assert.ok(link); assert.equal(link.quantity, allocation.quantity)
+    for (const [i, component] of allocation.components.entries()) { const edge = traced.rows.find(r => r.id === `wip:${transfer.id}:${index}:component:${i}`); assert.ok(edge); assert.equal(edge.quantity, component.quantity); assert.equal(edge.value, component.cost) }
+  }
   s = await h.invariant(); const archive = await (await h.request('/api/larder/archive')).json()
   const restored = await installation(); t.after(() => restored.close())
   const res = await restored.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(res.status, 200, await res.text())

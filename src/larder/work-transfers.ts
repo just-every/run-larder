@@ -2,6 +2,7 @@ import { decimal, format, max, min } from './decimal'
 import { fail } from './problem'
 import { allow } from './roles'
 import { transferDemand } from './work-demand'
+import { workMaterialPool } from './production-trace'
 import { materialCost } from './production-cost'
 import { allocations, lineageIds, partition, uniqueOrigins, type Allocation } from './work-lineage'
 import { bump, fresh, get, list, newId, nextReference, row, text, type Context, type Row } from './model'
@@ -20,7 +21,7 @@ function eligible(c: Context, w: Row, merge = false) {
   }
 }
 function snapshot(w: Row) {
-  return JSON.stringify({ itemId: w.itemId, status: w.status, bomId: w.bomId, bomRevision: w.bomRevision, bomRevisions: w.bomRevisions ?? [], engineeringBomId: w.engineeringBomId, engineeringBomIds: w.engineeringBomIds, completedSteps: (w.operationStates ?? []).filter((t: any) => t.status === 'done').map((t: any) => t.sequence), routing: w.transferRouting ?? w.routing, standardUnitCost: w.standardUnitCost, planningLocation: w.inventoryPolicy?.locationId, inventoryBomId: w.inventoryBomId, componentBasis: w.components.map((x: any) => [x.itemId, x.perUnit]) })
+  return JSON.stringify({ itemId: w.itemId, traceAllocationVersion: w.traceAllocationVersion, status: w.status, bomId: w.bomId, bomRevision: w.bomRevision, bomRevisions: w.bomRevisions ?? [], engineeringBomId: w.engineeringBomId, engineeringBomIds: w.engineeringBomIds, completedSteps: (w.operationStates ?? []).filter((t: any) => t.status === 'done').map((t: any) => t.sequence), routing: w.transferRouting ?? w.routing, standardUnitCost: w.standardUnitCost, planningLocation: w.inventoryPolicy?.locationId, inventoryBomId: w.inventoryBomId, componentBasis: w.components.map((x: any) => [x.itemId, x.perUnit]) })
 }
 function successor(c: Context, source: Row, quantity: bigint, origins: Allocation[], centres: any, reason: string) {
   const routing = structuredClone(source.transferRouting ?? source.routing)
@@ -29,13 +30,13 @@ function successor(c: Context, source: Row, quantity: bigint, origins: Allocatio
     if (!eligible.includes(center)) fail('WORK_CENTER', 'Choose a center eligible under the pinned routing.')
     step.workCentre = center
   }
-  return row(c, 'workOrders', { reference: nextReference(c.s.workOrders, 'WO'), itemId: source.itemId, quantity: format(quantity), requiredBy: source.requiredBy, expectedOn: source.expectedOn, masterSchedule: source.masterSchedule ? structuredClone(source.masterSchedule) : undefined, plannedCentres: centres ?? source.plannedCentres ?? {}, engineeringBomId: source.engineeringBomId, inventoryBomId: source.inventoryBomId, reason, priority: source.priority, plannedStart: source.plannedStart, status: source.status, preparedBy: c.actor.id, bomId: source.bomId, bomRevision: source.bomRevision, bomRevisions: structuredClone(source.bomRevisions ?? []), engineeringBomIds: source.engineeringBomIds ? structuredClone(source.engineeringBomIds) : undefined, components: [], routing, transferRouting: structuredClone(source.transferRouting ?? source.routing), operationStates: routing.map((step: any) => ({ sequence: step.sequence, status: 'pending', acknowledgments: [] })), output: '0', scrap: '0', standardUnitCost: source.standardUnitCost, quantityAllocations: origins, lineageSourceIds: lineageIds(source), demandSources: structuredClone(source.demandSources ?? [{ workOrderId: source.id, reason: source.reason, inventoryPolicy: source.inventoryPolicy ?? null, masterSchedule: source.masterSchedule ?? null }]) })
+  return row(c, 'workOrders', { reference: nextReference(c.s.workOrders, 'WO'), itemId: source.itemId, quantity: format(quantity), requiredBy: source.requiredBy, expectedOn: source.expectedOn, masterSchedule: source.masterSchedule ? structuredClone(source.masterSchedule) : undefined, plannedCentres: centres ?? source.plannedCentres ?? {}, engineeringBomId: source.engineeringBomId, inventoryBomId: source.inventoryBomId, reason, priority: source.priority, plannedStart: source.plannedStart, status: source.status, traceAllocationVersion: source.traceAllocationVersion, preparedBy: c.actor.id, bomId: source.bomId, bomRevision: source.bomRevision, bomRevisions: structuredClone(source.bomRevisions ?? []), engineeringBomIds: source.engineeringBomIds ? structuredClone(source.engineeringBomIds) : undefined, components: [], routing, transferRouting: structuredClone(source.transferRouting ?? source.routing), operationStates: routing.map((step: any) => ({ sequence: step.sequence, status: 'pending', acknowledgments: [] })), output: '0', scrap: '0', standardUnitCost: source.standardUnitCost, quantityAllocations: origins, lineageSourceIds: lineageIds(source), demandSources: structuredClone(source.demandSources ?? [{ workOrderId: source.id, reason: source.reason, inventoryPolicy: source.inventoryPolicy ?? null, masterSchedule: source.masterSchedule ?? null }]) })
 }
 function transfer(c: Context, source: Row, dest: Row, quantity: bigint, record: Row) {
   const originalQuantity = decimal(source.quantity), open = remaining(source), components = []
   for (const l of source.components) {
     const required = fraction(decimal(l.required), quantity, originalQuantity), doneRequirement = fraction(decimal(l.required), completed(source), originalQuantity)
-    const available = max(0n, decimal(l.issued) - doneRequirement)
+    const available = source.traceAllocationVersion ? max(0n, workMaterialPool(c.s, source).remaining.get(l.itemId) ?? 0n) : max(0n, decimal(l.issued) - doneRequirement)
     const issued = quantity === open ? available : fraction(available, quantity, open)
     const cost = decimal(l.issued) > 0n ? fraction(materialCost(c.s, source, l.itemId), issued, decimal(l.issued)) : 0n
     let target = dest.components.find((x: any) => x.itemId === l.itemId)

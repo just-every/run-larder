@@ -1,0 +1,457 @@
+{
+  "format": "larder-archive-v1",
+  "version": 13,
+  "currency": "USD",
+  "precision": 6,
+  "records": {
+    "items": [
+      {
+        "category": "",
+        "priceList": "",
+        "barcode": "",
+        "tracking": "none",
+        "catalogLocations": [],
+        "sku": "LEGACY-BAR",
+        "name": "Legacy steel blank",
+        "kind": "buy",
+        "baseUnit": "each",
+        "template": "",
+        "attributes": {},
+        "conversions": [],
+        "standardCost": "0",
+        "salePrice": "0",
+        "archived": false,
+        "sourceId": null,
+        "importId": null,
+        "id": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+        "version": 1,
+        "createdAt": "2026-10-20T08:46:45.928Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3"
+      },
+      {
+        "category": "",
+        "priceList": "",
+        "barcode": "",
+        "tracking": "none",
+        "catalogLocations": [],
+        "sku": "LEGACY-BRACKET",
+        "name": "Legacy bracket",
+        "kind": "make",
+        "baseUnit": "each",
+        "template": "",
+        "attributes": {},
+        "conversions": [],
+        "standardCost": "0",
+        "salePrice": "0",
+        "archived": false,
+        "sourceId": null,
+        "importId": null,
+        "id": "6db6f935-ab5c-4e2f-b715-c347011042c2",
+        "version": 1,
+        "createdAt": "2026-10-20T08:46:45.932Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3"
+      }
+    ],
+    "locations": [
+      {
+        "name": "Legacy workshop rack",
+        "note": "",
+        "archived": false,
+        "id": "ebe11529-3256-43fa-97bd-686bd0632352",
+        "version": 1,
+        "createdAt": "2026-10-20T08:46:45.914Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3"
+      }
+    ],
+    "parties": [
+      {
+        "name": "Legacy Metals",
+        "kind": "supplier",
+        "email": "",
+        "abn": "",
+        "terms": "",
+        "sourceId": null,
+        "importId": null,
+        "id": "703be6d8-d423-4670-b050-89feb611b91a",
+        "version": 1,
+        "createdAt": "2026-10-20T08:46:45.924Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3"
+      }
+    ],
+    "partyItems": [],
+    "boms": [
+      {
+        "itemId": "6db6f935-ab5c-4e2f-b715-c347011042c2",
+        "revision": 1,
+        "yield": "1",
+        "components": [
+          {
+            "supply": "buy",
+            "itemId": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+            "quantity": "1",
+            "note": ""
+          }
+        ],
+        "routing": [],
+        "approvedBy": "f94ee059-0479-4379-aac8-2591fc8318a3",
+        "approvedAt": "2026-10-20T08:46:45.953Z",
+        "note": "",
+        "effectiveOn": "2026-10-20",
+        "status": "active",
+        "id": "8b71a6c1-dd78-4006-903d-d6eb75d230e8",
+        "version": 1,
+        "createdAt": "2026-10-20T08:46:45.953Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3"
+      }
+    ],
+    "salesOrders": [],
+    "purchaseOrders": [
+      {
+        "reference": "PO-0001",
+        "supplierId": "703be6d8-d423-4670-b050-89feb611b91a",
+        "lines": [
+          {
+            "id": "50e42f6d-2879-484f-a206-ee797eeae688",
+            "itemId": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+            "quantity": "4",
+            "unitPrice": "5",
+            "received": "4",
+            "rejected": "0"
+          }
+        ],
+        "expectedDate": "2026-10-20",
+        "requiredBy": "",
+        "reason": "Legacy two-heat intake",
+        "exposure": "20",
+        "status": "received",
+        "preparedBy": "f94ee059-0479-4379-aac8-2591fc8318a3",
+        "history": [],
+        "supplierReference": "",
+        "confirmedDate": "",
+        "id": "5b5192cc-0391-43ed-a025-7523b2ebbea3",
+        "version": 4,
+        "createdAt": "2026-10-20T08:46:45.963Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3",
+        "approvalId": "8f386308-f4da-40e1-abb3-5a651643e8af",
+        "approvedBy": "f94ee059-0479-4379-aac8-2591fc8318a3"
+      }
+    ],
+    "workOrders": [
+      {
+        "reference": "WO-0001",
+        "itemId": "6db6f935-ab5c-4e2f-b715-c347011042c2",
+        "quantity": "4",
+        "requiredBy": "2026-10-20",
+        "reason": "Legacy partly completed bracket job",
+        "priority": 0,
+        "plannedStart": "",
+        "status": "released",
+        "bomId": "8b71a6c1-dd78-4006-903d-d6eb75d230e8",
+        "bomRevision": 1,
+        "components": [
+          {
+            "id": "f32cdecb-9e09-4951-9858-b904908c8773",
+            "itemId": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+            "perUnit": "1",
+            "required": "4",
+            "supplyRequirements": [
+              {
+                "supply": "buy",
+                "quantity": "4"
+              }
+            ],
+            "issued": "4"
+          }
+        ],
+        "routing": [],
+        "output": "2",
+        "scrap": "0",
+        "standardUnitCost": "5",
+        "preparedBy": "f94ee059-0479-4379-aac8-2591fc8318a3",
+        "id": "d7fd6d4e-b056-4851-bf07-00b5495c6c32",
+        "version": 4,
+        "createdAt": "2026-10-20T08:46:45.994Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3",
+        "bomRevisions": [
+          {
+            "bomId": "8b71a6c1-dd78-4006-903d-d6eb75d230e8",
+            "itemId": "6db6f935-ab5c-4e2f-b715-c347011042c2",
+            "revision": 1,
+            "yield": "1"
+          }
+        ],
+        "operationStates": [],
+        "releasedBy": "f94ee059-0479-4379-aac8-2591fc8318a3",
+        "releasedAt": "2026-10-20T08:46:45.999Z",
+        "shortages": [],
+        "outputs": [
+          {
+            "at": "2026-10-20T08:46:46.012Z",
+            "by": "f94ee059-0479-4379-aac8-2591fc8318a3",
+            "good": "2",
+            "scrap": "0",
+            "scrapReason": ""
+          }
+        ]
+      }
+    ],
+    "receipts": [
+      {
+        "reference": "GR-0001",
+        "poId": "5b5192cc-0391-43ed-a025-7523b2ebbea3",
+        "supplierReference": "LEGACY-A",
+        "lines": [
+          {
+            "lineId": "50e42f6d-2879-484f-a206-ee797eeae688",
+            "itemId": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+            "locationId": "ebe11529-3256-43fa-97bd-686bd0632352",
+            "quantity": "2",
+            "lotId": "915e95ca-c2f0-49d9-b667-87b7ca0e6602",
+            "inspection": "accept"
+          }
+        ],
+        "status": "received",
+        "id": "8664b7d3-dd08-4b2f-b428-9bfd82007864",
+        "version": 1,
+        "createdAt": "2026-10-20T08:46:45.985Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3"
+      },
+      {
+        "reference": "GR-0002",
+        "poId": "5b5192cc-0391-43ed-a025-7523b2ebbea3",
+        "supplierReference": "LEGACY-B",
+        "lines": [
+          {
+            "lineId": "50e42f6d-2879-484f-a206-ee797eeae688",
+            "itemId": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+            "locationId": "ebe11529-3256-43fa-97bd-686bd0632352",
+            "quantity": "2",
+            "lotId": "1d3c7a9b-f4d6-400c-aef2-ad87f3354267",
+            "inspection": "accept"
+          }
+        ],
+        "status": "received",
+        "id": "14208660-37ed-4c3a-8672-f2805578bec9",
+        "version": 1,
+        "createdAt": "2026-10-20T08:46:45.990Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3"
+      }
+    ],
+    "lots": [
+      {
+        "itemId": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+        "code": "LEGACY-A",
+        "supplierId": "703be6d8-d423-4670-b050-89feb611b91a",
+        "source": "receipt",
+        "documentId": "8664b7d3-dd08-4b2f-b428-9bfd82007864",
+        "status": "released",
+        "id": "915e95ca-c2f0-49d9-b667-87b7ca0e6602",
+        "version": 1,
+        "createdAt": "2026-10-20T08:46:45.985Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3"
+      },
+      {
+        "itemId": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+        "code": "LEGACY-B",
+        "supplierId": "703be6d8-d423-4670-b050-89feb611b91a",
+        "source": "receipt",
+        "documentId": "14208660-37ed-4c3a-8672-f2805578bec9",
+        "status": "released",
+        "id": "1d3c7a9b-f4d6-400c-aef2-ad87f3354267",
+        "version": 1,
+        "createdAt": "2026-10-20T08:46:45.990Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3"
+      },
+      {
+        "itemId": "6db6f935-ab5c-4e2f-b715-c347011042c2",
+        "code": "LEGACY-OUT-A",
+        "supplierId": null,
+        "source": "production",
+        "documentId": "d7fd6d4e-b056-4851-bf07-00b5495c6c32",
+        "status": "released",
+        "id": "728b6a9e-e822-4e9f-af77-c1874d6ace3f",
+        "version": 1,
+        "createdAt": "2026-10-20T08:46:46.012Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3"
+      }
+    ],
+    "shipments": [],
+    "returns": [],
+    "transfers": [],
+    "counts": [],
+    "openings": [],
+    "reversals": [],
+    "handoffs": [],
+    "inventoryPolicies": [],
+    "inventoryPlans": [],
+    "certificates": [],
+    "certificatePolicies": [],
+    "maintenance": [],
+    "forecasts": [],
+    "productionPlans": [],
+    "proposals": [],
+    "approvals": [
+      {
+        "subjectKind": "purchaseOrders",
+        "subjectId": "5b5192cc-0391-43ed-a025-7523b2ebbea3",
+        "subjectVersion": 1,
+        "decision": "approved",
+        "role": "owner",
+        "note": "",
+        "terms": {
+          "supplierId": "703be6d8-d423-4670-b050-89feb611b91a",
+          "lines": [
+            {
+              "id": "50e42f6d-2879-484f-a206-ee797eeae688",
+              "itemId": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+              "quantity": "4",
+              "unitPrice": "5",
+              "received": "0",
+              "rejected": "0"
+            }
+          ],
+          "expectedDate": "2026-10-20",
+          "exposure": "20"
+        },
+        "id": "8f386308-f4da-40e1-abb3-5a651643e8af",
+        "version": 1,
+        "createdAt": "2026-10-20T08:46:45.978Z",
+        "createdBy": "f94ee059-0479-4379-aac8-2591fc8318a3"
+      }
+    ],
+    "orderChanges": [],
+    "bomChanges": [],
+    "catalogChanges": [],
+    "engineeringChanges": [],
+    "countSessions": [],
+    "followUps": [],
+    "resolutions": [],
+    "imports": [],
+    "roles": [],
+    "workTransfers": [],
+    "reworkOrders": [],
+    "subcontractOrders": [],
+    "subcontractCustody": [],
+    "inspectionPlans": [],
+    "inspections": [],
+    "qualityHolds": []
+  },
+  "movements": [
+    {
+      "id": "fa4a953d-f22b-48df-9224-0bece46011db",
+      "sequence": 1,
+      "itemId": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+      "locationId": "ebe11529-3256-43fa-97bd-686bd0632352",
+      "status": "available",
+      "lotId": "915e95ca-c2f0-49d9-b667-87b7ca0e6602",
+      "quantity": "2000000",
+      "unitCost": "5000000",
+      "kind": "receipt",
+      "documentKind": "receipts",
+      "documentId": "8664b7d3-dd08-4b2f-b428-9bfd82007864",
+      "reversesId": null,
+      "actorId": "f94ee059-0479-4379-aac8-2591fc8318a3",
+      "commandId": "fe638eb5-0d4b-40a0-9a61-63ea8d141f6f",
+      "importId": null,
+      "reason": "Received on PO-0001",
+      "createdAt": "2026-10-20T08:46:45.985Z"
+    },
+    {
+      "id": "b96ac635-11ec-42ea-8606-b6b70395d486",
+      "sequence": 2,
+      "itemId": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+      "locationId": "ebe11529-3256-43fa-97bd-686bd0632352",
+      "status": "available",
+      "lotId": "1d3c7a9b-f4d6-400c-aef2-ad87f3354267",
+      "quantity": "2000000",
+      "unitCost": "5000000",
+      "kind": "receipt",
+      "documentKind": "receipts",
+      "documentId": "14208660-37ed-4c3a-8672-f2805578bec9",
+      "reversesId": null,
+      "actorId": "f94ee059-0479-4379-aac8-2591fc8318a3",
+      "commandId": "c23c5102-4034-4a5e-8e62-dec70206cbbd",
+      "importId": null,
+      "reason": "Received on PO-0001",
+      "createdAt": "2026-10-20T08:46:45.990Z"
+    },
+    {
+      "id": "1758c9cf-2f2c-4aee-bad9-9869d8c471cf",
+      "sequence": 3,
+      "itemId": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+      "locationId": "ebe11529-3256-43fa-97bd-686bd0632352",
+      "status": "available",
+      "lotId": "915e95ca-c2f0-49d9-b667-87b7ca0e6602",
+      "quantity": "-2000000",
+      "unitCost": "5000000",
+      "kind": "issue",
+      "documentKind": "workOrders",
+      "documentId": "d7fd6d4e-b056-4851-bf07-00b5495c6c32",
+      "reversesId": null,
+      "actorId": "f94ee059-0479-4379-aac8-2591fc8318a3",
+      "commandId": "4fb6e9a2-09fa-40a1-9e2e-2ce187ccf8be",
+      "importId": null,
+      "reason": "Issued to WO-0001",
+      "createdAt": "2026-10-20T08:46:46.002Z"
+    },
+    {
+      "id": "8dc564c0-1d81-4d8e-bb3b-8682c08fa437",
+      "sequence": 4,
+      "itemId": "3aadbd65-8a47-48f5-b355-55bc170e922a",
+      "locationId": "ebe11529-3256-43fa-97bd-686bd0632352",
+      "status": "available",
+      "lotId": "1d3c7a9b-f4d6-400c-aef2-ad87f3354267",
+      "quantity": "-2000000",
+      "unitCost": "5000000",
+      "kind": "issue",
+      "documentKind": "workOrders",
+      "documentId": "d7fd6d4e-b056-4851-bf07-00b5495c6c32",
+      "reversesId": null,
+      "actorId": "f94ee059-0479-4379-aac8-2591fc8318a3",
+      "commandId": "4fb6e9a2-09fa-40a1-9e2e-2ce187ccf8be",
+      "importId": null,
+      "reason": "Issued to WO-0001",
+      "createdAt": "2026-10-20T08:46:46.002Z"
+    },
+    {
+      "id": "06c9eceb-cf6a-4fa7-97bc-2186d82f0fd1",
+      "sequence": 5,
+      "itemId": "6db6f935-ab5c-4e2f-b715-c347011042c2",
+      "locationId": "ebe11529-3256-43fa-97bd-686bd0632352",
+      "status": "available",
+      "lotId": "728b6a9e-e822-4e9f-af77-c1874d6ace3f",
+      "quantity": "2000000",
+      "unitCost": "5000000",
+      "kind": "output",
+      "documentKind": "workOrders",
+      "documentId": "d7fd6d4e-b056-4851-bf07-00b5495c6c32",
+      "reversesId": null,
+      "actorId": "f94ee059-0479-4379-aac8-2591fc8318a3",
+      "commandId": "9c9f95c7-5156-4669-baae-d28eac04b649",
+      "importId": null,
+      "reason": "Output of WO-0001",
+      "createdAt": "2026-10-20T08:46:46.012Z"
+    }
+  ],
+  "reservations": [],
+  "commands": [],
+  "people": [
+    {
+      "id": "f94ee059-0479-4379-aac8-2591fc8318a3",
+      "name": "Olive Owner"
+    }
+  ],
+  "attachments": [],
+  "reconciliation": [
+    {
+      "itemId": "6db6f935-ab5c-4e2f-b715-c347011042c2",
+      "locationId": "ebe11529-3256-43fa-97bd-686bd0632352",
+      "status": "available",
+      "lotId": "728b6a9e-e822-4e9f-af77-c1874d6ace3f",
+      "quantity": "2"
+    }
+  ],
+  "exportedAt": "2026-10-20T08:46:46.016Z",
+  "checksum": "114ec52496892b29c3142f5cc845722aea19e34e6e42b8328fb7e622b7accd04",
+  "ledger": 5
+}

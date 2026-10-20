@@ -29,7 +29,7 @@ test('FLOOR-005 split partly completed work across two centers, merge remaining 
     work = await command(page, 'wo.operation.assign', { workOrderId: work.id, version: work.version, sequence: 1, operatorId: me })
     work = await command(page, 'wo.operation.start', { workOrderId: work.id, version: work.version, sequence: 1, workCentre: 'Mill A', station: 'Mill 1', reason: 'Prepare batch' })
     work = await command(page, 'wo.operation.complete', { workOrderId: work.id, version: work.version, sequence: 1, reason: 'Prepared batch' })
-    work = await command(page, 'wo.output', { workOrderId: work.id, version: work.version, quantity: '2', locationId: loc.id, lot: `FIRST-${tag}` })
+    work = await command(page, 'wo.output', { workOrderId: work.id, version: work.version, quantity: '2', locationId: loc.id, lot: `FIRST-${tag}`, allocations: [{ movementId: (await state()).movements.find((m: any) => m.kind === 'issue' && m.documentId === work.id).id, quantity: '2' }] })
     const originalEvents = structuredClone(work.operationStates[0].events), before = await state()
     await open(page, work.id)
     const transfers = card(page, 'Split and merge work')

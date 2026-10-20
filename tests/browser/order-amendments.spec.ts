@@ -34,7 +34,7 @@ test('DEMAND-002 customer-approved split dates, prospective prices and cancellat
   let work = await command(page, 'wo.draft', { itemId: made.id, quantity: '6', requiredBy: date(5), reason: 'Ohio clamps' })
   work = await command(page, 'wo.release', { workOrderId: work.id, version: work.version })
   work = await command(page, 'wo.issue', { workOrderId: work.id, lines: [{ itemId: raw.id, locationId: location.id, quantity: '6' }] })
-  work = await command(page, 'wo.output', { workOrderId: work.id, version: work.version, locationId: location.id, quantity: '2' })
+  work = await command(page, 'wo.output', { workOrderId: work.id, version: work.version, locationId: location.id, quantity: '2', allocations: [{ movementId: (await (await page.request.get(origin + '/api/larder/state')).json()).movements.find((m: any) => m.kind === 'issue' && m.documentId === work.id).id, quantity: '2' }] })
   const po = await command(page, 'po.draft', { supplierId: vendor.id, expectedDate: date(4), reason: 'Remaining material commitment', lines: [{ itemId: raw.id, quantity: '10', unitPrice: '12' }] })
   await command(page, 'po.approve', { poId: po.id, version: po.version })
   let order = await command(page, 'so.quote', { customerId: customer.id, promiseDate: date(5), shippingAddress: '10 Factory Lane, Dayton, OH 45402', billingAddress: 'Accounts, 10 Factory Lane, Dayton, OH 45402', lines: [{ itemId: made.id, quantity: '6', unitPrice: '35' }] })

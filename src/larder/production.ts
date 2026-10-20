@@ -1,5 +1,7 @@
 // Work orders: draft, release (pins the BOM revision and reserves components),
 // material issue, output with scrap, and close with cost variance.
+import { batchAllocation, workMaterialPool } from './production-trace'
+import { attach } from './attachments'
 import { materialCost } from './production-cost'
 import { requiredTypes } from './certificate-policy'
 import { engineeringReleaseBom } from './engineering-policy'
@@ -50,7 +52,7 @@ export function production(c: Context, type: string, p: any): Row | undefined {
         if (!eligible.includes(center)) fail('WORK_CENTER', 'The planned split/merge center is not eligible in the release revision.')
         step.workCentre = center
       }
-      bump(w, { status: 'released', bomId: bom.id, bomRevision: bom.revision, bomRevisions: resolved.revisions, components, routing, operationStates: bom.routing.map((r: any) => ({ sequence: r.sequence, status: 'pending', acknowledgments: [] })), standardUnitCost: format(standardUnitCost), releasedBy: c.actor.id, releasedAt: c.now })
+      bump(w, { traceAllocationVersion: 1, status: 'released', bomId: bom.id, bomRevision: bom.revision, bomRevisions: resolved.revisions, components, routing, operationStates: bom.routing.map((r: any) => ({ sequence: r.sequence, status: 'pending', acknowledgments: [] })), standardUnitCost: format(standardUnitCost), releasedBy: c.actor.id, releasedAt: c.now })
       w.shortages = components.map((l: any) => {
         const got = reserve(c, { demandKind: 'work', demandId: w.id, lineId: l.id, itemId: l.itemId }, decimal(l.required))
         return { itemId: l.itemId, short: format(decimal(l.required) - got) }
@@ -82,6 +84,25 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       }
       return bump(w, {})
     }
+    case 'wo.batch.allocate': {
+      allow(c, ['manager', 'production'])
+      const w = get(c.s, 'workOrders', p.workOrderId); fresh(w, p.version)
+      const b = Number.isSafeInteger(p.batchIndex) ? w.outputs?.[p.batchIndex] : null
+      if (!b || b.allocations) fail('TRACE_ALLOCATION', 'Choose a historical output report whose component lots were not recorded.')
+      const remainingReports = w.outputs.filter((x: any) => !x.allocations).length
+      const allocations = batchAllocation(c.s, w, { allocations: p.allocations }, remainingReports === 1 && (w.status === 'closed' || decimal(w.output) + decimal(w.scrap) === decimal(w.quantity)))
+      b.allocations = allocations
+      b.allocationRecorded = { by: c.actor.id, at: c.now, reason: text(p.reason, 'historical allocation reason'), evidence: attach(c, p.evidence) }
+      // Legacy reports had no lot/movement pointer. Match only a unique
+      // physical output with the same recorded command time and quantity.
+      if (!b.id) b.id = newId()
+      if (!b.movementId && decimal(b.good) > 0n) {
+        const matches = c.s.movements.filter(m => m.documentKind === 'workOrders' && m.documentId === w.id && m.kind === 'output' && m.createdAt === b.at && m.quantity === decimal(b.good))
+        if (matches.length !== 1) fail('TRACE_ALLOCATION', 'This historical report cannot be matched uniquely to its original output movement; retain its job-level ancestry.')
+        b.movementId = matches[0].id; b.lotId = matches[0].lotId
+      }
+      return bump(w, { traceAllocationVersion: w.outputs.every((x: any) => x.allocations) ? 1 : undefined })
+    }
     case 'wo.output': {
       allow(c, ['manager', 'production'])
       const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
@@ -93,23 +114,29 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       if (hold) fail('QUALITY_HOLD', `${w.reference} cannot record output. ${holdReason(hold)}`, { holdId: hold.id })
       if (good > 0n && !p.lot && ['in-process', 'final'].some(stage => plansFor(c.s, stage, w.itemId, w.bomRevision).some(plan => plan.required))) fail('INPUT', 'Record a batch lot: required inspections hold this output by lot.', { field: 'lot' })
       if (decimal(w.output) + decimal(w.scrap) + good + scrap > decimal(w.quantity)) fail('OVER_OUTPUT', `${w.reference} is for ${w.quantity} ${item.baseUnit}; this would exceed it. Release more work instead.`)
+      const missing = workMaterialPool(c.s, w).unrecorded
+      if (missing.length) fail('TRACE_LEGACY_ALLOCATION', `Record historical component-lot allocations first: ${[...new Set(missing.map(x => x.reference))].join(', ')}.`)
+      const allocations = batchAllocation(c.s, w, p, decimal(w.output) + decimal(w.scrap) + good + scrap === decimal(w.quantity)), batchId = newId()
+      let outputLotId = '', outputMovementId = ''
       if (good > 0n) {
         requireCatalogLot(item, p.lot)
         const controlled = requiredTypes(c.s, item.id).length > 0
         if (controlled) text(p.lot, 'lot required for controlled certificates', 80)
         const location = get(c.s, 'locations', p.locationId, 'location'), code = optionalText(p.lot, 'batch', 80), today = c.now.slice(0, 10)
         const dates = p.dates ? lotDates(p.dates, code, today, today) : {}
-        const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: null, source: 'production', documentId: w.id, status: controlled ? 'quarantined' : 'released', ...dates }) : null
-        move(c, { itemId: item.id, locationId: location.id, status: controlled ? 'quarantine' : 'available', lotId: lot?.id, quantity: good, unitCost: decimal(w.standardUnitCost), kind: 'output', documentKind: 'workOrders', documentId: w.id, reason: `Output of ${w.reference}` })
+        const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: null, source: 'production', documentId: w.id, batchId, status: controlled ? 'quarantined' : 'released', ...dates }) : null
+        outputLotId = lot?.id ?? ''
+        outputMovementId = move(c, { itemId: item.id, locationId: location.id, status: controlled ? 'quarantine' : 'available', lotId: lot?.id, quantity: good, unitCost: decimal(w.standardUnitCost), kind: 'output', documentKind: 'workOrders', documentId: w.id, reason: `Output of ${w.reference}` }).id
       }
-      w.outputs = [...(w.outputs ?? []), { at: c.now, by: c.actor.id, good: format(good), scrap: format(scrap), scrapReason: scrap > 0n ? text(p.scrapReason, 'scrap reason', 400) : '' }]
-      return bump(w, { output: format(decimal(w.output) + good), scrap: format(decimal(w.scrap) + scrap) })
+      w.outputs = [...(w.outputs ?? []), { id: batchId, lotId: outputLotId, movementId: outputMovementId, allocations, at: c.now, by: c.actor.id, good: format(good), scrap: format(scrap), scrapReason: scrap > 0n ? text(p.scrapReason, 'scrap reason', 400) : '' }]
+      return bump(w, { traceAllocationVersion: 1, output: format(decimal(w.output) + good), scrap: format(decimal(w.scrap) + scrap) })
     }
     case 'wo.close': {
       allow(c, ['manager', 'production'])
       const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
       if (w.status !== 'released') fail('STATE', 'Only released work can be closed.')
       if (w.routing.some((r: any) => r.instructions || r.drawings?.length || r.requiredSkills?.length) && w.routing.some((r: any) => !w.operationStates?.some((t: any) => t.sequence === r.sequence && t.status === 'done'))) fail('OPERATIONS', 'Complete the pinned operations before closing work.')
+      if (workMaterialPool(c.s, w).unrecorded.length || [...workMaterialPool(c.s, w).remaining.values()].some(q => q !== 0n)) fail('TRACE_ALLOCATION', 'Allocate all issued material to recorded output/scrap batches before closing.')
       release(c, w.id)
       const actual = materialCost(c.s, w), standard = times(decimal(w.output), decimal(w.standardUnitCost))
       return bump(w, { status: 'closed', closedAt: c.now, cost: { materials: format(actual), standardOutput: format(standard), variance: format(actual - standard), actualUnitCost: format(decimal(w.output) > 0n ? divide(actual, decimal(w.output)) : 0n) } })

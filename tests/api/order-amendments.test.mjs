@@ -26,7 +26,7 @@ test('DEMAND-002 approved amendments split promises, preserve issued terms and p
   let work = await h.command('wo.release', { workOrderId: wo.id, version: wo.version })
   await h.command('wo.issue', { workOrderId: work.id, lines: [{ itemId: w.timber.id, locationId: w.loc.id, quantity: '2' }, { itemId: w.oil.id, locationId: w.loc.id, quantity: '0.1' }] })
   work = (await h.state()).workOrders.find(row => row.id === wo.id)
-  await h.command('wo.output', { workOrderId: work.id, version: work.version, locationId: w.loc.id, quantity: '1' })
+  await h.command('wo.output', { workOrderId: work.id, version: work.version, locationId: w.loc.id, quantity: '1', allocations: (await h.state()).movements.filter(m => m.kind === 'issue' && m.documentId === work.id).map(m => ({ movementId: m.id, quantity: m.itemId === w.timber.id ? '1' : '0.05' })) })
   const po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-11-12', reason: 'Retain supplier commitment', lines: [{ itemId: w.timber.id, quantity: '4', unitPrice: '9.5' }] })
   await h.command('po.approve', { poId: po.id, version: po.version })
   await h.command('transfer.create', { itemId: w.board.id, fromLocationId: w.loc.id, toLocationId: w.store.id, quantity: '1', reason: 'Stage stock at a second location' })

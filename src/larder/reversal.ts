@@ -63,6 +63,7 @@ export function reversal(c: Context, type: string, p: any): Row | undefined {
   if (kind === 'workOrders' && c.s.workTransfers.some(t => t.transfers.some((a: any) => a.sourceId === doc.id))) fail('DEPENDENCY', 'Split/merge successors depend on this job’s original issues and lots.')
   if (c.s.reworkOrders.some(w => ['quarantine', 'released'].includes(w.status) && targets.some(m => w.sourceMovementIds.includes(m.id)))) fail('DEPENDENCY', 'Repair/unbuild consumed this original stock. Its genealogy must be retained.')
   if (c.s.subcontractOrders.some(w => w.issued.some((i: any) => targets.some(m => m.lotId === i.lotId)))) fail('DEPENDENCY', 'Subcontract custody depends on this source lot; retain its genealogy.')
+  if (c.s.workOrders.some(w => (w.outputs ?? []).some((b: any) => b.allocations && (targets.some(m => m.id === b.movementId) || b.allocations.some((a: any) => targets.some(m => m.id === a.movementId)))))) fail('DEPENDENCY', 'An exact output-batch allocation depends on these postings; retain its component-lot genealogy.')
   if (!targets.length) fail('NOTHING_TO_REVERSE', 'Those movements are already reversed or do not exist.')
   const r = row(c, 'reversals', { targetKind: kind, targetId: doc.id, targetReference: doc.reference ?? '', reason: text(p.reason, 'reason', 400), movements: [] })
   for (const m of [...targets].sort((a, b) => b.sequence - a.sequence)) {

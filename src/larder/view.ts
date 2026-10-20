@@ -1,5 +1,6 @@
 // What a signed-in person or agent reads: records, formatted ledger, positions,
 // availability, shortages and the exception queue.
+import { materialPoolView } from './production-trace'
 import { materialCost } from './production-cost'
 import { dispatchTasks } from './operations'
 import { lostTimeReport } from './downtime'
@@ -26,6 +27,7 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
   const records = Object.fromEntries(collections.map(k => [k, s[k]]))
   return {
     version: s.version, actor, ...records,
+    workMaterialPools: Object.fromEntries(s.workOrders.filter(w => w.status === 'released' || (w.outputs ?? []).some((b: any) => !b.allocations)).map(w => [w.id, materialPoolView(s, w)])),
     workTransferCosts: Object.fromEntries(s.workOrders.map(w => [w.id, format(materialCost(s, w))])),
     orderStatuses: orderStatuses(s),
     masterSchedule: masterSchedule(s),
