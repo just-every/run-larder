@@ -64,6 +64,10 @@ export function move(c: Context, x: MoveInput): Movement {
   if (c.s.lots.some(l => l.id === lotId && l.ownerId)) fail('OWNERSHIP', 'Customer property cannot enter owned inventory.')
   if (x.quantity > 0n) requireCatalogLot(item, c.s.lots.find(l => l.id === lotId && l.itemId === item.id)?.code)
   if (x.quantity < 0n) {
+    if (x.status === 'quarantine') {
+      const held = c.s.nonconformances.filter(n => n.status === 'open' && n.itemId === x.itemId && n.locationId === x.locationId && n.lotId === lotId && !(x.documentKind === 'nonconformances' && x.documentId === n.id)).reduce((n, r) => n + decimal(r.remaining), 0n)
+      if (balance(c.s, x.itemId, x.locationId, 'quarantine', lotId) + x.quantity < held) fail('NONCONFORMANCE', 'This quantity is protected by an open nonconformance; use its evidenced disposition.')
+    }
     const lotBalance = balance(c.s, x.itemId, x.locationId, x.status, lotId)
     if (lotBalance + x.quantity < 0n) fail('INSUFFICIENT_STOCK', 'Not enough stock at that location for this movement.', { itemId: x.itemId, locationId: x.locationId, status: x.status, lotId, onHand: format(lotBalance), needed: format(-x.quantity) })
     if (x.status === 'available' && balance(c.s, x.itemId, x.locationId) + x.quantity < reservedAt(c.s, x.itemId, x.locationId))

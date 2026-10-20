@@ -102,8 +102,14 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'production'])
       const plan = get(c.s, 'inspectionPlans', p.planId, 'inspection plan'); fresh(plan, p.planVersion)
       if (plan.status !== 'approved') fail('STATE', 'Record results only against the current approved plan.')
-      let subjectKind: 'workOrders' | 'lots' | 'reworkOrders', subject: Row
-      if (p.reworkOrderId) {
+      let subjectKind: 'workOrders' | 'lots' | 'reworkOrders' | 'nonconformances', subject: Row
+      if (p.nonconformanceId) {
+        subjectKind = 'nonconformances'; subject = get(c.s, 'nonconformances', p.nonconformanceId, 'nonconformance')
+        const lot = get(c.s, 'lots', subject.lotId), job = c.s.workOrders.find(w => w.id === lot.documentId)
+        if (subject.status !== 'open' || subject.itemId !== plan.itemId || (plan.revision !== null && plan.revision !== job?.bomRevision)) fail('INPUT', 'Use a current applicable plan on an open nonconformance.')
+        const quantity = decimal(p.quantity, 'inspected quantity', { positive: true })
+        if (quantity > decimal(subject.remaining)) fail('QUANTITY', 'Inspect only units still held by this case.')
+      } else if (p.reworkOrderId) {
         subjectKind = 'reworkOrders'; subject = get(c.s, 'reworkOrders', p.reworkOrderId, 'repair/unbuild order')
         if (subject.status !== 'quarantine' || !subject.outputLots.some((x: any) => x.itemId === plan.itemId) || (plan.revision !== null && plan.revision !== subject.bomRevision)) fail('INPUT', 'Inspect executed repair/recovery output against its pinned revision.')
       } else if (plan.stage === 'receipt') {
@@ -120,8 +126,8 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
       }
       const results = score(plan, p.samples), passed = results.every((m: any) => m.passed)
       const prior = c.s.inspections.filter(x => x.planId === plan.id && x.subjectId === subject.id)
-      const inspection = row(c, 'inspections', { planId: plan.id, planVersion: plan.version, planName: plan.name, stage: plan.stage, itemId: plan.itemId, subjectKind, subjectId: subject.id, lotCode: subjectKind === 'lots' ? subject.code : '', measurements: results, passed, retestOf: prior.at(-1)?.id ?? null, evidence: files(c, p.evidence, 'measurement evidence'), note: optionalText(p.note, 'note', 400), inspectedBy: c.actor.id, inspectedAt: c.now })
-      if (!passed && plan.required && !openHolds(c.s, subject.id).some(h => h.planId === plan.id)) {
+      const inspection = row(c, 'inspections', { ...(subjectKind === 'nonconformances' ? { quantity: format(decimal(p.quantity)) } : {}), planId: plan.id, planVersion: plan.version, planName: plan.name, stage: plan.stage, itemId: plan.itemId, subjectKind, subjectId: subject.id, lotCode: subjectKind === 'lots' ? subject.code : '', measurements: results, passed, retestOf: prior.at(-1)?.id ?? null, evidence: files(c, p.evidence, 'measurement evidence'), note: optionalText(p.note, 'note', 400), inspectedBy: c.actor.id, inspectedAt: c.now })
+      if (subjectKind !== 'nonconformances' && !passed && plan.required && !openHolds(c.s, subject.id).some(h => h.planId === plan.id)) {
         const failures = results.filter((m: any) => !m.passed).map((m: any) => `${m.name} ${m.outside} of ${m.count} outside ${m.lower}–${m.upper} ${m.unit}, mean ${m.mean}`)
         const hold = row(c, 'qualityHolds', { subjectKind, subjectId: subject.id, itemId: plan.itemId, planId: plan.id, planName: plan.name, inspectionId: inspection.id, failedBy: c.actor.id, failedAt: c.now, failures, lots: [], held: [], unreserved: [], status: 'open' })
         for (const lotId of subjectLots(c.s, subjectKind, subject.id)) holdLot(c, hold, lotId)

@@ -61,6 +61,7 @@ export function reversal(c: Context, type: string, p: any): Row | undefined {
   let targets = c.s.movements.filter(m => m.documentKind === kind && m.documentId === doc.id && !reversed.has(m.id))
   if (p.movementIds !== undefined) { const ids = new Set(list<string>(p.movementIds, 'movements')); targets = targets.filter(m => ids.has(m.id)) }
   if (kind === 'workOrders' && c.s.workTransfers.some(t => t.transfers.some((a: any) => a.sourceId === doc.id))) fail('DEPENDENCY', 'Split/merge successors depend on this job’s original issues and lots.')
+  if (c.s.nonconformances.some(n => targets.some(m => n.sourceMovementIds.includes(m.id)))) fail('DEPENDENCY', 'Nonconformance containment depends on this original stock; retain its genealogy.')
   if (c.s.reworkOrders.some(w => ['quarantine', 'released'].includes(w.status) && targets.some(m => w.sourceMovementIds.includes(m.id)))) fail('DEPENDENCY', 'Repair/unbuild consumed this original stock. Its genealogy must be retained.')
   if (c.s.subcontractOrders.some(w => w.issued.some((i: any) => targets.some(m => m.lotId === i.lotId)))) fail('DEPENDENCY', 'Subcontract custody depends on this source lot; retain its genealogy.')
   if (c.s.workOrders.some(w => (w.outputs ?? []).some((b: any) => b.allocations && (targets.some(m => m.id === b.movementId) || b.allocations.some((a: any) => targets.some(m => m.id === a.movementId)))))) fail('DEPENDENCY', 'An exact output-batch allocation depends on these postings; retain its component-lot genealogy.')

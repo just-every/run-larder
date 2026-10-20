@@ -73,6 +73,9 @@ export function traceGraph(s: State) {
     if (r.lotId) link(`subcontract:output:${r.id}`, id, lot(r.lotId), { ...data, ...measure(o.itemId, r.good), lotId: r.lotId })
     events.push({ recordType: 'event', id: `subcontract:report:${r.id}`, from: id, ...data, ...measure(o.itemId, r.good), scrap: r.scrap, value: r.outputValue, scrapValue: r.scrapValue })
   }
+  for (const n of s.nonconformances) {
+    events.push({ recordType: 'event', id: n.id, from: lot(n.lotId), ...document('nonconformances', n.id), ...measure(n.itemId, n.quantity), date: n.createdAt, kind: 'nonconformance', status: n.status, basis: 'quantity-scoped containment; case evidence retained' })
+  }
   for (const w of s.reworkOrders.filter(w => w.executedAt)) events.push({ recordType: 'event', id: `rework:report:${w.id}`, from: doc('reworkOrders', w.id), ...document('reworkOrders', w.id), date: w.executedAt, kind: w.kind, basis: 'recorded cost allocation; scrap value is not a physical quantity', scrapValue: w.cost.scrap })
   return { nodes, links, events, document }
 }

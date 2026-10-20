@@ -1,4 +1,5 @@
 // TRACE-004 inspection plans, measured results on the batch, quality holds and release.
+import { Nonconformances } from './nonconformance'
 import { byId, can, itemName, personName, rows, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
 import { Card, Chip, Choose, Empty, Field, Form, Table, fileBase64, options, text } from './controls'
@@ -17,6 +18,7 @@ export function QualityPlans({ larder }: { larder: Larder }) {
   const s = larder.state!, plans = [...rows(s, 'inspectionPlans')].reverse(), made = rows(s, 'items').filter(i => !i.archived)
   const receipt = plans.filter(p => p.status === 'approved' && p.stage === 'receipt'), holds = rows(s, 'qualityHolds').filter(h => h.status === 'open')
   return <>
+    <Nonconformances larder={larder} />
     <Card title="Inspection plans">
       <p className="meta">Plans apply by SKU and BOM revision once an owner or manager approves them. A measurement passes when it has exactly the plan’s sample count and every sample lies within its inclusive limits; the mean is shown to six decimal places. A failed required inspection holds the stock and the job’s operations until an owner or manager releases it after a passing retest.</p>
       {plans.length === 0 ? <Empty>No inspection plans yet.</Empty> : <Table head={['Plan', 'Item and revision', 'Stage', 'Sampling rule', 'Status', '']}>{plans.map(p => <tr key={p.id}>
@@ -61,11 +63,12 @@ export function WorkQuality({ larder, w }: { larder: Larder; w: Rec }) {
   </Card>
 }
 
-export function InspectForm({ larder, plan, workOrderId, reworkOrderId, lots }: { larder: Larder; plan: Rec; workOrderId?: string; reworkOrderId?: string; lots?: Rec[] }) {
+export function InspectForm({ larder, plan, workOrderId, reworkOrderId, nonconformanceId, lots }: { larder: Larder; plan: Rec; workOrderId?: string; reworkOrderId?: string; nonconformanceId?: string; lots?: Rec[] }) {
   return <Form title={`Record ${plan.name}`} submit="Record inspection" busy={larder.busy} note={`${stageLabel(plan)} · ${plan.sampleSize} samples per measurement. Separate samples with spaces, commas or new lines.`} onSubmit={async d => larder.run('quality.inspect', {
-    planId: plan.id, planVersion: plan.version, workOrderId, reworkOrderId, lotId: text(d, 'lotId') || undefined, note: text(d, 'note'), evidence: await upload(d, 'evidence'),
+    planId: plan.id, planVersion: plan.version, workOrderId, reworkOrderId, nonconformanceId, quantity: nonconformanceId ? text(d, 'quantity') : undefined, lotId: text(d, 'lotId') || undefined, note: text(d, 'note'), evidence: await upload(d, 'evidence'),
     samples: Object.fromEntries(plan.measurements.map((m: Rec, i: number) => [m.name, text(d, `samples.${i}`).split(/[\s,]+/).filter(Boolean)])),
   })}>
+    {nonconformanceId && <Field label="Inspected case quantity" name="quantity" inputMode="decimal" />}
     {lots && <Choose label="Received lot" name="lotId" options={options(lots, r => `Lot ${r.code}`)} />}
     {plan.measurements.map((m: Rec, i: number) => <label key={m.name} className="field wide"><span>{`${m.name} samples (${m.unit})`}</span><textarea aria-label={`${m.name} samples (${m.unit})`} name={`samples.${i}`} required rows={3} /><small>{limits(m)}</small></label>)}
     <Field label="Note" name="note" required={false} />{fileInput('Measurement record', 'evidence')}
