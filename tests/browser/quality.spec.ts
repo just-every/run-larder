@@ -150,7 +150,7 @@ test('TRACE-005 contain part of a lot, record CAPA and supplier action, release 
     await upload(inspection); await inspection.getByRole('button', { name: 'Record inspection', exact: true }).click(); await settled(page)
     const disposition = form(page, `Disposition ${n.reference}`)
     await disposition.getByLabel('Disposition quantity', { exact: true }).fill('2')
-    await disposition.getByLabel('Passing case inspection', { exact: true }).selectOption({ index: 1 })
+    await disposition.getByLabel('Passing case inspection', { exact: true }).selectOption((await disposition.getByLabel('Passing case inspection', { exact: true }).locator('option').last().getAttribute('value'))!)
     await disposition.getByLabel('Disposition reason', { exact: true }).fill('Two inspected units passed')
     await upload(disposition); await disposition.getByRole('button', { name: 'Approve disposition', exact: true }).click(); await settled(page)
     await expect(region).toContainText('still held 2'); await expect(region).toContainText('release 2'); await screen('passing-only-release')

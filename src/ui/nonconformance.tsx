@@ -26,14 +26,14 @@ export function Nonconformances({ larder }: { larder: Larder }) {
         {qualified && n.status === 'open' && <>
           <Form title={`Follow up ${n.reference}`} submit="Record corrective action" busy={larder.busy} onSubmit={async d => larder.run('nonconformance.update', { caseId: n.id, version: n.version, rootCause: text(d, 'rootCause'), correctiveAction: text(d, 'correctiveAction'), nextAction: text(d, 'nextAction'), dueOn: text(d, 'dueOn'), supplierId: text(d, 'supplierId') || undefined, reworkOrderId: text(d, 'reworkOrderId') || undefined, evidence: await evidence(d) })}>
             <Field label="Root cause" name="rootCause" defaultValue={n.rootCause} /><Field label="Corrective action" name="correctiveAction" defaultValue={n.correctiveAction} /><Field label="Next action" name="nextAction" /><Field label="Action due date" name="dueOn" type="date" defaultValue={n.dueOn} />
-            <Choose label="Supplier action" name="supplierId" options={[{ value: '', label: 'No supplier action' }, ...options(rows(s, 'parties').filter(p => p.kind !== 'customer'), p => p.name)]} />
-            <Choose label="Repair order" name="reworkOrderId" options={[{ value: '', label: 'No repair routing' }, ...options(rows(s, 'reworkOrders').filter(w => w.sourceLotId === n.lotId), w => w.reference)]} />{file}
+            <Choose label="Supplier action" name="supplierId" required={false} options={[{ value: '', label: 'No supplier action' }, ...options(rows(s, 'parties').filter(p => p.kind !== 'customer'), p => p.name)]} />
+            <Choose label="Repair order" name="reworkOrderId" required={false} options={[{ value: '', label: 'No repair routing' }, ...options(rows(s, 'reworkOrders').filter(w => w.sourceLotId === n.lotId), w => w.reference)]} />{file}
           </Form>
           {Number(n.remaining) > 0 && <>
             {rows(s, 'inspectionPlans').filter(p => p.status === 'approved' && p.itemId === n.itemId).map(p => <InspectForm key={p.id} larder={larder} plan={p} nonconformanceId={n.id} />)}
             <Form title={`Disposition ${n.reference}`} submit="Approve disposition" busy={larder.busy} onSubmit={async d => larder.run(`nonconformance.${text(d, 'decision')}`, { caseId: n.id, version: n.version, quantity: text(d, 'quantity'), inspectionId: text(d, 'inspectionId') || undefined, reason: text(d, 'reason'), evidence: await evidence(d) })}>
               <Choose label="Decision" name="decision" options={[{ value: 'release', label: 'Release passing units' }, { value: 'reject', label: 'Reject units' }]} /><Field label="Disposition quantity" name="quantity" inputMode="decimal" />
-              <Choose label="Passing case inspection" name="inspectionId" options={[{ value: '', label: 'Not applicable for rejection' }, ...options(rows(s, 'inspections').filter(i => i.subjectId === n.id && i.passed), i => `${i.planName} · ${i.quantity} units · ${i.inspectedAt}`)]} />
+              <Choose label="Passing case inspection" name="inspectionId" required={false} options={[{ value: '', label: 'Not applicable for rejection' }, ...options(rows(s, 'inspections').filter(i => i.subjectId === n.id && i.passed), i => `${i.planName} · ${i.quantity} units · ${i.inspectedAt}`)]} />
               <Field label="Disposition reason" name="reason" />{file}
             </Form>
           </>}
