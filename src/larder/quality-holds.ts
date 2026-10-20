@@ -9,3 +9,6 @@ export function plansFor(s: Pick<State, 'inspectionPlans'>, stage: string, itemI
 
 export const openHolds = (s: Pick<State, 'qualityHolds'>, subjectId: string) => s.qualityHolds.filter(h => h.status === 'open' && h.subjectId === subjectId)
 export const holdReason = (h: Row) => `Quality hold: ${h.planName} failed on ${h.failedAt.slice(0, 10)} (${h.failures.join('; ')}); an owner or manager releases it after a passing retest.`
+
+// Split/merge successors inherit holds raised later on any original job.
+export const workHolds = (s: Pick<State, 'qualityHolds'>, w: Row) => s.qualityHolds.filter(h => h.status === 'open' && [w.id, ...(w.lineageSourceIds ?? [])].includes(h.subjectId))

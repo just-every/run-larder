@@ -1,5 +1,6 @@
 // Work orders: draft, release (pins the BOM revision and reserves components),
 // material issue, output with scrap, and close with cost variance.
+import { materialCost } from './production-cost'
 import { requiredTypes } from './certificate-policy'
 import { engineeringReleaseBom } from './engineering-policy'
 import { requireCatalogLot } from './catalog-fields'
@@ -11,7 +12,7 @@ import { fail } from './problem'
 import { allow, approver } from './roles'
 import { averageCost, consume, move, release, reserve, reservedQuantity, withdraw } from './stock'
 import { lotDates } from './lot-dates'
-import { holdReason, openHolds, plansFor } from './quality-holds'
+import { holdReason, workHolds, plansFor } from './quality-holds'
 import { bump, date, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Row } from './model'
 
 export function draftWork(c: Context, p: any, preparedBy?: string): Row {
@@ -43,7 +44,13 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       for (const l of resolved.components) totals.set(l.itemId, (totals.get(l.itemId) ?? 0n) + decimal(l.quantity))
       const components = [...totals].map(([itemId, required]) => ({ id: newId(), itemId, perUnit: format(divide(required, quantity)), required: format(required), supplyRequirements: resolved.components.filter(l => l.itemId === itemId).map(l => ({ supply: l.supply, quantity: l.quantity })), issued: '0' }))
       const standardUnitCost = divide(components.reduce((n: bigint, l: any) => n + times(decimal(l.required), averageCost(c.s, l.itemId)), 0n), quantity)
-      bump(w, { status: 'released', bomId: bom.id, bomRevision: bom.revision, bomRevisions: resolved.revisions, components, routing: structuredClone(bom.routing), operationStates: bom.routing.map((r: any) => ({ sequence: r.sequence, status: 'pending', acknowledgments: [] })), standardUnitCost: format(standardUnitCost), releasedBy: c.actor.id, releasedAt: c.now })
+      const routing = structuredClone(bom.routing)
+      for (const step of routing) if (w.plannedCentres?.[step.sequence]) {
+        const center = w.plannedCentres[step.sequence], eligible = step.eligibleCentres?.length ? step.eligibleCentres : [step.workCentre]
+        if (!eligible.includes(center)) fail('WORK_CENTER', 'The planned split/merge center is not eligible in the release revision.')
+        step.workCentre = center
+      }
+      bump(w, { status: 'released', bomId: bom.id, bomRevision: bom.revision, bomRevisions: resolved.revisions, components, routing, operationStates: bom.routing.map((r: any) => ({ sequence: r.sequence, status: 'pending', acknowledgments: [] })), standardUnitCost: format(standardUnitCost), releasedBy: c.actor.id, releasedAt: c.now })
       w.shortages = components.map((l: any) => {
         const got = reserve(c, { demandKind: 'work', demandId: w.id, lineId: l.id, itemId: l.itemId }, decimal(l.required))
         return { itemId: l.itemId, short: format(decimal(l.required) - got) }
@@ -82,7 +89,7 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       if (w.routing.some((r: any) => r.instructions || r.drawings?.length || r.requiredSkills?.length) && w.routing.some((r: any) => !w.operationStates?.some((t: any) => t.sequence === r.sequence && t.status === 'done'))) fail('OPERATIONS', 'Complete the pinned operations before recording output.')
       const item = get(c.s, 'items', w.itemId, 'item'), good = decimal(p.quantity ?? '0', 'good quantity'), scrap = decimal(p.scrap ?? '0', 'scrap quantity')
       if (good === 0n && scrap === 0n) fail('INPUT', 'Record a good or scrap quantity.')
-      const hold = openHolds(c.s, w.id)[0]
+      const hold = workHolds(c.s, w)[0]
       if (hold) fail('QUALITY_HOLD', `${w.reference} cannot record output. ${holdReason(hold)}`, { holdId: hold.id })
       if (good > 0n && !p.lot && ['in-process', 'final'].some(stage => plansFor(c.s, stage, w.itemId, w.bomRevision).some(plan => plan.required))) fail('INPUT', 'Record a batch lot: required inspections hold this output by lot.', { field: 'lot' })
       if (decimal(w.output) + decimal(w.scrap) + good + scrap > decimal(w.quantity)) fail('OVER_OUTPUT', `${w.reference} is for ${w.quantity} ${item.baseUnit}; this would exceed it. Release more work instead.`)
@@ -104,9 +111,7 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       if (w.status !== 'released') fail('STATE', 'Only released work can be closed.')
       if (w.routing.some((r: any) => r.instructions || r.drawings?.length || r.requiredSkills?.length) && w.routing.some((r: any) => !w.operationStates?.some((t: any) => t.sequence === r.sequence && t.status === 'done'))) fail('OPERATIONS', 'Complete the pinned operations before closing work.')
       release(c, w.id)
-      const issued = c.s.movements.filter(m => m.documentKind === 'workOrders' && m.documentId === w.id && m.kind === 'issue').reduce((n, m) => n - times(m.quantity, m.unitCost), 0n)
-      const reversedIssue = c.s.movements.filter(m => m.documentKind === 'reversals' && m.kind === 'issue-reversal' && c.s.reversals.some(r => r.id === m.documentId && r.targetId === w.id)).reduce((n, m) => n + times(m.quantity, m.unitCost), 0n)
-      const actual = issued - reversedIssue, standard = times(decimal(w.output), decimal(w.standardUnitCost))
+      const actual = materialCost(c.s, w), standard = times(decimal(w.output), decimal(w.standardUnitCost))
       return bump(w, { status: 'closed', closedAt: c.now, cost: { materials: format(actual), standardOutput: format(standard), variance: format(actual - standard), actualUnitCost: format(decimal(w.output) > 0n ? divide(actual, decimal(w.output)) : 0n) } })
     }
   }

@@ -1,3 +1,4 @@
+import { remainingPegs } from './work-demand'
 // Read-only quantity planning. Catalog location values are read on every preview.
 import { open } from './availability'
 import { activeBom } from './bom'
@@ -36,7 +37,12 @@ function supplyAt(s: State, itemId: string, locationId: string) {
     const entry = { kind, documentId: document.id, reference: document.reference, ...(line ? { lineId: line.id } : {}), quantity: format(quantity), date,
       locationId: location ?? '', orderId: tag?.orderId ?? null, orderLineId: tag?.lineId ?? null }
     if (location !== locationId) { excluded.push({ ...entry, reason: location ? 'Another planning location.' : 'Supply has no planning location; reconcile it before preparing overlapping supply.' }); return }
-    included.push({ ...entry, remaining: quantity })
+    if (!line && tag?.transferredPegs) {
+      for (const peg of remainingPegs(tag, decimal(document.output) + decimal(document.scrap))) {
+        const q = decimal(peg.quantity)
+        if (q) included.push({ ...entry, orderId: peg.orderId ?? null, orderLineId: peg.lineId ?? null, quantity: format(q), remaining: q })
+      }
+    } else included.push({ ...entry, remaining: quantity })
   }
   for (const w of s.workOrders.filter(w => w.itemId === itemId && ['draft', 'released'].includes(w.status)))
     add('work', w, null, max(0n, decimal(w.quantity) - decimal(w.output ?? '0') - decimal(w.scrap ?? '0')), w.expectedOn ?? w.requiredBy)

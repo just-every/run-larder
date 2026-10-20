@@ -73,7 +73,7 @@ function holdLot(c: Context, hold: Row, lotId: string) {
   bump(lot, { status: 'quality hold' })
 }
 
-const subjectLots = (s: State, subjectKind: string, subjectId: string) => subjectKind === 'lots' ? [subjectId] : s.lots.filter(l => ['production', 'rework'].includes(l.source) && l.documentId === subjectId).map(l => l.id)
+const subjectLots = (s: State, subjectKind: string, subjectId: string) => subjectKind === 'lots' ? [subjectId] : s.lots.filter(l => ['production', 'rework'].includes(l.source) && (l.documentId === subjectId || (subjectKind === 'workOrders' && s.workOrders.some(w => w.id === l.documentId && w.lineageSourceIds?.includes(subjectId))))).map(l => l.id)
 
 export function quality(c: Context, type: string, p: any): Row | undefined {
   switch (type) {

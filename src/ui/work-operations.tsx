@@ -1,3 +1,4 @@
+import { workHolds } from '../larder/quality-holds'
 import { activeMaintenance } from '../larder/maintenance-availability'
 import { operationStartGates } from '../larder/operations'
 import { WorkDowntime } from './work-downtime'
@@ -44,7 +45,7 @@ export function WorkOperations({ larder, w, sequence: onlySequence }: { larder: 
           <p>{needsAck ? acknowledged ? 'Pinned instruction and drawing acknowledgment recorded for you.' : 'Your acknowledgment of the pinned instructions and drawings is required.' : 'No instruction or drawing acknowledgment configured for this operation.'}</p>
           <p>{(task.workCentre ? [task.workCentre] : centres).map(center => `${center}: ${activeMaintenance({ maintenance: rows(s, 'maintenance') }, center, new Date().toISOString()).length ? 'maintenance release required' : 'no active maintenance hold recorded'}`).join('; ') || 'Choose a named center when starting; no eligible centers are pinned.'}</p>
           <p>{rows(s, 'inspectionPlans').filter(p => p.status === 'approved' && p.stage === 'in-process' && p.operationSequence === sequence && p.itemId === w.itemId && (p.revision === null || p.revision === w.bomRevision)).map(p => `In-process inspection after this step: ${p.name}, ${p.sampleSize} sampled`).join('; ') || 'No in-process inspection plan follows this operation.'}</p>
-          {rows(s, 'qualityHolds').filter(h => h.status === 'open' && h.subjectId === w.id).map(h => <p key={h.id} className="warn-text">{`Quality hold: ${h.planName} failed; this job’s pending operations stay blocked until an owner or manager releases it.`}</p>)}
+          {workHolds({ qualityHolds: rows(s, 'qualityHolds') }, w).map(h => <p key={h.id} className="warn-text">{`Quality hold: ${h.planName} failed; this job’s pending operations stay blocked until an owner or manager releases it.`}</p>)}
           <p className="muted">Operation safety checklists are not configured. Review the pinned instructions and actual station conditions.</p>
         </section>
         {step.instructions && <p style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{step.instructions}</p>}
@@ -52,6 +53,7 @@ export function WorkOperations({ larder, w, sequence: onlySequence }: { larder: 
         {task?.acknowledgments?.length > 0 && <ul>{task.acknowledgments.map((ack: any, i: number) => <li key={i}>{personName(s, ack.by)} acknowledged revision {w.bomRevision} · {when(ack.at)}</li>)}</ul>}
         {assignment && <p>{skills.length ? 'Skill authorization' : 'Assignment'}: {personName(s, assignment.operatorId)} · authorized by {personName(s, assignment.by)} {when(assignment.at)}{assignment.skills?.length ? ` · ${assignment.skills.join('; ')}` : ''}{assignment.legacy && ` · legacy starter recorded: ${assignment.reason}`}</p>}
         {maintenance.length > 0 && <p className="warn-text">Equipment unavailable: {maintenance.map(m => m.reference).join(', ')}. <a href="#schedule">Maintenance release required</a>.</p>}
+        {task.inheritedFrom?.length > 0 && <p>Completed-step evidence stays on {task.inheritedFrom.map((x: Rec) => <a key={x.workOrderId} href={`#make/wo/${x.workOrderId}`}>{rows(s, 'workOrders').find(w => w.id === x.workOrderId)?.reference} step {x.sequence} </a>)}. No execution time is copied.</p>}
         {task?.startedBy && <p>Started by {personName(s, task.startedBy)} {when(task.startedAt)} · {task.workCentre} · station {task.station || 'not recorded'}{task.startReason && ` · ${task.startReason}`}</p>}
         {task?.completedBy && <p>Completed by {personName(s, task.completedBy)} {when(task.completedAt)} · station {task.station || 'not recorded'}{task.completionReason && ` · ${task.completionReason}`}</p>}
         {legacy && <p className="warn-text">Legacy active task: a manager must record the existing starter’s assignment before completion. The original station remains not recorded.</p>}

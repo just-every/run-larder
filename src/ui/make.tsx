@@ -1,3 +1,4 @@
+import { WorkTransfers } from './work-transfers'
 import { ReworkOrders } from './rework'
 import { InventoryPolicies } from './inventory-policies'
 import { Dispatch } from './dispatch'
@@ -108,6 +109,7 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
       {w.cost && <p>Materials used {money(w.cost.materials)} · variance {money(w.cost.variance)} · actual {money(w.cost.actualUnitCost)} each</p>}
       {(w.shortages ?? []).length > 0 && <p className="warn-text">Short: {stories(s, w, schedule(s, new Date())).join('; ')}. <button className="link" onClick={() => run('wo.reserve', { workOrderId: w.id })}>Try reserving again</button></p>}
     </Card>
+    <WorkTransfers larder={larder} w={w} />
     <ReworkOrders larder={larder} jobId={w.id} />
     <WorkQuality larder={larder} w={w} />
     {w.status === 'released' && <Card title="Record the work">

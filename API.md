@@ -51,6 +51,8 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `rework.approve` | `{orderId, version, reason}` | manager, independent preparer (owner exception) |
 | `rework.execute` | `{orderId, version}` — consume source/extras and post quarantined outputs at approved allocation | manager, production |
 | `rework.release` | `{orderId, version, reason, evidence: [file]}` — approve usable repair/recovery, existing QC/certificate gates apply | manager, independent executor (owner exception) |
+| `wo.split` | `{workOrderId, version, reason, parts: [{quantity, centres?: {operationSequence: centerName}}]}` — transfer remaining work to disjoint successor jobs | manager, production |
+| `wo.merge` | `{reason, sources: [{workOrderId, version}], centres?: {operationSequence: centerName}}` — merge compatible remaining WIP once | manager, production |
 | `wo.close` | `{workOrderId, version}` | manager, production |
 | `transfer.create` | `{itemId, fromLocationId, toLocationId, quantity, unit?, lotId?, reason}` | manager, warehouse |
 | `count.schedule` | `{locationId, scheduledOn, basis: value\|risk\|bin, counterId, recountTolerance?, minimumValue?, risk?: high\|medium\|low, itemId?}` | manager |

@@ -38,7 +38,11 @@ export function planning(c: Context, type: string, p: any): Row | undefined {
   const quantity = p.quantity ?? needed
   if (decimal(quantity, 'quantity', { positive: true }) < decimal(needed)) fail('INPUT', `Draft at least the ${needed} ${item.baseUnit} ${supply} shortage.`)
   const reason = `${text(p.reason ?? 'Covers shortage', 'reason', 400)}: ${shortage.reasons.map(r => `${r.reference} needs ${r.quantity} by ${day(r.date)}`).join('; ')}`
-  if (supply === 'make') return draftWork(c, { itemId: item.id, quantity, requiredBy: shortage.requiredBy, reason })
+  if (supply === 'make') {
+    const work = draftWork(c, { itemId: item.id, quantity, requiredBy: shortage.requiredBy, reason })
+    work.demandSources = shortage.pegs.map(r => ({ workOrderId: work.id, documentId: r.documentId, documentKind: r.document, reference: r.reference, quantity: r.quantity, requiredBy: r.date, reason }))
+    return work
+  }
   const supplierId = p.supplierId ?? shortage.supplierId ?? fail('NO_SUPPLIER', `Choose a supplier for ${item.name}; none is on file.`)
   return draftPurchase(c, { supplierId, lines: [{ itemId: item.id, quantity, unitPrice: p.unitPrice ?? shortage.unitPrice }], expectedDate: p.expectedDate ?? shortage.requiredBy, requiredBy: shortage.requiredBy, reason })
 }
