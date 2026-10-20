@@ -214,7 +214,7 @@ test('TRACE-006 recall WIP gate has the same live reason in dispatch, job detail
 })
 
 
-test('TRACE-005 preparation-only deviation proposal records failing inputs and evidence without releasing stock at 1440/390', async ({ page }) => {
+test('TRACE-005 owner proposes a deviation; an independent quality-role holder approves and releases only held units under deviation, with trace and reload at 1440/390', async ({ page, browser }) => {
   if (!process.env.LARDER_OPEN) throw new Error('A private local entry is required.')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
@@ -224,8 +224,15 @@ test('TRACE-005 preparation-only deviation proposal records failing inputs and e
     const s = await (await page.request.get(origin + '/api/larder/state')).json()
     return { movements: s.movements, positions: s.positions, reservations: s.reservations }
   }
+  // An invited quality-role holder signs in through the native local door.
+  const email = `deviation-quality-${runId}@example.test`
+  expect((await page.request.post(origin + '/auth/invite', { headers: { Origin: origin }, data: { email, displayName: `Quinn Quality ${runId}`, role: 'member' } })).status()).toBe(202)
+  const context = await browser.newContext({ storageState: await page.context().storageState() }), qa = await context.newPage()
+  try {
+  await qa.goto(origin + '/auth/dev/enter?as=' + encodeURIComponent(email)); await qa.waitForURL(u => u.pathname === '/app')
+  await command(page, 'role.set', { operatorId: (await (await qa.request.get(origin + '/auth/session')).json()).operator.id, role: 'quality' })
   for (const width of [1440, 390]) {
-    await page.setViewportSize({ width, height: 1000 })
+    await page.setViewportSize({ width, height: 1000 }); await qa.setViewportSize({ width, height: 1000 })
     const tag = `${width}-${runId}`, location = await command(page, 'location.save', { name: `Deviation shelf ${tag}` })
     const item = await command(page, 'item.save', { sku: `DEV-${tag}`, name: `Deviation item ${tag}`, kind: 'buy', baseUnit: 'each' })
     const supplier = await command(page, 'party.save', { name: `Deviation supplier ${tag}`, kind: 'supplier' })
@@ -251,6 +258,7 @@ test('TRACE-005 preparation-only deviation proposal records failing inputs and e
     const d = n.deviationProposals[0], region = page.getByRole('region', { name: `Deviation proposal ${d.reference}`, exact: true })
     for (const text of ['Proposed deviation', '1.25 units', `DEV-LOT-${tag}`, `Deviation shelf ${tag}`, 'Review fit for intended use', 'Not approved or released', failure.id, 'deviation-review.txt', d.evidence[0].sha256]) await expect(region).toContainText(text)
     await expect(region.getByRole('button')).toHaveCount(0)
+    await expect(region).toContainText('A different quality-role holder or the owner must approve this deviation.')
     const caseRegion = page.getByRole('region', { name: `Nonconformance ${n.reference}`, exact: true })
     await expect(caseRegion).toContainText('affected 4 · still held 4')
     expect(await snapshot()).toEqual(before)
@@ -262,7 +270,37 @@ test('TRACE-005 preparation-only deviation proposal records failing inputs and e
     expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
     if (process.env.LARDER_SCREENSHOTS) await region.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-005-deviation-saved.png`) })
     const attempt = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type: 'nonconformance.deviation.execute', payload: { caseId: n.id, version: n.version, deviationId: d.id } } })
-    expect((await attempt.json()).error.code).toBe('COMMAND')
+    expect((await attempt.json()).error.code).toBe('STATE')
     expect(await snapshot()).toEqual(before)
+    // The independent quality-role holder approves, then executes, through the case screen.
+    await open(qa, 'make/quality')
+    const qaRegion = qa.getByRole('region', { name: `Deviation proposal ${d.reference}`, exact: true }), qaCase = qa.getByRole('region', { name: `Nonconformance ${n.reference}`, exact: true })
+    const approval = form(qa, `Approve deviation ${d.reference}`)
+    await approval.getByLabel('Approval note', { exact: true }).fill('Use as is; fit confirmed')
+    await approval.getByRole('button', { name: 'Approve deviation', exact: true }).click()
+    await expect(qaRegion).toContainText('Approved; not yet released'); await settled(qa)
+    await expect(qaRegion).toContainText('(quality)')
+    expect(await snapshot()).toEqual(before)
+    await form(qa, `Release under deviation ${d.reference}`).getByRole('button', { name: 'Release under deviation', exact: true }).click()
+    await expect(qaRegion.getByRole('heading', { name: `${d.reference} · Released under deviation`, exact: true })).toBeVisible(); await settled(qa)
+    const label = 'released under deviation; failed results retained, not passed'
+    for (const text of [`1.25 units ${label}.`, 'Approved by', 'Executed by']) await expect(qaRegion).toContainText(text)
+    await expect(qaCase).toContainText('affected 4 · still held 2.75')
+    await expect(qaCase).toContainText(`deviation 1.25 · ${d.reference} · ${label}`)
+    await expect(qaCase.getByText('Failed · 1 outside', { exact: true })).toBeVisible()
+    const released = await snapshot(), lotId = receipt.lines[0].lotId
+    expect(released.reservations).toEqual(before.reservations)
+    expect(released.positions.filter((x: any) => x.lotId === lotId).map((x: any) => [x.status, x.quantity]).sort()).toEqual([['available', '7.25'], ['quarantine', '2.75']])
+    expect(await qa.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    if (process.env.LARDER_SCREENSHOTS) await qaRegion.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-005-deviation-released.png`) })
+    // The lot trace screen shows the deviation release and its reference; reload keeps the record.
+    await open(qa, 'stock')
+    const genealogy = qa.locator('section.card').filter({ has: qa.getByRole('heading', { name: 'Lot genealogy', exact: true }) })
+    await genealogy.getByLabel('Trace lot', { exact: true }).selectOption(lotId)
+    for (const text of ['deviation release', d.reference]) await expect(genealogy.getByLabel('Lot trace results')).toContainText(text)
+    if (process.env.LARDER_SCREENSHOTS) await genealogy.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-005-deviation-trace.png`) })
+    await open(qa, 'make/quality')
+    await expect(qaRegion).toContainText(`1.25 units ${label}.`)
   }
+  } finally { await context.close() }
 })

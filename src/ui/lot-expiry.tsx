@@ -24,7 +24,7 @@ const tone = (state: string) => state === 'current' ? 'good' : state === 'expiri
 const remaining = (l: Rec) => l.remainingDays === null ? 'no expiry' : l.remainingDays < 0 ? `${-l.remainingDays} days past` : `${l.remainingDays} days`
 
 export function LotExpiry({ larder }: { larder: Larder }) {
-  const s = larder.state!, statuses: Rec[] = s.lotStatuses ?? [], manager = can(s, ['manager'])
+  const s = larder.state!, statuses: Rec[] = s.lotStatuses ?? [], manager = can(s, ['manager', 'quality'])
   if (!statuses.length) return null
   const blocked = statuses.filter(l => ['expired', 'retest due'].includes(l.state) && l.onHand !== '0')
   return <Card title="Lot dates and expiry">

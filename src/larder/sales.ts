@@ -1,6 +1,7 @@
 // Quotes, confirmed orders, atomic reservation, pick/pack/ship and cancellation.
 import { assertLotNotHeld } from './quality'
 import { approvedCertificates } from './certificate-policy'
+import { lotDeviations } from './deviations'
 import { open } from './availability'
 import { customerAttestation, trimOrderReservations } from './order-changes'
 import { commercialSnapshot, pickedQuantity, refreshPromise, removeDeliveries } from './sales-schedules'
@@ -122,7 +123,7 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
         if (shelf) fail('FEFO_INELIGIBLE', `${shipment.reference} cannot ship lot ${c.s.lots.find(lot => lot.id === l.lotId)?.code ?? 'unlotted'}: ${shelf}. Undo the pick and pick an eligible lot.`, { lotId: l.lotId })
         consume(c, order.id, l.lineId, l.locationId, q)
         const movements = withdraw(c, { itemId: l.itemId, locationId: l.locationId, status: 'available', lotId: l.lotId, quantity: -q, kind: 'shipment', documentKind: 'shipments', documentId: shipment.id, reason: `Shipped on ${order.reference}` })
-        l.certificates = movements.map(m => ({ movementId: m.id, itemId: m.itemId, lotId: m.lotId, lot: c.s.lots.find(lot => lot.id === m.lotId)?.code ?? '', sku: get(c.s, 'items', m.itemId).sku, quantity: format(-m.quantity), documents: structuredClone(approvedCertificates(c.s, m.itemId, m.lotId, c.now.slice(0, 10), order.customerId)) }))
+        l.certificates = movements.map(m => ({ movementId: m.id, itemId: m.itemId, lotId: m.lotId, lot: c.s.lots.find(lot => lot.id === m.lotId)?.code ?? '', sku: get(c.s, 'items', m.itemId).sku, quantity: format(-m.quantity), documents: structuredClone(approvedCertificates(c.s, m.itemId, m.lotId, c.now.slice(0, 10), order.customerId)), ...(lotDeviations(c.s, m.lotId).length ? { deviations: lotDeviations(c.s, m.lotId) } : {}) }))
         l.movementIds = movements.map(movement => movement.id)
         l.deliveryMovements = movements.map(movement => ({ movementId: movement.id, schedules: removeDeliveries(order, line, -movement.quantity) }))
         l.deliveries = l.deliveryMovements.flatMap((delivery: any) => delivery.schedules)

@@ -12,7 +12,7 @@ const upload = async (d: FormData, name: string) => {
 const fileInput = (label: string, name: string, required = false) => <label className="field wide"><span>{label}</span><input type="file" name={name} required={required} accept=".pdf,.png,.jpg,.jpeg,.webp,.csv,.txt,.xlsx" /></label>
 const stageLabel = (p: Rec) => p.stage === 'in-process' ? `In-process after operation ${p.operationSequence}` : p.stage === 'receipt' ? 'Receipt' : 'Final'
 const limits = (m: Rec) => `target ${m.target} ${m.unit} · limits ${m.lower}–${m.upper}`
-const qualified = (s: LarderState) => can(s, ['manager'])
+const qualified = (s: LarderState) => can(s, ['manager', 'quality'])
 
 export function QualityPlans({ larder }: { larder: Larder }) {
   const s = larder.state!, plans = [...rows(s, 'inspectionPlans')].reverse(), made = rows(s, 'items').filter(i => !i.archived)
@@ -28,7 +28,7 @@ export function QualityPlans({ larder }: { larder: Larder }) {
         <td><Chip tone={p.status === 'approved' ? 'good' : p.status === 'draft' ? 'warn' : 'neutral'}>{words(p.status)}</Chip><small>Prepared by {personName(s, p.preparedBy)}{p.approval && ` · approved by ${personName(s, p.approval.by)} ${when(p.approval.at)}`}</small></td>
         <td>{p.status === 'draft' && qualified(s) && <button className="button" disabled={larder.busy} onClick={() => larder.run('quality.plan.approve', { planId: p.id, version: p.version })}>Approve plan {p.name}</button>}</td></tr>)}</Table>}
     </Card>
-    {can(s, ['manager', 'production']) && <Card title="New inspection plan"><Form submit="Save plan" busy={larder.busy} onSubmit={async d => larder.run('quality.plan.save', {
+    {can(s, ['manager', 'production', 'quality']) && <Card title="New inspection plan"><Form submit="Save plan" busy={larder.busy} onSubmit={async d => larder.run('quality.plan.save', {
       itemId: text(d, 'itemId'), revision: text(d, 'revision') || null, stage: text(d, 'stage'), operationSequence: text(d, 'operationSequence') || undefined, name: text(d, 'name'), sampleSize: text(d, 'sampleSize'), required: text(d, 'required') !== 'advisory',
       measurements: [{ name: text(d, 'm.name'), unit: text(d, 'm.unit'), target: text(d, 'm.target'), lower: text(d, 'm.lower'), upper: text(d, 'm.upper') }], attachments: await upload(d, 'spec'),
     })}>
@@ -59,7 +59,7 @@ export function WorkQuality({ larder, w }: { larder: Larder; w: Rec }) {
     <InspectionResults s={s} subjectId={w.id} title={w.reference} />
     {holds.filter(h => h.status === 'open').map(h => <HoldRelease key={h.id} larder={larder} hold={h} />)}
     {holds.filter(h => h.status === 'released').map(h => <p key={h.id}>Hold on {h.planName} released by {personName(s, h.release.by)} {when(h.release.at)} after a passing retest: {h.release.reason} · evidence {h.release.evidence.map((e: Rec) => e.name).join(', ')}</p>)}
-    {['released', 'closed'].includes(w.status) && can(s, ['manager', 'production']) && plans.map(p => <InspectForm key={p.id} larder={larder} plan={p} workOrderId={w.id} />)}
+    {['released', 'closed'].includes(w.status) && can(s, ['manager', 'production', 'quality']) && plans.map(p => <InspectForm key={p.id} larder={larder} plan={p} workOrderId={w.id} />)}
   </Card>
 }
 

@@ -6,7 +6,7 @@ import { fail } from './problem'
 import { allow, approver } from './roles'
 
 function requirements(c: Context, p: any): Row {
-  allow(c, ['manager'])
+  allow(c, ['manager', 'quality'])
   const item = get(c.s, 'items', p.itemId, 'item')
   const customerId = p.customerId === undefined || p.customerId === '' ? '' : text(p.customerId, 'customer ID', 200)
   if (customerId) {
@@ -27,7 +27,7 @@ function requirements(c: Context, p: any): Row {
 }
 
 function prepare(c: Context, p: any): Row {
-  allow(c, ['manager', 'production', 'warehouse', 'agent'])
+  allow(c, ['manager', 'production', 'warehouse', 'quality', 'agent'])
   const item = get(c.s, 'items', p.itemId, 'item'), lot = get(c.s, 'lots', p.lotId, 'lot')
   if (lot.itemId !== item.id) fail('INPUT', 'The document lot must belong to its item.')
   const type = oneOf(p.type, certificateTypes, 'document type')
@@ -47,7 +47,7 @@ export function certificates(c: Context, type: string, p: any): Row | undefined 
   if (type === 'certificate.requirements') return requirements(c, p)
   if (type === 'certificate.prepare') return prepare(c, p)
   if (type !== 'certificate.approve' && type !== 'certificate.revoke') return
-  allow(c, ['manager'])
+  allow(c, ['manager', 'quality'])
   const document = get(c.s, 'certificates', p.certificateId, 'certificate document')
   fresh(document, p.version)
   const note = text(p.note, 'document decision note', 2000)
@@ -57,7 +57,7 @@ export function certificates(c: Context, type: string, p: any): Row | undefined 
     return bump(document, { status: 'revoked', revokedBy: c.actor.id, revokedAt: c.now, revocationNote: note,
       history: [...document.history, { ...decision, status: 'revoked', version: document.version + 1 }] })
   }
-  approver(c, ['manager'], document.preparedBy)
+  approver(c, ['manager', 'quality'], document.preparedBy)
   if (document.status !== 'draft') fail('STATE', 'Only a draft document can be approved.')
   const lot = get(c.s, 'lots', document.lotId, 'lot')
   if (lot.itemId !== document.itemId || document.declaredLot !== lot.code)

@@ -3,7 +3,7 @@ import { bump, row, type Context, type Row } from './model'
 
 // Larder roles. The owner holds every authority; an agent prepares drafts and
 // proposals and never approves, posts stock or changes roles.
-export const roles = ['owner', 'manager', 'sales', 'buyer', 'production', 'warehouse', 'accounts', 'agent', 'viewer'] as const
+export const roles = ['owner', 'manager', 'sales', 'buyer', 'production', 'warehouse', 'quality', 'accounts', 'agent', 'viewer'] as const
 export type Role = (typeof roles)[number]
 
 export function allow(c: Context, permitted: Role[]) {

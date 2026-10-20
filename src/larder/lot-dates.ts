@@ -149,10 +149,10 @@ export function lotStatuses(s: State, today: string) {
   })
 }
 
-// Owner/manager documented disposition of an expired or retest-due lot.
+// Owner/manager/quality documented disposition of an expired or retest-due lot.
 export function expiry(c: Context, type: string, p: any): Row | undefined {
   if (type !== 'lot.dispose') return
-  allow(c, ['manager'])
+  allow(c, ['manager', 'quality'])
   if (c.actor.role === 'agent') forbidden('Agents cannot decide a lot disposition.')
   const lot = get(c.s, 'lots', p.lotId, 'lot'); fresh(lot, p.version)
   const today = c.now.slice(0, 10), was = lotBlock(lot, today)

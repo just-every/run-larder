@@ -6,7 +6,7 @@ import { allow } from './roles'
 import { fail, forbidden } from './problem'
 import { bump, date, fresh, list, row, text, type Context, type Row } from './model'
 
-export const caseHumanRoles = ['owner', 'manager', 'sales', 'buyer', 'production', 'warehouse', 'accounts'] as const
+export const caseHumanRoles = ['owner', 'manager', 'sales', 'buyer', 'production', 'warehouse', 'quality', 'accounts'] as const
 export const caseHumanRoleSql = caseHumanRoles.map(role => `'${role}'`).join(',')
 const dueDate = (value: unknown) => {
   const on = date(value, 'due date')

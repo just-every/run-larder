@@ -10,9 +10,9 @@ const evidence = async (d: FormData) => {
   return [{ name: f.name, contentType: f.type || 'application/octet-stream', base64: await fileBase64(f) }]
 }
 export function Nonconformances({ larder }: { larder: Larder }) {
-  const s = larder.state!, cases = [...rows(s, 'nonconformances')].reverse(), qualified = can(s, ['manager'])
+  const s = larder.state!, cases = [...rows(s, 'nonconformances')].reverse(), qualified = can(s, ['manager', 'quality']), quality = can(s, ['quality'])
   return <>
-    <Card title="Nonconformances"><p className="meta">Contain only the affected quantity. Supplier actions and repair routing are recorded in app; linked repairs execute and release through their repair orders. A case release needs a current passing inspection of exactly the released units and an independent owner or manager approval; closing also needs an evidenced effectiveness check.</p>
+    <Card title="Nonconformances"><p className="meta">Contain only the affected quantity. Supplier actions and repair routing are recorded in app; linked repairs execute and release through their repair orders. A case release needs a current passing inspection of exactly the released units and an independent owner, manager or quality approval. A deviation is approved and executed only by a quality-role holder or the owner, independent of its proposer, the case opener and the latest failing inspector; its units are released under deviation, never passed. Closing also needs an evidenced effectiveness check.</p>
       {!cases.length && <Empty>No nonconformances yet.</Empty>}
       {cases.map(n => <section key={n.id} aria-label={`Nonconformance ${n.reference}`}>
         <h3>{n.reference} · {itemName(s, n.itemId)} · {n.status}</h3>
@@ -20,16 +20,25 @@ export function Nonconformances({ larder }: { larder: Larder }) {
         <p>Complaint: {n.complaint}</p><p>Root cause: {n.rootCause || 'Not recorded'} · Corrective action: {n.correctiveAction || 'Not recorded'}</p>
         <p>Evidence: {n.evidence.map((e: any) => e.name).join(', ')}</p>
         {n.actions.map((a: any, i: number) => <p key={i}>{a.nextAction} · {a.delivery}{a.supplierId && ` · supplier ${byId(s, 'parties', a.supplierId)?.name}`}{a.reworkOrderId && ` · repair ${byId(s, 'reworkOrders', a.reworkOrderId)?.reference}`} · evidence {a.evidence.map((e: any) => e.name).join(', ')}</p>)}
-        {n.decisions.map((d: any, i: number) => <p key={i}>{d.decision} {d.quantity} · {d.reason || byId(s, 'reworkOrders', d.orderId)?.reference}{d.delivery && ` · ${d.delivery}`} · recorded by {personName(s, d.by)} · evidence {d.evidence?.map((e: any) => e.name).join(', ') || 'repair approval record'}</p>)}
+        {n.decisions.map((d: any, i: number) => <p key={i}>{d.decision} {d.quantity}{d.reference && ` · ${d.reference} · ${d.label}`} · {d.reason || byId(s, 'reworkOrders', d.orderId)?.reference}{d.delivery && ` · ${d.delivery}`} · recorded by {personName(s, d.by)} · evidence {d.evidence?.map((e: any) => e.name).join(', ') || 'repair approval record'}</p>)}
         <InspectionResults s={s} subjectId={n.id} title={n.reference} />
-        {(n.deviationProposals ?? []).map((d: any) => <section key={d.id} aria-label={`Deviation proposal ${d.reference}`}>
-          <h4>{d.reference} · Proposed deviation</h4>
+        {(n.deviationProposals ?? []).map((d: any) => { const independent = d.proposedBy !== s.actor.id && (s.actor.role === 'owner' || (n.createdBy !== s.actor.id && rows(s, 'inspections').filter(i => i.subjectId === n.id && !i.passed).at(-1)?.inspectedBy !== s.actor.id)); return <section key={d.id} aria-label={`Deviation proposal ${d.reference}`}>
+          <h4>{d.reference} · {d.executedAt ? 'Released under deviation' : d.approvedAt ? 'Approved deviation' : 'Proposed deviation'}</h4>
           <p>{d.quantity} units of lot {byId(s, 'lots', d.lotId)?.code} at {byId(s, 'locations', d.locationId)?.name} · {d.reason}</p>
           <p>Proposed by {personName(s, d.proposedBy)} {d.proposedAt} · reviewed case version {d.caseVersion} · held at proposal {d.heldAtProposal}</p>
-          <p role="status">Not approved or released. This proposal grants no stock release and is not an inspection pass.</p>
+          {d.approvedAt && <p>Approved by {personName(s, d.approvedBy)} ({d.approverRole}) {d.approvedAt} · {d.approvalNote}</p>}
+          {d.executedAt && <p>Executed by {personName(s, d.executedBy)} {d.executedAt}</p>}
+          <p role="status">{d.executedAt ? `${d.quantity} units ${d.status}.` : d.approvedAt ? 'Approved; not yet released. Execution rechecks the lot, held quantity, case results and recall, expiry, retest and certificate gates.' : 'Not approved or released. This proposal grants no stock release and is not an inspection pass.'}</p>
           <p style={{ overflowWrap: 'anywhere' }}>Failing inspections: {d.inspectionIds.join(', ')}</p>
           <ul>{d.evidence.map((e: any) => <li key={e.id} style={{ overflowWrap: 'anywhere' }}><a href={`/api/larder/attachments/${e.id}`}>{e.name}</a> · SHA-256 {e.sha256}</li>)}</ul>
-        </section>)}
+          {quality && n.status === 'open' && !d.approvedAt && !independent && <p>A different quality-role holder or the owner must approve this deviation.</p>}
+          {quality && n.status === 'open' && !d.approvedAt && independent && <Form title={`Approve deviation ${d.reference}`} submit="Approve deviation" busy={larder.busy} note="Independent quality approval of this exact proposal. It does not release stock until executed." onSubmit={async f => larder.run('nonconformance.deviation.approve', { caseId: n.id, version: n.version, deviationId: d.id, note: text(f, 'note') })}>
+            <Field label="Approval note" name="note" />
+          </Form>}
+          {quality && n.status === 'open' && d.approvedAt && !d.executedAt && <Form title={`Release under deviation ${d.reference}`} submit="Release under deviation" busy={larder.busy} note="Moves exactly these held units to available without re-reserving orders. Failed results are kept and the units are labelled released under deviation, not passed." onSubmit={async () => larder.run('nonconformance.deviation.execute', { caseId: n.id, version: n.version, deviationId: d.id })}>
+            <p className="meta">{d.quantity} units of lot {byId(s, 'lots', d.lotId)?.code}</p>
+          </Form>}
+        </section> })}
 
         {n.effectiveness && <p>Effectiveness verified: {n.effectiveness.check} · evidence {n.effectiveness.evidence.map((e: any) => e.name).join(', ')}</p>}
         {qualified && n.status === 'open' && <>

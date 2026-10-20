@@ -1,5 +1,6 @@
 // Recorded genealogy. Job ancestry and WIP allocations are not invented batch allocations.
 import { format } from './decimal'
+import { deviationLabel } from './deviations'
 import type { Movement, Row, State } from './model'
 export type TraceRow = Record<string, string>
 export type TraceNode = { id: string; kind: string; label: string; lotId?: string }
@@ -75,6 +76,7 @@ export function traceGraph(s: State) {
   }
   for (const n of s.nonconformances) {
     events.push({ recordType: 'event', id: n.id, from: lot(n.lotId), ...document('nonconformances', n.id), ...measure(n.itemId, n.quantity), date: n.createdAt, kind: 'nonconformance', status: n.status, basis: 'quantity-scoped containment; case evidence retained' })
+    for (const d of (n.deviationProposals ?? []).filter((d: Row) => d.executedAt)) events.push({ recordType: 'event', id: `deviation:${d.id}`, from: lot(n.lotId), ...document('nonconformances', n.id), reference: d.reference, ...measure(n.itemId, d.quantity), locationId: n.locationId, date: d.executedAt, kind: 'deviation release', status: deviationLabel, basis: 'independently approved quality deviation; failed inspection results retained' })
   }
   for (const w of s.reworkOrders.filter(w => w.executedAt)) events.push({ recordType: 'event', id: `rework:report:${w.id}`, from: doc('reworkOrders', w.id), ...document('reworkOrders', w.id), date: w.executedAt, kind: w.kind, basis: 'recorded cost allocation; scrap value is not a physical quantity', scrapValue: w.cost.scrap })
   return { nodes, links, events, document }

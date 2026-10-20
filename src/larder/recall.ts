@@ -39,7 +39,7 @@ function contain(c: Context, r: Row) {
 
 export function recall(c: Context, type: string, p: any): Row | undefined {
   if (!type.startsWith('recall.')) return
-  allow(c, ['manager'])
+  allow(c, ['manager', 'quality'])
   if (type === 'recall.open') {
     const source = get(c.s, 'lots', p.lotId, 'source lot')
     const r = row(c, 'recalls', { reference: nextReference(c.s.recalls, 'RC'), sourceLotId: source.id, ownerId: c.actor.id, ownerName: c.actor.name, reason: text(p.reason, 'recall reason'), evidence: list(p.evidence, 'evidence', 5).map(f => attach(c, f)), status: 'open', lotIds: [], workOrderIds: [], held: [], unreserved: [], expansions: [] })

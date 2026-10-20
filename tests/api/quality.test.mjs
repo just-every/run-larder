@@ -352,78 +352,133 @@ test('TRACE-006 immediate recall containment expands exact genealogy, identifies
 })
 
 
-test('TRACE-005 inert deviation proposals retain exact held inputs and failing evidence without approval or stock effects, including restart and archive restore', async t => {
+test('TRACE-005 quality-role deviations: exact proposals, independent approval and gated atomic execution release only held units under deviation, with trace, shipment pack, restart and archive restore', async t => {
   const h = await installation(); t.after(() => h.close())
   const manager = await h.person('deviation-manager@example.test', 'manager')
-  const agent = await h.person('deviation-agent@example.test', 'agent')
-  const viewer = await h.person('deviation-viewer@example.test', 'viewer')
+  const opener = await h.person('deviation-opener@example.test', 'quality'), inspector = await h.person('deviation-inspector@example.test', 'quality')
+  const quality = await h.person('deviation-approver@example.test', 'quality'), revoked = await h.person('deviation-revoked@example.test', 'quality')
+  const agent = await h.person('deviation-agent@example.test', 'agent'), viewer = await h.person('deviation-viewer@example.test', 'viewer')
+  const day = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
   const location = await h.command('location.save', { name: 'Deviation shelf' })
   const item = await h.command('item.save', { sku: 'DEV-PLATE', name: 'Deviation plate', kind: 'buy', baseUnit: 'each' })
-  const supplier = await h.command('party.save', { name: 'Deviation supplier', kind: 'supplier' })
-  let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: today, reason: 'Deviation preparation proof', lines: [{ itemId: item.id, quantity: '10', unitPrice: '2' }] })
+  const supplier = await h.command('party.save', { name: 'Deviation supplier', kind: 'supplier' }), customer = await h.command('party.save', { name: 'Deviation customer', kind: 'customer' })
+  let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: today, reason: 'Deviation proof', lines: [{ itemId: item.id, quantity: '14', unitPrice: '2' }] })
   po = await h.command('po.approve', { poId: po.id, version: po.version })
-  const receipt = await h.command('receipt.create', { poId: po.id, supplierReference: 'DEV-RECEIPT', lines: [{ lineId: po.lines[0].id, quantity: '10', locationId: location.id, lot: 'DEV-LOT' }] })
-  const lotId = receipt.lines[0].lotId
-  let n = await manager.run('nonconformance.open', { lotId, locationId: location.id, quantity: '4', complaint: 'Finish outside specification', dueOn: today, evidence: [evidence('Complaint')] })
-  const input = { caseId: n.id, version: n.version, quantity: '1.250000', reason: 'Review fit for intended use', evidence: [evidence('Engineering assessment; approval still required')] }
-  const stock = async () => { const s = await h.invariant(); return { movements: s.movements, positions: s.positions, reservations: s.reservations } }
-  const before = await stock()
-  const refused = async (who, payload, error, type = 'nonconformance.deviation.propose') => {
-    const previous = (await h.state()).nonconformances
-    await who(type, payload, { error })
-    assert.deepEqual(await stock(), before)
-    assert.deepEqual((await h.state()).nonconformances, previous)
-  }
-  await refused(manager.run, input, 'INSPECTION')
+  const line = (lot, quantity, dates) => ({ lineId: po.lines[0].id, locationId: location.id, quantity, lot, dates })
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'DEV-RECEIPT', lines: [line('DEV-LOT', '10'), line('DEV-RECALL', '2'), line('DEV-EXPIRED', '2', { expiresOn: day(-1) })] })
+  const lots = (await h.state()).lots, lotId = lots.find(l => l.code === 'DEV-LOT').id
+  let order = await h.command('so.quote', { customerId: customer.id, promiseDate: today, lines: [{ itemId: item.id, quantity: '12', unitPrice: '5' }] })
+  order = await h.command('so.confirm', { orderId: order.id, version: order.version })
+  await h.command('so.reserve', { orderId: order.id })
   let plan = await h.command('quality.plan.save', { itemId: item.id, stage: 'receipt', name: 'Deviation finish', sampleSize: 1, measurements: [{ name: 'Roughness', unit: 'um', target: '1', lower: '0', upper: '2' }] })
   plan = await h.command('quality.plan.approve', { planId: plan.id, version: plan.version })
-  const failed = await h.command('quality.inspect', { planId: plan.id, planVersion: plan.version, nonconformanceId: n.id, quantity: '4', samples: { Roughness: ['3'] }, evidence: [evidence('Failing measurement')] })
-  for (const [who, payload, error] of [
-    [agent.run, input, 'FORBIDDEN'], [viewer.run, input, 'FORBIDDEN'],
-    [manager.run, { ...input, version: n.version - 1 }, 'STALE'],
-    [manager.run, { ...input, quantity: '4.000001' }, 'QUANTITY'],
-    [manager.run, { ...input, quantity: '0' }, 'DECIMAL'],
-    [manager.run, { ...input, quantity: '-1' }, 'DECIMAL'],
-    [manager.run, { ...input, reason: '' }, 'INPUT'],
-    [manager.run, { ...input, evidence: [] }, 'INPUT'],
-  ]) await refused(who, payload, error)
-  const commandId = crypto.randomUUID(), reviewedVersion = n.version
-  n = await manager.run('nonconformance.deviation.propose', { ...input, approvedBy: manager.id, status: 'approved' }, { commandId })
-  const proposal = n.deviationProposals[0]
-  assert.equal(proposal.quantity, '1.25'); assert.equal(proposal.heldAtProposal, '4')
-  assert.equal(proposal.caseId, n.id); assert.equal(proposal.caseVersion, reviewedVersion)
-  assert.equal(proposal.lotId, lotId); assert.equal(proposal.locationId, location.id)
-  assert.equal(proposal.lotVersion, (await h.state()).lots.find(l => l.id === lotId).version)
-  assert.equal(proposal.proposedBy, manager.id); assert.ok(!Number.isNaN(Date.parse(proposal.proposedAt)))
-  assert.equal(proposal.version, 1); assert.equal(proposal.status, 'proposed; not approved or released')
-  assert.equal(proposal.approvedBy, undefined); assert.equal(proposal.executedAt, undefined)
-  assert.deepEqual(proposal.inspectionIds, [failed.id])
-  assert.deepEqual(proposal.inspections, [{ id: failed.id, version: failed.version, planId: plan.id, planVersion: plan.version, inspectedBy: failed.inspectedBy }])
-  const file = proposal.evidence[0], contents = await (await h.request(`/api/larder/attachments/${file.id}`)).arrayBuffer()
+  // A quality opener contains four units; a different quality inspector records the failure.
+  const open = async (code, quantity) => {
+    const n = await opener.run('nonconformance.open', { lotId: lots.find(l => l.code === code).id, locationId: location.id, quantity, complaint: `Finish outside specification on ${code}`, dueOn: today, evidence: [evidence('Complaint')] })
+    const failed = await inspector.run('quality.inspect', { planId: plan.id, planVersion: plan.version, nonconformanceId: n.id, quantity, samples: { Roughness: ['3'] }, evidence: [evidence('Failing measurement')] })
+    return { n: (await h.state()).nonconformances.find(x => x.id === n.id), failed }
+  }
+  let { n, failed } = await open('DEV-LOT', '4')
+  assert.equal(n.unreserved.length, 1)
+  const stock = async () => { const s = await h.invariant(); return { movements: s.movements, positions: s.positions, reservations: s.reservations, inspections: s.inspections, workOrders: s.workOrders } }
+  const refused = async (who, type, payload, error) => {
+    const before = await stock(), cases = (await h.state()).nonconformances
+    await who(type, payload, { error })
+    assert.deepEqual(await stock(), before); assert.deepEqual((await h.state()).nonconformances, cases)
+  }
+  const input = { caseId: n.id, version: n.version, quantity: '1.250000', reason: 'Fit for intended use after engineering review', evidence: [evidence('Engineering assessment')] }
+  for (const [who, payload, error] of [[agent.run, input, 'FORBIDDEN'], [viewer.run, input, 'FORBIDDEN'], [manager.run, { ...input, version: n.version - 1 }, 'STALE'], [manager.run, { ...input, quantity: '4.000001' }, 'QUANTITY'], [manager.run, { ...input, quantity: '0' }, 'DECIMAL'], [manager.run, { ...input, reason: '' }, 'INPUT'], [manager.run, { ...input, evidence: [] }, 'INPUT']])
+    await refused(who, 'nonconformance.deviation.propose', payload, error)
+  const reviewedVersion = n.version
+  n = await manager.run('nonconformance.deviation.propose', { ...input, approvedBy: manager.id, status: 'approved' })
+  let a = n.deviationProposals[0]
+  assert.equal(a.quantity, '1.25'); assert.equal(a.heldAtProposal, '4'); assert.equal(a.caseVersion, reviewedVersion); assert.equal(a.lotId, lotId); assert.equal(a.locationId, location.id)
+  assert.equal(a.proposedBy, manager.id); assert.equal(a.status, 'proposed; not approved or released'); assert.equal(a.approvedBy, undefined)
+  assert.deepEqual(a.inspections, [{ id: failed.id, version: failed.version, planId: plan.id, planVersion: plan.version, inspectedBy: inspector.id }])
+  const file = a.evidence[0], contents = await (await h.request(`/api/larder/attachments/${file.id}`)).arrayBuffer()
   assert.equal(Buffer.from(await crypto.subtle.digest('SHA-256', contents)).toString('hex'), file.sha256)
-  assert.equal(n.remaining, '4'); assert.deepEqual(n.decisions, [])
-  assert.deepEqual(await stock(), before)
-  assert.deepEqual(await manager.run('nonconformance.deviation.propose', { ...input, approvedBy: manager.id, status: 'approved' }, { commandId }), n)
-  await manager.run('nonconformance.deviation.propose', { ...input, reason: 'Changed replay' }, { commandId, error: 'IDEMPOTENCY' })
-  await refused(h.command, { caseId: n.id, version: n.version, deviationId: proposal.id }, 'COMMAND', 'nonconformance.deviation.execute')
-  await refused(h.command, { caseId: n.id, version: n.version, deviationId: proposal.id }, 'COMMAND', 'nonconformance.deviation.approve')
-  await refused(h.command, { caseId: n.id, version: n.version, quantity: '1.25', inspectionId: failed.id, reason: 'Try proposal as pass', evidence: [evidence()] }, 'RETEST', 'nonconformance.release')
-  await h.command('role.set', { operatorId: manager.id, role: 'viewer' })
-  await refused(manager.run, { ...input, version: n.version }, 'FORBIDDEN')
+  n = await manager.run('nonconformance.deviation.propose', { ...input, version: n.version, quantity: '0.5' })
+  const c = n.deviationProposals[1]
+  n = await h.command('nonconformance.deviation.propose', { ...input, version: n.version, quantity: '1' })
+  const b = n.deviationProposals[2]
+  // Approval: only an independent live quality-role holder or the owner, never an agent, the proposer, the opener or the latest failing inspector.
+  const approve = (d, more = {}) => ({ caseId: n.id, version: n.version, deviationId: d.id, note: 'Use as is; dimensions unaffected', ...more })
+  for (const [who, payload, error] of [[agent.run, approve(a), 'FORBIDDEN'], [viewer.run, approve(a), 'FORBIDDEN'], [manager.run, approve(a), 'FORBIDDEN'], [opener.run, approve(a), 'FORBIDDEN'], [inspector.run, approve(a), 'FORBIDDEN'], [h.command, approve(b), 'FORBIDDEN'], [quality.run, approve(a, { version: n.version - 1 }), 'STALE'], [quality.run, approve(a, { note: '' }), 'INPUT'], [quality.run, approve(a, { deviationId: 'missing' }), 'NOT_FOUND']])
+    await refused(who, 'nonconformance.deviation.approve', payload, error)
+  await refused(quality.run, 'nonconformance.deviation.execute', approve(a), 'STATE')
+  const approvalId = crypto.randomUUID()
+  n = await quality.run('nonconformance.deviation.approve', approve(a), { commandId: approvalId })
+  a = n.deviationProposals[0]
+  assert.equal(a.status, 'approved; not yet released'); assert.equal(a.approvedBy, quality.id); assert.equal(a.approverRole, 'quality'); assert.equal(a.version, 2); assert.equal(a.executedAt, undefined)
+  assert.deepEqual(await quality.run('nonconformance.deviation.approve', approve(a, { version: n.version - 1 }), { commandId: approvalId }), n)
+  await quality.run('nonconformance.deviation.approve', approve(a, { note: 'Changed replay' }), { commandId: approvalId, error: 'IDEMPOTENCY' })
+  await h.command('role.set', { operatorId: revoked.id, role: 'production' })
+  await refused(revoked.run, 'nonconformance.deviation.approve', approve(c), 'FORBIDDEN')
+  n = await quality.run('nonconformance.deviation.approve', approve(c))
+  // Execution rechecks recall, expiry/retest and certificate gates and never runs for managers or agents.
+  const execute = (d, more = {}) => ({ caseId: n.id, version: n.version, deviationId: d.id, ...more })
+  await h.command('certificate.requirements', { itemId: item.id, types: ['coa'], note: 'Customer CoA policy' })
+  await refused(h.command, 'nonconformance.deviation.execute', execute(a), 'CERTIFICATE_REQUIRED')
+  const policy = (await h.state()).certificatePolicies.find(x => x.itemId === item.id)
+  await h.command('certificate.requirements', { itemId: item.id, types: [], version: policy.version, note: 'Policy withdrawn' })
+  for (const [who, payload, error] of [[agent.run, execute(a), 'FORBIDDEN'], [manager.run, execute(a), 'FORBIDDEN'], [h.command, execute(a, { version: n.version - 1 }), 'STALE']])
+    await refused(who, 'nonconformance.deviation.execute', payload, error)
+  const before = await stock(), executeId = crypto.randomUUID()
+  n = await h.command('nonconformance.deviation.execute', execute(a), { commandId: executeId })
+  assert.deepEqual(await h.command('nonconformance.deviation.execute', execute(a, { version: n.version - 1 }), { commandId: executeId }), n)
+  await h.command('nonconformance.deviation.execute', execute(a, { deviationId: c.id }), { commandId: executeId, error: 'IDEMPOTENCY' })
+  a = n.deviationProposals[0]
+  const label = 'released under deviation; failed results retained, not passed'
+  assert.equal(a.status, label); assert.equal(a.executedBy, (await h.state()).actor.id); assert.equal(n.remaining, '2.75')
+  assert.deepEqual([a.proposedBy, a.approvedBy], [manager.id, quality.id]); assert.ok(Date.parse(a.proposedAt) <= Date.parse(a.approvedAt) && Date.parse(a.approvedAt) <= Date.parse(a.executedAt))
+  assert.deepEqual(n.decisions.map(d => [d.decision, d.reference, d.quantity, d.label, d.approvedBy]), [['deviation', a.reference, '1.25', label, quality.id]])
+  const after = await stock(), added = after.movements.slice(before.movements.length)
+  assert.deepEqual(added.map(m => [m.kind, m.status, m.quantity, m.lotId, m.documentId]), [['nonconformance-deviation', 'quarantine', '-1.25', lotId, n.id], ['nonconformance-deviation', 'available', '1.25', lotId, n.id]])
+  assert.ok(added.every(m => m.reason.startsWith(`Deviation ${a.reference}`)))
+  assert.deepEqual(after.positions.filter(p => p.lotId === lotId).map(p => [p.status, p.quantity]).sort(), [['available', '7.25'], ['quarantine', '2.75']])
+  assert.deepEqual(after.reservations, before.reservations); assert.deepEqual(after.inspections, before.inspections); assert.deepEqual(after.workOrders, before.workOrders)
+  assert.equal(after.inspections.find(i => i.id === failed.id).passed, false)
+  // Changed inputs invalidate other approvals and proposals; excess and closed cases are refused.
+  await refused(quality.run, 'nonconformance.deviation.execute', execute(c), 'STALE_INPUTS')
+  await refused(quality.run, 'nonconformance.deviation.approve', approve(b), 'STALE_INPUTS')
+  await refused(manager.run, 'nonconformance.deviation.propose', { ...input, version: n.version, quantity: '2.750001' }, 'QUANTITY')
+  // Recalled and expired lots keep their gates.
+  const recalled = await open('DEV-RECALL', '1')
+  let r = await manager.run('nonconformance.deviation.propose', { ...input, caseId: recalled.n.id, version: recalled.n.version, quantity: '1' })
+  r = await quality.run('nonconformance.deviation.approve', { caseId: r.id, version: r.version, deviationId: r.deviationProposals[0].id, note: 'Use as is' })
+  await h.command('recall.open', { lotId: recalled.n.lotId, reason: 'Supplier contamination notice', evidence: [evidence('Supplier notice')] })
+  r = (await h.state()).nonconformances.find(x => x.id === r.id)
+  await refused(quality.run, 'nonconformance.deviation.execute', { caseId: r.id, version: r.version, deviationId: r.deviationProposals[0].id }, 'RECALL_HOLD')
+  const expired = await open('DEV-EXPIRED', '1')
+  let e = await manager.run('nonconformance.deviation.propose', { ...input, caseId: expired.n.id, version: expired.n.version, quantity: '1' })
+  await refused(quality.run, 'nonconformance.deviation.approve', { caseId: e.id, version: e.version, deviationId: e.deviationProposals[0].id, note: 'Use as is' }, 'LOT_BLOCKED')
+  // Trace JSON, CSV and the frozen shipment pack carry the deviation reference.
+  const trace = await (await h.request(`/api/larder/lots/${lotId}/trace?direction=downstream`)).json()
+  assert.ok(trace.rows.some(x => x.recordType === 'event' && x.kind === 'deviation release' && x.reference === a.reference && x.status === label && x.quantity === '1.25'))
+  assert.deepEqual(trace.rows.filter(x => x.recordType === 'movement' && x.kind === 'nonconformance-deviation').map(x => x.reference), [a.reference, a.reference])
+  const csv = await (await h.request(`/api/larder/lots/${lotId}/trace.csv?direction=downstream`)).text()
+  assert.ok(csv.includes(`"${a.reference}"`) && csv.includes('"deviation release"') && csv.includes(`"${label}"`))
+  order = (await h.state()).salesOrders.find(o => o.id === order.id)
+  let shipment = await h.command('shipment.pick', { orderId: order.id, lines: [{ lineId: order.lines[0].id, locationId: location.id, quantity: '2', lotId }] })
+  shipment = await h.command('shipment.pack', { shipmentId: shipment.id, version: shipment.version, packages: 1 })
+  shipment = await h.command('shipment.ship', { shipmentId: shipment.id, version: shipment.version, carrier: 'UPS' })
+  const pack = await (await h.request(`/api/larder/shipments/${shipment.id}/certificates.json`)).json()
+  assert.deepEqual(pack.trace.flatMap(x => x.deviations ?? []).map(d => [d.reference, d.caseReference, d.quantity, d.approvedBy, d.label]), [[a.reference, n.reference, '1.25', quality.id, label]])
+  // The rest is disposed of and the case closes only with an evidenced effective check.
+  n = (await h.state()).nonconformances.find(x => x.id === n.id)
+  n = await quality.run('nonconformance.reject', { caseId: n.id, version: n.version, quantity: '2.75', reason: 'Remaining units scrapped', evidence: [evidence()] })
+  n = await quality.run('nonconformance.update', { caseId: n.id, version: n.version, rootCause: 'Worn tool', correctiveAction: 'Replace tool', nextAction: 'Inspect next batch', dueOn: today, evidence: [evidence()] })
+  n = await quality.run('nonconformance.close', { caseId: n.id, version: n.version, effective: true, check: 'Next batch passed', evidence: [evidence('Next batch report')] })
+  assert.equal(n.status, 'closed')
+  await refused(quality.run, 'nonconformance.deviation.approve', approve(b), 'STATE')
   await h.restart()
   assert.deepEqual((await h.state()).nonconformances.find(x => x.id === n.id), n)
   const archive = await (await h.request('/api/larder/archive')).json()
   const target = await installation(); t.after(() => target.close())
   const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })
   assert.equal(restored.status, 200, await restored.text())
-  assert.deepEqual((await target.invariant()).nonconformances, [n])
-  assert.equal(await (await target.request(`/api/larder/attachments/${file.id}`)).text(), 'Engineering assessment; approval still required')
-  // History remains an inert proposal even after ordinary evidenced disposition.
-  n = await h.command('nonconformance.reject', { caseId: n.id, version: n.version, quantity: '4', reason: 'No deviation approved', evidence: [evidence()] })
-  n = await h.command('nonconformance.update', { caseId: n.id, version: n.version, rootCause: 'Worn tool', correctiveAction: 'Replace tool', nextAction: 'Inspect next batch', dueOn: today, evidence: [evidence()] })
-  n = await h.command('nonconformance.close', { caseId: n.id, version: n.version, effective: true, check: 'Next batch passed', evidence: [evidence()] })
-  const closedStock = await stock()
-  await h.command('nonconformance.deviation.propose', { ...input, version: n.version }, { error: 'STATE' })
-  assert.deepEqual(await stock(), closedStock)
-  assert.deepEqual((await h.state()).nonconformances[0].deviationProposals, [proposal])
+  assert.deepEqual((await target.invariant()).nonconformances.find(x => x.id === n.id), n)
+  assert.ok((await (await target.request(`/api/larder/lots/${lotId}/trace`)).json()).rows.some(x => x.kind === 'deviation release' && x.reference === a.reference))
+  assert.deepEqual((await (await target.request(`/api/larder/shipments/${shipment.id}/certificates.json`)).json()).trace.flatMap(x => x.deviations ?? []).map(d => d.reference), [a.reference])
+  assert.equal(await (await target.request(`/api/larder/attachments/${file.id}`)).text(), 'Engineering assessment')
 })

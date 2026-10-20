@@ -86,3 +86,55 @@ test('LARDER-015 agents prepare intake, replenishment, merges, reschedules and r
   assert.equal(s.handoffs[0].acknowledgements.length, 0)
   assert.deepEqual(s.approvals.filter(a => a.subjectKind === 'proposals').map(a => a.decision), ['approved', 'approved', 'approved', 'approved', 'rejected'])
 })
+
+test('GOV-001 TRACE-005 quality role inherits TRACE-003/004/006/007 authority with independence and live revocation, and nothing outside quality', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h), ownerId = (await h.state()).actor.id
+  const q1 = await h.person('quinn@example.test', 'quality'), q2 = await h.person('quade@example.test', 'quality')
+  const file = text => ({ name: 'qa.txt', contentType: 'text/plain', base64: Buffer.from(text).toString('base64') })
+  const day = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
+  assert.equal((await h.state(q1.cookie)).actor.role, 'quality')
+  let po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: day(-1), reason: 'Quality role proof', lines: [{ itemId: w.timber.id, quantity: '6', unitPrice: '9.5' }] })
+  po = await h.command('po.approve', { poId: po.id, version: po.version })
+  // AUTO-001: a quality person is an assignable human follow-up owner.
+  const followed = await h.command('exception.assign', { key: `po-late:${po.id}`, version: 0, ownerId: q1.id, dueOn: day(0), nextAction: 'Inspect the late walnut on arrival', escalationOwnerId: ownerId, note: 'Quality follows up' })
+  assert.equal(followed.ownerId, q1.id)
+  // Outside quality the role is refused: sales, purchasing approval, engineering, roles and restricted downloads.
+  for (const [type, payload] of [['so.quote', { customerId: w.customer.id, promiseDate: day(10), lines: [{ itemId: w.board.id, quantity: '1' }] }], ['po.approve', { poId: po.id, version: po.version }], ['bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '1' }] }], ['role.set', { operatorId: q2.id, role: 'manager' }]])
+    await q1.run(type, payload, { error: 'FORBIDDEN' })
+  for (const path of ['/api/larder/archive', '/api/larder/catalog.csv', '/api/larder/handoffs/00000000-0000-0000-0000-000000000000.csv']) assert.equal((await h.request(path, { as: q1.cookie })).status, 403)
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'QA-RECEIPT', lines: [{ lineId: po.lines[0].id, quantity: '4', locationId: w.loc.id, lot: 'QA-WAL' }, { lineId: po.lines[0].id, quantity: '2', locationId: w.loc.id, lot: 'QA-OLD', dates: { expiresOn: day(-1) } }] })
+  const lots = (await h.state()).lots, lotId = lots.find(l => l.code === 'QA-WAL').id, old = lots.find(l => l.code === 'QA-OLD')
+  // TRACE-004: prepare, independently approve, record a failing result and release only by someone else after a passing retest with evidence.
+  let plan = await q1.run('quality.plan.save', { itemId: w.timber.id, stage: 'receipt', name: 'Moisture', sampleSize: 1, measurements: [{ name: 'Moisture', unit: '%', target: '8', lower: '6', upper: '10' }] })
+  await q1.run('quality.plan.approve', { planId: plan.id, version: plan.version }, { error: 'FORBIDDEN' })
+  plan = await q2.run('quality.plan.approve', { planId: plan.id, version: plan.version })
+  assert.equal(plan.approval.role, 'quality')
+  const failed = await q1.run('quality.inspect', { planId: plan.id, planVersion: plan.version, lotId, samples: { Moisture: ['14'] }, evidence: [file('Wet timber')] })
+  const hold = (await h.state()).qualityHolds.find(x => x.id === failed.holdId)
+  await q2.run('quality.inspect', { planId: plan.id, planVersion: plan.version, lotId, samples: { Moisture: ['8'] }, evidence: [file('Dried and retested')] })
+  const release = { holdId: hold.id, version: hold.version, reason: 'Retest passed', evidence: [file('Signed release')] }
+  await q1.run('quality.release', release, { error: 'FORBIDDEN' })
+  await q2.run('quality.release', { ...release, evidence: [] }, { error: 'EVIDENCE' })
+  const released = await q2.run('quality.release', release)
+  assert.equal(released.status, 'released'); assert.equal(released.release.role, 'quality')
+  assert.equal((await h.state()).inspections.find(i => i.id === failed.id).passed, false)
+  // TRACE-007: configure requirements, prepare, independently approve and revoke exact-lot documents.
+  await q1.run('certificate.requirements', { itemId: w.timber.id, types: ['coa'], note: 'CoA required for walnut' })
+  const document = more => q1.run('certificate.prepare', { itemId: w.timber.id, lotId, type: 'coa', documentVersion: 'Rev A', declaredLot: 'QA-WAL', issuer: 'Mill QA', expiresOn: day(30), evidence: file('CoA QA-WAL'), ...more })
+  const coa = await document()
+  await q1.run('certificate.approve', { certificateId: coa.id, version: coa.version, note: 'Own preparation' }, { error: 'FORBIDDEN' })
+  const approved = await q2.run('certificate.approve', { certificateId: coa.id, version: coa.version, note: 'Lot and issuer checked' })
+  const withdrawn = await q2.run('certificate.revoke', { certificateId: approved.id, version: approved.version, note: 'Mill withdrew the CoA' })
+  assert.notEqual(withdrawn.status, approved.status)
+  // TRACE-003: an evidenced expiry disposition.
+  const scrapped = await q1.run('lot.dispose', { lotId: old.id, version: old.version, decision: 'scrap', locationId: w.loc.id, reason: 'Expired; destroyed', evidence: [file('Destruction record')] })
+  assert.equal(scrapped.dispositions.at(-1).by, q1.id)
+  // TRACE-006: an evidenced recall containment.
+  const recall = await q1.run('recall.open', { lotId, reason: 'Mill contamination notice', evidence: [file('Mill notice')] })
+  assert.equal(recall.ownerId, q1.id); assert.ok(recall.lotIds.includes(lotId))
+  // Revoking the role mid-task takes effect on the next command.
+  const next = await document({ documentVersion: 'Rev B' })
+  await h.command('role.set', { operatorId: q2.id, role: 'viewer' })
+  await q2.run('certificate.approve', { certificateId: next.id, version: next.version, note: 'After revocation' }, { error: 'FORBIDDEN' })
+})

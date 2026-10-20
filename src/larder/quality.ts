@@ -82,7 +82,7 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
   switch (type) {
     case 'quality.plan.save': {
       if (c.actor.role === 'agent') forbidden('Agents cannot define inspection plans.')
-      allow(c, ['manager', 'production'])
+      allow(c, ['manager', 'production', 'quality'])
       const item = get(c.s, 'items', p.itemId, 'item'), stage = oneOf(p.stage, stages, 'stage')
       const revision = p.revision === undefined || p.revision === null || p.revision === '' ? null : Number(p.revision)
       if (revision !== null && (!Number.isSafeInteger(revision) || !c.s.boms.some(b => b.itemId === item.id && b.revision === revision))) fail('INPUT', `${item.name} has no BOM revision ${p.revision}.`, { field: 'revision' })
@@ -95,14 +95,14 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
     }
     case 'quality.plan.approve': {
       const plan = get(c.s, 'inspectionPlans', p.planId, 'inspection plan'); fresh(plan, p.version)
-      approver(c, ['manager'], plan.preparedBy)
+      approver(c, ['manager', 'quality'], plan.preparedBy)
       if (plan.status !== 'draft') fail('STATE', 'Only a draft inspection plan can be approved.')
       for (const old of c.s.inspectionPlans) if (old.status === 'approved' && old.itemId === plan.itemId && old.revision === plan.revision && old.stage === plan.stage && old.operationSequence === plan.operationSequence) bump(old, { status: 'superseded', supersededBy: plan.id, supersededAt: c.now })
       return bump(plan, { status: 'approved', approval: { by: c.actor.id, role: c.actor.role, at: c.now } })
     }
     case 'quality.inspect': {
       if (c.actor.role === 'agent') forbidden('Agents cannot record inspection results.')
-      allow(c, ['manager', 'production'])
+      allow(c, ['manager', 'production', 'quality'])
       const plan = get(c.s, 'inspectionPlans', p.planId, 'inspection plan'); fresh(plan, p.planVersion)
       if (plan.status !== 'approved') fail('STATE', 'Record results only against the current approved plan.')
       let subjectKind: 'workOrders' | 'lots' | 'reworkOrders' | 'nonconformances', subject: Row
@@ -140,7 +140,7 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
     }
     case 'quality.release': {
       const hold = get(c.s, 'qualityHolds', p.holdId, 'quality hold'); fresh(hold, p.version)
-      approver(c, ['manager'], hold.failedBy)
+      approver(c, ['manager', 'quality'], hold.failedBy)
       if (hold.status !== 'open') fail('STATE', 'This quality hold is already released.')
       const latest = c.s.inspections.filter(x => x.planId === hold.planId && x.subjectId === hold.subjectId).at(-1)
       if (!latest || latest.id === hold.inspectionId || !latest.passed) fail('RETEST', 'Record a passing retest under the approved plan before releasing.')

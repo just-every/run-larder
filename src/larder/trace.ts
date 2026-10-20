@@ -1,4 +1,5 @@
 import { decimal, format } from './decimal'
+import { movementDeviation } from './deviations'
 import { get, oneOf, type State } from './model'
 import { traceGraph, type TraceRow } from './trace-graph'
 
@@ -13,7 +14,7 @@ export function lotTrace(s: State, lotId: string, direction: unknown) {
   let changed = true
   while (changed) { changed = false; for (const l of g.links.filter(l => l.basis.startsWith('recorded WIP responsibility'))) { const from = way === 'upstream' ? l.to : l.from, to = way === 'upstream' ? l.from : l.to; if (seen.has(from) && !seen.has(to)) { seen.add(to); changed = true } } }
   const nodes = [...g.nodes.values()].filter(n => seen.has(n.id)), lotIds = new Set(nodes.flatMap(n => n.lotId ? [n.lotId] : []))
-  const physical: TraceRow[] = s.movements.filter(m => lotIds.has(m.lotId) || seen.has(`untracked:${m.id}`) || (m.reversesId && seen.has(`untracked:${m.reversesId}`))).map(m => ({ recordType: 'movement', id: m.id, lotId: m.lotId, itemId: m.itemId, quantity: format(m.quantity), unit: s.items.find(i => i.id === m.itemId)?.baseUnit ?? '', date: m.createdAt, kind: m.kind, locationId: m.locationId, status: m.status, reversesId: m.reversesId ?? '', basis: 'owned physical ledger', ...g.document(m.documentKind, m.documentId) }))
+  const physical: TraceRow[] = s.movements.filter(m => lotIds.has(m.lotId) || seen.has(`untracked:${m.id}`) || (m.reversesId && seen.has(`untracked:${m.reversesId}`))).map(m => ({ recordType: 'movement', id: m.id, lotId: m.lotId, itemId: m.itemId, quantity: format(m.quantity), unit: s.items.find(i => i.id === m.itemId)?.baseUnit ?? '', date: m.createdAt, kind: m.kind, locationId: m.locationId, status: m.status, reversesId: m.reversesId ?? '', basis: 'owned physical ledger', ...g.document(m.documentKind, m.documentId), ...(movementDeviation(s, m) ? { reference: movementDeviation(s, m)! } : {}) }))
   physical.push(...s.subcontractCustody.filter(e => lotIds.has(e.lotId)).map(e => ({ recordType: 'custody', id: e.id, lotId: e.lotId, itemId: e.itemId, quantity: e.quantity, unit: s.items.find(i => i.id === e.itemId)?.baseUnit ?? '', date: e.createdAt, kind: e.kind, locationId: e.locationId, status: 'customer property', basis: 'customer custody; zero owned value', ...g.document('subcontractOrders', e.orderId), party: s.parties.find(p => p.id === e.ownerId)?.name ?? '' })))
   const totals = new Map<string, TraceRow>()
   for (const p of physical) {

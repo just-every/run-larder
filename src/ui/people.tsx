@@ -4,7 +4,7 @@ import type { Larder } from './app'
 import { Card, Chip, Choose, Empty, Field, Form, Table, text } from './controls'
 import { words } from './format'
 
-const roleHelp: [string, string][] = [['manager', 'Everything day to day, approvals and move-in'], ['sales', 'Quotes, orders and reservations'], ['buyer', 'Purchase orders and supplier terms'], ['production', 'BOMs and work orders'], ['warehouse', 'Receiving, shipping, transfers and counts'], ['accounts', 'Handoff batches and ledger acknowledgements'], ['agent', 'Prepares drafts and proposals; never approves or posts'], ['viewer', 'Reads everything, changes nothing']]
+const roleHelp: [string, string][] = [['manager', 'Everything day to day, approvals and move-in'], ['sales', 'Quotes, orders and reservations'], ['buyer', 'Purchase orders and supplier terms'], ['production', 'BOMs and work orders'], ['warehouse', 'Receiving, shipping, transfers and counts'], ['quality', 'Inspections, holds, nonconformances, deviations, certificates, expiry and recalls'], ['accounts', 'Handoff batches and ledger acknowledgements'], ['agent', 'Prepares drafts and proposals; never approves or posts'], ['viewer', 'Reads everything, changes nothing']]
 
 export function People({ larder }: { larder: Larder }) {
   const s = larder.state!, [message, setMessage] = useState('')

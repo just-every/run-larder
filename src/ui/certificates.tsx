@@ -8,7 +8,7 @@ function Types({ selected = [] }: { selected?: string[] }) {
   return <fieldset className="lines wide"><legend>Required document types</legend>{types.map(t => <label key={t.value}><input type="checkbox" name="types" value={t.value} defaultChecked={selected.includes(t.value)} /> {t.label}</label>)}</fieldset>
 }
 function Certificate({ larder, doc }: { larder: Larder; doc: Rec }) {
-  const s = larder.state!, lot = rows(s, 'lots').find(l => l.id === doc.lotId), authorized = can(s, ['manager'])
+  const s = larder.state!, lot = rows(s, 'lots').find(l => l.id === doc.lotId), authorized = can(s, ['manager', 'quality'])
   return <article className="proposal" aria-label={`Certificate ${doc.reference}`}>
     <h3>{doc.reference} · {typeName(doc.type)} <Chip tone={doc.status === 'approved' ? 'good' : 'warn'}>{doc.status}</Chip></h3>
     <p>{itemName(s, doc.itemId)} · lot {lot?.code} · document lot {doc.declaredLot}<br />{doc.issuer} · version {doc.documentVersion} (revision {doc.revision}) · expires {day(doc.expiresOn)}</p>
@@ -20,7 +20,7 @@ function Certificate({ larder, doc }: { larder: Larder; doc: Rec }) {
   </article>
 }
 export function Certificates({ larder }: { larder: Larder }) {
-  const s = larder.state!, manage = can(s, ['manager']), prepare = can(s, ['manager', 'production', 'warehouse', 'agent'])
+  const s = larder.state!, manage = can(s, ['manager', 'quality']), prepare = can(s, ['manager', 'production', 'warehouse', 'quality', 'agent'])
   const policies = rows(s, 'certificatePolicies'), customers = rows(s, 'parties').filter(p => p.kind !== 'supplier')
   return <Card title="Controlled lot documents">
     <p>Retain CoAs, SDSs, test reports, specifications and CoCs with their lot, version, expiry and original file. Human approval records an evidence decision in Larder; it does not certify a product or verify a provider.</p>
