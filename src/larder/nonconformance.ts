@@ -4,7 +4,7 @@ import { attach } from './attachments'
 import { approvedCertificates } from './certificate-policy'
 import { decimal, format } from './decimal'
 import { lotBlock } from './lot-dates'
-import { bump, date, fresh, get, list, nextReference, row, text, type Context, type Row } from './model'
+import { bump, date, fresh, get, list, newId, nextReference, row, text, type Context, type Row } from './model'
 import { assertLotNotHeld } from './quality'
 import { allow, approver } from './roles'
 import { fail } from './problem'
@@ -42,6 +42,23 @@ export function nonconformance(c: Context, type: string, p: any): Row | undefine
   }
   const n = get(c.s, 'nonconformances', p.caseId, 'nonconformance'); fresh(n, p.version)
   if (n.status !== 'open') fail('STATE', 'This nonconformance is closed; its evidence is retained.')
+  if (type === 'nonconformance.deviation.propose') {
+    const quantity = qty(p.quantity)
+    if (quantity > decimal(n.remaining)) fail('QUANTITY', 'Propose only quantity still held by this case.')
+    const failures = c.s.inspections.filter(i => i.subjectKind === 'nonconformances' && i.subjectId === n.id && !i.passed)
+    if (!failures.length) fail('INSPECTION', 'Record a failing case inspection before proposing a deviation.')
+    const proposal = {
+      id: newId(), version: 1, reference: `${n.reference}-DEV-${(n.deviationProposals?.length ?? 0) + 1}`,
+      status: 'proposed; not approved or released', caseId: n.id, caseVersion: n.version,
+      lotId: n.lotId, lotVersion: get(c.s, 'lots', n.lotId).version, locationId: n.locationId,
+      quantity: format(quantity), heldAtProposal: n.remaining,
+      inspectionIds: failures.map(i => i.id),
+      inspections: failures.map(i => ({ id: i.id, version: i.version, planId: i.planId, planVersion: i.planVersion, inspectedBy: i.inspectedBy })),
+      reason: text(p.reason, 'deviation reason', 2000), evidence: files(c, p.evidence),
+      proposedBy: c.actor.id, proposedAt: c.now,
+    }
+    return bump(n, { deviationProposals: [...(n.deviationProposals ?? []), proposal] })
+  }
   if (type === 'nonconformance.update') {
     const action = text(p.nextAction, 'next action', 2000)
     const supplierId = p.supplierId ? get(c.s, 'parties', p.supplierId, 'supplier').id : ''

@@ -212,3 +212,55 @@ test('TRACE-006 recall WIP gate has the same live reason in dispatch, job detail
   const pack = await page.request.get(origin + `/api/larder/recalls/${recall.id}.json`)
   expect(pack.status()).toBe(200); expect((await pack.json()).complete).toBe(false)
 })
+
+
+test('TRACE-005 preparation-only deviation proposal records failing inputs and evidence without releasing stock at 1440/390', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('A private local entry is required.')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  await settled(page)
+  const runId = crypto.randomUUID().slice(0, 6)
+  const snapshot = async () => {
+    const s = await (await page.request.get(origin + '/api/larder/state')).json()
+    return { movements: s.movements, positions: s.positions, reservations: s.reservations }
+  }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const tag = `${width}-${runId}`, location = await command(page, 'location.save', { name: `Deviation shelf ${tag}` })
+    const item = await command(page, 'item.save', { sku: `DEV-${tag}`, name: `Deviation item ${tag}`, kind: 'buy', baseUnit: 'each' })
+    const supplier = await command(page, 'party.save', { name: `Deviation supplier ${tag}`, kind: 'supplier' })
+    let po = await command(page, 'po.draft', { supplierId: supplier.id, expectedDate: today, reason: 'Proposal proof', lines: [{ itemId: item.id, quantity: '10', unitPrice: '2' }] })
+    po = await command(page, 'po.approve', { poId: po.id, version: po.version })
+    const receipt = await command(page, 'receipt.create', { poId: po.id, supplierReference: tag, lines: [{ lineId: po.lines[0].id, quantity: '10', locationId: location.id, lot: `DEV-LOT-${tag}` }] })
+    const evidence = { name: 'complaint.txt', contentType: 'text/plain', base64: Buffer.from('Finish defect').toString('base64') }
+    let n = await command(page, 'nonconformance.open', { lotId: receipt.lines[0].lotId, locationId: location.id, quantity: '4', complaint: 'Finish outside tolerance', dueOn: today, evidence: [evidence] })
+    let plan = await command(page, 'quality.plan.save', { itemId: item.id, stage: 'receipt', name: `Deviation finish ${tag}`, sampleSize: 1, measurements: [{ name: 'Roughness', unit: 'um', target: '1', lower: '0', upper: '2' }] })
+    plan = await command(page, 'quality.plan.approve', { planId: plan.id, version: plan.version })
+    const failure = await command(page, 'quality.inspect', { planId: plan.id, planVersion: plan.version, nonconformanceId: n.id, quantity: '4', samples: { Roughness: ['3'] } })
+    const before = await snapshot()
+    await open(page, 'make/quality')
+    const f = form(page, `Propose deviation ${n.reference}`)
+    await f.getByLabel('Deviation quantity', { exact: true }).fill('1.25')
+    await f.getByLabel('Deviation reason', { exact: true }).fill('Review fit for intended use')
+    await f.locator('input[type=file]').setInputFiles({ name: 'deviation-review.txt', mimeType: 'text/plain', buffer: Buffer.from('Engineering assessment; still needs independent approval') })
+    if (process.env.LARDER_SCREENSHOTS) await f.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-005-deviation-form.png`) })
+    await f.getByRole('button', { name: 'Save deviation proposal', exact: true }).click(); await settled(page)
+    n = (await (await page.request.get(origin + '/api/larder/state')).json()).nonconformances.find((x: any) => x.id === n.id)
+    const d = n.deviationProposals[0], region = page.getByRole('region', { name: `Deviation proposal ${d.reference}`, exact: true })
+    for (const text of ['Proposed deviation', '1.25 units', `DEV-LOT-${tag}`, `Deviation shelf ${tag}`, 'Review fit for intended use', 'Not approved or released', failure.id, 'deviation-review.txt', d.evidence[0].sha256]) await expect(region).toContainText(text)
+    await expect(region.getByRole('button')).toHaveCount(0)
+    const caseRegion = page.getByRole('region', { name: `Nonconformance ${n.reference}`, exact: true })
+    await expect(caseRegion).toContainText('affected 4 · still held 4')
+    expect(await snapshot()).toEqual(before)
+    await open(page, 'make/quality')
+    await expect(region).toContainText(d.evidence[0].sha256)
+    await expect(caseRegion.getByText('Failed · 1 outside', { exact: true })).toBeVisible()
+    const file = await page.request.get(origin + `/api/larder/attachments/${d.evidence[0].id}`)
+    expect(await file.text()).toBe('Engineering assessment; still needs independent approval')
+    expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    if (process.env.LARDER_SCREENSHOTS) await region.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-005-deviation-saved.png`) })
+    const attempt = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type: 'nonconformance.deviation.execute', payload: { caseId: n.id, version: n.version, deviationId: d.id } } })
+    expect((await attempt.json()).error.code).toBe('COMMAND')
+    expect(await snapshot()).toEqual(before)
+  }
+})

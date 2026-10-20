@@ -22,6 +22,15 @@ export function Nonconformances({ larder }: { larder: Larder }) {
         {n.actions.map((a: any, i: number) => <p key={i}>{a.nextAction} · {a.delivery}{a.supplierId && ` · supplier ${byId(s, 'parties', a.supplierId)?.name}`}{a.reworkOrderId && ` · repair ${byId(s, 'reworkOrders', a.reworkOrderId)?.reference}`} · evidence {a.evidence.map((e: any) => e.name).join(', ')}</p>)}
         {n.decisions.map((d: any, i: number) => <p key={i}>{d.decision} {d.quantity} · {d.reason || byId(s, 'reworkOrders', d.orderId)?.reference}{d.delivery && ` · ${d.delivery}`} · recorded by {personName(s, d.by)} · evidence {d.evidence?.map((e: any) => e.name).join(', ') || 'repair approval record'}</p>)}
         <InspectionResults s={s} subjectId={n.id} title={n.reference} />
+        {(n.deviationProposals ?? []).map((d: any) => <section key={d.id} aria-label={`Deviation proposal ${d.reference}`}>
+          <h4>{d.reference} · Proposed deviation</h4>
+          <p>{d.quantity} units of lot {byId(s, 'lots', d.lotId)?.code} at {byId(s, 'locations', d.locationId)?.name} · {d.reason}</p>
+          <p>Proposed by {personName(s, d.proposedBy)} {d.proposedAt} · reviewed case version {d.caseVersion} · held at proposal {d.heldAtProposal}</p>
+          <p role="status">Not approved or released. This proposal grants no stock release and is not an inspection pass.</p>
+          <p style={{ overflowWrap: 'anywhere' }}>Failing inspections: {d.inspectionIds.join(', ')}</p>
+          <ul>{d.evidence.map((e: any) => <li key={e.id} style={{ overflowWrap: 'anywhere' }}><a href={`/api/larder/attachments/${e.id}`}>{e.name}</a> · SHA-256 {e.sha256}</li>)}</ul>
+        </section>)}
+
         {n.effectiveness && <p>Effectiveness verified: {n.effectiveness.check} · evidence {n.effectiveness.evidence.map((e: any) => e.name).join(', ')}</p>}
         {qualified && n.status === 'open' && <>
           <Form title={`Follow up ${n.reference}`} submit="Record corrective action" busy={larder.busy} onSubmit={async d => larder.run('nonconformance.update', { caseId: n.id, version: n.version, rootCause: text(d, 'rootCause'), correctiveAction: text(d, 'correctiveAction'), nextAction: text(d, 'nextAction'), dueOn: text(d, 'dueOn'), supplierId: text(d, 'supplierId') || undefined, reworkOrderId: text(d, 'reworkOrderId') || undefined, evidence: await evidence(d) })}>
@@ -30,6 +39,10 @@ export function Nonconformances({ larder }: { larder: Larder }) {
             <Choose label="Repair order" name="reworkOrderId" required={false} options={[{ value: '', label: 'No repair routing' }, ...options(rows(s, 'reworkOrders').filter(w => w.sourceLotId === n.lotId), w => w.reference)]} />{file}
           </Form>
           {Number(n.remaining) > 0 && <>
+            <Form title={`Propose deviation ${n.reference}`} submit="Save deviation proposal" busy={larder.busy} note="Preparation only. This records the exact held quantity and failing results for future independent quality approval; it does not release stock." onSubmit={async d => larder.run('nonconformance.deviation.propose', { caseId: n.id, version: n.version, quantity: text(d, 'quantity'), reason: text(d, 'reason'), evidence: await evidence(d) })}>
+              <Field label="Deviation quantity" name="quantity" inputMode="decimal" /><Field label="Deviation reason" name="reason" />{file}
+            </Form>
+
             {rows(s, 'inspectionPlans').filter(p => p.status === 'approved' && p.itemId === n.itemId).map(p => <InspectForm key={p.id} larder={larder} plan={p} nonconformanceId={n.id} />)}
             <Form title={`Disposition ${n.reference}`} submit="Approve disposition" busy={larder.busy} onSubmit={async d => larder.run(`nonconformance.${text(d, 'decision')}`, { caseId: n.id, version: n.version, quantity: text(d, 'quantity'), inspectionId: text(d, 'inspectionId') || undefined, supplierId: text(d, 'returnSupplierId') || undefined, supplierReference: text(d, 'supplierReference') || undefined, reason: text(d, 'reason'), evidence: await evidence(d) })}>
               <Choose label="Decision" name="decision" options={[{ value: 'release', label: 'Release passing units' }, { value: 'reject', label: 'Reject units' }, { value: 'return', label: 'Record supplier return' }]} /><Field label="Disposition quantity" name="quantity" inputMode="decimal" />

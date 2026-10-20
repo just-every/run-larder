@@ -350,3 +350,80 @@ test('TRACE-006 immediate recall containment expands exact genealogy, identifies
   await h.command('role.set', { operatorId: manager.id, role: 'viewer' })
   await manager.run('recall.expand', { recallId: r.id, version: r.version }, { error: 'FORBIDDEN' })
 })
+
+
+test('TRACE-005 inert deviation proposals retain exact held inputs and failing evidence without approval or stock effects, including restart and archive restore', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const manager = await h.person('deviation-manager@example.test', 'manager')
+  const agent = await h.person('deviation-agent@example.test', 'agent')
+  const viewer = await h.person('deviation-viewer@example.test', 'viewer')
+  const location = await h.command('location.save', { name: 'Deviation shelf' })
+  const item = await h.command('item.save', { sku: 'DEV-PLATE', name: 'Deviation plate', kind: 'buy', baseUnit: 'each' })
+  const supplier = await h.command('party.save', { name: 'Deviation supplier', kind: 'supplier' })
+  let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: today, reason: 'Deviation preparation proof', lines: [{ itemId: item.id, quantity: '10', unitPrice: '2' }] })
+  po = await h.command('po.approve', { poId: po.id, version: po.version })
+  const receipt = await h.command('receipt.create', { poId: po.id, supplierReference: 'DEV-RECEIPT', lines: [{ lineId: po.lines[0].id, quantity: '10', locationId: location.id, lot: 'DEV-LOT' }] })
+  const lotId = receipt.lines[0].lotId
+  let n = await manager.run('nonconformance.open', { lotId, locationId: location.id, quantity: '4', complaint: 'Finish outside specification', dueOn: today, evidence: [evidence('Complaint')] })
+  const input = { caseId: n.id, version: n.version, quantity: '1.250000', reason: 'Review fit for intended use', evidence: [evidence('Engineering assessment; approval still required')] }
+  const stock = async () => { const s = await h.invariant(); return { movements: s.movements, positions: s.positions, reservations: s.reservations } }
+  const before = await stock()
+  const refused = async (who, payload, error, type = 'nonconformance.deviation.propose') => {
+    const previous = (await h.state()).nonconformances
+    await who(type, payload, { error })
+    assert.deepEqual(await stock(), before)
+    assert.deepEqual((await h.state()).nonconformances, previous)
+  }
+  await refused(manager.run, input, 'INSPECTION')
+  let plan = await h.command('quality.plan.save', { itemId: item.id, stage: 'receipt', name: 'Deviation finish', sampleSize: 1, measurements: [{ name: 'Roughness', unit: 'um', target: '1', lower: '0', upper: '2' }] })
+  plan = await h.command('quality.plan.approve', { planId: plan.id, version: plan.version })
+  const failed = await h.command('quality.inspect', { planId: plan.id, planVersion: plan.version, nonconformanceId: n.id, quantity: '4', samples: { Roughness: ['3'] }, evidence: [evidence('Failing measurement')] })
+  for (const [who, payload, error] of [
+    [agent.run, input, 'FORBIDDEN'], [viewer.run, input, 'FORBIDDEN'],
+    [manager.run, { ...input, version: n.version - 1 }, 'STALE'],
+    [manager.run, { ...input, quantity: '4.000001' }, 'QUANTITY'],
+    [manager.run, { ...input, quantity: '0' }, 'DECIMAL'],
+    [manager.run, { ...input, quantity: '-1' }, 'DECIMAL'],
+    [manager.run, { ...input, reason: '' }, 'INPUT'],
+    [manager.run, { ...input, evidence: [] }, 'INPUT'],
+  ]) await refused(who, payload, error)
+  const commandId = crypto.randomUUID(), reviewedVersion = n.version
+  n = await manager.run('nonconformance.deviation.propose', { ...input, approvedBy: manager.id, status: 'approved' }, { commandId })
+  const proposal = n.deviationProposals[0]
+  assert.equal(proposal.quantity, '1.25'); assert.equal(proposal.heldAtProposal, '4')
+  assert.equal(proposal.caseId, n.id); assert.equal(proposal.caseVersion, reviewedVersion)
+  assert.equal(proposal.lotId, lotId); assert.equal(proposal.locationId, location.id)
+  assert.equal(proposal.lotVersion, (await h.state()).lots.find(l => l.id === lotId).version)
+  assert.equal(proposal.proposedBy, manager.id); assert.ok(!Number.isNaN(Date.parse(proposal.proposedAt)))
+  assert.equal(proposal.version, 1); assert.equal(proposal.status, 'proposed; not approved or released')
+  assert.equal(proposal.approvedBy, undefined); assert.equal(proposal.executedAt, undefined)
+  assert.deepEqual(proposal.inspectionIds, [failed.id])
+  assert.deepEqual(proposal.inspections, [{ id: failed.id, version: failed.version, planId: plan.id, planVersion: plan.version, inspectedBy: failed.inspectedBy }])
+  const file = proposal.evidence[0], contents = await (await h.request(`/api/larder/attachments/${file.id}`)).arrayBuffer()
+  assert.equal(Buffer.from(await crypto.subtle.digest('SHA-256', contents)).toString('hex'), file.sha256)
+  assert.equal(n.remaining, '4'); assert.deepEqual(n.decisions, [])
+  assert.deepEqual(await stock(), before)
+  assert.deepEqual(await manager.run('nonconformance.deviation.propose', { ...input, approvedBy: manager.id, status: 'approved' }, { commandId }), n)
+  await manager.run('nonconformance.deviation.propose', { ...input, reason: 'Changed replay' }, { commandId, error: 'IDEMPOTENCY' })
+  await refused(h.command, { caseId: n.id, version: n.version, deviationId: proposal.id }, 'COMMAND', 'nonconformance.deviation.execute')
+  await refused(h.command, { caseId: n.id, version: n.version, deviationId: proposal.id }, 'COMMAND', 'nonconformance.deviation.approve')
+  await refused(h.command, { caseId: n.id, version: n.version, quantity: '1.25', inspectionId: failed.id, reason: 'Try proposal as pass', evidence: [evidence()] }, 'RETEST', 'nonconformance.release')
+  await h.command('role.set', { operatorId: manager.id, role: 'viewer' })
+  await refused(manager.run, { ...input, version: n.version }, 'FORBIDDEN')
+  await h.restart()
+  assert.deepEqual((await h.state()).nonconformances.find(x => x.id === n.id), n)
+  const archive = await (await h.request('/api/larder/archive')).json()
+  const target = await installation(); t.after(() => target.close())
+  const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })
+  assert.equal(restored.status, 200, await restored.text())
+  assert.deepEqual((await target.invariant()).nonconformances, [n])
+  assert.equal(await (await target.request(`/api/larder/attachments/${file.id}`)).text(), 'Engineering assessment; approval still required')
+  // History remains an inert proposal even after ordinary evidenced disposition.
+  n = await h.command('nonconformance.reject', { caseId: n.id, version: n.version, quantity: '4', reason: 'No deviation approved', evidence: [evidence()] })
+  n = await h.command('nonconformance.update', { caseId: n.id, version: n.version, rootCause: 'Worn tool', correctiveAction: 'Replace tool', nextAction: 'Inspect next batch', dueOn: today, evidence: [evidence()] })
+  n = await h.command('nonconformance.close', { caseId: n.id, version: n.version, effective: true, check: 'Next batch passed', evidence: [evidence()] })
+  const closedStock = await stock()
+  await h.command('nonconformance.deviation.propose', { ...input, version: n.version }, { error: 'STATE' })
+  assert.deepEqual(await stock(), closedStock)
+  assert.deepEqual((await h.state()).nonconformances[0].deviationProposals, [proposal])
+})
