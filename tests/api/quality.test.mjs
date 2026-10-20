@@ -356,7 +356,7 @@ test('TRACE-005 quality-role deviations: exact proposals, independent approval a
   const h = await installation(); t.after(() => h.close())
   const manager = await h.person('deviation-manager@example.test', 'manager')
   const opener = await h.person('deviation-opener@example.test', 'quality'), inspector = await h.person('deviation-inspector@example.test', 'quality')
-  const quality = await h.person('deviation-approver@example.test', 'quality'), revoked = await h.person('deviation-revoked@example.test', 'quality')
+  const quality = await h.person('deviation-approver@example.test', 'quality'), revoked = await h.person('deviation-revoked@example.test', 'quality'), departed = await h.person('deviation-departed@example.test', 'quality')
   const agent = await h.person('deviation-agent@example.test', 'agent'), viewer = await h.person('deviation-viewer@example.test', 'viewer')
   const day = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
   const location = await h.command('location.save', { name: 'Deviation shelf' })
@@ -373,9 +373,9 @@ test('TRACE-005 quality-role deviations: exact proposals, independent approval a
   let plan = await h.command('quality.plan.save', { itemId: item.id, stage: 'receipt', name: 'Deviation finish', sampleSize: 1, measurements: [{ name: 'Roughness', unit: 'um', target: '1', lower: '0', upper: '2' }] })
   plan = await h.command('quality.plan.approve', { planId: plan.id, version: plan.version })
   // A quality opener contains four units; a different quality inspector records the failure.
-  const open = async (code, quantity) => {
-    const n = await opener.run('nonconformance.open', { lotId: lots.find(l => l.code === code).id, locationId: location.id, quantity, complaint: `Finish outside specification on ${code}`, dueOn: today, evidence: [evidence('Complaint')] })
-    const failed = await inspector.run('quality.inspect', { planId: plan.id, planVersion: plan.version, nonconformanceId: n.id, quantity, samples: { Roughness: ['3'] }, evidence: [evidence('Failing measurement')] })
+  const open = async (code, quantity, by = { opener: opener.run, inspector: inspector.run }) => {
+    const n = await by.opener('nonconformance.open', { lotId: lots.find(l => l.code === code).id, locationId: location.id, quantity, complaint: `Finish outside specification on ${code}`, dueOn: today, evidence: [evidence('Complaint')] })
+    const failed = await by.inspector('quality.inspect', { planId: plan.id, planVersion: plan.version, nonconformanceId: n.id, quantity, samples: { Roughness: ['3'] }, evidence: [evidence('Failing measurement')] })
     return { n: (await h.state()).nonconformances.find(x => x.id === n.id), failed }
   }
   let { n, failed } = await open('DEV-LOT', '4')
@@ -414,6 +414,9 @@ test('TRACE-005 quality-role deviations: exact proposals, independent approval a
   await quality.run('nonconformance.deviation.approve', approve(a, { note: 'Changed replay' }), { commandId: approvalId, error: 'IDEMPOTENCY' })
   await h.command('role.set', { operatorId: revoked.id, role: 'production' })
   await refused(revoked.run, 'nonconformance.deviation.approve', approve(c), 'FORBIDDEN')
+  const deactivated = await h.request('/auth/operator/status', { method: 'POST', body: { operatorId: departed.id, status: 'inactive' } })
+  assert.equal(deactivated.status, 200, await deactivated.text())
+  await refused(departed.run, 'nonconformance.deviation.approve', approve(c), 'AUTH')
   n = await quality.run('nonconformance.deviation.approve', approve(c))
   // Execution rechecks recall, expiry/retest and certificate gates and never runs for managers or agents.
   const execute = (d, more = {}) => ({ caseId: n.id, version: n.version, deviationId: d.id, ...more })
@@ -443,9 +446,10 @@ test('TRACE-005 quality-role deviations: exact proposals, independent approval a
   await refused(quality.run, 'nonconformance.deviation.approve', approve(b), 'STALE_INPUTS')
   await refused(manager.run, 'nonconformance.deviation.propose', { ...input, version: n.version, quantity: '2.750001' }, 'QUANTITY')
   // Recalled and expired lots keep their gates.
-  const recalled = await open('DEV-RECALL', '1')
+  const recalled = await open('DEV-RECALL', '1', { opener: h.command, inspector: h.command })
   let r = await manager.run('nonconformance.deviation.propose', { ...input, caseId: recalled.n.id, version: recalled.n.version, quantity: '1' })
-  r = await quality.run('nonconformance.deviation.approve', { caseId: r.id, version: r.version, deviationId: r.deviationProposals[0].id, note: 'Use as is' })
+  r = await h.command('nonconformance.deviation.approve', { caseId: r.id, version: r.version, deviationId: r.deviationProposals[0].id, note: 'Owner exception: opener and failing inspector' })
+  assert.deepEqual([r.createdBy, recalled.failed.inspectedBy, r.deviationProposals[0].approverRole, r.deviationProposals[0].status], [(await h.state()).actor.id, (await h.state()).actor.id, 'owner', 'approved; not yet released'])
   await h.command('recall.open', { lotId: recalled.n.lotId, reason: 'Supplier contamination notice', evidence: [evidence('Supplier notice')] })
   r = (await h.state()).nonconformances.find(x => x.id === r.id)
   await refused(quality.run, 'nonconformance.deviation.execute', { caseId: r.id, version: r.version, deviationId: r.deviationProposals[0].id }, 'RECALL_HOLD')
