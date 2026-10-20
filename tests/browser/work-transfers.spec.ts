@@ -6,7 +6,7 @@ async function command(page: Page, type: string, payload: object) { const r = aw
 async function settled(page: Page) { await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false'); await expect(page.getByRole('alert')).toHaveCount(0) }
 const card = (page: Page, title: string) => page.locator('section.card').filter({ has: page.getByRole('heading', { name: title, exact: true }) })
 async function open(page: Page, id: string) { await page.goto(origin + `/app#make/wo/${id}`); await page.reload(); await settled(page) }
-async function shot(page: Page, name: string) { if (!process.env.LARDER_SCREENSHOTS) return; await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true }); await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-FLOOR-005-${name}.png`), fullPage: true }) }
+async function shot(page: Page, name: string) { if (!process.env.LARDER_SCREENSHOTS) return; await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true }); await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-FLOOR-005-${name}.png`), fullPage: true }); await card(page, 'Split and merge work').screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-FLOOR-005-${name}-detail.png`) }) }
 
 test('FLOOR-005 split partly completed work across two centers, merge remaining WIP and reconcile original demand, lots, time and costs at 1440/390', async ({ page }) => {
   if (!process.env.LARDER_OPEN) throw new Error('Private entry required')
