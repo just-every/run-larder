@@ -56,12 +56,13 @@ export function nonconformance(c: Context, type: string, p: any): Row | undefine
     return bump(n, { rootCause: text(p.rootCause, 'root cause', 2000), correctiveAction: text(p.correctiveAction, 'corrective action', 2000), dueOn: date(p.dueOn, 'due date') })
   }
   if (['nonconformance.release', 'nonconformance.reject', 'nonconformance.return'].includes(type)) {
-    approver(c, ['manager'], n.createdBy)
     const quantity = qty(p.quantity)
     if (quantity > decimal(n.remaining)) fail('QUANTITY', 'Disposition exceeds the quantity still held by this case.')
     const evidence = files(c, p.evidence), reason = text(p.reason, 'disposition reason', 1000)
     let inspectionId = ''
     if (type === 'nonconformance.release') {
+      approver(c, ['manager'], n.createdBy)
+      approver(c, ['manager'], c.s.inspections.filter(i => i.subjectId === n.id && !i.passed).at(-1)?.inspectedBy)
       const lot = get(c.s, 'lots', n.lotId)
       assertLotNotHeld(c.s, lot.id, 'released')
       if (lotBlock(lot, c.now.slice(0, 10))) fail('LOT_BLOCKED', 'The lot needs an expiry/retest disposition first.')
