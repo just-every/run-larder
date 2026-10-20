@@ -6,7 +6,7 @@ test('BUY-004 two-lot free issue, partial good/scrap, service bill, customer own
   const h = await installation(); t.after(() => h.close())
   const buyer = await h.person('buyer@example.test', 'buyer'), accounts = await h.person('accounts@example.test', 'accounts'), agent = await h.person('agent@example.test', 'agent')
   const shop = await h.command('location.save', { name: 'Workshop' }), vendor = await h.command('location.save', { name: 'Outside finisher custody' })
-  const supplier = await h.command('party.save', { name: 'Coastal Finishing', kind: 'supplier' }), customer = await h.command('party.save', { name: 'Harbor Workshop', kind: 'customer' })
+  const supplier = await h.command('party.save', { name: 'Coastal Finishing', kind: 'both' }), customer = await h.command('party.save', { name: 'Harbor Workshop', kind: 'both' })
   const part = await h.command('item.save', { sku: 'BLANK', name: 'Steel blank', kind: 'buy', baseUnit: 'each' }), output = await h.command('item.save', { sku: 'COATED', name: 'Coated blank', kind: 'make', baseUnit: 'each' })
   let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: today, reason: 'Material for outside coating', lines: [{ itemId: part.id, quantity: '8', unitPrice: '10' }] })
   po = await h.command('po.approve', { poId: po.id, version: po.version })

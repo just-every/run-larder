@@ -15,9 +15,9 @@ export function subcontract(c: Context, type: string, p: any): Row | undefined {
   if (type === 'subcontract.draft') {
     allow(c, ['manager', 'buyer', 'agent'])
     const supplier = get(c.s, 'parties', p.supplierId), item = get(c.s, 'items', p.itemId), location = get(c.s, 'locations', p.vendorLocationId)
-    if (supplier.kind !== 'supplier') fail('INPUT', 'Choose a subcontract supplier.')
+    if (supplier.kind === 'customer') fail('INPUT', 'Choose a subcontract supplier.')
     const customer = p.customerId ? get(c.s, 'parties', p.customerId) : null
-    if (customer && customer.kind !== 'customer') fail('INPUT', 'Choose a customer owner.')
+    if (customer && customer.kind === 'supplier') fail('INPUT', 'Choose a customer owner.')
     const quantity = decimal(p.quantity, 'output quantity', { positive: true }), serviceRate = decimal(p.serviceRate, 'service rate')
     return row(c, 'subcontractOrders', { reference: nextReference(c.s.subcontractOrders, 'SC'), supplierId: supplier.id, vendorLocationId: location.id, itemId: item.id, customerId: customer?.id ?? '', quantity: format(quantity), serviceRate: format(serviceRate), exposure: format(times(quantity, serviceRate)), expectedDate: date(p.expectedDate), operation: text(p.operation, 'operation'), status: 'draft', issued: [], receipts: [], returns: [], good: '0', scrap: '0', serviceAccrued: '0' })
   }

@@ -15,7 +15,7 @@ for (const width of [1440, 390]) test(`BUY-004 outside finishing, partial receip
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup' }).click(); await page.waitForURL('**/app') }
   await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false')
   const shop = await command(page, 'location.save', { name: `Finishing workshop ${width}` }), vendor = await command(page, 'location.save', { name: `Coastal custody ${width}` })
-  const supplier = await command(page, 'party.save', { name: `Coastal Finishing ${width}`, kind: 'supplier' })
+  const supplier = await command(page, 'party.save', { name: `Coastal Finishing ${width}`, kind: 'both' })
   const part = await command(page, 'item.save', { sku: `PLATE-${width}`, name: `Steel plate ${width}`, kind: 'buy', baseUnit: 'each' }), output = await command(page, 'item.save', { sku: `COATED-${width}`, name: `Coated plate ${width}`, kind: 'make', baseUnit: 'each' })
   let po = await command(page, 'po.draft', { supplierId: supplier.id, expectedDate: today, reason: 'Outside finishing inputs', lines: [{ itemId: part.id, quantity: '8', unitPrice: '10' }] }); po = await command(page, 'po.approve', { poId: po.id, version: po.version })
   for (const lot of [`HEAT-A-${width}`, `HEAT-B-${width}`]) await command(page, 'receipt.create', { poId: po.id, supplierReference: lot, lines: [{ lineId: po.lines[0].id, locationId: shop.id, lot, quantity: '4', inspection: 'accept' }] })
@@ -40,7 +40,7 @@ for (const width of [1440, 390]) test(`BUY-004 outside finishing, partial receip
   const final = await (await page.request.get(origin + '/api/larder/state')).json(), done = final.subcontractOrders.find((x: any) => x.id === o.id)
   expect(done.bill.difference).toBe('0'); expect(done.serviceAccrued).toBe('14'); expect(done.issued.map((i: any) => Number(i.quantity) - Number(i.consumed) - Number(i.returned))).toEqual([0, 0])
   expect(final.lots.find((l: any) => l.id === done.receipts[1].lotId).documentId).toBe(done.id)
-  const customer = await command(page, 'party.save', { name: `Harbor Tools ${width}`, kind: 'customer' })
+  const customer = await command(page, 'party.save', { name: `Harbor Tools ${width}`, kind: 'both' })
   await page.reload(); await settled(page)
   const intake = card(page, 'Receive customer property'); await intake.getByLabel('Customer', { exact: true }).selectOption(customer.id); await intake.getByLabel('Customer material').selectOption(part.id); await intake.getByLabel('Custody location').selectOption(shop.id); await intake.getByLabel('Customer lot').fill(`PROPERTY-${width}`); await intake.getByLabel('Customer quantity').fill('4'); await intake.locator('input[type=file]').setInputFiles(file); await intake.getByRole('button', { name: 'Record customer custody' }).click(); await settled(page)
   await expect(card(page, 'Customer property custody ledger')).toContainText(`PROPERTY-${width}`); await shot(page, 'customer-custody')

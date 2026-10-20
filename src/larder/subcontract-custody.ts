@@ -17,7 +17,7 @@ export function customerStock(c: Context, type: string, p: any) {
   if (type !== 'customerStock.receive') return
   allow(c, ['manager', 'warehouse', 'buyer'])
   const customer = get(c.s, 'parties', p.customerId), item = get(c.s, 'items', p.itemId), location = get(c.s, 'locations', p.locationId)
-  if (customer.kind !== 'customer') fail('INPUT', 'Choose a customer owner.')
+  if (customer.kind === 'supplier') fail('INPUT', 'Choose a customer owner.')
   const evidence = attach(c, p.evidence), quantity = decimal(p.quantity, 'quantity', { positive: true })
   const lot = row(c, 'lots', { itemId: item.id, code: text(p.lot, 'customer lot', 80), ownerId: customer.id, source: 'customer-custody', evidence, status: 'customer property' })
   custody(c, lot.id, location.id, quantity, 'intake')
