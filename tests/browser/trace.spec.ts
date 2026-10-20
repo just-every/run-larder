@@ -21,7 +21,7 @@ test('TRACE-001 legacy disclosure, evidenced allocation and exact continuation a
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
   await settled(page)
   const archive = JSON.parse(await readFile(new URL('../../fixtures/trace/legacy.json', import.meta.url), 'utf8'))
-  const restored = await page.request.post(legacyOrigin + '/api/larder/archive/restore', { headers: { Origin: origin }, data: archive }); expect(restored.status()).toBe(200)
+  const restored = await page.request.post(legacyOrigin + '/api/larder/archive/restore', { headers: { Origin: legacyOrigin }, data: archive }); expect(restored.status()).toBe(200)
   let s = await (await page.request.get(legacyOrigin + '/api/larder/state')).json(), w = s.workOrders[0]
   await page.reload(); await settled(page); await page.evaluate(id => { location.hash = `make/wo/${id}` }, w.id)
   const history = page.locator('section.card').filter({ has: page.getByRole('heading', { name: 'Historical output allocations', exact: true }) })
