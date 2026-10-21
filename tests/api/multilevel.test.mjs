@@ -366,3 +366,105 @@ test('MRP-001 dated multilevel pegs share stock and ETA pools, honor make/buy/ph
   for (const key of ['requirements', 'blockedExplosions', 'unverifiedReservations', 'provisionalSupply', 'excludedStock', 'scope', 'limitations']) assert.deepEqual(copy[key], blocked[key], key)
   await h.invariant()
 })
+
+
+test('MRP-001 manufacturing offsets reject completion-day material, follow multilevel full-batch routing and keep released timing pinned across edits and restore', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const item = async (sku, kind = 'make') => h.command('item.save', { sku, name: sku, kind, baseUnit: 'each' })
+  const raw = await item('OFFSET-RAW', 'buy'), sub = await item('OFFSET-SUB'), kit = await item('OFFSET-PHANTOM'), top = await item('OFFSET-FINISHED')
+  const bin = await h.command('location.save', { name: 'Offset materials' })
+  const customer = await h.command('party.save', { name: 'Offset buyer', kind: 'customer' }), supplier = await h.command('party.save', { name: 'Offset supplier', kind: 'supplier' })
+  await h.command('partyItem.save', { partyId: supplier.id, itemId: raw.id, partyCode: 'OFFSET', leadDays: 2, preferred: true })
+  await h.command('bom.revise', { itemId: sub.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'Subassembly', runMinutes: 960 }] })
+  await h.command('bom.revise', { itemId: kit.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'Not a separate phantom operation', runMinutes: 100000 }] })
+  const components = [{ itemId: sub.id, quantity: '1' }, { itemId: kit.id, quantity: '1', supply: 'phantom' }]
+  const routing = [
+    { name: 'Prepare', setupMinutes: 400, queueMinutes: 320, runMinutes: 480 },
+    { name: 'Independent cure', dependsOn: [], setupMinutes: 1440, runMinutes: 0 },
+    { name: 'Join', dependsOn: [1, 2], runMinutes: 1e-6, transferBatch: '1', allowOverlap: true },
+  ]
+  const bom = await h.command('bom.revise', { itemId: top.id, components, routing })
+  await h.command('opening.record', { locationId: bin.id, countedOn: date(0), countedBy: 'Olive', valuationBasis: 'owner-estimate', evidence: evidence(), lines: [
+    { itemId: top.id, quantity: '0.5', unitCost: '1' },
+    { itemId: raw.id, quantity: '1', unitCost: '1', lot: 'OFFSET-EXPIRES', dates: { expiresOn: date(8) } },
+  ] })
+  let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: date(8), reason: 'Material arrives before completion but after subassembly start', lines: [{ itemId: raw.id, quantity: '20', unitPrice: '1' }] })
+  po = await h.command('po.approve', { poId: po.id, version: po.version })
+  const order = async (id, quantity, days) => {
+    const q = await h.command('so.quote', { customerId: customer.id, promiseDate: date(days), lines: [{ itemId: id, quantity }] })
+    return h.command('so.confirm', { orderId: q.id, version: q.version, reserve: false })
+  }
+  const sale = await order(top.id, '2', 10)
+  const read = async instance => { const r = await instance.request('/api/larder/planning/materials'); assert.equal(r.status, 200); return r.json() }
+  const before = await h.state(), outbound = h.outboundCount(), plan = await read(h)
+  const rows = plan.requirements.filter(r => r.documentId === sale.id)
+  const finished = rows.find(r => r.itemId === top.id), assembly = rows.find(r => r.itemId === sub.id)
+  assert.deepEqual([finished.covered, finished.shortage, finished.suggestion.quantity], ['0.5', '1.5', '1.5'])
+  // Independent operations share time; joining both adds a positive fractional
+  // minute beyond one complete day. The full uncovered batch needs two days.
+  assert.deepEqual([finished.suggestion.kind, finished.suggestion.leadDays, finished.suggestion.receiptOn, finished.suggestion.releaseOn], ['make', 2, date(10), date(8)])
+  assert.deepEqual([assembly.quantity, assembly.requiredBy, assembly.suggestion.leadDays, assembly.suggestion.releaseOn], ['1.5', date(8), 1, date(7)])
+  const subInput = rows.find(r => r.itemId === raw.id && r.path.some(p => p.itemId === sub.id))
+  const phantomInput = rows.find(r => r.itemId === raw.id && r.path.some(p => p.itemId === kit.id))
+  assert.deepEqual([subInput.requiredBy, subInput.quantity, subInput.covered, subInput.shortage], [date(7), '1.5', '1', '0.5'])
+  assert.deepEqual([subInput.suggestion.receiptOn, subInput.suggestion.releaseOn], [date(7), date(5)])
+  assert.ok(subInput.unavailablePurchases.some(p => p.documentId === po.id))
+  assert.deepEqual(subInput.path.map(p => [p.timing.receiptOn, p.timing.releaseOn]), [[date(10), date(8)], [date(8), date(7)]])
+  assert.deepEqual([phantomInput.requiredBy, phantomInput.quantity, phantomInput.covered], [date(8), '1.5', '1.5'])
+  assert.equal(phantomInput.sources[0].documentId, po.id)
+  assert.equal(phantomInput.path.at(-1).timing.leadDays, 0)
+  assert.deepEqual(await h.state(), before); assert.equal(h.outboundCount(), outbound)
+  // Earlier declared arrival is now useful; an ETA one day later cannot cover.
+  po = await h.command('po.revise', { poId: po.id, version: po.version, expectedDate: date(7), note: 'Arrives at subassembly start' })
+  assert.ok((await read(h)).requirements.filter(r => r.documentId === sale.id && r.itemId === raw.id).every(r => r.shortage === '0'))
+  // A released job uses its own routing and full job quantity, never the latest
+  // BOM or a fabricated remaining-time estimate. Its ETA is still declarative.
+  const draft = await h.command('wo.draft', { itemId: top.id, quantity: '2', requiredBy: date(10), reason: 'Pinned material dates' })
+  let work = await h.command('wo.release', { workOrderId: draft.id, version: draft.version })
+  work = await h.command('work.expected', { workOrderId: work.id, version: work.version, expectedOn: date(12) })
+  const revision = await h.command('bom.revise', { itemId: top.id, components, routing: [{ name: 'Much later revision', runMinutes: 100000 }] })
+  let pinned = await read(h)
+  const inputs = pinned.requirements.filter(r => r.kind === 'work' && r.documentId === work.id)
+  assert.ok(inputs.length > 0)
+  assert.ok(inputs.every(r => r.requiredBy === date(10) && r.workTiming.bomId === bom.id && r.workTiming.leadDays === 2 && r.workTiming.receiptOn === date(12)))
+  assert.equal(pinned.requirements.find(r => r.documentId === sale.id && r.itemId === top.id).manufacturing.bomId, revision.id)
+  const known = await item('OFFSET-KNOWN-ZERO'), unknown = await item('OFFSET-UNKNOWN')
+  await h.command('bom.revise', { itemId: known.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'Recorded zero', runMinutes: 0 }] })
+  await h.command('bom.revise', { itemId: unknown.id, components: [{ itemId: raw.id, quantity: '1' }] })
+  const zeroSale = await order(known.id, '1', 1), unknownSale = await order(unknown.id, '1', 1)
+  pinned = await read(h)
+  assert.deepEqual([pinned.requirements.find(r => r.documentId === zeroSale.id && r.itemId === known.id).suggestion.leadDays, pinned.requirements.find(r => r.documentId === zeroSale.id && r.itemId === known.id).suggestion.releaseOn], [0, date(1)])
+  assert.deepEqual([pinned.requirements.find(r => r.documentId === unknownSale.id && r.itemId === unknown.id).manufacturing.leadDays, pinned.requirements.find(r => r.documentId === unknownSale.id && r.itemId === unknown.id).manufacturing.releaseOn], [null, null])
+  // Exact decimal minutes must not create an extra day at a rounding boundary.
+  await h.command('bom.revise', { itemId: known.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'One exact day', setupMinutes: 1439.7, queueMinutes: 0.1, runMinutes: 0.2 }] })
+  let exact = await read(h), timing = exact.requirements.find(r => r.documentId === zeroSale.id && r.itemId === known.id).suggestion
+  assert.deepEqual([timing.leadDays, timing.releaseOn], [1, date(0)])
+  await h.command('bom.revise', { itemId: known.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'Past release', setupMinutes: 2880, runMinutes: 0 }] })
+  const past = (await read(h)).requirements.find(r => r.documentId === zeroSale.id && r.itemId === known.id).suggestion
+  assert.equal(past.releaseOn, date(-1)); assert.equal(past.requiresPastRelease, true)
+  // An accepted large batch can exceed the calendar's range; report a blocked
+  // branch and explicit shortage instead of crashing or inferring late supply.
+  const huge = await order(known.id, '10000000', 3)
+  await h.command('bom.revise', { itemId: known.id, components: [{ itemId: raw.id, quantity: '0.000001' }], routing: [{ name: 'Long job', runMinutes: 100000 }] })
+  exact = await read(h)
+  const outOfRange = exact.requirements.find(r => r.documentId === huge.id && r.itemId === known.id)
+  assert.equal(outOfRange.manufacturing.releaseOn, null); assert.equal(outOfRange.suggestion, null)
+  assert.ok(exact.blockedExplosions.some(r => r.documentId === huge.id && r.reason.includes('four-digit calendar')))
+  assert.equal(exact.requirements.some(r => r.documentId === huge.id && r.itemId === raw.id), false)
+  const hugeDraft = await h.command('wo.draft', { itemId: known.id, quantity: '10000000', requiredBy: date(3), reason: 'Unrepresentable pinned release date' })
+  const hugeWork = await h.command('wo.release', { workOrderId: hugeDraft.id, version: hugeDraft.version })
+  exact = await read(h)
+  const hugeInput = exact.requirements.find(r => r.kind === 'work' && r.documentId === hugeWork.id)
+  assert.deepEqual([hugeInput.covered, hugeInput.shortage, hugeInput.suggestion, hugeInput.workTiming.releaseOn], ['0', '10', null, null])
+  assert.ok(exact.blockedExplosions.some(r => r.documentId === hugeWork.id && r.reason.includes('four-digit calendar')))
+  // Dispatch includes a request-time asOf clock; compare every other exposed
+  // field and the dispatch facts, without pretending that clock is persisted.
+  const stable = state => ({ ...state, dispatch: state.dispatch.map(({ asOf, ...facts }) => facts) })
+  const finalState = stable(await h.state()); assert.deepEqual(await read(h), exact); assert.deepEqual(stable(await h.state()), finalState)
+  await h.restart(); assert.deepEqual(await read(h), exact)
+  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restored.status, 200, await restored.text())
+  const copy = await read(target)
+  for (const key of ['requirements', 'blockedExplosions', 'unverifiedReservations', 'provisionalSupply', 'excludedStock', 'scope', 'limitations']) assert.deepEqual(copy[key], exact[key], key)
+  await h.invariant()
+})

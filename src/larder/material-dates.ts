@@ -8,6 +8,7 @@ import { deliveries } from './sales-schedules'
 import type { State } from './model'
 import type { CatalogLocation } from './catalog-fields'
 import { activeBom } from './bom'
+import { impossibleTiming, materialReleaseOn, materialTiming } from './material-lead'
 import { componentQuantity } from './bom-explosion'
 import { demandOrder, materialMode, materialOrder, type MaterialDemand as Demand } from './material-demand'
 
@@ -20,13 +21,14 @@ export function materialDates(s: State) {
   for (const w of s.workOrders) if (w.status === 'released') for (const l of w.components) {
     // Pinned mixed make/buy requirements allocate actual issues buy first,
     // consistently with the aggregate ENG-001 planner. Never read a new BOM.
+    const workTiming = materialTiming({ ...w, id: w.bomId }, decimal(w.quantity), w.expectedOn ?? w.requiredBy, today)
     let issued = decimal(l.issued)
     const requirements = Array.isArray(l.supplyRequirements) && l.supplyRequirements.length
       ? [...l.supplyRequirements].sort((a, b) => a.supply.localeCompare(b.supply))
       : [{ supply: materialMode(s, l), quantity: l.required }]
     for (const requirement of requirements) {
       const quantity = decimal(requirement.quantity), used = min(issued, quantity); issued -= used
-      add({ kind: 'work', documentId: w.id, lineId: l.id, reference: w.reference, itemId: l.itemId, date: w.requiredBy,
+      add({ kind: 'work', documentId: w.id, lineId: l.id, reference: w.reference, itemId: l.itemId, date: workTiming.releaseOn ?? workTiming.receiptOn, workTiming,
         quantity: quantity - used, rank: w.rank ?? Infinity, supply: requirement.supply,
         path: [{ itemId: w.itemId, bomId: w.bomId, revision: w.bomRevision }] })
     }
@@ -42,6 +44,7 @@ export function materialDates(s: State) {
     })
   const reservations = s.reservations.map(r => ({ ...r, left: r.quantity }))
   const usable = (d: Demand, lotId: string) => {
+    if (d.workTiming && impossibleTiming(d.workTiming)) return false
     const on = d.date > today ? d.date : today
     return !(d.kind === 'sales' ? shipBlock(s, lotId, on, d.customerId!) : lotBlock(s.lots.find(l => l.id === lotId), on))
   }
@@ -107,7 +110,7 @@ export function materialDates(s: State) {
     const rows = demands.filter(d => d.itemId === itemId).sort(demandOrder)
     for (const d of rows) {
       if (d.supply !== 'phantom') takeStock(d, undefined, d.left, false)
-      for (const p of purchases) if (d.supply !== 'phantom' && p.itemId === d.itemId && p.date >= today && p.date <= d.date) {
+      for (const p of purchases) if (!(d.workTiming && impossibleTiming(d.workTiming)) && d.supply !== 'phantom' && p.itemId === d.itemId && p.date >= today && p.date <= d.date) {
         const take = min(d.left, p.left)
         if (take <= 0n) continue
         d.left -= take; p.left -= take
@@ -118,8 +121,9 @@ export function materialDates(s: State) {
     }
     // Follow ENG-001's active-today revision and aggregate upward rounding.
     // Cumulative pegs sum to the rounded recipe total, including tiny roots.
+    for (const d of rows) if (d.workTiming && impossibleTiming(d.workTiming)) blockedExplosions.push({ itemId, documentId: d.documentId, lineId: d.lineId, requiredBy: d.date, quantity: format(d.left), workOrderIds: [d.documentId], reason: d.workTiming.basis })
     const branches = [...floorDemands.filter(d => d.itemId === itemId), ...rows]
-      .filter(d => d.left > 0n && d.supply !== 'buy').sort(demandOrder)
+      .filter(d => d.left > 0n && d.supply !== 'buy' && !(d.workTiming && impossibleTiming(d.workTiming))).sort(demandOrder)
     // Existing work has independent pinned inputs. Until its material
     // feasibility can be proved, do not explode the same output's sales again
     // or silently call that output usable supply. Keep the shortage explicit.
@@ -133,31 +137,38 @@ export function materialDates(s: State) {
     const expandable = branches.filter(d => d.supply === 'phantom' || !workOrderIds.length)
     const bom = activeBom(s, itemId, today)
     if (!bom) continue
+    const timed = expandable.map(d => ({ d, timing: materialTiming(bom, d.left, d.date, today, d.supply === 'phantom') }))
+    for (const { d, timing } of timed) if (impossibleTiming(timing)) blockedExplosions.push({ itemId, documentId: d.documentId, lineId: d.lineId, requiredBy: d.date, quantity: format(d.left), workOrderIds: [], reason: timing.basis })
     for (const line of bom.components) {
       let cumulative = 0n, apportioned = 0n
-      for (const d of expandable) {
+      for (const { d, timing } of timed) {
+        if (impossibleTiming(timing)) continue
         cumulative += d.left
         const total = componentQuantity(line.quantity, cumulative, bom.yield ?? '1')
         add({ kind: 'dependent', documentId: d.documentId, lineId: d.lineId, reference: d.reference,
-          itemId: line.itemId, date: d.date, quantity: total - apportioned, rank: d.rank,
-          supply: materialMode(s, line), path: [...d.path, { itemId, bomId: bom.id, revision: bom.revision }] })
+          itemId: line.itemId, date: timing.releaseOn ?? d.date, quantity: total - apportioned, rank: d.rank,
+          supply: materialMode(s, line), path: [...d.path, { itemId, bomId: bom.id, revision: bom.revision, timing }] })
         apportioned = total
       }
     }
   }
   const requirements = allocated.map(d => {
     const item = s.items.find(i => i.id === d.itemId)!
+    const manufacturing = d.left > 0n && d.supply !== 'buy' ? materialTiming(activeBom(s, d.itemId, today), d.left, d.date, today, d.supply === 'phantom') : null
     const terms = s.partyItems.filter(t => t.itemId === item.id && s.parties.some(p => p.id === t.partyId && p.kind !== 'customer'))
       .sort((a, b) => Number(b.preferred) - Number(a.preferred) || a.id.localeCompare(b.id))[0]
 
+    const purchaseRelease = terms ? materialReleaseOn(d.date, terms.leadDays) : null
+    const timingBlocked = d.workTiming && impossibleTiming(d.workTiming)
     return { kind: d.kind, supply: d.supply, path: d.path, ...(d.kind === 'safety' ? { locationId: d.locationId, catalogLocationIds: d.catalogLocationIds } : {}), documentId: d.documentId, lineId: d.lineId, reference: d.reference, itemId: d.itemId, requiredBy: d.date, overdue: d.date < today,
+      manufacturing, ...(d.workTiming ? { workTiming: d.workTiming } : {}),
       quantity: format(d.quantity), covered: format(d.quantity - d.left), shortage: format(d.left), sources: d.sources, unavailablePurchases: unavailablePurchases.get(d)!,
-      unavailableStock: physical.filter(p => p.itemId === d.itemId && (p.status !== 'available' || !usable(d, p.lotId))).map(p => ({ ...p, reason: p.status !== 'available' ? p.status : d.kind === 'sales' ? shipBlock(s, p.lotId, d.date > today ? d.date : today, d.customerId!) : lotBlock(s.lots.find(l => l.id === p.lotId), d.date > today ? d.date : today) })),
-      suggestion: d.left > 0n && d.supply === 'buy' ? { kind: 'buy', quantity: format(d.left), supplierId: terms?.partyId ?? null, receiptOn: d.date,
-        releaseOn: terms ? addDays(d.date, -terms.leadDays) : null, leadDays: terms?.leadDays ?? null, requiresPastRelease: terms ? addDays(d.date, -terms.leadDays) < today : null } : null }
+      unavailableStock: physical.filter(p => p.itemId === d.itemId && (p.status !== 'available' || !usable(d, p.lotId))).map(p => ({ ...p, reason: p.status !== 'available' ? p.status : timingBlocked ? d.workTiming!.basis : d.kind === 'sales' ? shipBlock(s, p.lotId, d.date > today ? d.date : today, d.customerId!) : lotBlock(s.lots.find(l => l.id === p.lotId), d.date > today ? d.date : today) })),
+      suggestion: timingBlocked ? null : d.left > 0n && d.supply === 'buy' ? { kind: 'buy', quantity: format(d.left), supplierId: terms?.partyId ?? null, receiptOn: d.date,
+        releaseOn: purchaseRelease, leadDays: terms?.leadDays ?? null, requiresPastRelease: purchaseRelease === null ? null : purchaseRelease < today } : d.left > 0n && d.supply === 'make' && manufacturing?.releaseOn ? { kind: 'make', quantity: format(d.left), ...manufacturing } : null }
   })
   return { version: s.version, asOf: today, scope: 'current physical safety floors, dated multilevel sales/forecast demand and pinned released-work inputs; physical stock and dated purchases',
-    limitations: ['Purchase dates are declared expectations; receipt and quality still gate use.', 'Dependent components inherit the parent required day; manufacturing lead offsets and capacity feasibility are not proven.', 'Draft and released work output is provisional; multilevel material feasibility is not proven.', 'Safety floors protect current physical stock only; future floor replenishment, supplier calendars and automatic draft adoption are not applied.'],
+    limitations: ['Purchase dates are declared expectations; receipt and quality still gate use.', 'Manufacturing offsets use recorded full-batch routing critical paths in UTC calendar days; missing routing remains unknown, and capacity and transfer overlap are not applied.', 'Draft and released work output is provisional; multilevel material feasibility is not proven.', 'Safety floors protect current physical stock only; future floor replenishment, supplier calendars and automatic draft adoption are not applied.'],
     requirements, blockedExplosions, unverifiedReservations: unverified,
     provisionalSupply: [
       ...s.purchaseOrders.filter(p => p.status === 'draft').flatMap(po => po.lines.map((l: any) => ({ kind: 'purchase', documentId: po.id, reference: po.reference, itemId: l.itemId, date: po.expectedDate, quantity: l.quantity, reason: 'purchase not approved' }))),

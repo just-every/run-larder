@@ -3,14 +3,16 @@
 import { activeBom } from './bom'
 import { fail } from './problem'
 import type { State } from './model'
+import type { MaterialTiming } from './material-lead'
 
 export type SupplyMode = 'make' | 'buy' | 'phantom'
 export type MaterialSource = { kind: 'stock' | 'purchase'; documentId: string; lineId?: string; reference: string; locationId?: string; lotId?: string; date: string; quantity: string; reserved: boolean }
 export type MaterialDemand = {
   kind: 'sales' | 'work' | 'forecast' | 'safety' | 'dependent'; documentId: string; lineId: string; reference: string
   itemId: string; date: string; quantity: bigint; customerId?: string; locationId?: string; catalogLocationIds?: string[]
+  workTiming?: MaterialTiming
   rank: number; sources: MaterialSource[]; left: bigint; supply: SupplyMode
-  path: { itemId: string; bomId: string; revision: number }[]
+  path: { itemId: string; bomId: string; revision: number; timing?: MaterialTiming }[]
 }
 export const materialMode = (s: State, line: { itemId: string; supply?: SupplyMode }): SupplyMode =>
   line.supply ?? (s.items.find(i => i.id === line.itemId)?.kind === 'make' ? 'make' : 'buy')
