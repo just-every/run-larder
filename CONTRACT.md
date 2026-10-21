@@ -458,8 +458,8 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 25 | 30 | 57 | 112 |
-| All | 41 | 30 | 57 | 128 |
+| Target and push further | 26 | 29 | 57 | 112 |
+| All | 42 | 29 | 57 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
