@@ -16,6 +16,7 @@ import { schedule } from './schedule/plan'
 import { Forecasts } from './forecasts'
 import { Boms } from './bom-editor'
 import { WorkOperations } from './work-operations'
+import { WorkLedger } from './work-ledger'
 import { QualityPlans, WorkQuality } from './quality'
 import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
 
@@ -107,6 +108,7 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
       {w.status === 'draft' && prod && <div className="actions"><button className="button primary" disabled={busy} onClick={() => run('wo.release', { workOrderId: w.id, version: w.version })}>Release and reserve materials</button></div>}
       {w.components.length > 0 && <Table head={['Material', 'Required', 'Issued', 'Reserved']} numeric={[1, 2, 3]}>{w.components.map((l: any) => <tr key={l.id}><td>{itemName(s, l.itemId)}</td><td className="num">{qty(l.required)} {unitOf(s, l.itemId)}</td><td className="num">{qty(l.issued)}</td><td className="num">{reserved(l.id).map(r => `${qty(r.quantity)} at ${locationName(s, r.locationId)}`).join(', ') || '0'}</td></tr>)}</Table>}
       {w.inventoryPolicy && <section aria-label="Inventory policy demand pegs"><h3>Inventory policy supply</h3><p>Planned destination: {locationName(s, w.inventoryPolicy.locationId)}.</p>{(w.inventoryPolicy.pegs ?? []).map((peg: any, i: number) => <p key={i}><a href={`#orders/${peg.orderId}`}>{byId(s, 'salesOrders', peg.orderId)?.reference ?? 'Original customer order'}</a> · {qty(peg.quantity)} · required {day(peg.requiredBy)}</p>)}</section>}
+      <WorkLedger larder={larder} w={w} />
       <WorkOperations larder={larder} w={w} />
       <p>Output {qty(w.output)} · scrap {qty(w.scrap)} · standard cost {money(w.standardUnitCost)} each</p>
       {w.cost && <p>Materials used {money(w.cost.materials)} · variance {money(w.cost.variance)} · actual {money(w.cost.actualUnitCost)} each</p>}

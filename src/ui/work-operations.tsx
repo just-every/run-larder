@@ -4,6 +4,7 @@ import { format } from '../larder/decimal'
 import { transferredTo } from '../larder/operation-dependencies'
 import { operationStartGates } from '../larder/operations'
 import { WorkDowntime } from './work-downtime'
+import { WorkLedgerControls } from './work-ledger'
 import { can, personName, rows, unitOf, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
 import { Choose, Chip, Field, Form, text } from './controls'
@@ -107,6 +108,7 @@ export function WorkOperations({ larder, w, sequence: onlySequence }: { larder: 
         </Form>}
         {task.events?.length > 0 && <details><summary>Step {sequence} execution history</summary><ul className="history">{task.events.map((event: any, i: number) => <li key={i}>{words(event.type)} · {personName(s, event.by)} · {when(event.at)} · station {event.station || 'not recorded'} · {event.reason}</li>)}</ul></details>}
         {released && <WorkDowntime larder={larder} w={w} task={task} sequence={sequence} />}
+        {released && <WorkLedgerControls larder={larder} w={w} task={task} sequence={sequence} />}
       </fieldset>
     })}
   </section>

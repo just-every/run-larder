@@ -13,6 +13,7 @@ export const actions: Record<string, string> = {
   'plan.draft': 'Drafted from a shortage', 'po.draft': 'Drafted a purchase order', 'po.approve': 'Approved a purchase order', 'po.confirm': 'Recorded a supplier confirmation',
   'po.revise': 'Revised an expected delivery', 'receipt.create': 'Received a delivery', 'wo.draft': 'Drafted a work order', 'wo.release': 'Released a work order',
   'wo.operation.pause': 'Paused an operation for lost time', 'wo.operation.resume': 'Resumed an operation',
+  'wo.operation.report': 'Reported actual operation quantities', 'wo.operation.hold': 'Held completed operation units', 'wo.operation.holdRelease': 'Released an operation hold', 'wo.operation.backorder': 'Backordered uncompleted operation units', 'wo.operation.backorderResume': 'Resumed a manufacturing backorder',
   'wo.operation.progress': 'Reported operation progress and remaining effort', 'wo.operation.escalationAck': 'Acknowledged an in-app downtime escalation',
   'wo.reserve': 'Reserved materials', 'wo.issue': 'Issued materials', 'wo.output': 'Recorded output', 'wo.close': 'Closed a work order',
   'handoff.prepare': 'Prepared a handoff batch', 'handoff.acknowledge': 'Recorded the accountant’s acknowledgement', 'exception.resolve': 'Resolved an exception',

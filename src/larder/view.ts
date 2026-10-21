@@ -2,6 +2,8 @@
 // availability, shortages and the exception queue.
 import { materialPoolView } from './production-trace'
 import { materialCost } from './production-cost'
+import { operationLedger } from './operation-ledger'
+import { reservedQuantity } from './stock'
 import { dispatchTasks } from './operations'
 import { lostTimeReport } from './downtime'
 import { engineeringAffectedWork } from './engineering'
@@ -29,6 +31,7 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
     version: s.version, actor, ...records,
     workMaterialPools: Object.fromEntries(s.workOrders.filter(w => w.status === 'released' || (w.outputs ?? []).some((b: any) => !b.allocations)).map(w => [w.id, materialPoolView(s, w)])),
     workTransferCosts: Object.fromEntries(s.workOrders.map(w => [w.id, format(materialCost(s, w))])),
+    operationLedgers: Object.fromEntries(s.workOrders.filter(w => w.status === 'released' && w.routing?.length).map(w => [w.id, operationLedger(w, materialCost(s, w), lineId => reservedQuantity(s, w.id, lineId))])),
     orderStatuses: orderStatuses(s),
     masterSchedule: masterSchedule(s),
     lostTimeReport: lostTimeReport(s),

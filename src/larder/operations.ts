@@ -1,5 +1,6 @@
 // ENG-002: execution refers only to the released instruction snapshot.
-import { decimal, format } from './decimal'
+import { decimal, format, min } from './decimal'
+import { ledgerFacts } from './operation-ledger'
 import { dependencyGates, predecessorQualityGates, receivedQuantity, transferredTo, predecessors, type OperationGate } from './operation-dependencies'
 import { workRecalls, recallReason } from './recall-policy'
 import { activeMaintenance, assertEquipmentAvailable } from './maintenance-availability'
@@ -63,7 +64,9 @@ export function operations(c: Context, type: string, p: any): Row | undefined {
     if (gate) fail(gate.code, gate.message)
     if (task.workCentre) assertEquipmentAvailable(c.s, task.workCentre, c.now)
     const quantity = decimal(p.quantity, 'handoff quantity', { positive: true })
-    if (transferredTo(w, step.sequence, destination.sequence) + quantity > receivedQuantity(w, step)) fail('QUANTITY', 'Hand off no more than the work quantity or the actual quantity received from every predecessor.')
+    // FLOOR-003: once quantities are reported or held, only completed, unheld units move on.
+    const facts = ledgerFacts(w, step), limit = facts.ledgerManaged ? min(receivedQuantity(w, step), facts.transferable) : receivedQuantity(w, step)
+    if (transferredTo(w, step.sequence, destination.sequence) + quantity > limit) fail('QUANTITY', facts.ledgerManaged ? 'Hand off no more than the completed units that are not held (FLOOR-003 operation ledger).' : 'Hand off no more than the work quantity or the actual quantity received from every predecessor.')
     task.transfers = [...(task.transfers ?? []), { toSequence: destination.sequence, quantity: format(quantity), by: c.actor.id, at: c.now, reason: text(p.reason, 'handoff reason') }]
   } else if (type === 'wo.operation.acknowledge') {
     if (p.bomId !== w.bomId) fail('STALE', 'Acknowledge the exact pinned instruction revision.')
@@ -89,6 +92,7 @@ export function operations(c: Context, type: string, p: any): Row | undefined {
     if (task.startedBy !== c.actor.id) fail('ASSIGNMENT', 'The person who started this operation must complete it.')
     if (task.assignment?.operatorId !== c.actor.id) fail('ASSIGNMENT', 'Only the assigned person can complete this operation. A manager must record the existing starter for a legacy active task.')
     if (receivedQuantity(w, step) < decimal(w.quantity)) fail('TRANSFER_BATCH', 'Receive the full work quantity from every predecessor before completing this operation.')
+    if (ledgerFacts(w, step).backordered > 0n) fail('BACKORDER', 'Resume this operation’s open backorder before completing it.')
     const reason = text(p.reason, 'completion reason')
     Object.assign(task, { status: 'done', completedBy: c.actor.id, completedAt: c.now, completionReason: reason })
     task.events = [...(task.events ?? []), { type: 'completed', by: c.actor.id, operatorId: c.actor.id, at: c.now, workCentre: task.workCentre, station: task.station ?? null, reason }]

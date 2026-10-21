@@ -138,6 +138,7 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'production'])
       const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
       if (w.status !== 'released') fail('STATE', 'Only released work can be closed.')
+      if (w.operationStates?.some((t: any) => t.backorders?.some((b: any) => b.status === 'open'))) fail('BACKORDER', 'Resume the open manufacturing backorders before closing this work.')
       if (w.routing.some((r: any) => r.instructions || r.drawings?.length || r.requiredSkills?.length || r.requireMaterials || r.transferBatch && r.transferBatch !== '0') && w.routing.some((r: any) => !w.operationStates?.some((t: any) => t.sequence === r.sequence && t.status === 'done'))) fail('OPERATIONS', 'Complete the pinned operations before closing work.')
       if (workMaterialPool(c.s, w).unrecorded.length || [...workMaterialPool(c.s, w).remaining.values()].some(q => q !== 0n)) fail('TRACE_ALLOCATION', 'Allocate all issued material to recorded output/scrap batches before closing.')
       release(c, w.id)
