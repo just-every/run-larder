@@ -1,4 +1,5 @@
 // ENG-002: one routing definition shared by direct edits and CSV revisions.
+import { decimal, format } from './decimal'
 import { attach } from './attachments'
 import { fail } from './problem'
 import { optionalText, text, type Context, type Row } from './model'
@@ -8,7 +9,7 @@ const names = (value: unknown, name: string): string[] => {
   if (!Array.isArray(value) || value.length > 20) fail('INPUT', `${name} must be a list of at most 20 names.`)
   return [...new Set((value as unknown[]).map(v => text(v, name, 120)))]
 }
-const fields = ['sequence', 'name', 'workCentre', 'minutes', 'runMinutes', 'setupMinutes', 'queueMinutes', 'dependsOn', 'eligibleCentres', 'requiredSkills', 'instructions', 'drawings']
+const fields = ['sequence', 'name', 'workCentre', 'minutes', 'runMinutes', 'setupMinutes', 'queueMinutes', 'dependsOn', 'eligibleCentres', 'requiredSkills', 'instructions', 'drawings', 'transferBatch', 'allowOverlap', 'requireMaterials']
 
 // Drawing references are resolved against retained revisions, never trusted from
 // an uploaded CSV. New bytes are attached atomically by bom.revise only.
@@ -23,6 +24,10 @@ export function normalizeRouting(value: unknown, boms: Row[] = [], c?: Context):
     if (workCentre && !eligibleCentres.includes(workCentre)) fail('INPUT', 'The primary work center must be eligible.')
     const dependsOn = step.dependsOn ?? (index ? [index] : [])
     if (!Array.isArray(dependsOn) || dependsOn.length > index || dependsOn.some(n => !Number.isInteger(n) || n < 1 || n >= sequence) || new Set(dependsOn).size !== dependsOn.length) fail('INPUT', `Operation ${sequence} predecessors must be unique earlier operation numbers.`)
+    for (const key of ['allowOverlap', 'requireMaterials']) if (step[key] !== undefined && typeof step[key] !== 'boolean') fail('INPUT', `${key} must be true or false.`)
+    const transferBatch = format(decimal(step.transferBatch ?? '0', 'transfer batch'))
+    if ((transferBatch !== '0' || step.allowOverlap) && !dependsOn.length) fail('INPUT', 'Transfer batches need a predecessor operation.')
+    if (step.allowOverlap && transferBatch === '0') fail('INPUT', 'Overlapping operations need a positive transfer batch.')
     const runMinutes = minutes(step.runMinutes ?? step.minutes, 'Run time')
     if (step.runMinutes !== undefined && step.minutes !== undefined && step.runMinutes !== step.minutes) fail('INPUT', 'Run minutes and legacy minutes must agree.')
     if (step.drawings !== undefined && (!Array.isArray(step.drawings) || step.drawings.length > 5)) fail('INPUT', 'Attach at most five drawings per operation.')
@@ -36,7 +41,7 @@ export function normalizeRouting(value: unknown, boms: Row[] = [], c?: Context):
     })
     return { sequence, name: text(step.name, 'step name', 120), workCentre, minutes: runMinutes, runMinutes,
       setupMinutes: minutes(step.setupMinutes ?? 0, 'Setup time'), queueMinutes: minutes(step.queueMinutes ?? 0, 'Queue time'),
-      dependsOn, eligibleCentres, requiredSkills: names(step.requiredSkills ?? [], 'required skills'),
+      dependsOn, transferBatch, allowOverlap: step.allowOverlap ?? false, requireMaterials: step.requireMaterials ?? false, eligibleCentres, requiredSkills: names(step.requiredSkills ?? [], 'required skills'),
       instructions: optionalText(step.instructions, 'step instructions', 8000), drawings }
   })
 }

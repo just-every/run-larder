@@ -5,9 +5,8 @@ import { Card, Chip, Choose, Empty, Table } from './controls'
 import { day, qty, words } from './format'
 import { operationReadiness, WorkOperations } from './work-operations'
 
-// FLOOR-001: the queue uses released snapshots and live task state. Material
-// coverage is context; quality holds from failed required inspections (TRACE-004)
-// are live start gates shared with the command.
+// FLOOR-001: released snapshots and live task state share operation start gates
+// with the command, including configured material issue and predecessor QC gates.
 export function Dispatch({ larder, onSignOut }: { larder: Larder; onSignOut: () => void | Promise<void> }) {
   const s = larder.state!, supervisor = can(s, ['manager'])
   const [scope, setScope] = useState('mine'), [filter, setFilter] = useState('all')
@@ -48,7 +47,7 @@ function DispatchMaterials({ larder, w }: { larder: Larder; w: Rec }) {
   const s = larder.state!, coverage = s.orderStatuses?.work?.find((r: any) => r.id === w.id)
   return <details><summary>Materials and quality context · {coverage?.ingredientStatus ?? 'Coverage not available'}</summary>
     <Table head={['Material', 'Required', 'Issued', 'Reserved']} numeric={[1, 2, 3]}>{(w.components ?? []).map((line: any) => <tr key={line.id}><td>{itemName(s, line.itemId)}</td><td className="num">{qty(line.required)} {unitOf(s, line.itemId)}</td><td className="num">{qty(line.issued)}</td><td className="num">{rows(s, 'reservations').filter(r => r.demandId === w.id && r.lineId === line.id).map(r => qty(r.quantity)).join(' + ') || '0'}</td></tr>)}</Table>
-    <p className="muted">Material availability and issue quantities are shown for review. A failed required inspection blocks this job’s operations until an owner or manager releases it; operation-specific material release checks are not configured.</p>
+    <p className="muted">Reserved and planned stock are context. An operation with a material issue gate requires every pinned component’s full required quantity to be issued. Predecessor completion, actual transfer batches, required passing inspections and released quality holds determine readiness with the pinned overlap rules. Each blocked operation shows its live reason and responsible person below.</p>
     {rows(s, 'certificatePolicies').filter(p => p.itemId === w.itemId && !p.customerId && p.types.length).map(p => <p key={p.id}>Finished-output documents required: {p.types.map(words).join(', ')}. Output enters quarantine until the required lot documents are approved and a person releases it.</p>)}
   </details>
 }

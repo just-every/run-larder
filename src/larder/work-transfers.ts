@@ -1,3 +1,4 @@
+import { allocateHandoffs } from './operation-handoffs'
 import { decimal, format, max, min } from './decimal'
 import { fail } from './problem'
 import { allow } from './roles'
@@ -59,6 +60,7 @@ function transfer(c: Context, source: Row, dest: Row, quantity: bigint, record: 
     l.required = format(decimal(l.required) - required); l.issued = format(decimal(l.issued) - issued)
     components.push({ itemId: l.itemId, quantity: format(issued), cost: format(cost) })
   }
+  allocateHandoffs(source, dest, quantity, open, record)
   transferDemand(source, dest, quantity)
   record.transfers.push({ sourceId: source.id, destinationId: dest.id, quantity: format(quantity), components })
   bump(source, { quantity: format(originalQuantity - quantity), ...(originalQuantity === quantity ? { status: 'transferred' } : {}) })
