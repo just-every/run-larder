@@ -64,6 +64,11 @@ test('MOVE-008 source history searches original IDs/files, exports every record 
   let s = await h.invariant()
   for (const key of ['movements', 'reservations', 'positions', 'workOrders', 'shipments', 'inspections']) assert.deepEqual(s[key], before[key], key)
   assert.deepEqual(s.sourceHistory.map(r => r.kind).sort(), [...kinds].sort())
+  for (const expected of source.records) {
+    const actual = s.sourceHistory.find(r => r.originalId === expected.originalId)
+    for (const key of ['kind', 'originalId', 'reference', 'occurredAt', 'currency', 'sourceStatus', 'summary', 'references', 'quantity', 'unit', 'amount']) assert.deepEqual(actual[key], expected[key], key)
+    assert.equal(actual.source, source.source)
+  }
   for (const q of ['JOB-712', 'LOT-WAL-62', 'job-closed.txt', 'source-0']) {
     const result = await (await h.request(`/api/larder/history?q=${encodeURIComponent(q)}`)).json()
     assert.equal(result.length, q === 'source-0' ? 1 : 5)

@@ -27,7 +27,9 @@ export async function installation() {
   const setup = randomBytes(32).toString('hex'), code = await script()
   // The mail provider is the network edge: invitations reach this fake Resend.
   const mails = []
+  let outboundRequests = 0
   const outboundService = async request => {
+    outboundRequests++
     if (request.url !== 'https://api.resend.com/emails') return new Response('Unexpected outbound request', { status: 599 })
     mails.push(await request.json())
     return Response.json({ id: `test-${mails.length}` })
@@ -96,7 +98,7 @@ export async function installation() {
       if (role) await command('role.set', { operatorId: session.operator.id, role })
       return { cookie, id: session.operator.id, run: (type, payload, opts = {}) => command(type, payload, { as: cookie, ...opts }) }
     }
-    return { outboundCount: () => mails.length, get mf() { return mf }, origin, get db() { return db }, async restart() {
+    return { outboundCount: () => outboundRequests, get mf() { return mf }, origin, get db() { return db }, async restart() {
       await mf.dispose()
       mf = new Miniflare(options(Number(new URL(origin).port)))
       await mf.ready
