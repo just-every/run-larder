@@ -232,7 +232,7 @@ test('CAP calendars and finite planning: named intervals, holiday outage and vac
   await capacity.getByRole('button', { name: 'Preview finite move', exact: true }).focus(); await page.keyboard.press('Enter')
   await expect(review).toContainText('synthetic-larder-53 keyboard finite move')
   const previewState = await (await page.request.get(origin + '/api/larder/state')).json(), candidate = previewState.proposals.find((p: any) => p.summary === 'synthetic-larder-53 keyboard finite move')
-  expect(candidate.context.capacity.after.operations.find((o: any) => o.workOrderId === nextJob.id).startsAt).toBeLessThan(candidate.context.capacity.before.operations.find((o: any) => o.workOrderId === nextJob.id).startsAt)
+  expect(Date.parse(candidate.context.capacity.after.operations.find((o: any) => o.workOrderId === nextJob.id).startsAt)).toBeLessThan(Date.parse(candidate.context.capacity.before.operations.find((o: any) => o.workOrderId === nextJob.id).startsAt))
   for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await review.screenshot({ path: join(process.env.LARDER_SCREENSHOTS!, `${width}-CAP-005-preview.png`) }) }
   await review.getByRole('button', { name: 'Approve finite schedule', exact: true }).click(); await settled(page)
   const adoptedState = await (await page.request.get(origin + '/api/larder/state')).json(), adopted = adoptedState.proposals.find((p: any) => p.id === candidate.id)

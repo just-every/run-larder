@@ -19,7 +19,7 @@ export function Schedule({ larder, mode }: { larder: Larder; mode: Mode }) {
   const [offset, setOffset] = useState(0), [picked, setPicked] = useState<string>()
   const span = mode === 'week' ? 7 : 1, from = addDays(startOfDay(now), offset), last = addDays(from, span - 1)
   const plan = schedule(s, now)
-  const proposal = rows(s, 'proposals').find(p => p.status === 'awaiting approval' && p.kind === 'reschedule')
+  const proposal = rows(s, 'proposals').find(p => p.status === 'awaiting approval' && p.kind === 'reschedule' && !p.context?.capacity)
   const changes = Object.fromEntries((proposal?.plan.changes ?? []).map((ch: any) => [ch.workOrderId, { plannedStart: ch.plannedStart, ...(Number.isSafeInteger(ch.priority) ? { priority: ch.priority } : {}) }]))
   const proposed = proposal ? schedule(s, now, changes) : undefined
   const ghosts = proposed ? proposed.ops.filter(o => o.workOrder.id in changes) : []

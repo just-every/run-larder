@@ -436,6 +436,12 @@ test('CAP-001 persisted overnight holiday calendars, breaks, outages, efficiency
     assert.ok(at < Date.parse(definition.exceptions[0].startsAt) || at >= Date.parse(definition.exceptions[0].endsAt), 'outside outage')
     const key = `${op.machineId}:${op.machineSlot}:${at}`; assert.ok(!slots.has(key)); slots.set(key, true)
   }
+  const july = await finite(h, '2026-07-03T00:00:00Z')
+  assert.equal(july.counts.unscheduled, 0)
+  for (const o of july.operations) for (const span of o.intervals) for (let at = Date.parse(span.startsAt); at < Date.parse(span.endsAt); at += 60000) {
+    const parts = Object.fromEntries(dt.formatToParts(at).map(p => [p.type, p.value]))
+    assert.ok(!['2026-07-03', '2026-07-04'].includes(`${parts.year}-${parts.month}-${parts.day}`), 'both observed Friday and actual Independence Day close capacity')
+  }
   machine = await h.command('capacity.machine', { ...definition, id: machine.id, version: machine.version, reason: 'synthetic-larder-4 maintenance revision', closedDates: ['2026-11-27'] })
   assert.equal(machine.history.length, 1)
   await h.command('capacity.machine', { ...definition, id: machine.id, version: 1 }, { error: 'STALE' })
@@ -569,8 +575,9 @@ test('CAP-004 finite multistep plan exposes critical path, load and truthful lat
 test('CAP-005 finite reschedule previews displacement and unchanged promises, requires independent approval and rejects shop-floor stale inputs or capacity conflicts', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h), owner = (await h.state()).actor, planner = await h.person('synthetic-larder-35@example.test', 'planner'), other = await h.person('synthetic-larder-36@example.test', 'planner'), agent = await h.person('synthetic-larder-37@example.test', 'agent')
+  const scheduledPerson = await h.person('synthetic-larder-54@example.test', 'operator')
   await h.command('capacity.machine', capacityCalendar('Bench'))
-  await h.command('capacity.labor', capacityCalendar('Capacity operator', { operatorIds: [owner.id], skills: [] }))
+  await h.command('capacity.labor', capacityCalendar('Capacity operator', { operatorIds: [scheduledPerson.id], skills: [] }))
   await h.command('bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Constrained assembly', workCentre: 'Bench', minutes: 120 }] })
   const jobs = []
   for (let i = 0; i < 2; i++) {
@@ -605,6 +612,10 @@ test('CAP-005 finite reschedule previews displacement and unchanged promises, re
   const conflict = await planner.run('proposal.prepare', { ...payload, plan: { ...payload.plan, changes: [{ workOrderId: urgent.id, plannedStart: '2026-12-01', priority: 30 }] } })
   assert.ok(conflict.context.capacity.conflicts.length > 0)
   await other.run('proposal.approve', { proposalId: conflict.id, version: conflict.version }, { error: 'CAPACITY' })
+  assert.equal((await h.state()).workOrders.find(w => w.id === urgent.id).priority, 20)
+  const nativePreview = await planner.run('proposal.prepare', payload)
+  assert.equal((await h.request('/auth/operator/status', { method: 'POST', body: { operatorId: scheduledPerson.id, status: 'inactive' } })).status, 200)
+  await other.run('proposal.approve', { proposalId: nativePreview.id, version: nativePreview.version }, { error: 'STALE' })
   assert.equal((await h.state()).workOrders.find(w => w.id === urgent.id).priority, 20)
   const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
   assert.equal((await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })).status, 200)

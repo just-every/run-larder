@@ -483,3 +483,36 @@ inherit MOVE-008: complete JSON and lossless CSV business archives preserve them
 empty restore retains unknown native person IDs as inert history, never a new
 membership or a replayed command. Edit to an explicitly authorized live person
 before those restored calendars can supply labor capacity.
+
+## Reviewing and approving a finite move (CAP-005)
+
+The existing `proposal.prepare` door with `kind: "reschedule"` accepts
+`plan: {changes: [{workOrderId, plannedStart, priority}], capacity:
+{asOf, days, reason}}`. The Schedule screen offers dragging a pending job onto
+another and equivalent keyboard/date/priority controls. Once machine calendars
+exist, **every** reschedule proposal uses the finite preview, including callers
+that omit `capacity`. An older weekday-only proposal cannot be adopted after
+calendar configuration; prepare it again.
+
+Preparation records both full finite projections, displaced jobs' finish/due/risk,
+explicit capacity conflicts and linked customer promises. It changes no job or
+promise. Existing LARDER-015/GOV-001 reschedule authority applies: people and
+agents may prepare under their existing roles; a different live manager,
+production person or planner approves (owner exception); agents never approve.
+A running/paused job cannot be selected for movement, and active jobs retain
+first access to capacity. Approval changes only the reviewed job priorities and
+not-before dates and retains the exact versioned named intervals as audit.
+Customer promises remain unchanged, with a changed-promise count of zero and
+before/after completion risk visible; their amendment remains DEMAND-005 work.
+
+`proposal.approve` rechecks the complete state version, current planning window
+and a digest of the finite projection from live native people. Any intervening
+shop-floor/calendar/state change, expired window or native revocation requires a
+new preview (`STALE`). Selected jobs with no feasible assignment or newly
+unscheduled downstream work prevent approval (`CAPACITY`). Destination people
+are also checked active/qualified by role in the atomic D1 batch. No conflict
+silently adds resource capacity. A stable command identity replays the decision;
+changed content is refused. Prepared and approved snapshots/decisions inherit
+MOVE-008 JSON/CSV business export and empty restore. CAP-006–CAP-008, MRP-004 and
+AGENT-001 inherit the same preview, finite-capacity, authority, stale-input and
+archive obligations when they add adoption doors.

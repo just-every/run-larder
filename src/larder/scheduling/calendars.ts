@@ -19,7 +19,8 @@ function strings(v: unknown, label: string): string[] {
 function definition(p: any) {
   const timeZone = text(p.timeZone, 'IANA time zone', 80)
   try { new Intl.DateTimeFormat('en-US', { timeZone }).format() } catch { fail('INPUT', 'Choose an IANA time zone.') }
-  const effectiveFrom = date(p.effectiveFrom), effectiveTo = date(p.effectiveTo)
+  const calendarDate = (v: unknown) => { const d = date(v); if (new Date(d + 'T00:00Z').toISOString().slice(0, 10) !== d) fail('INPUT', 'Use a real calendar date.'); return d }
+  const effectiveFrom = calendarDate(p.effectiveFrom), effectiveTo = calendarDate(p.effectiveTo)
   if (effectiveTo < effectiveFrom) fail('INPUT', 'Effective end precedes start.')
   const shifts = list<any>(p.shifts, 'shifts', 14).map(s => {
     const weekdays = list<number>(s.weekdays, 'weekdays', 7).map(d => integer(d, 'weekday', 0, 6))
@@ -30,7 +31,7 @@ function definition(p: any) {
     })
     return { weekdays: [...new Set(weekdays)], start, end, breaks }
   })
-  const closedDates = p.closedDates === undefined ? [] : strings(p.closedDates, 'closed dates').map(d => date(d))
+  const closedDates = p.closedDates === undefined ? [] : strings(p.closedDates, 'closed dates').map(d => calendarDate(d))
   if (p.usHolidays !== undefined && typeof p.usHolidays !== 'boolean') fail('INPUT', 'US holidays must be true or false.')
   const exceptions = (p.exceptions === undefined || (Array.isArray(p.exceptions) && !p.exceptions.length) ? [] : list<any>(p.exceptions, 'exceptions', 100)).map(x => {
     const startsAt = instant(x.startsAt, 'exception start'), endsAt = instant(x.endsAt, 'exception end')
@@ -78,7 +79,7 @@ function holidayDates(year: number): string[] {
   const observed = (m: number, d: number) => { const t = new Date(Date.UTC(year, m - 1, d)); const w = t.getUTCDay(); t.setUTCDate(t.getUTCDate() + (w === 6 ? -1 : w === 0 ? 1 : 0)); return iso(t) }
   const nth = (m: number, weekday: number, n: number) => { const d = new Date(Date.UTC(year, m - 1, 1)); d.setUTCDate(1 + (weekday - d.getUTCDay() + 7) % 7 + 7 * (n - 1)); return iso(d) }
   const last = (m: number) => { const d = new Date(Date.UTC(year, m, 0)); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() - 1 + 7) % 7); return iso(d) }
-  return [observed(1, 1), nth(1, 1, 3), nth(2, 1, 3), last(5), observed(6, 19), observed(7, 4), nth(9, 1, 1), nth(10, 1, 2), observed(11, 11), nth(11, 4, 4), observed(12, 25)]
+  return [...[[1, 1], [6, 19], [7, 4], [11, 11], [12, 25]].map(([m, d]) => iso(new Date(Date.UTC(year, m! - 1, d)))), observed(1, 1), nth(1, 1, 3), nth(2, 1, 3), last(5), observed(6, 19), observed(7, 4), nth(9, 1, 1), nth(10, 1, 2), observed(11, 11), nth(11, 4, 4), observed(12, 25)]
 }
 export type LocalMinute = { day: string; previous: string; weekday: number; minute: number }
 export function localGrid(timeZone: string, from: number, length: number): LocalMinute[] {
