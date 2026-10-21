@@ -1,3 +1,4 @@
+import { purchaseDate } from './supplier-terms'
 // Weekly commercial demand and MPS quantities; this is not a capacity promise.
 import { decimal, format, max, min, times } from './decimal'
 import { deliveries, deliveryDate } from './sales-schedules'
@@ -61,11 +62,11 @@ export function masterSchedule(s: State) {
       const quantity = max(0n, decimal(w.quantity) - decimal(w.output) - decimal(w.scrap)); balance += quantity; used.add(id)
       supply.push({ documentId: w.id, reference: w.reference, quantity: format(quantity), date: w.expectedOn ?? w.requiredBy })
     }
-    for (const po of s.purchaseOrders.filter(po => ['draft', 'approved', 'confirmed', 'part received'].includes(po.status) && po.expectedDate <= addDays(week, 6))) for (const l of po.lines.filter((l: any) => l.itemId === itemId)) {
+    for (const po of s.purchaseOrders.filter(po => ['draft', 'approved', 'confirmed', 'part received'].includes(po.status))) for (const l of po.lines.filter((l: any) => l.itemId === itemId && purchaseDate(po, l) <= addDays(week, 6))) {
       const id = 'po:' + po.id + ':' + l.id
       if (used.has(id)) continue
       const quantity = max(0n, decimal(l.quantity) - decimal(l.received)); balance += quantity; used.add(id)
-      supply.push({ documentId: po.id, reference: po.reference, quantity: format(quantity), date: po.expectedDate })
+      supply.push({ documentId: po.id, reference: po.reference, quantity: format(quantity), date: purchaseDate(po, l) })
     }
     const forecast = f ? adjustedForecast(f) : 0n, actual = o?.actual ?? 0n, extra = decimal(residual.find(r => r.forecastId === f?.id)?.quantity ?? '0')
     const demand = (o?.outstanding ?? 0n) - (o?.reserved ?? 0n) + extra, proposed = max(0n, demand - balance)

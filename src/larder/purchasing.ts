@@ -1,3 +1,4 @@
+import { supplierTerms, quotedLines, validateQuoteLines, purchaseDate, purchaseNextDate } from './supplier-terms'
 import { plansFor } from './quality-holds'
 // Purchase orders: draft, approve, supplier confirmation, revised delivery,
 // partial receipt with supplier lots, and quarantine decisions.
@@ -16,15 +17,17 @@ import { bump, date, fresh, get, list, newId, nextReference, oneOf, optionalText
 export function draftPurchase(c: Context, p: any, preparedBy?: string): Row {
   const supplier = get(c.s, 'parties', p.supplierId, 'supplier')
   if (supplier.kind === 'customer') fail('INPUT', `${supplier.name} is set up as a customer only.`)
+  const expectedDate = date(p.expectedDate, 'expected date')
   const lines = list(p.lines).map((l: any) => {
     const item = get(c.s, 'items', l.itemId, 'item')
     if (item.archived) fail('ARCHIVED', `${item.name} is archived and cannot be bought.`)
     const quantity = toBase(item, l.quantity, l.unit), unitPrice = decimal(l.unitPrice, 'unit price')
-    return { id: newId(), itemId: item.id, quantity: format(quantity), unitPrice: format(unitPrice), received: '0', rejected: '0' }
+    return { id: newId(), itemId: item.id, quantity: format(quantity), unitPrice: format(unitPrice), received: '0', rejected: '0', expectedDate: l.expectedDate ? date(l.expectedDate, 'line delivery date') : expectedDate }
   })
+  validateQuoteLines(c, supplier.id, lines, p.requiredBy)
   const exposure = lines.reduce((n, l) => n + times(decimal(l.quantity), decimal(l.unitPrice)), 0n)
   return row(c, 'purchaseOrders', {
-    reference: nextReference(c.s.purchaseOrders, 'PO'), supplierId: supplier.id, lines, expectedDate: date(p.expectedDate, 'expected date'),
+    reference: nextReference(c.s.purchaseOrders, 'PO'), supplierId: supplier.id, lines, supplierSnapshot: structuredClone({ id: supplier.id, name: supplier.name, terms: supplier.terms }), currency: 'USD', expectedDate: lines.map(l => l.expectedDate).sort()[0],
     requiredBy: p.requiredBy ? date(p.requiredBy, 'required-by date') : '', reason: text(p.reason, 'reason', 1000), exposure: format(exposure),
     status: 'draft', preparedBy: preparedBy ?? c.actor.id, history: [], supplierReference: '', confirmedDate: '',
   })
@@ -34,6 +37,10 @@ const status = (po: Row) => po.lines.every((l: any) => decimal(l.received) >= de
 
 export function purchasing(c: Context, type: string, p: any): Row | undefined {
   switch (type) {
+    case 'supplier.terms': return supplierTerms(c, p)
+    case 'po.selectQuote':
+      allow(c, ['manager', 'buyer', 'agent'])
+      return draftPurchase(c, quotedLines(c, p))
     case 'po.draft':
       allow(c, ['manager', 'buyer', 'agent'])
       return draftPurchase(c, p)
@@ -42,7 +49,11 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       const po = get(c.s, 'purchaseOrders', p.poId, 'purchase order'); fresh(po, p.version)
       approver(c, ['manager', 'buyer'])
       if (po.status !== 'draft') fail('STATE', 'Only a draft purchase order can be approved.')
-      const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision: 'approved', role: c.actor.role, note: optionalText(p.note, 'note', 400), terms: { supplierId: po.supplierId, lines: po.lines, expectedDate: po.expectedDate, exposure: po.exposure } })
+      for (const l of po.lines) if (l.supplierQuote) {
+        const ref = get(c.s, 'partyItems', l.supplierQuote.partyItemId, 'supplier terms')
+        if (ref.version !== l.supplierQuote.version) fail('STALE', 'Supplier terms changed. Select the quote again before approval.')
+      }
+      const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision: 'approved', role: c.actor.role, note: optionalText(p.note, 'note', 400), terms: structuredClone({ supplierId: po.supplierId, lines: po.lines, expectedDate: po.expectedDate, exposure: po.exposure, currency: po.currency ?? 'USD', supplier: po.supplierSnapshot }) })
       return bump(po, { status: 'approved', approvalId: approval.id, approvedBy: c.actor.id })
     }
     case 'po.confirm': {
@@ -50,17 +61,23 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       const po = get(c.s, 'purchaseOrders', p.poId, 'purchase order'); fresh(po, p.version)
       if (!['approved', 'confirmed'].includes(po.status)) fail('STATE', 'Record supplier confirmation on an approved purchase order.')
       const confirmedDate = date(p.confirmedDate, 'confirmed delivery date')
+      const targets = deliveryTargets(po, p.lineId)
+      const schedulesBefore = structuredClone(po.lines)
+      for (const l of targets) l.expectedDate = confirmedDate
+      const nextDate = purchaseNextDate(po)
       const evidence = p.evidence ? attach(c, p.evidence) : null
-      po.history.push({ at: c.now, by: c.actor.id, change: 'supplier confirmed', from: po.expectedDate, to: confirmedDate, note: text(p.supplierReference, 'supplier reference', 120), evidence })
-      return bump(po, { supplierReference: text(p.supplierReference, 'supplier reference', 120), confirmedDate, expectedDate: confirmedDate, status: 'confirmed' })
+      po.history.push({ at: c.now, by: c.actor.id, change: 'supplier confirmed', from: po.expectedDate, to: confirmedDate, note: text(p.supplierReference, 'supplier reference', 120), evidence, schedulesBefore, schedulesAfter: structuredClone(po.lines) })
+      return bump(po, { supplierReference: text(p.supplierReference, 'supplier reference', 120), confirmedDate, expectedDate: nextDate, status: 'confirmed' })
     }
     case 'po.revise': {
       allow(c, ['manager', 'buyer'])
       const po = get(c.s, 'purchaseOrders', p.poId, 'purchase order'); fresh(po, p.version)
       if (!['approved', 'confirmed', 'part received'].includes(po.status)) fail('STATE', 'Only an open approved purchase order can have its delivery revised.')
       const expectedDate = date(p.expectedDate, 'expected date')
-      po.history.push({ at: c.now, by: c.actor.id, change: 'delivery revised', from: po.expectedDate, to: expectedDate, note: text(p.note, 'reason', 400) })
-      return bump(po, { expectedDate })
+      const targets = deliveryTargets(po, p.lineId), schedulesBefore = structuredClone(po.lines)
+      for (const l of targets) l.expectedDate = expectedDate
+      po.history.push({ at: c.now, by: c.actor.id, change: 'delivery revised', from: po.expectedDate, to: expectedDate, note: text(p.note, 'reason', 400), schedulesBefore, schedulesAfter: structuredClone(po.lines) })
+      return bump(po, { expectedDate: purchaseNextDate(po) })
     }
     case 'receipt.create': {
       allow(c, ['manager', 'warehouse'])
@@ -80,11 +97,11 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
         }
         const code = optionalText(l.lot, 'supplier lot', 80), dates = lotDates(l.dates, code, c.now.slice(0, 10))
         const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: po.supplierId, source: 'receipt', documentId: receipt.id, status: inspection === 'quarantine' ? 'quarantined' : 'released', ...dates }) : null
-        move(c, { itemId: item.id, locationId: location.id, status: inspection === 'quarantine' ? 'quarantine' : 'available', lotId: lot?.id, quantity: q, unitCost: decimal(line.unitPrice), kind: 'receipt', documentKind: 'receipts', documentId: receipt.id, reason: `Received on ${po.reference}` })
+        const movement = move(c, { itemId: item.id, locationId: location.id, status: inspection === 'quarantine' ? 'quarantine' : 'available', lotId: lot?.id, quantity: q, unitCost: decimal(line.unitPrice), kind: 'receipt', documentKind: 'receipts', documentId: receipt.id, reason: `Received on ${po.reference}` })
         line.received = format(decimal(line.received) + q)
-        receipt.lines.push({ lineId: line.id, itemId: item.id, locationId: location.id, quantity: format(q), lotId: lot?.id ?? '', inspection })
+        receipt.lines.push({ lineId: line.id, itemId: item.id, locationId: location.id, quantity: format(q), lotId: lot?.id ?? '', inspection, movementId: movement.id, expectedDate: purchaseDate(po, line), approvedDate: c.s.approvals.find(a => a.id === po.approvalId)?.terms?.lines.find((l: any) => l.id === line.id)?.expectedDate ?? po.expectedDate })
       }
-      bump(po, { status: status(po) })
+      bump(po, { status: status(po), expectedDate: purchaseNextDate(po) })
       return receipt
     }
     case 'quarantine.decide': {
@@ -111,4 +128,10 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       return approval
     }
   }
+}
+
+function deliveryTargets(po: Row, lineId: unknown): any[] {
+  const targets = po.lines.filter((l: any) => (!lineId || l.id === lineId) && decimal(l.received) < decimal(l.quantity))
+  if (!targets.length) fail('NOT_FOUND', 'Choose an outstanding delivery line.')
+  return targets
 }

@@ -1,3 +1,4 @@
+import { supplierPerformance } from './supplier-terms'
 // What a signed-in person or agent reads: records, formatted ledger, positions,
 // availability, shortages and the exception queue.
 import { materialPoolView } from './production-trace'
@@ -28,7 +29,7 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
   const today = new Date().toISOString().slice(0, 10), followUpCases = followUpView(s, today)
   const records = Object.fromEntries(collections.map(k => [k, s[k]]))
   return {
-    version: s.version, actor, ...records,
+    version: s.version, actor, ...records, supplierPerformance: supplierPerformance(s),
     workMaterialPools: Object.fromEntries(s.workOrders.filter(w => w.status === 'released' || (w.outputs ?? []).some((b: any) => !b.allocations)).map(w => [w.id, materialPoolView(s, w)])),
     workTransferCosts: Object.fromEntries(s.workOrders.map(w => [w.id, format(materialCost(s, w))])),
     operationLedgers: Object.fromEntries(s.workOrders.filter(w => w.status === 'released' && w.routing?.length).map(w => [w.id, operationLedger(w, materialCost(s, w), lineId => reservedQuantity(s, w.id, lineId))])),

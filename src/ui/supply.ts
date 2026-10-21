@@ -13,7 +13,7 @@ const num = (v: unknown) => Number(String(v ?? '0')) || 0
 
 function supplyOf(s: LarderState, itemId: string, plan?: Plan): Supply[] {
   const bought = rows(s, 'purchaseOrders').filter(p => ['approved', 'confirmed', 'part received'].includes(p.status)).flatMap(p => p.lines
-    .filter((l: any) => l.itemId === itemId).map((l: any) => ({ id: p.id, reference: p.reference, kind: 'po' as const, date: fromDate(p.expectedDate), quantity: num(l.quantity) - num(l.received) })))
+    .filter((l: any) => l.itemId === itemId).map((l: any) => ({ id: p.id, reference: p.reference, kind: 'po' as const, date: fromDate(l.expectedDate ?? p.expectedDate), quantity: num(l.quantity) - num(l.received) })))
   const made = rows(s, 'workOrders').filter(w => w.status === 'released' && w.itemId === itemId && !plan?.ops.some(o => o.workOrder.id === w.id && o.provisional))
     .map(w => ({ id: w.id, reference: w.reference, kind: 'wo' as const, date: plan?.finish.get(w.id) ?? fromDate(w.requiredBy), quantity: num(w.quantity) - num(w.output) - num(w.scrap) }))
   return [...bought, ...made].filter(x => x.quantity > 0).sort((a, b) => a.date.getTime() - b.date.getTime())

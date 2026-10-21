@@ -1,3 +1,4 @@
+import { purchaseDate } from './supplier-terms'
 import { decimal, format, max, min } from './decimal'
 import { usableOnHand } from './stock'
 import type { State } from './model'
@@ -14,7 +15,7 @@ export function supplyAllocator(s: State) {
   const pools: Pool[] = s.items.map(i => ({ itemId: i.id, kind: 'stock', documentId: '', reference: i.sku, date: '',
     left: max(0n, usableOnHand(s, i.id) - s.reservations.filter(r => r.itemId === i.id).reduce((n, r) => n + r.quantity, 0n)) }))
   for (const p of s.purchaseOrders) if (['approved', 'confirmed', 'part received'].includes(p.status))
-    for (const l of p.lines) pools.push({ itemId: l.itemId, kind: 'purchase', documentId: p.id, reference: p.reference, date: p.expectedDate,
+    for (const l of p.lines) pools.push({ itemId: l.itemId, kind: 'purchase', documentId: p.id, reference: p.reference, date: purchaseDate(p, l),
       left: max(0n, decimal(l.quantity) - decimal(l.received)) })
   for (const w of s.workOrders) if (w.status === 'released') pools.push({ itemId: w.itemId, kind: 'work', documentId: w.id, reference: w.reference,
     date: w.expectedOn ?? w.requiredBy, left: max(0n, decimal(w.quantity) - decimal(w.output) - decimal(w.scrap)) })

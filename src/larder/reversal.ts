@@ -1,3 +1,4 @@
+import { purchaseNextDate } from './supplier-terms'
 // Corrections by compensating movements. A reversal never edits or deletes the
 // original; it posts the exact opposite and links back. If later work already
 // used the stock, the reversal is refused until that work is reversed first.
@@ -13,12 +14,12 @@ const kinds = ['receipts', 'shipments', 'transfers', 'counts', 'openings', 'retu
 function effects(c: Context, kind: string, doc: Row, m: Movement) {
   const q = m.quantity < 0n ? -m.quantity : m.quantity
   if (kind === 'receipts') {
-    const po = get(c.s, 'purchaseOrders', doc.poId), line = doc.lines.find((l: any) => l.itemId === m.itemId && l.locationId === m.locationId && (l.lotId ?? '') === m.lotId)
+    const po = get(c.s, 'purchaseOrders', doc.poId), line = doc.lines.find((l: any) => l.movementId === m.id) ?? doc.lines.find((l: any) => l.itemId === m.itemId && l.locationId === m.locationId && (l.lotId ?? '') === m.lotId)
     const poLine = po.lines.find((l: any) => l.id === line?.lineId)
     if (poLine) poLine.received = format(decimal(poLine.received) - q)
     if (m.lotId) bump(get(c.s, 'lots', m.lotId), { status: 'reversed' })
     po.status = po.lines.some((l: any) => decimal(l.received) > 0n) ? 'part received' : po.supplierReference ? 'confirmed' : 'approved'
-    bump(po, {})
+    bump(po, { expectedDate: purchaseNextDate(po) })
   }
   if (kind === 'shipments') {
     const order = get(c.s, 'salesOrders', doc.orderId), line = doc.lines.find((l: any) => l.movementIds?.includes(m.id)) ?? doc.lines.find((l: any) => l.itemId === m.itemId && l.locationId === m.locationId)

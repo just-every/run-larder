@@ -1,3 +1,4 @@
+import { purchaseDate } from './supplier-terms'
 import { remainingPegs } from './work-demand'
 // Read-only quantity planning. Catalog location values are read on every preview.
 import { open } from './availability'
@@ -47,7 +48,7 @@ function supplyAt(s: State, itemId: string, locationId: string) {
   for (const w of s.workOrders.filter(w => w.itemId === itemId && ['draft', 'released'].includes(w.status)))
     add('work', w, null, max(0n, decimal(w.quantity) - decimal(w.output ?? '0') - decimal(w.scrap ?? '0')), w.expectedOn ?? w.requiredBy)
   for (const p of s.purchaseOrders.filter(p => ['draft', 'approved', 'confirmed', 'part received'].includes(p.status)))
-    for (const line of p.lines.filter((l: any) => l.itemId === itemId)) add('purchase', p, line, max(0n, decimal(line.quantity) - decimal(line.received ?? '0')), p.expectedDate)
+    for (const line of p.lines.filter((l: any) => l.itemId === itemId)) add('purchase', p, line, max(0n, decimal(line.quantity) - decimal(line.received ?? '0')), purchaseDate(p, line))
   included.sort((a, b) => a.date.localeCompare(b.date) || a.documentId.localeCompare(b.documentId) || (a.lineId ?? '').localeCompare(b.lineId ?? ''))
   return { included, excluded }
 }

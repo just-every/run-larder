@@ -1,3 +1,4 @@
+import { purchaseDate } from './supplier-terms'
 // MRP-001's dated physical/purchase projection. Read-only: reservations stay
 // bin-level commitments, and the suggested lots are never a physical pick.
 import { addDays, forecastDemand } from './forecast-plan'
@@ -79,7 +80,7 @@ export function materialDates(s: State) {
   }
 
   const purchases = s.purchaseOrders.filter(p => ['approved', 'confirmed', 'part received'].includes(p.status)).flatMap(po => po.lines.map((l: any) => ({
-    itemId: l.itemId as string, documentId: po.id, lineId: l.id as string, reference: po.reference as string, date: po.expectedDate as string, left: max(0n, decimal(l.quantity) - decimal(l.received)),
+    itemId: l.itemId as string, documentId: po.id, lineId: l.id as string, reference: po.reference as string, date: purchaseDate(po, l) as string, left: max(0n, decimal(l.quantity) - decimal(l.received)),
   }))).filter(p => p.left > 0n).sort((a, b) => a.date.localeCompare(b.date) || a.reference.localeCompare(b.reference) || a.lineId.localeCompare(b.lineId))
   const latePurchases = (d: Demand) => purchases.filter(p => p.itemId === d.itemId && p.left > 0n && (p.date > d.date || p.date < today)).map(p => ({ documentId: p.documentId, lineId: p.lineId, reference: p.reference, date: p.date, quantity: format(p.left), reason: p.date < today ? 'overdue; receipt not recorded' : 'after required date' }))
   const unavailablePurchases = new Map<Demand, ReturnType<typeof latePurchases>>()
@@ -172,7 +173,7 @@ export function materialDates(s: State) {
     limitations: ['Purchase dates are declared expectations; receipt and quality still gate use.', 'Manufacturing offsets use recorded full-batch routing critical paths in UTC calendar days; missing routing remains unknown, and capacity and transfer overlap are not applied.', 'Draft and released work output is provisional; multilevel material feasibility is not proven.', 'Safety floors protect current physical stock only; future floor replenishment, supplier calendars and automatic adoption are not applied; exact dated suggestions can be prepared as drafts after current-input review.'],
     requirements, blockedExplosions, unverifiedReservations: unverified,
     provisionalSupply: [
-      ...s.purchaseOrders.filter(p => p.status === 'draft').flatMap(po => po.lines.map((l: any) => ({ kind: 'purchase', documentId: po.id, reference: po.reference, itemId: l.itemId, date: po.expectedDate, quantity: l.quantity, reason: 'purchase not approved' }))),
+      ...s.purchaseOrders.filter(p => p.status === 'draft').flatMap(po => po.lines.map((l: any) => ({ kind: 'purchase', documentId: po.id, reference: po.reference, itemId: l.itemId, date: purchaseDate(po, l), quantity: l.quantity, reason: 'purchase not approved' }))),
       ...s.workOrders.filter(w => ['draft', 'released'].includes(w.status)).map(w => ({ kind: 'work', documentId: w.id, reference: w.reference, itemId: w.itemId, date: w.expectedOn ?? w.requiredBy, quantity: format(max(0n, decimal(w.quantity) - decimal(w.output) - decimal(w.scrap))), reason: 'work material feasibility not proven' })),
     ],
     excludedStock: physical.filter(p => p.status !== 'available' || lotBlock(s.lots.find(l => l.id === p.lotId), today)).map(p => ({ ...p, reason: p.status !== 'available' ? p.status : lotBlock(s.lots.find(l => l.id === p.lotId), today) })),

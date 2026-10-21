@@ -1,3 +1,4 @@
+import { SupplierTerms } from './supplier-terms'
 import { WorkBatchHistory } from './work-batch-history'
 import { Subcontract } from './subcontract'
 import { WorkTransfers } from './work-transfers'
@@ -8,7 +9,7 @@ import { signOut } from './shell'
 import { DowntimeReport } from './downtime-report'
 import { byId, can, itemName, locationName, partyName, personName, rows, sku, unitOf, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
-import { Card, Chip, Choose, Empty, Field, Form, Lines, Table, options, readLines, text } from './controls'
+import { Card, Chip, Choose, Details, Empty, Field, Form, Lines, Table, options, readLines, text } from './controls'
 import { LotDateFields, readLotDates } from './lot-expiry'
 import { day, dayName, minus, money, positive, qty, when, words } from './format'
 import { covers, firstStart, stories, timing } from './supply'
@@ -57,7 +58,7 @@ function Shortages({ larder }: { larder: Larder }) {
 const poTone = (status: string) => status === 'draft' ? 'warn' : status === 'received' ? 'good' : 'info'
 function Purchases({ larder }: { larder: Larder }) {
   const s = larder.state!, list = [...rows(s, 'purchaseOrders')].reverse()
-  return <><Card title="Purchase orders">{list.length === 0 ? <Empty>No purchase orders yet.</Empty> :
+  return <><SupplierTerms larder={larder} /><Card title="Purchase orders">{list.length === 0 ? <Empty>No purchase orders yet.</Empty> :
     <Table head={['Order', 'Supplier', 'Expected', 'Status', 'Value']} numeric={[4]}>{list.map(p => <tr key={p.id}><td><a href={`#make/po/${p.id}`}>{p.reference}</a>{p.sourceReference && <small>Odoo {p.sourceReference}</small>}</td><td>{partyName(s, p.supplierId)}</td><td>{day(p.expectedDate)}</td><td><Chip tone={poTone(p.status)}>{words(p.status)}</Chip></td><td className="num">{money(p.exposure)}</td></tr>)}</Table>}</Card>
     {can(s, ['manager', 'buyer', 'agent']) && <Card title="New purchase order"><Form submit="Save draft" busy={larder.busy} onSubmit={d => larder.run('po.draft', { supplierId: text(d, 'supplierId'), expectedDate: text(d, 'expectedDate'), reason: text(d, 'reason'), lines: readLines(d) })}>
       <Choose label="Supplier" name="supplierId" options={options(rows(s, 'parties').filter(p => p.kind !== 'customer'), r => r.name)} /><Field label="Expected delivery" name="expectedDate" type="date" /><Field label="Reason" name="reason" /><Lines items={rows(s, 'items').filter(i => !i.archived)} /></Form></Card>}</>
@@ -70,14 +71,16 @@ function Purchase({ larder, po }: { larder: Larder; po: Rec }) {
   return <div className="split">
     <Card title={<>{po.reference} <Chip tone={poTone(po.status)}>{words(po.status)}</Chip></>}>
       <p className="meta">{partyName(s, po.supplierId)} · expected {day(po.expectedDate)}{po.supplierReference && ` · their ref ${po.supplierReference}`}</p><p>{po.reason}</p>
-      <Table head={['Item', 'Ordered', 'Received', 'Price']} numeric={[1, 2, 3]}>{po.lines.map((l: any) => <tr key={l.id}><td>{itemName(s, l.itemId)}<small>{sku(s, l.itemId)}</small></td><td className="num">{qty(l.quantity)} {unitOf(s, l.itemId)}</td><td className="num">{qty(l.received)}</td><td className="num">{money(l.unitPrice)}</td></tr>)}</Table>
-      <p>Cash exposure <strong>{money(po.exposure)}</strong>{approval && <> · approved by {personName(s, approval.createdBy)} {when(approval.createdAt)}</>}</p>
-      {po.history.length > 0 && <ul className="history">{po.history.map((h: any, i: number) => <li key={i}>{when(h.at)}: {h.change} {day(h.from)} → {day(h.to)} ({h.note})</li>)}</ul>}
+      <Table head={['Item', 'Ordered', 'Received', 'Price']} numeric={[1, 2, 3]}>{po.lines.map((l: any) => <tr key={l.id}><td>{itemName(s, l.itemId)}<small>{sku(s, l.itemId)} · delivery {day(l.expectedDate ?? po.expectedDate)}</small></td><td className="num">{qty(l.quantity)} {unitOf(s, l.itemId)}</td><td className="num">{qty(l.received)}</td><td className="num">{money(l.unitPrice)}</td></tr>)}</Table>
+      {approval && <Details label="Original approved terms and delivery schedule" value={approval.terms} s={s} />}
+      {po.lines.some((l: any) => l.supplierQuote) && <Details label="Selected supplier quote terms" value={po.lines.map((l: any) => l.supplierQuote)} s={s} />}
+      <p>Cash exposure in USD <strong>{money(po.exposure)}</strong>{approval && <> · approved by {personName(s, approval.createdBy)} {when(approval.createdAt)}</>}</p>
+      {po.history.length > 0 && <ul className="history">{po.history.map((h: any, i: number) => <li key={i}>{when(h.at)}: {h.change} {day(h.from)} → {day(h.to)} ({h.note}){h.schedulesBefore && <Details label="Delivery revision details" value={{ before: h.schedulesBefore, after: h.schedulesAfter }} s={s} />}</li>)}</ul>}
       {po.status === 'draft' && buyer && <div className="actions"><button className="button primary" disabled={busy} onClick={() => run('po.approve', { poId: po.id, version: po.version })}>Approve purchase order</button></div>}
     </Card>
     <Card title="Supplier and delivery">
       {buyer && ['approved', 'confirmed'].includes(po.status) && <Form title="Record supplier confirmation" submit="Save confirmation" busy={busy} onSubmit={d => run('po.confirm', { poId: po.id, version: po.version, supplierReference: text(d, 'ref'), confirmedDate: text(d, 'date') })}><Field label="Supplier reference" name="ref" /><Field label="Confirmed delivery" name="date" type="date" /></Form>}
-      {buyer && open && <Form title="Revise expected delivery" submit="Revise date" quiet busy={busy} onSubmit={d => run('po.revise', { poId: po.id, version: po.version, expectedDate: text(d, 'date'), note: text(d, 'note') })}><Field label="New expected date" name="date" type="date" /><Field label="Why" name="note" /></Form>}
+      {buyer && open && <Form title="Revise expected delivery" submit="Revise date" quiet busy={busy} onSubmit={d => run('po.revise', { poId: po.id, version: po.version, expectedDate: text(d, 'date'), note: text(d, 'note'), lineId: text(d, 'lineId') === 'all' ? undefined : text(d, 'lineId') || undefined })}><Choose label="Delivery to revise" name="lineId" required={false} options={[{ value: "all", label: "All outstanding deliveries" }, ...po.lines.filter((l: any) => positive(minus(l.quantity, l.received))).map((l: any) => ({ value: l.id, label: `${itemName(s, l.itemId)} · ${qty(l.quantity)} · ${day(l.expectedDate ?? po.expectedDate)}` }))]} /><Field label="New expected date" name="date" type="date" /><Field label="Why" name="note" /></Form>}
       {open && can(s, ['manager', 'warehouse']) && <Form title="Receive delivery" submit="Receive" busy={busy} onSubmit={d => run('receipt.create', { poId: po.id, supplierReference: text(d, 'ref'), lines: po.lines.map((l: any) => ({ lineId: l.id, quantity: text(d, `q.${l.id}`), locationId: text(d, 'locationId'), lot: text(d, `lot.${l.id}`), dates: readLotDates(d, `dates.${l.id}.`), inspection: text(d, 'inspection') })).filter((l: any) => l.quantity && positive(l.quantity)) })}>
         <Field label="Packing slip" name="ref" /><Choose label="Into location" name="locationId" defaultValue={po.inventoryPolicy?.locationId ?? ''} options={options(rows(s, 'locations'), r => r.name)} />
         <Choose label="Inspection" name="inspection" options={[{ value: 'accept', label: 'Accept into stock' }, { value: 'quarantine', label: 'Hold in quarantine' }]} />

@@ -1,3 +1,4 @@
+import { supplierQuotes } from './supplier-terms'
 // Larder's public door: /api/larder/*. Every request resolves the current
 // native session and Larder role; every command re-checks both inside the
 // atomic write that applies it.
@@ -156,6 +157,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const ok = await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>()
     if (ok?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
     if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, await people(env, actor))) }
+    if (path === '/purchasing/quotes') return json(supplierQuotes(await load(env.DB), url.searchParams.get('itemId') ?? '', url.searchParams.get('quantity') ?? '', url.searchParams.get('requiredBy') ?? '', new Date().toISOString().slice(0, 10)))
     if (path === '/planning/materials') return json(materialDates(await load(env.DB)))
     if (path === '/planning/pegging') return json(materialPegging(await load(env.DB), url.searchParams))
     const trace = /^\/lots\/([-0-9a-f]{36})\/trace(\.csv)?$/.exec(path)

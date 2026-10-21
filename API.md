@@ -361,3 +361,57 @@ releases work, changes promises, reserves stock, sends anything or adopts a feas
 schedule. Business JSON/CSV archives preserve the draft and provenance, and empty
 restore reproduces linked supply without reconnecting or replaying commands.
 Material-feasible WIP, future safety floors and supplier calendars remain open.
+
+
+## Native supplier terms and scheduled purchases (BUY-001)
+
+`GET /api/larder/purchasing/quotes?itemId=<id>&quantity=7&requiredBy=2026-11-15`
+compares structured supplier/item quotations without writing. Each quote includes
+its reference/version, requested and pack-rounded base quantity, earliest supplier
+working date, feasibility against required-by, source price/currency, source
+exposure, recorded USD rate and USD exposure. Preferred is a label; it never
+makes a late quotation feasible. MOQ and pack multiples apply to the total item
+quantity on a PO. Break thresholds and prices use item base units. The highest
+qualifying threshold sets price. USD exposure sums base quantity × USD unit price,
+with the existing six-place half-away-from-zero rounding at each multiplication.
+A buyer-recorded rate is not a live provider rate or accounting reconciliation.
+
+- `supplier.terms`: owner/manager/buyer saves `{id?, version?, partyId, itemId,
+  partyCode, preferred?, packQuantity, moq, leadDays, weekdays: [0..6],
+  closedDates: [YYYY-MM-DD], price, breaks: [{quantity, price}], currency,
+  usdRate, rateOn, rateSource, paymentTerms, freightTerms, note?}`. Currency is
+  ISO 4217; USD rate is one. Non-USD rates are positive USD per source unit,
+  with a non-future recorded date and source. Quantities and rates are decimal
+  strings. Lead days are 0–365 supplier working days after the UTC order day;
+  zero lead rolls forward to an open day. Calendar days are UTC, Sunday is 0.
+  Every revision retains the prior code, preferred flag and all structured terms.
+- `po.selectQuote`: existing purchase drafters send `{partyItemId, version,
+  quantity, requiredBy, reason, deliveries?: [{quantity, expectedDate}]}`.
+  Recomputes the live quotation and refuses stale or late terms. Delivery dates
+  must be open days from earliest arrival through required-by, and quantities
+  must sum to the rounded quotation. Blank schedule uses one earliest delivery.
+  This prepares a draft; existing human PO approval remains required.
+- `po.draft` also accepts `expectedDate` per line. Every existing draft door
+  applies configured supplier MOQ/pack, calendar, lead and price constraints;
+  callers cannot insert a quoted snapshot or bypass these with a custom price.
+  Existing manually priced suppliers without structured terms remain supported.
+- `po.approve` refuses changed structured terms and freezes an independent copy
+  of supplier identity/basic terms, line quotes, source currencies/rates, USD
+  exposure and all delivery dates. Later supplier edits and receipts never
+  change that approval.
+- `po.confirm` and `po.revise` optionally accept `lineId`; omission explicitly
+  revises all outstanding deliveries. Each acknowledgment/revision retains
+  complete before/after schedules and actor/time, plus existing reference/note
+  and optional acknowledgment evidence. Supplier revisions may be late or on
+  closed days: they are recorded facts, never a new feasibility guarantee.
+
+Each line's remaining quantity and current date flow into material projection,
+ranked order supply, inventory plans, forecast supply and work shortage screens;
+PO-level expected date is the earliest outstanding delivery (or last stored date
+when complete). Receipt reversal restores that next-delivery date. Receipt
+observations in state `supplierPerformance` retain receipt reference, arrival,
+expected date at receipt, original approved date, quantity and accept/quarantine
+classification. Counts measure non-reversed receipt-line observations, not
+promises or quality acceptance; late means arrival after the expected date.
+Older receipts without these snapshots are unmeasured. Terms, history, approvals,
+schedules and performance inputs survive business archive/restore.
