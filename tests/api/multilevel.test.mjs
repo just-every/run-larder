@@ -614,6 +614,7 @@ test('MRP-001 dated drafts preserve reviewed quantities, release dates and sourc
   await viewer.run('plan.draft', payload(plan, row), { error: 'FORBIDDEN' })
   await h.command('plan.draft', payload(plan, row), { as: '', error: 'AUTH' })
   await planner.run('plan.draft', payload(plan, row, { quantity: '100' }), { error: 'INPUT' })
+  await planner.run('plan.draft', payload(plan, row, { unitPrice: undefined }), { error: 'DECIMAL' })
   await planner.run('plan.draft', payload(plan, row, { dated: { ...payload(plan, row).dated, asOf: date(-1) } }), { error: 'STALE' })
   await planner.run('plan.draft', payload(plan, row, { dated: { ...payload(plan, row).dated, key: 'not-a-requirement' } }), { error: 'NOT_FOUND' })
   await planner.run('plan.draft', payload(plan, select(plan, unknownOrder.id, unknown.id)), { error: 'NO_SUGGESTION' })
@@ -659,6 +660,9 @@ test('MRP-001 dated drafts preserve reviewed quantities, release dates and sourc
   await agent.run('wo.release', { workOrderId: work.id, version: work.version }, { error: 'FORBIDDEN' })
   plan = await read()
   await planner.run('plan.draft', payload(plan, select(plan, madeOrder.id, made.id)), { error: 'DRAFT_EXISTS' })
+  const blockedOrder = await order(made.id, '1', 16)
+  plan = await read()
+  await planner.run('plan.draft', payload(plan, select(plan, blockedOrder.id, made.id)), { error: 'NO_SUGGESTION' })
   // Dependent raw suggestions carry their multilevel root/revision path into
   // the purchase draft, using the parent's release rather than completion day.
   // Outstanding work explicitly blocks that sales explosion now, so use a
