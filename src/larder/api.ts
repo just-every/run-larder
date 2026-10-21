@@ -30,6 +30,7 @@ import { downtime } from './downtime'
 import { engineering } from './engineering'
 import { planning } from './planning'
 import { materialDates } from './material-dates'
+import { materialPegging } from './material-pegging'
 import { workTransfers } from './work-transfers'
 import { lotTrace, traceCsv } from './trace'
 import { subcontract } from './subcontract'
@@ -156,6 +157,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (ok?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
     if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, await people(env, actor))) }
     if (path === '/planning/materials') return json(materialDates(await load(env.DB)))
+    if (path === '/planning/pegging') return json(materialPegging(await load(env.DB), url.searchParams))
     const trace = /^\/lots\/([-0-9a-f]{36})\/trace(\.csv)?$/.exec(path)
     if (trace) {
       const result = lotTrace(await load(env.DB), trace[1], url.searchParams.get('direction') ?? 'upstream')

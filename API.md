@@ -3,6 +3,7 @@
 The app and agents use the same door. Every request needs a native session cookie (an invited person signs in through the emailed link); agents are invited people given the `agent` role.
 
 - `GET /api/larder/state` — every record, the formatted movement ledger, reservations, positions, availability per item, shortages, weekly forecasts/MPS, the exception queue and owned `followUpCases` (including closed-case history), recent recorded actions and (for the owner) the team.
+- `GET /api/larder/planning/pegging` — current dated forward/reverse material allocations; see MRP-002 below.
 - `GET /api/larder/planning/materials` — MRP-001 read-only dated physical/purchase projection, its exact input version, source quantities/dates, unavailable and provisional supply, and remaining limitations (see below).
 - `POST /api/larder/commands` — `{ "commandId": "<8–100 of A-Z a-z 0-9 _ ->", "type": "...", "payload": { ... } }` with `content-type: application/json` and the installation's own `Origin`. Repeating a `commandId` returns its recorded outcome; reusing it with other content or by someone else is refused (`IDEMPOTENCY`). Replies are `{ ok: true, result, version }` or `{ ok: false, error: { code, message, details } }`.
 - `GET /api/larder/handoffs/<id>.csv` — a handoff batch as CSV (owner, manager, accounts).
@@ -13,6 +14,41 @@ The app and agents use the same door. Every request needs a native session cooki
 - `POST /api/larder/archive/restore` — restore an archive into an empty installation (owner).
 
 Quantities, prices and costs are decimal strings with at most six decimal places. Dates are `YYYY-MM-DD`. Record changes that edit an existing record send its current `version`; a changed record answers `STALE`.
+
+## Dated material pegging (MRP-002, partial)
+
+`GET /api/larder/planning/pegging?kind=<kind>&id=<record-id>&lineId=<optional-line>`
+uses the current native-session and blind-count guards. Kinds are `item`, `sales`,
+`work`, `purchase`, `receipt`, `lot` and `forecast`. `lineId` is accepted only for
+sales lines, work component lines, purchase lines and receipt purchase-line IDs;
+unknown records/lines are refused. The read never creates a draft, changes a
+reservation or promise, or sends anything.
+
+`version` and `asOf` identify the current dated projection. `requirements` retains
+matching full dated rows. `pegs` follows allocated sources forward from an item or
+demand, or backward from a purchase/receipt/lot; each edge has `demand` (kind,
+root document/line/reference, component item, required date and revision path) and
+`source` (stock lot/bin or PO line/reference/date, exact base-unit quantity and
+reservation flag). All queries use the same shared-pool allocation, rather than
+re-netting a selected order with extra stock. `allocatedSalesOrders` deduplicates
+the customer orders reached by those actual indicative edges. These are current
+planning allocations, not persisted reservations or physical genealogy.
+
+Purchase lookup includes outstanding lines and current stock from their recorded
+receipt lots. Receipt and lot lookup use recorded lot identity; an unlotted
+receipt returns `untrackedReceiptLines` instead of guessing ancestry from its
+item/bin. Quarantine, expired stock and unapproved supply cannot produce usable
+pegs. `lateCandidates` lists late/overdue purchase alternatives only for rows with
+a shortage; candidate quantities are **unallocated** and must not be summed
+across competing demand. An ETA slip or demand cancellation is reflected on the
+next read, with physical reservations unchanged.
+
+Work lookup exposes pinned component requirements (and their descendant paths)
+and `blockedExplosions`. Output whose material feasibility is unproved never
+creates a work-to-customer peg. Approved expedite/defer/cancellation and complete
+work-output/customer links remain missing. No new stored records are introduced;
+the MOVE-008 archive preserves the inputs and restore reproduces the pegs without
+executing any command or external effect.
 
 ## Commands
 

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { installation, evidence } from './harness.mjs'
+import { installation, evidence, parse } from './harness.mjs'
 
 const date = days => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
 test('ENG-001 three-level shared netting, stocked subassembly, phantom/yield/make-buy choices, effective cycles and immutable released recipes', async t => {
@@ -466,5 +466,121 @@ test('MRP-001 manufacturing offsets reject completion-day material, follow multi
   const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restored.status, 200, await restored.text())
   const copy = await read(target)
   for (const key of ['requirements', 'blockedExplosions', 'unverifiedReservations', 'provisionalSupply', 'excludedStock', 'scope', 'limitations']) assert.deepEqual(copy[key], exact[key], key)
+  await h.invariant()
+})
+
+test('MRP-002 follows shared dated supply to customer demand and back through PO lines and received lots without changing commitments', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const item = async (sku, kind = 'buy') => h.command('item.save', { sku, name: sku, kind, baseUnit: 'each' })
+  const raw = await item('PEG-RAW'), left = await item('PEG-LEFT', 'make'), right = await item('PEG-RIGHT', 'make'), product = await item('PEG-PRODUCT', 'make')
+  const location = await h.command('location.save', { name: 'Pegging stores' })
+  const customer = await h.command('party.save', { name: 'Pegging customer', kind: 'customer' })
+  const supplier = await h.command('party.save', { name: 'Pegging supplier', kind: 'supplier' })
+  for (const sub of [left, right]) await h.command('bom.revise', { itemId: sub.id, components: [{ itemId: raw.id, quantity: '1' }] })
+  const bom = await h.command('bom.revise', { itemId: product.id, components: [{ itemId: left.id, quantity: '1' }, { itemId: right.id, quantity: '1' }] })
+  const buy = async (quantities, approve = true) => {
+    const p = await h.command('po.draft', { supplierId: supplier.id, expectedDate: date(2), reason: 'Dated pegging supply', lines: quantities.map(quantity => ({ itemId: raw.id, quantity, unitPrice: '2' })) })
+    return approve ? h.command('po.approve', { poId: p.id, version: p.version }) : p
+  }
+  const receivedPO = await buy(['2.5'])
+  const receipt = await h.command('receipt.create', { poId: receivedPO.id, supplierReference: 'Pegging receipt', lines: [
+    { lineId: receivedPO.lines[0].id, locationId: location.id, quantity: '1.5', lot: 'PEG-USABLE' },
+    { lineId: receivedPO.lines[0].id, locationId: location.id, quantity: '1', lot: 'PEG-HELD', inspection: 'quarantine' },
+  ] })
+  const order = async (itemId, quantity, days) => {
+    const q = await h.command('so.quote', { customerId: customer.id, promiseDate: date(days), lines: [{ itemId, quantity, unitPrice: '10' }] })
+    return h.command('so.confirm', { orderId: q.id, version: q.version, reserve: false })
+  }
+  const reserved = await order(raw.id, '0.5', 15)
+  await h.command('so.reserve', { orderId: reserved.id, locationId: location.id })
+  const made = await order(product.id, '1', 10), direct = await order(raw.id, '3', 11)
+  let po = await buy(['2', '2'])
+  const draft = await buy(['100'], false)
+  const url = (kind, id, lineId) => '/api/larder/planning/pegging?' + new URLSearchParams({ kind, id, ...(lineId ? { lineId } : {}) })
+  const read = async (kind, id, lineId, instance = h) => {
+    const res = await instance.request(url(kind, id, lineId)); assert.equal(res.status, 200, res.status === 200 ? '' : await res.text()); return res.json()
+  }
+  const total = pegs => pegs.reduce((n, p) => n + parse(p.source.quantity), 0n)
+  const snapshot = await h.state(), outbound = h.outboundCount()
+  const component = await read('item', raw.id), forward = await read('sales', made.id)
+  assert.equal(total(component.pegs), parse('5.5'))
+  assert.equal(total(forward.pegs), parse('2'))
+  assert.ok(forward.pegs.every(p => p.demand.itemId === raw.id && p.demand.path.length === 2 && p.demand.path[0].bomId === bom.id))
+  assert.equal(forward.requirements.find(r => r.kind === 'sales').shortage, '1') // product is not physical supply
+  const purchase = await read('purchase', po.id)
+  const line = await read('purchase', po.id, po.lines[0].id)
+  assert.equal(total(purchase.pegs), parse('4'))
+  assert.deepEqual(purchase.allocatedSalesOrders.map(o => o.id).sort(), [made.id, direct.id].sort())
+  assert.equal(total(line.pegs), parse('2'))
+  assert.ok(line.pegs.every(p => p.source.lineId === po.lines[0].id))
+  assert.deepEqual(purchase.pegs.filter(p => p.demand.documentId === made.id).map(p => p.source.quantity), ['1'])
+  assert.equal(total(purchase.pegs.filter(p => p.demand.documentId === direct.id)), parse('3'))
+  assert.equal(total((await read('purchase', po.id, po.lines[1].id)).pegs), parse('2'))
+  const lot = await read('lot', receipt.lines[0].lotId), received = await read('receipt', receipt.id)
+  assert.equal(total(lot.pegs), parse('1.5')); assert.deepEqual(received.pegs, lot.pegs)
+  assert.deepEqual(received.allocatedSalesOrders.map(o => o.id).sort(), [reserved.id, made.id].sort())
+  assert.equal(lot.pegs.find(p => p.demand.documentId === reserved.id).source.reserved, true)
+  assert.equal((await read('lot', receipt.lines[1].lotId)).pegs.length, 0) // held is never usable
+  assert.deepEqual((await read('purchase', receivedPO.id)).pegs, lot.pegs)
+  assert.equal((await read('purchase', draft.id)).pegs.length, 0)
+  assert.deepEqual(await h.state(), snapshot); assert.equal(h.outboundCount(), outbound)
+  // Slip the real PO: allocated edges disappear; alternatives remain explicitly
+  // separate and retain dates and shortages rather than promising coverage.
+  po = await h.command('po.revise', { poId: po.id, version: po.version, expectedDate: date(20), note: 'Supplier delay' })
+  const delayed = await read('purchase', po.id)
+  assert.equal(delayed.pegs.length, 0); assert.equal(delayed.allocatedSalesOrders.length, 0)
+  assert.deepEqual([...new Set(delayed.lateCandidates.map(p => p.demand.documentId))].sort(), [made.id, direct.id].sort())
+  assert.ok(delayed.lateCandidates.every(p => p.source.date === date(20) && p.source.reason === 'after required date'))
+  assert.equal((await read('sales', direct.id)).requirements[0].shortage, '3')
+  assert.deepEqual((await h.state()).reservations, snapshot.reservations)
+  po = await h.command('po.revise', { poId: po.id, version: po.version, expectedDate: date(2), note: 'Confirmed recovery' })
+  const current = (await h.state()).salesOrders.find(o => o.id === direct.id)
+  await h.command('so.cancelLine', { orderId: current.id, version: current.version, lineId: current.lines[0].id, quantity: '3', customerApproval: { name: 'Buyer', reference: 'Cancellation email', approvedOn: date(0) }, reason: 'Customer cancelled' })
+  const cancelled = await read('purchase', po.id)
+  assert.equal(total(cancelled.pegs), parse('1'))
+  assert.deepEqual(cancelled.allocatedSalesOrders.map(o => o.id), [made.id])
+  assert.equal((await read('sales', direct.id)).requirements.length, 0)
+  assert.deepEqual((await h.state()).reservations, snapshot.reservations)
+  // An unlotted receipt cannot be assigned a made-up ancestry by bin/item.
+  const unlotted = await h.command('receipt.create', { poId: po.id, supplierReference: 'Unlotted delivery', lines: [{ lineId: po.lines[1].id, locationId: location.id, quantity: '0.25' }] })
+  const untracked = await read('receipt', unlotted.id)
+  assert.equal(untracked.pegs.length, 0); assert.equal(untracked.untrackedReceiptLines[0].quantity, '0.25')
+  // Work reads its pinned component recipe, never claiming a customer link
+  // through output whose material feasibility has not been proved.
+  const w = await h.command('wo.draft', { itemId: product.id, quantity: '1', requiredBy: date(12), reason: 'Pinned pegging work' })
+  const work = await h.command('wo.release', { workOrderId: w.id, version: w.version })
+  await h.command('bom.revise', { itemId: product.id, components: [{ itemId: raw.id, quantity: '99' }] })
+  const pinned = await read('work', work.id)
+  assert.deepEqual(pinned.requirements.filter(r => r.kind === 'work').map(r => [r.itemId, r.quantity]).sort(), [[left.id, '1'], [right.id, '1']].sort())
+  assert.equal(pinned.allocatedSalesOrders.length, 0)
+  assert.ok(pinned.blockedExplosions.some(b => b.documentId === made.id && b.workOrderIds.includes(work.id)))
+  assert.deepEqual((await read('work', work.id, work.components[0].id)).requirements.filter(r => r.kind === 'work').map(r => r.itemId), [work.components[0].itemId])
+  const forecastItem = await item('PEG-FORECAST')
+  const monday = new Date(date(0) + 'T00:00:00Z'); monday.setUTCDate(monday.getUTCDate() + 8 - (monday.getUTCDay() || 7))
+  await h.command('opening.record', { locationId: location.id, countedOn: date(0), valuationBasis: 'owner-estimate', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: forecastItem.id, quantity: '0.125', unitCost: '1' }] })
+  await h.command('forecast.import', { stateVersion: (await h.state()).version, file: { name: 'pegging-forecast.csv', content: `sku,week,quantity,seasonality\nPEG-FORECAST,${monday.toISOString().slice(0, 10)},0.5,1\n` }, reason: 'Dated forecast pegging' })
+  const forecast = (await h.state()).forecasts.find(f => f.itemId === forecastItem.id)
+  const forecastPegs = await read('forecast', forecast.id)
+  assert.equal(forecastPegs.requirements[0].quantity, '0.5'); assert.equal(forecastPegs.requirements[0].shortage, '0.375')
+  assert.equal(total(forecastPegs.pegs), parse('0.125')); assert.equal(forecastPegs.allocatedSalesOrders.length, 0)
+  const beforeRead = await h.state(), beforeOutbound = h.outboundCount(), saved = await read('item', raw.id)
+  await h.restart(); assert.deepEqual(await read('item', raw.id), saved)
+  assert.deepEqual(await h.state(), beforeRead); assert.equal(h.outboundCount(), beforeOutbound)
+  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restored.status, 200, await restored.text())
+  for (const [kind, id] of [['item', raw.id], ['purchase', po.id], ['receipt', receipt.id], ['work', work.id]]) {
+    const original = await read(kind, id), copy = await read(kind, id, undefined, target)
+    for (const field of ['requirements', 'pegs', 'lateCandidates', 'allocatedSalesOrders', 'untrackedReceiptLines', 'blockedExplosions']) assert.deepEqual(copy[field], original[field])
+  }
+  assert.equal((await h.request(url('item', raw.id), { as: '' })).status, 401)
+  const reader = await h.person('pegging-planner@example.test', 'planner')
+  assert.equal((await h.request(url('item', raw.id), { as: reader.cookie })).status, 200)
+  assert.equal((await h.request('/auth/operator/status', { method: 'POST', body: { operatorId: reader.id, status: 'inactive' } })).status, 200)
+  assert.equal((await h.request(url('item', raw.id), { as: reader.cookie })).status, 401)
+  const counter = await h.person('pegging-counter@example.test', 'warehouse')
+  await h.command('count.schedule', { locationId: location.id, scheduledOn: date(0), basis: 'bin', counterId: counter.id, recountTolerance: '0' })
+  assert.equal((await h.request(url('item', raw.id), { as: counter.cookie })).status, 403)
+  assert.equal((await (await h.request(url('item', raw.id, 'not-an-item-option'))).json()).error.code, 'INPUT')
+  assert.equal((await (await h.request(url('purchase', po.id, direct.lines[0].id))).json()).error.code, 'NOT_FOUND')
   await h.invariant()
 })
