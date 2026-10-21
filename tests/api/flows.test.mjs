@@ -312,7 +312,7 @@ test('BUY-001 supplier constraints, feasible quote and scheduled approval surviv
   const loc = await h.command('location.save', { name: 'Supplier-term rack' })
   const vendors = []
   for (let n = 1; n <= 2; n++) vendors.push(await h.command('party.save', { name: `synthetic-larder-30${n}`, kind: 'supplier', terms: 'Original supplier agreement' }))
-  const base = { itemId: item.id, packQuantity: '6', moq: '12', leadDays: 1, weekdays: [0,1,2,3,4,5,6], closedDates: [day(1)], price: '2', breaks: [{ quantity: '12', price: '1.6' }], currency: 'CAD', usdRate: '0.75', rateOn: day(0), rateSource: 'Buyer recorded CAD quotation', paymentTerms: 'Net 30', freightTerms: 'Delivered duty paid', partyCode: 'synthetic-larder-304', preferred: false }
+  const base = { itemId: item.id, packQuantity: '6', moq: '12', leadDays: 1, weekdays: [0,1,2,3,4,5,6].filter(d => d !== new Date(day(3) + 'T00:00:00Z').getUTCDay()), closedDates: [day(1)], price: '2', breaks: [{ quantity: '12', price: '1.6' }], currency: 'CAD', usdRate: '0.75', rateOn: day(0), rateSource: 'Buyer recorded CAD quotation', paymentTerms: 'Net 30', freightTerms: 'Delivered duty paid', partyCode: 'synthetic-larder-304', preferred: false }
   const fast = await h.command('supplier.terms', { ...base, partyId: vendors[0].id })
   const slow = await h.command('supplier.terms', { ...base, partyId: vendors[1].id, partyCode: 'synthetic-larder-305', packQuantity: '10', moq: '20', leadDays: 10, preferred: true, currency: 'USD', usdRate: '1', price: '0.5', breaks: [] })
   const quotes = async () => (await (await h.request(`/api/larder/purchasing/quotes?itemId=${item.id}&quantity=7&requiredBy=${day(5)}`)).json()).quotes
@@ -325,6 +325,7 @@ test('BUY-001 supplier constraints, feasible quote and scheduled approval surviv
   await h.command('po.selectQuote', { ...selected, partyItemId: slow.id, version: slow.version }, { error: 'INFEASIBLE_QUOTE' })
   await h.command('po.selectQuote', { ...selected, deliveries: [{ quantity: '5', expectedDate: day(2) }] }, { error: 'SCHEDULE' })
   await h.command('po.selectQuote', { ...selected, deliveries: [{ quantity: '12', expectedDate: day(1) }] }, { error: 'SCHEDULE' })
+  await h.command('po.selectQuote', { ...selected, deliveries: [{ quantity: '12', expectedDate: day(3) }] }, { error: 'SCHEDULE' })
   await h.command('po.draft', { supplierId: vendors[0].id, expectedDate: day(2), reason: 'Bypass attempt', lines: [{ itemId: item.id, quantity: '7', unitPrice: '1.2' }] }, { error: 'SUPPLIER_CONSTRAINT' })
   await h.command('po.draft', { supplierId: vendors[0].id, expectedDate: day(2), reason: 'Wrong break', lines: [{ itemId: item.id, quantity: '12', unitPrice: '2' }] }, { error: 'SUPPLIER_CONSTRAINT' })
   const agent = await h.person('supplier-agent@example.test', 'agent'), buyer = await h.person('supplier-buyer@example.test', 'buyer')

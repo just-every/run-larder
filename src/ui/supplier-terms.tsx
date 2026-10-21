@@ -95,8 +95,8 @@ function termFacts(t: any) {
     recordedRate: `USD ${t.usdRate} per ${t.currency}`, rateDate: t.rateOn, rateSource: t.rateSource, note: t.note }
 }
 export function purchaseTermFacts(s: LarderState, terms: any): any[] {
-  return [{ supplier: terms.supplier?.name ?? partyName(s, terms.supplierId), basicTerms: terms.supplier?.terms ?? '', cashExposure: `USD ${terms.exposure}` },
+  return [{ supplier: terms.supplier?.name ?? partyName(s, terms.supplierId), basicTerms: terms.supplier?.terms ?? '', cashExposure: `${terms.currency ?? "Currency not recorded:"} ${terms.exposure}` },
     ...terms.lines.map((l: any) => ({ item: itemName(s, l.itemId), scheduledQuantity: l.quantity, expectedDate: l.expectedDate ?? terms.expectedDate,
-      usdUnitPrice: `USD ${l.unitPrice}`, ...(l.supplierQuote ? { supplierCode: l.supplierQuote.partyCode,
+      unitPrice: `${l.supplierQuote ? "USD" : terms.currency ?? "Currency not recorded:"} ${l.unitPrice}`, ...(l.supplierQuote ? { supplierCode: l.supplierQuote.partyCode,
         selectedPrice: `${l.supplierQuote.currency} ${l.supplierQuote.price}`, quoteVersion: l.supplierQuote.version, quoteQuantity: l.supplierQuote.quantity, ...termFacts(l.supplierQuote.terms) } : {}) }))]
 }

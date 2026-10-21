@@ -53,7 +53,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
         const ref = get(c.s, 'partyItems', l.supplierQuote.partyItemId, 'supplier terms')
         if (ref.version !== l.supplierQuote.version) fail('STALE', 'Supplier terms changed. Select the quote again before approval.')
       }
-      const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision: 'approved', role: c.actor.role, note: optionalText(p.note, 'note', 400), terms: structuredClone({ supplierId: po.supplierId, lines: po.lines, expectedDate: po.expectedDate, exposure: po.exposure, currency: po.currency ?? 'USD', supplier: po.supplierSnapshot }) })
+      const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision: 'approved', role: c.actor.role, note: optionalText(p.note, 'note', 400), terms: structuredClone({ supplierId: po.supplierId, lines: po.lines, expectedDate: po.expectedDate, exposure: po.exposure, currency: po.currency, supplier: po.supplierSnapshot }) })
       return bump(po, { status: 'approved', approvalId: approval.id, approvedBy: c.actor.id })
     }
     case 'po.confirm': {
