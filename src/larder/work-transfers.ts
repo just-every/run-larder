@@ -73,7 +73,7 @@ function finish(c: Context, dest: Row, sources: Row[]) {
 }
 export function workTransfers(c: Context, type: string, p: any): Row | undefined {
   if (!['wo.split', 'wo.merge'].includes(type)) return
-  allow(c, ['manager', 'production'])
+  allow(c, ['manager', 'production', 'planner'])
   const reason = text(p.reason, 'transfer reason', 1000)
   if (type === 'wo.split') {
     const source = get(c.s, 'workOrders', p.workOrderId); fresh(source, p.version); eligible(c, source)

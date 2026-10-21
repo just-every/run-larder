@@ -6,15 +6,18 @@ Invite your team, give each person a role, and let agents prepare work that a pe
 
 Only the owner manages people. On **More → People and roles**, fill in **Invite someone** with their name and email and press **Send invitation**. They receive a sign-in link and join as a viewer until you give them a role under **Set a role**.
 
-## The ten roles
+## The thirteen roles
 
 | Role | What they can do |
 | --- | --- |
 | Owner | Everything, including people and roles |
 | Manager | Everything day to day, approvals and move-in |
 | Sales | Quotes, orders and reservations |
+| Planner | Forecasts and the master production schedule, inventory policies, shortage and work drafts, order ranks, reschedules and split/merge; a different person approves what they prepared, and they never release work or buy |
 | Buyer | Purchase orders and supplier terms |
+| Engineer | BOM and routing revisions with instructions, BOM and catalog CSV edits, and engineering change proposals that a manager approves |
 | Production | Bills of materials and work orders |
+| Operator | Only the operations assigned to them: acknowledge instructions, start, pause, resume, report progress and complete; no stock postings |
 | Warehouse | Receiving, shipping, transfers and counts |
 | Quality | Inspection plans and results, quality holds, nonconformance cases and deviations, certificates, expiry decisions and recalls |
 | Accounts | Handoff batches and ledger acknowledgements |

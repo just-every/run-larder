@@ -33,7 +33,7 @@ const component = (w: Row, itemId: unknown) => w.components.find((l: any) => l.i
 export function production(c: Context, type: string, p: any): Row | undefined {
   switch (type) {
     case 'wo.draft':
-      allow(c, ['manager', 'production', 'agent'])
+      allow(c, ['manager', 'production', 'planner', 'agent'])
       return draftWork(c, p)
     case 'wo.release': {
       approver(c, ['manager', 'production'])

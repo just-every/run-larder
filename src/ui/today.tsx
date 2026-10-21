@@ -38,7 +38,7 @@ export function Today({ larder }: { larder: Larder }) {
   const s = larder.state!, run = larder.run, busy = larder.busy
   const proposals = rows(s, 'proposals').filter(p => p.status === 'awaiting approval')
   const drafts = rows(s, 'purchaseOrders').filter(p => p.status === 'draft'), counts = rows(s, 'counts').filter(c => c.status === 'awaiting approval')
-  const approve = can(s, ['manager', 'sales', 'buyer', 'production', 'accounts'])
+  const approve = can(s, ['manager', 'sales', 'planner', 'buyer', 'production', 'accounts'])
   // A released job missing materials reads what it waits on and when, as the Shortages page and the Schedule do.
   const plan = schedule(s, new Date())
   const others = s.exceptions.filter((x: any) => !['proposal', 'approval'].includes(x.kind)).map((x: any) => {

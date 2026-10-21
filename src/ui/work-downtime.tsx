@@ -8,7 +8,7 @@ const localTime = () => { const d = new Date(Date.now() + 3600000); return new D
 
 export function WorkDowntime({ larder, w, task, sequence }: { larder: Larder; w: Rec; task: any; sequence: number }) {
   const s = larder.state!, active = ['running', 'paused'].includes(task.status), supervisor = can(s, ['manager'])
-  const report = active && can(s, ['manager', 'production']) && (supervisor || task.startedBy === s.actor.id)
+  const report = active && can(s, ['manager', 'production', 'operator']) && (supervisor || task.startedBy === s.actor.id)
   const maintenance = activeMaintenance({ maintenance: rows(s, 'maintenance') }, task.workCentre, new Date().toISOString())
   const payload = { workOrderId: w.id, version: w.version, sequence }
   return <section aria-label={`Step ${sequence} progress and downtime`}>

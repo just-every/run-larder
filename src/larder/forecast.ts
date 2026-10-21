@@ -19,7 +19,7 @@ function change(c: Context, f: Row, next: any, reason: string, extra: any = {}) 
 export function forecasts(c: Context, type: string, p: any): Row | undefined {
   if (!type.startsWith('forecast.') && !type.startsWith('mps.')) return
   if (type === 'forecast.import') {
-    allow(c, ['manager', 'buyer', 'production', 'agent'])
+    allow(c, ['manager', 'buyer', 'production', 'planner', 'agent'])
     if (p.stateVersion !== c.s.version) fail('STALE', 'Records changed. Review the forecast import again.')
     const name = text(p.file?.name, 'file name', 200), reason = text(p.reason, 'reason', 400)
     const buckets = parseForecast(c.s, p.file?.content, name)
@@ -32,7 +32,7 @@ export function forecasts(c: Context, type: string, p: any): Row | undefined {
     return { id: newId(), version: 1, forecastIds: ids, attachmentId: attachment.id, rows: ids.length }
   }
   if (type === 'forecast.adjust' || type === 'forecast.undo') {
-    allow(c, ['manager', 'production'])
+    allow(c, ['manager', 'production', 'planner'])
     const f = get(c.s, 'forecasts', p.forecastId, 'forecast'); fresh(f, p.version)
     const reason = text(p.reason, 'reason', 400)
     if (type === 'forecast.undo') {
@@ -46,7 +46,7 @@ export function forecasts(c: Context, type: string, p: any): Row | undefined {
     return change(c, f, next, reason, { kind: 'adjustment' })
   }
   if (type === 'mps.preview') {
-    allow(c, ['manager', 'buyer', 'production', 'agent'])
+    allow(c, ['manager', 'buyer', 'production', 'planner', 'agent'])
     if (!c.s.forecasts.length) fail('INPUT', 'Import a forecast before preparing the master production schedule.')
     const rows = masterSchedule(c.s)
     if (rows.some(r => decimal(r.undatedShipped) > 0n)) fail('HISTORICAL_DEMAND', 'Historical shipped demand has no issued delivery dates. Reconcile the source documents before releasing this item’s MPS.', rows.filter(r => decimal(r.undatedShipped) > 0n).map(r => ({ itemId: r.itemId, sources: r.undatedSources })))
@@ -54,7 +54,7 @@ export function forecasts(c: Context, type: string, p: any): Row | undefined {
   }
   if (type === 'mps.release') {
     const plan = get(c.s, 'productionPlans', p.planId, 'master production schedule'); fresh(plan, p.version)
-    approver(c, ['manager', 'production'], plan.preparedBy)
+    approver(c, ['manager', 'production', 'planner'], plan.preparedBy)
     if (plan.status !== 'preview') fail('STATE', 'Only an unreleased MPS preview can be released.')
     if (plan.stateVersion !== c.s.version) fail('STALE', 'Business records changed. Prepare and review a new MPS.')
     const policies = mpsPolicyWarnings(c.s, plan.rows.filter((r: any) => decimal(r.proposed) > 0n).map((r: any) => r.itemId), c.now.slice(0, 10))

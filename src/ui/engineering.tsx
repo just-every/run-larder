@@ -5,7 +5,7 @@ import { day, qty, when, words } from './format'
 import { EngineeringProposal } from './engineering-form'
 
 export function EngineeringChanges({ larder }: { larder: Larder }) {
-  const s = larder.state!, prepare = can(s, ['manager', 'production'])
+  const s = larder.state!, prepare = can(s, ['manager', 'production', 'engineer'])
   return <>{prepare && <EngineeringProposal larder={larder} />}
     {[...rows(s, 'engineeringChanges')].reverse().map(e => <Card key={e.id} title={<>Engineering change · {itemName(s, e.itemId)} <Chip tone={e.status === 'approved' ? 'good' : 'warn'}>{words(e.status)}</Chip></>}>
       <p>{e.reason}</p><p className="meta">{e.safety ? 'Safety-related · ' : ''}Effective {day(e.effectiveOn)} · proposed by {personName(s, e.createdBy)} {when(e.createdAt)}</p>

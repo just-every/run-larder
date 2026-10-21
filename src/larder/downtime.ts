@@ -12,7 +12,7 @@ const reasons = ['breakdown', 'waiting-material', 'changeover', 'quality', 'othe
 
 export function downtime(c: Context, type: string, p: any): Row | undefined {
   if (!commands.includes(type)) return
-  allow(c, ['manager', 'production'])
+  allow(c, ['manager', 'production', 'operator'])
   const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
   const step = w.routing.find((r: any) => r.sequence === p.sequence) ?? fail('NOT_FOUND', 'Choose an operation on this released work order.')
   const task = w.operationStates?.find((r: any) => r.sequence === step.sequence)
@@ -29,7 +29,7 @@ export function downtime(c: Context, type: string, p: any): Row | undefined {
   if (w.status !== 'released') fail('STATE', 'Report downtime and progress only on released work.')
   if (!['running', 'paused'].includes(task.status)) fail('STATE', 'Report only on a running or paused operation.')
   let reportingReason = ''
-  if (c.actor.role === 'production') {
+  if (c.actor.role === 'production' || c.actor.role === 'operator') {
     if (task.startedBy !== c.actor.id) forbidden('Only the person running this operation can report its downtime or progress.')
   } else {
     approver(c, ['manager'])

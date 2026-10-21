@@ -21,7 +21,7 @@ export function operationReadiness(s: LarderState, w: Rec, step: any) {
 }
 
 export function WorkOperations({ larder, w, sequence: onlySequence }: { larder: Larder; w: Rec; sequence?: number }) {
-  const s = larder.state!, actor = s.actor, operate = can(s, ['manager', 'production']), released = w.status === 'released'
+  const s = larder.state!, actor = s.actor, operate = can(s, ['manager', 'production', 'operator']), released = w.status === 'released'
   const states: any[] = w.operationStates ?? []
   if (!w.routing?.length) return null
   return <section aria-label="Pinned operation tasks">
@@ -60,7 +60,7 @@ export function WorkOperations({ larder, w, sequence: onlySequence }: { larder: 
         {status === 'pending' && reasons.length > 0 && <ul className="warn-text">{reasons.map(reason => <li key={reason}>{reason}</li>)}</ul>}
         {released && task && operate && needsAck && !acknowledged && status !== 'done' && <div className="actions"><button type="button" className="button" disabled={larder.busy || Boolean(wrongOperator)} onClick={() => larder.run('wo.operation.acknowledge', { ...payload, bomId: w.bomId })}>Acknowledge step {sequence} instructions and drawings</button></div>}
         {released && task && (status === 'pending' || legacy) && can(s, ['manager']) && <Form title={`Step ${sequence} ${skills.length ? 'skill authorization' : 'assignment'}`} submit={`Authorize step ${sequence} operator`} busy={larder.busy} note={legacy ? 'Record the existing starter without changing the recorded start or inventing a station.' : skills.length ? "Authorize this named operator to perform the pinned required skills. This records a manager's authorization." : 'Assign this operation to a named active operator before they start.'} onSubmit={data => larder.run('wo.operation.assign', { ...payload, operatorId: text(data, 'operatorId'), ...(legacy ? { reason: text(data, 'reason') } : {}) })}>
-          <Choose label={`Step ${sequence} authorized operator`} name="operatorId" defaultValue={assignment?.operatorId ?? (legacy ? task.startedBy : '')} options={rows(s, 'people').filter(person => ['owner', 'manager', 'production'].includes(person.role) && (!legacy || person.id === task.startedBy)).map(person => ({ value: person.id, label: person.name }))} />
+          <Choose label={`Step ${sequence} authorized operator`} name="operatorId" defaultValue={assignment?.operatorId ?? (legacy ? task.startedBy : '')} options={rows(s, 'people').filter(person => ['owner', 'manager', 'production', 'operator'].includes(person.role) && (!legacy || person.id === task.startedBy)).map(person => ({ value: person.id, label: person.name }))} />
           {legacy && <Field label={`Step ${sequence} legacy assignment reason`} name="reason" />}
         </Form>}
         {released && task && operate && status === 'pending' && <Form submit={`Start step ${sequence}`} busy={larder.busy || reasons.length > 0} onSubmit={data => larder.run('wo.operation.start', { ...payload, workCentre: text(data, 'workCentre'), station: text(data, 'station'), reason: text(data, 'reason') })}>

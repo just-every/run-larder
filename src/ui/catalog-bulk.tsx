@@ -6,7 +6,7 @@ const labels: Record<string, string> = { salePrice: 'Sales price', standardCost:
 const value = (v: unknown) => v === undefined || v === null || v === '' ? 'Empty' : typeof v === 'object' ? JSON.stringify(v) : String(v)
 
 export function CatalogBulk({ larder }: { larder: Larder }) {
-  const s = larder.state!, allowed = can(s, ['manager', 'buyer', 'production'])
+  const s = larder.state!, allowed = can(s, ['manager', 'buyer', 'production', 'engineer'])
   if (!allowed) return null
   const fieldValue = (field: string, v: unknown) => field === 'preferred_supplier_id' && v ? rows(s, 'parties').find(p => p.id === v)?.name ?? `Unknown supplier: ${v}` : field === 'defaultBin' && v ? rows(s, 'locations').find(l => l.id === v)?.name ?? `Unknown bin: ${v}` : value(v)
   const previews = [...rows(s, 'catalogChanges')].reverse()

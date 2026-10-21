@@ -55,7 +55,7 @@ function Availability({ s, itemId, larder, order }: { s: LarderState; itemId: st
     </dl>
     {open && <div className="stack">
       {can(s, ['manager', 'sales', 'warehouse']) && <button className="button primary" disabled={larder.busy} onClick={() => larder.run('so.reserve', { orderId: order.id })}>Reserve stock</button>}
-      {short && can(s, ['manager', 'buyer', 'production', 'agent']) && <button className="button" disabled={larder.busy} onClick={async () => { const r = await larder.run('plan.draft', { itemId }); if (r) window.location.hash = `make/${item?.kind === 'make' ? 'wo' : 'po'}/${r.id}` }}>{item?.kind === 'make' ? 'Draft work order' : 'Draft purchase order'} for {qty(short.shortage)} short</button>}
+      {short && can(s, ['manager', 'buyer', 'production', 'planner', 'agent']) && <button className="button" disabled={larder.busy} onClick={async () => { const r = await larder.run('plan.draft', { itemId }); if (r) window.location.hash = `make/${item?.kind === 'make' ? 'wo' : 'po'}/${r.id}` }}>{item?.kind === 'make' ? 'Draft work order' : 'Draft purchase order'} for {qty(short.shortage)} short</button>}
       <a className="button" href="#pick">Pick and pack</a>
     </div>}
   </Card>

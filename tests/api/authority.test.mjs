@@ -1,4 +1,4 @@
-// LARDER-014 roles are enforced in every handler; LARDER-015 agents prepare and people approve.
+// LARDER-014 roles are enforced in every handler; LARDER-015 agents prepare and people approve; GOV-001 roles inherit their clauses' doors.
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { installation, workshop } from './harness.mjs'
@@ -137,4 +137,162 @@ test('GOV-001 TRACE-005 quality role inherits TRACE-003/004/006/007 authority wi
   const next = await document({ documentVersion: 'Rev B' })
   await h.command('role.set', { operatorId: q2.id, role: 'viewer' })
   await q2.run('certificate.approve', { certificateId: next.id, version: next.version, note: 'After revocation' }, { error: 'FORBIDDEN' })
+})
+
+const day = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
+const monday = weeks => { const d = new Date(); return day(8 - (d.getUTCDay() || 7) + 7 * weeks) }
+const deactivate = async (h, person) => assert.equal((await h.request('/auth/operator/status', { method: 'POST', body: { operatorId: person.id, status: 'inactive' } })).status, 200)
+// AUTO-001: every human role with write authority can own and follow up a case.
+async function ownsFollowUp(h, w, person) {
+  let po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: day(-1), reason: 'Late walnut', lines: [{ itemId: w.timber.id, quantity: '1', unitPrice: '9.5' }] })
+  po = await h.command('po.approve', { poId: po.id, version: po.version })
+  const key = `po-late:${po.id}`, assigned = await h.command('exception.assign', { key, version: 0, ownerId: person.id, dueOn: day(0), nextAction: 'Chase the late walnut', escalationOwnerId: (await h.state()).actor.id, note: 'Assigned' })
+  const followed = await person.run('exception.followUp', { key, version: assigned.version, dueOn: day(1), nextAction: 'Confirm the new ETA', note: 'Supplier promised tomorrow' })
+  assert.equal(followed.ownerId, person.id); assert.equal(followed.history.at(-1).by, person.id)
+}
+async function refusedOutside(h, w, person, commands, downloads) {
+  for (const [type, payload] of commands) await person.run(type, payload, { error: 'FORBIDDEN' })
+  for (const path of downloads) assert.equal((await h.request(path, { as: person.cookie })).status, 403, path)
+}
+
+test('GOV-001 planner role inherits DEMAND-003 forecast/MPS, DEMAND-004 policy and FLOOR-005 split/merge authority with independent approval, and nothing outside planning', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h)
+  const p1 = await h.person('pat@example.test', 'planner'), p2 = await h.person('pia@example.test', 'planner'), agent = await h.person('ada@example.test', 'agent')
+  assert.equal((await h.state(p1.cookie)).actor.role, 'planner')
+  await ownsFollowUp(h, w, p1)
+  // DEMAND-004: maintain a location policy, prepare, and approve only another person's exact preview.
+  const kit = await h.command('item.save', { sku: 'KIT', name: 'Board kit', kind: 'make', baseUnit: 'each', catalogLocations: [{ locationId: w.loc.id, reorderPoint: '5', safetyStock: '2', minStock: '3', maxStock: '10', defaultBin: w.loc.id, leadDays: 2 }] })
+  await h.command('bom.revise', { itemId: kit.id, components: [{ itemId: w.timber.id, quantity: '1' }] })
+  const policy = await p1.run('inventory.policy', { itemId: kit.id, locationId: w.loc.id, mode: 'make-to-stock', effectiveOn: day(0), batchSize: '1', orderMultiple: '1', reason: 'Planner replenishment policy' })
+  const own = await p1.run('inventory.preview', { policyId: policy.id, orderIds: [], reason: 'Replenish kits' })
+  assert.equal(own.preview.suggestions[0].quantity, '10')
+  for (const person of [p1, agent]) await person.run('inventory.approve', { planId: own.id, version: own.version }, { error: 'FORBIDDEN' })
+  const stocked = await p2.run('inventory.approve', { planId: own.id, version: own.version })
+  let s = await h.state(), draft = s.workOrders.find(x => x.id === stocked.documents[0].id)
+  assert.deepEqual([draft.status, draft.quantity, draft.inventoryPolicy.locationId], ['draft', '10', w.loc.id])
+  // FLOOR-005: split the approved draft and merge the remaining work back; agents cannot.
+  const split = await p1.run('wo.split', { workOrderId: draft.id, version: draft.version, parts: [{ quantity: '4' }], reason: 'Two bench batches' })
+  s = await h.state()
+  const sources = [draft.id, split.destinations[0]].map(id => s.workOrders.find(x => x.id === id))
+  assert.deepEqual(sources.map(x => x.quantity), ['6', '4'])
+  const merge = { sources: sources.map(x => ({ workOrderId: x.id, version: x.version })), reason: 'One batch after all' }
+  await agent.run('wo.merge', merge, { error: 'FORBIDDEN' })
+  const merged = await p2.run('wo.merge', merge)
+  assert.equal((await h.state()).workOrders.find(x => x.id === merged.destinations[0]).quantity, '10')
+  // LARDER-006 MRP drafts, DEMAND-005 ranks and LARDER-015 reschedules approved by a different planner.
+  const quote = await h.command('so.quote', { customerId: w.customer.id, promiseDate: day(3), lines: [{ itemId: w.board.id, quantity: '6' }] })
+  const order = await h.command('so.confirm', { orderId: quote.id, version: quote.version })
+  const shortWork = await p1.run('plan.draft', { itemId: w.board.id })
+  assert.deepEqual([shortWork.status, shortWork.quantity], ['draft', '2'])
+  assert.equal((await p1.run('order.rank', { kind: 'sales', orderId: order.id, version: order.version, rank: 1 })).rank, 1)
+  const reschedule = await p1.run('proposal.prepare', { kind: 'reschedule', summary: 'Run the shortage job first', evidence: ['bench capacity'], plan: { changes: [{ workOrderId: shortWork.id, priority: 1, plannedStart: day(1) }], conflicts: ['Kit batch waits'] } })
+  await p1.run('proposal.approve', { proposalId: reschedule.id, version: reschedule.version }, { error: 'FORBIDDEN' })
+  await p2.run('proposal.approve', { proposalId: reschedule.id, version: reschedule.version })
+  assert.equal((await h.state()).workOrders.find(x => x.id === shortWork.id).plannedStart, day(1))
+  // DEMAND-003: import, maintain and undo a forecast, prepare an MPS and release only another person's exact preview; agents never release.
+  const week = monday(2)
+  const imported = await p1.run('forecast.import', { stateVersion: (await h.state()).version, file: { name: 'boards.csv', content: `sku,week,quantity,seasonality\nBRD-WAL-L,${week},10,1\n` }, reason: 'Planner forecast' })
+  assert.equal(imported.rows, 1)
+  let forecast = (await h.state()).forecasts.find(f => f.week === week)
+  forecast = await p1.run('forecast.adjust', { forecastId: forecast.id, version: forecast.version, overrideQuantity: '14', reason: 'Trade show' })
+  forecast = await p2.run('forecast.undo', { forecastId: forecast.id, version: forecast.version, historyId: forecast.history.at(-1).id, reason: 'Show cancelled' })
+  assert.equal(forecast.overrideQuantity, null)
+  const mps = await p1.run('mps.preview', { reason: 'Planner MPS' })
+  for (const person of [p1, agent]) await person.run('mps.release', { planId: mps.id, version: mps.version }, { error: 'FORBIDDEN' })
+  const released = await p2.run('mps.release', { planId: mps.id, version: mps.version })
+  assert.equal(released.status, 'released')
+  assert.ok((await h.state()).workOrders.some(x => x.masterSchedule?.planId === mps.id && x.status === 'draft'))
+  // Nothing outside planning: work release, sales, buying, engineering, stock posting, roles and restricted downloads.
+  const po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: day(7), reason: 'Owner draft', lines: [{ itemId: w.timber.id, quantity: '1', unitPrice: '9.5' }] })
+  await refusedOutside(h, w, p1, [['wo.release', { workOrderId: shortWork.id, version: 1 }], ['so.quote', { customerId: w.customer.id, promiseDate: day(9), lines: [{ itemId: w.board.id, quantity: '1' }] }], ['po.draft', { supplierId: w.supplier.id, expectedDate: day(7), reason: 'x', lines: [{ itemId: w.timber.id, quantity: '1', unitPrice: '1' }] }], ['po.approve', { poId: po.id, version: po.version }], ['bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '2' }] }], ['opening.record', {}], ['role.set', { operatorId: p2.id, role: 'manager' }]],
+    ['/api/larder/archive', '/api/larder/catalog.csv', '/api/larder/boms.csv', '/api/larder/handoffs/00000000-0000-0000-0000-000000000000.csv'])
+  // Revoking membership mid-task: a deactivated planner's next approval is refused.
+  const pending = await p1.run('inventory.preview', { policyId: policy.id, orderIds: [], reason: 'After the merge' })
+  await deactivate(h, p2)
+  await p2.run('inventory.approve', { planId: pending.id, version: pending.version }, { error: 'AUTH' })
+  assert.equal((await h.state()).inventoryPlans.find(x => x.id === pending.id).status, 'preview')
+})
+
+test('GOV-001 engineer role inherits ENG-007 catalog export, preparation and independent approval and controls ENG-002/004/005 revisions, never change approval or anything outside engineering', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h)
+  const e1 = await h.person('eli@example.test', 'engineer'), e2 = await h.person('eve@example.test', 'engineer'), manager = await h.person('max@example.test', 'manager')
+  assert.equal((await h.state(e1.cookie)).actor.role, 'engineer')
+  await ownsFollowUp(h, w, e1)
+  // ENG-004: export BOMs, prepare a bulk revision and approve only another engineer's preview.
+  const boms = await h.request('/api/larder/boms.csv', { as: e1.cookie }); assert.equal(boms.status, 200)
+  const content = (await boms.text()).replaceAll('"WAL-BLANK","1","each"', '"WAL-BLANK","2","each"')
+  const bulk = await e1.run('bom.bulkPreview', { file: { name: 'boms.csv', content } })
+  assert.deepEqual([bulk.revisions.length, bulk.errors.length], [1, 0])
+  await e1.run('bom.bulkApprove', { previewId: bulk.id, version: bulk.version }, { error: 'FORBIDDEN' })
+  assert.equal((await e2.run('bom.bulkApprove', { previewId: bulk.id, version: bulk.version })).revisionIds.length, 1)
+  // ENG-002: the engineer authors routing instructions through the revision door.
+  const revised = await e1.run('bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '2' }, { itemId: w.oil.id, quantity: '50', unit: 'ml' }], routing: [{ name: 'Plane and cut', workCentre: 'Bench', minutes: 20, instructions: 'Plane to 19 mm before cutting' }, { name: 'Oil', workCentre: 'Finishing', minutes: 5 }] })
+  assert.equal(revised.revision, 3); assert.equal(revised.routing[0].instructions, 'Plane to 19 mm before cutting')
+  // ENG-005: an engineer proposes; only an owner or manager approves.
+  const change = await e1.run('engineering.propose', { itemId: w.board.id, sourceBomId: revised.id, safety: false, reason: 'Second oil coat', effectiveOn: day(1), components: [{ itemId: w.timber.id, quantity: '2' }, { itemId: w.oil.id, quantity: '60', unit: 'ml' }], substitutes: [], dispositions: [], workTreatments: [] })
+  for (const person of [e1, e2]) await person.run('engineering.approve', { changeId: change.id, version: change.version }, { error: 'FORBIDDEN' })
+  assert.equal((await manager.run('engineering.approve', { changeId: change.id, version: change.version })).status, 'approved')
+  // ENG-007: export the catalog, prepare an edit and approve only another engineer's exact preview.
+  const exported = await h.request('/api/larder/catalog.csv', { as: e1.cookie }); assert.equal(exported.status, 200)
+  const header = (await exported.text()).split(/\r?\n/)[0].split(',').map(cell => cell.replace(/^"|"$/g, '').replace(/^'/, ''))
+  const catalogFile = values => ({ name: 'catalog.csv', content: [header, header.map(key => values[key] ?? '')].map(cells => cells.map(v => `"${v}"`).join(',')).join('\r\n') + '\r\n' })
+  const catalog = await e1.run('catalog.bulkPreview', { file: catalogFile({ larder_id: w.board.id, location_id: w.loc.id, sale_price: '95' }) })
+  assert.equal(catalog.errors.length, 0)
+  await e1.run('catalog.bulkApprove', { previewId: catalog.id, version: catalog.version }, { error: 'FORBIDDEN' })
+  await e2.run('catalog.bulkApprove', { previewId: catalog.id, version: catalog.version })
+  assert.equal((await h.state()).items.find(i => i.id === w.board.id).salePrice, '95')
+  // Nothing outside engineering: work release, planning, sales, buying, stock posting, roles and restricted downloads.
+  const wo = await h.command('wo.draft', { itemId: w.board.id, quantity: '1', requiredBy: day(9), reason: 'Owner work' })
+  const po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: day(7), reason: 'Owner draft', lines: [{ itemId: w.timber.id, quantity: '1', unitPrice: '9.5' }] })
+  await refusedOutside(h, w, e1, [['wo.release', { workOrderId: wo.id, version: wo.version }], ['wo.draft', { itemId: w.board.id, quantity: '1', requiredBy: day(9), reason: 'x' }], ['mps.preview', { reason: 'x' }], ['so.quote', { customerId: w.customer.id, promiseDate: day(9), lines: [{ itemId: w.board.id, quantity: '1' }] }], ['po.approve', { poId: po.id, version: po.version }], ['opening.record', {}], ['role.set', { operatorId: e2.id, role: 'manager' }]],
+    ['/api/larder/archive', '/api/larder/handoffs/00000000-0000-0000-0000-000000000000.csv'])
+  // Revoking membership mid-task: a deactivated engineer's next approval is refused.
+  const pending = await e1.run('catalog.bulkPreview', { file: catalogFile({ larder_id: w.board.id, location_id: w.loc.id, sale_price: '99' }) })
+  await deactivate(h, e2)
+  await e2.run('catalog.bulkApprove', { previewId: pending.id, version: pending.version }, { error: 'AUTH' })
+  assert.equal((await h.state()).items.find(i => i.id === w.board.id).salePrice, '95')
+})
+
+test('GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007 operations, posts no stock and loses access when revoked', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h)
+  const op = await h.person('ora@example.test', 'operator'), other = await h.person('otto@example.test', 'operator'), manager = await h.person('mia@example.test', 'manager')
+  assert.equal((await h.state(op.cookie)).actor.role, 'operator')
+  await ownsFollowUp(h, w, op)
+  let work = await h.command('wo.draft', { itemId: w.board.id, quantity: '2', requiredBy: day(5), reason: 'Operator proof' })
+  work = await h.command('wo.release', { workOrderId: work.id, version: work.version })
+  const at = (sequence, more = {}) => ({ workOrderId: work.id, version: work.version, sequence, ...more })
+  // An operator neither assigns nor touches an operation before it is assigned to them.
+  await op.run('wo.operation.acknowledge', at(1, { bomId: work.bomId }), { error: 'ASSIGNMENT' })
+  await op.run('wo.operation.assign', at(1, { operatorId: op.id }), { error: 'FORBIDDEN' })
+  work = await manager.run('wo.operation.assign', at(1, { operatorId: op.id }))
+  work = await manager.run('wo.operation.assign', at(2, { operatorId: other.id }))
+  const dispatch = (await h.state(op.cookie)).dispatch.filter(d => d.workOrderId === work.id)
+  assert.equal(dispatch.find(d => d.sequence === 1).ready, true)
+  assert.ok(dispatch.find(d => d.sequence === 2).gates.some(g => g.code === 'ASSIGNMENT'))
+  work = await op.run('wo.operation.acknowledge', at(1, { bomId: work.bomId }))
+  const start = () => at(1, { workCentre: 'Bench', station: 'Tablet 1', reason: 'Assigned bench work' })
+  await other.run('wo.operation.start', start(), { error: 'ASSIGNMENT' })
+  work = await op.run('wo.operation.start', start())
+  const before = await h.state()
+  // FLOOR-007: pause, resume and report progress on their own running operation; never acknowledge escalations.
+  const pause = () => at(1, { reason: 'breakdown', note: 'Blade dull', escalationOwnerId: manager.id, anticipatedResumeAt: new Date(Date.now() + 3600000).toISOString() })
+  await other.run('wo.operation.pause', pause(), { error: 'FORBIDDEN' })
+  work = await op.run('wo.operation.pause', pause())
+  await op.run('wo.operation.escalationAck', at(1, { downtimeId: work.operationStates[0].downtime[0].id, note: 'Not mine to acknowledge' }), { error: 'FORBIDDEN' })
+  work = await op.run('wo.operation.resume', at(1, { reason: 'Blade changed' }))
+  work = await op.run('wo.operation.progress', at(1, { completedQuantity: '1', remainingMinutes: 10, note: 'Half the boards planed' }))
+  // Nothing outside their tasks: no stock postings, release, planning, engineering, sales, buying, roles or restricted downloads.
+  await refusedOutside(h, w, op, [['wo.issue', { workOrderId: work.id, lines: [{ itemId: w.timber.id, locationId: w.loc.id, quantity: '1' }] }], ['wo.output', { workOrderId: work.id, version: work.version, quantity: '1', locationId: w.loc.id }], ['wo.draft', { itemId: w.board.id, quantity: '1', requiredBy: day(9), reason: 'x' }], ['bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '2' }] }], ['so.quote', { customerId: w.customer.id, promiseDate: day(9), lines: [{ itemId: w.board.id, quantity: '1' }] }], ['po.draft', { supplierId: w.supplier.id, expectedDate: day(7), reason: 'x', lines: [{ itemId: w.timber.id, quantity: '1', unitPrice: '1' }] }], ['role.set', { operatorId: other.id, role: 'manager' }]],
+    ['/api/larder/archive', '/api/larder/catalog.csv', '/api/larder/boms.csv', '/api/larder/handoffs/00000000-0000-0000-0000-000000000000.csv'])
+  work = await op.run('wo.operation.complete', at(1, { reason: 'Planed and cut' }))
+  assert.deepEqual([work.operationStates[0].status, work.operationStates[0].completedBy], ['done', op.id])
+  const after = await h.state()
+  assert.deepEqual(after.movements, before.movements); assert.deepEqual(after.reservations, before.reservations)
+  // Revoking membership mid-task: the deactivated operator's assigned start is refused.
+  await deactivate(h, other)
+  await other.run('wo.operation.start', at(2, { workCentre: 'Finishing', station: 'Tablet 2', reason: 'Oil the boards' }), { error: 'AUTH' })
+  assert.equal((await h.state()).workOrders.find(x => x.id === work.id).operationStates.find(t => t.sequence === 2).status, 'pending')
 })

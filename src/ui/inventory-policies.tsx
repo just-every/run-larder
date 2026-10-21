@@ -7,7 +7,7 @@ import { InventoryPlanView } from './inventory-plan-view'
 
 export function InventoryPolicies({ larder }: { larder: Larder }) {
   const s = larder.state!, run = larder.run, busy = larder.busy, policies = rows(s, 'inventoryPolicies')
-  const maintain = can(s, ['manager', 'production']), prepare = can(s, ['manager', 'buyer', 'production', 'agent'])
+  const maintain = can(s, ['manager', 'production', 'planner']), prepare = can(s, ['manager', 'buyer', 'production', 'planner', 'agent'])
   const [selected, setSelected] = useState('')
   const policy = byId(s, 'inventoryPolicies', selected) ?? policies.at(-1)
   const supplies = policy ? [...rows(s, 'workOrders').filter(w => w.itemId === policy.itemId && ['draft', 'released'].includes(w.status) && !w.inventoryPolicy).map(w => ({ value: `workOrders:${w.id}`, label: `${w.reference} · ${qty(w.quantity)}` })), ...rows(s, 'purchaseOrders').filter(p => ['draft', 'approved', 'confirmed', 'part received'].includes(p.status)).flatMap(p => p.lines.filter((l: any) => l.itemId === policy.itemId && !l.inventoryPolicy && !p.inventoryPolicy).map((l: any) => ({ value: `purchaseOrders:${p.id}:${l.id}`, label: `${p.reference} · ${qty(l.quantity)}` })))] : []

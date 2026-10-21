@@ -5,7 +5,7 @@ import { day, qty, when, words } from './format'
 
 export function InventoryPlanView({ larder, plan }: { larder: Larder; plan: Rec }) {
   const s = larder.state!, p = plan.preview, settings = p.settings
-  const approve = can(s, ['manager', 'production']) && (plan.preparedBy !== s.actor.id || s.actor.role === 'owner')
+  const approve = can(s, ['manager', 'production', 'planner']) && (plan.preparedBy !== s.actor.id || s.actor.role === 'owner')
   return <Card title={`Inventory plan · ${plan.status} · ${when(plan.createdAt)}`}>
     <p>{plan.reason} · {itemName(s, p.itemId)} · {words(p.mode)}</p>
     <p className="muted">{p.scope} Settings location {locationName(s, p.locationId)}; physical bin {locationName(s, p.poolLocationId)}. As of {day(p.asOf)}.</p>

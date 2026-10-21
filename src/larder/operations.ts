@@ -17,7 +17,7 @@ export function operationStartGates(s: Pick<State, 'maintenance' | 'qualityHolds
   const blocked = predecessors.filter(n => !states.some(t => t.sequence === n && t.status === 'done'))
   const centres: string[] = step.eligibleCentres?.length ? step.eligibleCentres : step.workCentre ? [step.workCentre] : []
   return [
-    ...(!['owner', 'manager', 'production'].includes(actor.role) ? [{ code: 'FORBIDDEN', message: 'Your current role cannot execute operations.' }] : []),
+    ...(!['owner', 'manager', 'production', 'operator'].includes(actor.role) ? [{ code: 'FORBIDDEN', message: 'Your current role cannot execute operations.' }] : []),
     ...(w.status !== 'released' ? [{ code: 'STATE', message: 'Operate only on released work.' }] : []),
     ...(task && task.status !== 'pending' ? [{ code: 'STATE', message: task.status === 'done' ? 'This operation is complete.' : 'This operation has already started.' }] : []),
     ...workRecalls(s, w).map(r => ({ code: 'RECALL_HOLD', message: recallReason(r) })),
@@ -42,7 +42,7 @@ export function dispatchTasks(s: State, actor: Actor, now = new Date().toISOStri
 
 export function operations(c: Context, type: string, p: any): Row | undefined {
   if (!['wo.operation.acknowledge', 'wo.operation.assign', 'wo.operation.start', 'wo.operation.complete'].includes(type)) return
-  allow(c, type === 'wo.operation.assign' ? ['manager'] : ['manager', 'production'])
+  allow(c, type === 'wo.operation.assign' ? ['manager'] : ['manager', 'production', 'operator'])
   const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
   if (w.status !== 'released') fail('STATE', 'Operate only on released work.')
   const step = w.routing.find((r: any) => r.sequence === p.sequence) ?? fail('NOT_FOUND', 'Choose an operation on this released work order.')
@@ -50,6 +50,8 @@ export function operations(c: Context, type: string, p: any): Row | undefined {
   let task = w.operationStates.find((r: any) => r.sequence === step.sequence)
   if (!task) { task = { sequence: step.sequence, status: 'pending', acknowledgments: [] }; w.operationStates.push(task) }
   if (task.status === 'done') fail('STATE', 'This operation is complete.')
+  // An operator acts only on an operation assigned to them.
+  if (c.actor.role === 'operator' && task.assignment?.operatorId !== c.actor.id) fail('ASSIGNMENT', 'Operators act only on operations assigned to them.')
   if (type === 'wo.operation.acknowledge') {
     if (p.bomId !== w.bomId) fail('STALE', 'Acknowledge the exact pinned instruction revision.')
     if (!task.acknowledgments.some((a: any) => a.by === c.actor.id && a.bomId === w.bomId)) task.acknowledgments.push({ by: c.actor.id, at: c.now, bomId: w.bomId })

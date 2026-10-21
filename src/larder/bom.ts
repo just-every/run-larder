@@ -15,7 +15,7 @@ export const activeBom = (s: State, itemId: string, on = new Date().toISOString(
 
 export function bom(c: Context, type: string, p: any): Row | undefined {
   if (type !== 'bom.revise') return
-  allow(c, ['manager', 'production'])
+  allow(c, ['manager', 'production', 'engineer'])
   guardEngineeringRevision(c.s, p.itemId)
   return saveBom(c, p)
 }

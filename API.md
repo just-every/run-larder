@@ -7,7 +7,7 @@ The app and agents use the same door. Every request needs a native session cooki
 - `GET /api/larder/handoffs/<id>.csv` — a handoff batch as CSV (owner, manager, accounts).
 - `GET /api/larder/attachments/<id>` — an evidence file.
 - `GET /api/larder/imports/<id>.json` — a move-in preview: counts, rejected rows, skips, unread columns.
-- `GET /api/larder/boms.csv` — current effective BOMs and routings as editable CSV (owner, manager, production).
+- `GET /api/larder/boms.csv` — current effective BOMs and routings as editable CSV (owner, manager, production, engineer).
 - `GET /api/larder/archive` — the complete business archive with its checksum (owner, manager).
 - `POST /api/larder/archive/restore` — restore an archive into an empty installation (owner).
 
@@ -23,10 +23,10 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `partyItem.save` | `{id?, version?, partyId, itemId, partyCode, unit?, price?, leadDays?, preferred?}` | manager, buyer, sales |
 | `opening.record` | `{locationId, countedOn, valuationBasis: supplier-invoice\|last-purchase\|standard-cost\|owner-estimate, countedBy, evidence: {name, contentType, base64}, lines: [{itemId, quantity, unit?, unitCost, lot?, dates?}]}` | manager, warehouse |
 | `bom.revise` | `{itemId, components: [{itemId, quantity, unit?, supply?: make\|buy\|phantom}], yield?: <fraction>, routing?: [{name, workCentre?, minutes?, runMinutes?, setupMinutes?, queueMinutes?, dependsOn?, eligibleCentres?, requiredSkills?, instructions?, drawings?}], note?, effectiveOn?}` | manager, production |
-| `bom.bulkPreview` | `{file: {name, content}}` — CSV rows, errors and stock/open-work impact; creates only the review record | manager, production |
-| `bom.bulkApprove` | `{previewId, version, acceptRejected?: <exact error count>}` — approve all valid whole-BOM groups atomically; changed business state requires a new preview | manager, production (different preparer; owner may approve own) |
-| `order.rank` | `{kind: sales\|work, orderId, version, rank}` — lower positive whole-number ranks first; preserves reservations/promises | manager, production |
-| `work.expected` | `{workOrderId, version, expectedOn}` — declared MO completion ETA | manager, production |
+| `bom.bulkPreview` | `{file: {name, content}}` — CSV rows, errors and stock/open-work impact; creates only the review record | manager, production, engineer |
+| `bom.bulkApprove` | `{previewId, version, acceptRejected?: <exact error count>}` — approve all valid whole-BOM groups atomically; changed business state requires a new preview | manager, production, engineer (different preparer; owner may approve own) |
+| `order.rank` | `{kind: sales\|work, orderId, version, rank}` — lower positive whole-number ranks first; preserves reservations/promises | manager, production, planner |
+| `work.expected` | `{workOrderId, version, expectedOn}` — declared MO completion ETA | manager, production, planner |
 | `so.quote` | `{orderId?, version?, customerId, promiseDate, customerReference?, note?, lines: [{itemId, quantity, unit?, unitPrice?}]}` | manager, sales |
 | `so.confirm` | `{orderId, version, reserve?: true}` | manager, sales |
 | `so.reserve` | `{orderId, locationId?}` | manager, sales, warehouse |
@@ -34,7 +34,7 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `shipment.pick` | `{orderId, lines: [{lineId, locationId, quantity, unit?, lotId?}]}` | manager, warehouse |
 | `shipment.pack` | `{shipmentId, version, packages, weightKg?}` | manager, warehouse |
 | `shipment.ship` | `{shipmentId, version, carrier, tracking?}` | manager, warehouse |
-| `plan.draft` | `{itemId, quantity?, supplierId?, unitPrice?, expectedDate?, reason?}` — drafts the work or purchase order a shortage calls for | manager, buyer, production, agent |
+| `plan.draft` | `{itemId, quantity?, supplierId?, unitPrice?, expectedDate?, reason?}` — drafts the work or purchase order a shortage calls for | manager, buyer, production, planner, agent |
 | `po.draft` | `{supplierId, expectedDate, requiredBy?, reason, lines: [{itemId, quantity, unit?, unitPrice}]}` | manager, buyer, agent |
 | `po.approve` | `{poId, version, note?}` | manager, buyer (never an agent) |
 | `po.confirm` | `{poId, version, supplierReference, confirmedDate, evidence?}` | manager, buyer |
@@ -42,7 +42,7 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `receipt.create` | `{poId, supplierReference, lines: [{lineId, quantity, unit?, locationId, lot?, dates?, inspection?: accept\|quarantine}]}` | manager, warehouse |
 | `quarantine.decide` | `{itemId, locationId, lotId?, quantity, decision: release\|reject, reason}` | manager, warehouse |
 | `lot.dispose` | `{lotId, version, decision: extend\|scrap, expiresOn?, retestOn?, locationId?, reason, evidence: [{name, contentType, base64}]}` — documented disposition of an expired or retest-due lot | manager (never an agent) |
-| `wo.draft` | `{itemId, quantity, requiredBy, reason, priority?, plannedStart?}` | manager, production, agent |
+| `wo.draft` | `{itemId, quantity, requiredBy, reason, priority?, plannedStart?}` | manager, production, planner, agent |
 | `wo.release` | `{workOrderId, version}` | manager, production |
 | `wo.reserve` | `{workOrderId}` | manager, production, warehouse |
 | `wo.issue` | `{workOrderId, lines: [{itemId, locationId, quantity, unit?, lotId?, note?}]}` | manager, production, warehouse |
@@ -51,8 +51,8 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `rework.approve` | `{orderId, version, reason}` | manager, independent preparer (owner exception) |
 | `rework.execute` | `{orderId, version}` — consume source/extras and post quarantined outputs at approved allocation | manager, production |
 | `rework.release` | `{orderId, version, reason, evidence: [file]}` — approve usable repair/recovery, existing QC/certificate gates apply | manager, independent executor (owner exception) |
-| `wo.split` | `{workOrderId, version, reason, parts: [{quantity, centres?: {operationSequence: centerName}}]}` — transfer remaining work to disjoint successor jobs | manager, production |
-| `wo.merge` | `{reason, sources: [{workOrderId, version}], centres?: {operationSequence: centerName}}` — merge compatible remaining WIP once | manager, production |
+| `wo.split` | `{workOrderId, version, reason, parts: [{quantity, centres?: {operationSequence: centerName}}]}` — transfer remaining work to disjoint successor jobs | manager, production, planner |
+| `wo.merge` | `{reason, sources: [{workOrderId, version}], centres?: {operationSequence: centerName}}` — merge compatible remaining WIP once | manager, production, planner |
 | `wo.close` | `{workOrderId, version}` | manager, production |
 | `transfer.create` | `{itemId, fromLocationId, toLocationId, quantity, unit?, lotId?, reason}` | manager, warehouse |
 | `count.schedule` | `{locationId, scheduledOn, basis: value\|risk\|bin, counterId, recountTolerance?, minimumValue?, risk?: high\|medium\|low, itemId?}` | manager |
@@ -73,7 +73,7 @@ Quantities, prices and costs are decimal strings with at most six decimal places
 | `import.preview` | `{label, files: [{name, model?, content}], opening?: {countedOn, valuationBasis, countedBy}}` | manager, agent |
 | `import.commit` | `{importId, version, acceptRejected?: <number of rejected rows>}` | manager |
 | `import.undo` | `{importId, version, reason}` | manager |
-| `role.set` | `{operatorId, role: manager\|sales\|buyer\|production\|warehouse\|quality\|accounts\|agent\|viewer}` | owner |
+| `role.set` | `{operatorId, role: manager\|sales\|planner\|buyer\|engineer\|production\|operator\|warehouse\|quality\|accounts\|agent\|viewer}` | owner |
 
 ## Agent proposals
 
@@ -84,7 +84,7 @@ The agent prepares; nothing changes until a person approves the exact version.
 | `order-intake` | `{customerId, enquiry, lines: [{itemId, quantity \| null, unitPrice}], promiseDate, message, questions?}` | sales, manager | creates the quote; refused while a quantity is missing. The enquiry text is stored as data only. |
 | `replenishment` | `{explanation, purchases: [{supplierId, expectedDate, lines: [{itemId, quantity, unitPrice}]}]}` | buyer, manager | creates approved purchase orders. Larder attaches the deterministic shortages and cash exposure; changed shortages make it stale. |
 | `item-merge` | `{duplicateItemId, keepItemId}` | manager | re-points codes, quotes and draft purchases, revises active BOMs, moves stock by compensating movements and archives the duplicate; refused while open orders or reservations use it. |
-| `reschedule` | `{changes: [{workOrderId, priority, plannedStart}], conflicts?}` | production, manager | updates priorities and planned starts; a changed work order makes it stale. |
+| `reschedule` | `{changes: [{workOrderId, priority, plannedStart}], conflicts?}` | production, planner, manager | updates priorities and planned starts; a changed work order makes it stale. |
 | `reconciliation` | `{handoffId, entries: [{lineId, ledgerId, amount}]}` | accounts, manager | records the acknowledgements. |
 
 ## BOM CSV revisions (ENG-004)
@@ -135,13 +135,13 @@ All task commands use `workOrderId`, the current work-order `version`, and the p
 | Command | Additional input | Behavior |
 | --- | --- | --- |
 | `wo.operation.acknowledge` | `bomId` | Records the current person's acknowledgment of the exact pinned revision. An instruction/drawing task cannot start without it. Every new job starts unacknowledged. |
-| `wo.operation.assign` | `operatorId` | Owner/manager records a named active production person’s skill authorization for this task’s pinned requirements; this is not certification. |
+| `wo.operation.assign` | `operatorId` | Owner/manager records a named active production person’s or operator’s skill authorization for this task’s pinned requirements; this is not certification. |
 | `wo.operation.start` | `workCentre` | Requires completed predecessors, acknowledgment and an eligible named station; records operator/time. |
 | `wo.operation.complete` | none | The person who started the running operation records completion/time. |
 
 Tasks retain their acknowledgment and execution history in state and the business archive. Stock output/closure for a routing containing instructions, drawings or skill requirements waits for all its operations to complete. Simple existing routings remain usable with the published material/output flow. Setup/run/queue times are declared routing estimates, not actual labor capture (FLOOR-002) or finite calendar bookings (CAP-001/CAP-002/CAP-004). Engineering change proposals and obsolescence remain ENG-005 work.
 
-The current `production` role authors and operates routings. Task acknowledgment, start and completion require current owner/manager/production authority; agents cannot execute. Skill-required tasks need owner/manager authorization of the exact operator before start, and any assigned task can be started/completed only by that operator (completion also checks the original starter). Authority is rechecked through the same native-session atomic command door.
+The `production` and `engineer` roles author routings; `production` and `operator` people operate them. Task acknowledgment, start and completion require current owner/manager/production/operator authority, and an operator acts only on operations assigned to them; agents cannot execute. Skill-required tasks need owner/manager authorization of the exact operator before start, and any assigned task can be started/completed only by that operator (completion also checks the original starter). Authority is rechecked through the same native-session atomic command door.
 
 ## Reviewed sales amendments (DEMAND-002)
 
@@ -168,17 +168,17 @@ Order-list commercial value uses issued shipment prices plus the current outstan
 
 The state API returns `forecasts`, retained `productionPlans` and the current `masterSchedule`. Weekly rows distinguish baseline, seasonality, override, actual demand, outstanding/reserved, consumed/residual forecast, net demand, signed error, usable supply, proposed supply, closing stock and source documents. Adjusted baseline multiplies at six decimal places, half away from zero; an explicit override replaces it. Actual outstanding schedules and issued deliveries consume that same SKU/week once. Missing historical issued delivery dates are explicit and block MPS preparation. Supply arriving by the week’s Sunday covers that week; this quantity plan makes no capacity or customer-date promise.
 
-`mps.preview` takes `{reason}` and retains the exact rows/state version. Existing planning roles prepare. `mps.release` takes `{planId, version}`; owner/manager/production approve, with a different preparer except the owner and no agent release. Any business write after preview makes it stale. Release creates linked draft work or purchases for uncovered weekly quantities; bought items require a recorded supplier, and a missing supplier refuses the whole batch. Work release and purchasing approval stay separate. Draft/open supply prevents a second schedule from duplicating the first. Original forecasts, overrides, undo entries and released MPS snapshots are included in the complete archive.
+`mps.preview` takes `{reason}` and retains the exact rows/state version. Existing planning roles and planners prepare. `mps.release` takes `{planId, version}`; owner/manager/production/planner approve, with a different preparer except the owner and no agent release. Any business write after preview makes it stale. Release creates linked draft work or purchases for uncovered weekly quantities; bought items require a recorded supplier, and a missing supplier refuses the whole batch. Work release and purchasing approval stay separate. Draft/open supply prevents a second schedule from duplicating the first. Original forecasts, overrides, undo entries and released MPS snapshots are included in the complete archive.
 
 ## Catalog bulk edits (ENG-007)
 
-Owner/manager/buyer/production download `GET /api/larder/catalog.csv`, and prepare `catalog.bulkPreview` with `{file:{name,content}}`. The CSV contains stable `larder_id`, `location_id` and every editable item field, including variants, units/conversions, prices, category, price-list membership, barcode, tracking, preferred supplier terms and per-location reorder/safety/min/max/bin/lead settings. Supplier prices remain per their stated `purchase_unit`. Locations serve as bins. Archived items are excluded from the active export; a retained ID can still be edited explicitly.
+Owner/manager/buyer/production/engineer download `GET /api/larder/catalog.csv`, and prepare `catalog.bulkPreview` with `{file:{name,content}}`. The CSV contains stable `larder_id`, `location_id` and every editable item field, including variants, units/conversions, prices, category, price-list membership, barcode, tracking, preferred supplier terms and per-location reorder/safety/min/max/bin/lead settings. Supplier prices remain per their stated `purchase_unit`. Locations serve as bins. Archived items are excluded from the active export; a retained ID can still be edited explicitly.
 
 Blank cells leave stored values unchanged. `#CLEAR` removes an optional text, JSON or location setting; a leading backslash escapes literal `#CLEAR` (add one backslash before an existing run). Required identifiers and numeric values need explicit values; `0` and `false` are edits. Every nonempty exported text cell carries one reversible leading apostrophe for safe spreadsheet handling, including leading-zero and formula-like identifiers. Import removes exactly that one prefix. Keep it when editing downloaded files; double an intended literal leading apostrophe. Rows without Larder IDs create one item grouped by SKU, with one row per location. Unknown supplied IDs never create records. Global values on repeated location rows must agree, and each invalid row excludes the entire item group.
 
 The preview retains original text, every field's old/new values, file/physical-row/column errors and affected quotes, orders, POs, planning settings/work/forecasts and physical positions for valid and rejected groups. Catalog values apply to future documents; current issued documents, reservations, stock and used units remain unchanged. Location settings configure DEMAND-004's future policy planner and do not silently allocate inventory.
 
-`catalog.bulkApprove` takes `{previewId,version,acceptRejected?:<exact row-error count>}` and applies every valid item group atomically. Owner/manager/buyer/production approve; a different preparer is required except for the owner, and agents cannot approve or enable tracking. Any intervening business write refuses the stale preview. The original CSV, proposal, approver and resulting item IDs remain in the state/archive.
+`catalog.bulkApprove` takes `{previewId,version,acceptRejected?:<exact row-error count>}` and applies every valid item group atomically. Owner/manager/buyer/production/engineer approve; a different preparer is required except for the owner, and agents cannot approve or enable tracking. Any intervening business write refuses the stale preview. The original CSV, proposal, approver and resulting item IDs remain in the state/archive.
 
 Tracking is declared configuration. Enabling batch refuses any nonzero position lacking a valid lot, across every location/disposition. Batch physical receipts/output require a lot. Serial configuration refuses existing physical stock and displays “serial policy configured; serial execution not yet available”; current serial physical receipt/output is refused. TRACE-002 inherits honoring that configured serial policy when serial-aware execution ships. The future GOV-001 engineer inherits these catalog authorities. No serial lifecycle or inventory-policy engine is claimed by this catalog edit.
 
@@ -192,7 +192,7 @@ Tracking is declared configuration. Enabling batch refuses any nonzero position 
 
 ## Downtime and operation progress (FLOOR-007)
 
-All commands take `workOrderId,version,sequence`. `wo.operation.pause` also takes `reason` (breakdown/waiting-material/changeover/quality/other), `note`, `escalationOwnerId` and a future ISO UTC `anticipatedResumeAt`. The handler and atomic write both verify an active owner/manager escalation destination. The production starter reports their own operation; owner/manager may report with a reason; agents never do. Pausing records a server-time interval and an in-app notice, not an email. The assigned supervisor or owner acknowledges with `wo.operation.escalationAck {downtimeId,note}`; acknowledgment persists even after resume.
+All commands take `workOrderId,version,sequence`. `wo.operation.pause` also takes `reason` (breakdown/waiting-material/changeover/quality/other), `note`, `escalationOwnerId` and a future ISO UTC `anticipatedResumeAt`. The handler and atomic write both verify an active owner/manager escalation destination. The production or operator starter reports their own operation; owner/manager may report with a reason; agents never do. Pausing records a server-time interval and an in-app notice, not an email. The assigned supervisor or owner acknowledges with `wo.operation.escalationAck {downtimeId,note}`; acknowledgment persists even after resume.
 
 `wo.operation.resume {reason}` closes the one open interval at server time. `wo.operation.progress {completedQuantity,remainingMinutes,note,reason?}` appends a nondecreasing bounded operation-quantity report and a whole-job remaining-effort estimate; owner/manager supplies a reason (the UI uses the progress note). These are neither output nor stock and never mark completion, including zero remaining minutes. Paused operations cannot complete. Each record uses the current work version; ordinary command identities replay without a second interval, including after the recorded escalation owner loses that role. Cached outcomes are returned before validating a new escalation destination; the current caller/session is still checked and every new pause retains both supervisor checks.
 
@@ -218,17 +218,17 @@ Lot `dates` are `{manufacturedOn?, expiresOn?, retestOn?, supplierShelfLifeDays?
 
 State includes `dispatch` with each released operation’s assigned person, live start gates, readiness and as-of time. The Make & buy → Shop-floor dispatch screen shows the same checks and the pinned instructions/drawings.
 
-`wo.operation.assign {workOrderId,version,sequence,operatorId}` is owner/manager-only and checks an active production/manager/owner target in the handler and atomic transaction. Every new start requires that assignment plus `{workCentre,station,reason}`. Completion requires the same assigned starter and `{reason}`. Existing pause/resume record the task’s station and equipment as well as the named operator/reason. These commands never post stock/output. An older active task without assignment requires an explicit manager assignment to its recorded starter with `reason`; the absent historical station remains not recorded. Native shared-station sign-out revokes the session; the next operator uses their own native sign-in.
+`wo.operation.assign {workOrderId,version,sequence,operatorId}` is owner/manager-only and checks an active operator/production/manager/owner target in the handler and atomic transaction. Every new start requires that assignment plus `{workCentre,station,reason}`. Completion requires the same assigned starter and `{reason}`. Existing pause/resume record the task’s station and equipment as well as the named operator/reason. These commands never post stock/output. An older active task without assignment requires an explicit manager assignment to its recorded starter with `reason`; the absent historical station remains not recorded. Native shared-station sign-out revokes the session; the next operator uses their own native sign-in.
 
 ## Inventory policies (DEMAND-004)
 
-`inventory.policy {itemId,locationId,previousId?,mode,effectiveOn,batchSize,orderMultiple,reason}` appends an immutable manager/production revision. Modes are `make-to-stock`, `make-to-order`, `assemble-to-order`; order/assembly require a made item. `previousId` names the latest saved revision. The latest effective UTC revision applies; future revisions do not activate early. Current catalog location reorder/safety/min/max/default-bin/lead values remain authoritative. The default bin is the physical stock pool and proposed destination.
+`inventory.policy {itemId,locationId,previousId?,mode,effectiveOn,batchSize,orderMultiple,reason}` appends an immutable manager/production/planner revision. Modes are `make-to-stock`, `make-to-order`, `assemble-to-order`; order/assembly require a made item. `previousId` names the latest saved revision. The latest effective UTC revision applies; future revisions do not activate early. Current catalog location reorder/safety/min/max/default-bin/lead values remain authoritative. The default bin is the physical stock pool and proposed destination.
 
 `inventory.preview {policyId,orderIds,reason}` retains a read-only exact-state proposal. Existing assigned open demand is always included; explicit selection assigns new demand only at approval. The protected floor is max(safety,min). Common available stock above it follows rank/due order; all prior hard reservations remain intact. Stock mode replenishes toward max(maxStock,floor) at/below reorder, otherwise only a floor shortfall. Customer/assembly modes create separate dated order-line pegs after common allocation. Both batch and order multiples are satisfied by rounding upward to their scaled-integer LCM. Lead days are UTC calendar days. Late starts/supply remain labelled; quantity netting is not capacity feasibility.
 
-Open/draft supply must have an explicit physical bin. `inventory.supplyAssign {policyId,kind:workOrders|purchaseOrders,documentId,lineId?,version,orderId?,orderLineId?,reason}` records an unlocated document’s bin and optional exact customer peg under manager/production authority, without changing terms/quantities. Assigned commitments cannot silently move.
+Open/draft supply must have an explicit physical bin. `inventory.supplyAssign {policyId,kind:workOrders|purchaseOrders,documentId,lineId?,version,orderId?,orderLineId?,reason}` records an unlocated document’s bin and optional exact customer peg under manager/production/planner authority, without changing terms/quantities. Assigned commitments cannot silently move.
 
-`inventory.approve {planId,version}` is owner/manager/production only, independently from preparation except the owner; agents only prepare. Any intervening write refuses the preview. Approval atomically records line planning bins, reserves the exact reviewed common physical quantities and creates pegged draft work/purchases. Receipt/output, production release and spend retain their existing separate doors. Unlocated supply or missing BOM blocks approval; all prior reviews and policies survive archive restore. Existing shortage/MPS shortcuts refuse configured items and direct the person to this policy preview. Explicit manual drafts remain manual operations.
+`inventory.approve {planId,version}` is owner/manager/production/planner only, independently from preparation except the owner; agents only prepare. Any intervening write refuses the preview. Approval atomically records line planning bins, reserves the exact reviewed common physical quantities and creates pegged draft work/purchases. Receipt/output, production release and spend retain their existing separate doors. Unlocated supply or missing BOM blocks approval; all prior reviews and policies survive archive restore. Existing shortage/MPS shortcuts refuse configured items and direct the person to this policy preview. Explicit manual drafts remain manual operations.
 
 ## Owned exception follow-up (AUTO-001 / LARDER-013)
 

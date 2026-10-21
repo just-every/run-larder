@@ -76,7 +76,7 @@ export function OrderRank({ status }: { status?: OrderStatus }) {
 export function OrderStatusActions({ larder, order, kind, status }: { larder: Larder; order: Rec; kind: Kind; status?: OrderStatus }) {
   const s = larder.state!
   const open = kind === 'sales' ? ['quote', 'confirmed', 'part shipped'].includes(order.status) : ['draft', 'released'].includes(order.status)
-  if (!can(s, ['manager', 'production']) || !open) return null
+  if (!can(s, ['manager', 'production', 'planner']) || !open) return null
   return <details>
     <summary>Update {order.reference}</summary>
     <p className="muted">Lower ranks receive available supply first. Changing rank preserves existing reservations and customer promises.</p>

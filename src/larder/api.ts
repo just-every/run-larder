@@ -104,7 +104,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   if (type === 'wo.operation.assign') {
     if (!['owner', 'manager'].includes(actor.role)) forbidden('Only a manager authorizes operation skills.')
     const person = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(payload.operatorId).first<{ role: string }>()
-    if (!person || !['owner', 'manager', 'production'].includes(person.role)) fail('INPUT', 'Assign an active production person or manager.')
+    if (!person || !['owner', 'manager', 'production', 'operator'].includes(person.role)) fail('INPUT', 'Assign an active operator, production person or manager.')
   }
   // Replaying a recorded outcome does not create a new escalation.
   if (type === 'wo.operation.pause') {
@@ -160,11 +160,11 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (recallDownload) return json(recallPack(await load(env.DB), recallDownload[1]))
     if (path === '/archive') return json(await archive(env, actor))
     if (path === '/catalog.csv') {
-      if (!['owner', 'manager', 'buyer', 'production'].includes(actor.role)) forbidden('Only catalog managers, buyers or engineers export the catalog.')
+      if (!['owner', 'manager', 'buyer', 'production', 'engineer'].includes(actor.role)) forbidden('Only catalog managers, buyers or engineers export the catalog.')
       return new Response(catalogCsv(await load(env.DB)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-catalog.csv"' } })
     }
     if (path === '/boms.csv') {
-      if (!['owner', 'manager', 'production'].includes(actor.role)) forbidden('Only manufacturing engineers or managers export BOMs.')
+      if (!['owner', 'manager', 'production', 'engineer'].includes(actor.role)) forbidden('Only manufacturing engineers or managers export BOMs.')
       return new Response(bomCsv(await load(env.DB)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-boms.csv"' } })
     }
     const certificateDownload = /^\/shipments\/([-0-9a-f]{36})\/certificates\.json$/.exec(path)

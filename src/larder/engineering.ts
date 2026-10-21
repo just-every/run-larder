@@ -50,7 +50,7 @@ function componentIds(s: State, bom: Row, on: string) {
 }
 
 function propose(c: Context, p: any): Row {
-  allow(c, ['manager', 'production'])
+  allow(c, ['manager', 'production', 'engineer'])
   const item = get(c.s, 'items', p.itemId, 'item')
   const source = activeBom(c.s, item.id, c.now.slice(0, 10)) ?? fail('NO_BOM', 'Create an effective BOM before proposing an engineering change.')
   if (c.s.engineeringChanges.some(change => change.itemId === item.id && change.status === 'proposed')) fail('STATE', 'Decide the open engineering change for this item first.')

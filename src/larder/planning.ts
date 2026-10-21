@@ -27,7 +27,7 @@ export function shortages(s: State): Shortage[] {
 
 export function planning(c: Context, type: string, p: any): Row | undefined {
   if (type !== 'plan.draft') return
-  allow(c, ['manager', 'buyer', 'production', 'agent'])
+  allow(c, ['manager', 'buyer', 'production', 'planner', 'agent'])
   const item = get(c.s, 'items', p.itemId, 'item')
   if (c.s.inventoryPolicies.some(p => p.itemId === item.id && p.effectiveOn <= c.now.slice(0, 10))) fail('INVENTORY_POLICY', 'Use the SKU/location inventory policy preview to review batches, common allocation and customer pegs.')
   const shortage = shortages(c.s).find(x => x.itemId === item.id) ?? fail('NO_SHORTAGE', `${item.name} has no shortage to cover right now.`)

@@ -72,7 +72,7 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
     ...(type === 'wo.operation.pause' ? (result as any).operationStates.flatMap((task: any) => (task.downtime ?? []).filter((d: any) => d.commandId === c.commandId).map((d: any) =>
       db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), d.escalationOwnerId))) : []),
     ...(type === 'wo.operation.assign' ? (result as any).operationStates.filter((task: any) => task.assignment?.at === c.now && task.assignment?.by === c.actor.id).map((task: any) =>
-      db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager','production')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), task.assignment.operatorId)) : []),
+      db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager','production','operator')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), task.assignment.operatorId)) : []),
     // Assignment and escalation destinations are checked in this same batch,
     // so a demotion/deactivation cannot receive a new case or escalation.
     ...(['exception.assign', 'exception.escalate'].includes(type) ? [

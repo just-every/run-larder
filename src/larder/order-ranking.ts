@@ -4,7 +4,7 @@ import { fail } from './problem'
 
 export function ranking(c: Context, type: string, p: any): Row | undefined {
   if (type !== 'order.rank' && type !== 'work.expected') return
-  allow(c, ['manager', 'production'])
+  allow(c, ['manager', 'production', 'planner'])
   if (type === 'work.expected') {
     const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
     if (!['draft', 'released'].includes(w.status)) fail('STATE', 'Only open work can change its expected completion.')

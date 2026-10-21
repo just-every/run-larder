@@ -43,7 +43,7 @@ function Recovery({ larder, proposal, plan, proposed, now }: { larder: Larder; p
   const centers = plan.centers.map(c => ({ c, before: load(plan, c, from, to).percent, after: load(proposed, c, from, to).percent })).filter(x => x.before !== x.after)
   const effects = consequences(s, plan, proposed, new Set(changed.map((x: any) => x.w.id)))
   const turnsLate = effects.filter(e => e.will && !e.was), recovers = effects.filter(e => e.was && !e.will)
-  const approve = can(s, ['manager', 'production']) && s.actor.role !== 'agent' && (proposal.preparedBy !== s.actor.id || s.actor.role === 'owner')
+  const approve = can(s, ['manager', 'production', 'planner']) && s.actor.role !== 'agent' && (proposal.preparedBy !== s.actor.id || s.actor.role === 'owner')
   return <section className="recovery-options" aria-label="Recovery options">
     <h3>Recovery options</h3>
     <article className="plan-option chosen" data-plan="A">

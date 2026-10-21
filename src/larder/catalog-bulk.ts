@@ -45,7 +45,7 @@ function impacts(c: Context, g: CatalogGroup) {
 
 export function catalogBulk(c: Context, type: string, p: any): Row | undefined {
   if (type === 'catalog.bulkPreview') {
-    allow(c, ['manager', 'buyer', 'production'])
+    allow(c, ['manager', 'buyer', 'production', 'engineer'])
     const file = text(p.file?.name, 'CSV filename', 200)
     if (typeof p.file?.content !== 'string' || p.file.content.length > 2 * 1024 * 1024) fail('INPUT', 'Send a catalog CSV of at most 2 MiB.')
     const parsed = parseCatalogCsv(c.s, p.file.content, file), errors = [...parsed.errors], rejected = [...parsed.rejectedGroups]
@@ -70,7 +70,7 @@ export function catalogBulk(c: Context, type: string, p: any): Row | undefined {
   }
   if (type !== 'catalog.bulkApprove') return
   const preview = get(c.s, 'catalogChanges', p.previewId, 'catalog preview')
-  approver(c, ['manager', 'buyer', 'production'], preview.createdBy); fresh(preview, p.version)
+  approver(c, ['manager', 'buyer', 'production', 'engineer'], preview.createdBy); fresh(preview, p.version)
   if (preview.status !== 'preview') fail('STATE', 'This catalog preview has already been decided.')
   if (preview.stateVersion !== c.s.version) fail('STALE', 'Business records changed. Upload and review the catalog again.')
   if (!preview.groups.length) fail('INPUT', 'There are no valid catalog changes to approve.')

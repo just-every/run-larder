@@ -13,7 +13,7 @@ import { bump, date, fresh, get, list, optionalText, row, text, type Context, ty
 import { handoff } from './handoff'
 
 export const proposalKinds = ['order-intake', 'replenishment', 'item-merge', 'reschedule', 'reconciliation'] as const
-const approvers: Record<string, Role[]> = { 'order-intake': ['manager', 'sales'], replenishment: ['manager', 'buyer'], 'item-merge': ['manager'], reschedule: ['manager', 'production'], reconciliation: ['manager', 'accounts'] }
+const approvers: Record<string, Role[]> = { 'order-intake': ['manager', 'sales'], replenishment: ['manager', 'buyer'], 'item-merge': ['manager'], reschedule: ['manager', 'production', 'planner'], reconciliation: ['manager', 'accounts'] }
 
 const shortageFingerprint = (s: State, itemIds: string[]) => sha256(canonicalJson(shortages(s).filter(x => itemIds.includes(x.itemId)).map(x => [x.itemId, x.shortage, x.expected])))
 
@@ -109,7 +109,7 @@ function execute(c: Context, proposal: Row): unknown {
 export function proposals(c: Context, type: string, p: any): Row | undefined {
   switch (type) {
     case 'proposal.prepare':
-      allow(c, ['manager', 'sales', 'buyer', 'production', 'warehouse', 'accounts', 'agent'])
+      allow(c, ['manager', 'sales', 'planner', 'buyer', 'production', 'warehouse', 'accounts', 'agent'])
       return prepare(c, p)
     case 'proposal.approve':
     case 'proposal.reject': {

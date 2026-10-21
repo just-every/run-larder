@@ -8,7 +8,7 @@ import { day, qty, when } from './format'
 
 export function Forecasts({ larder }: { larder: Larder }) {
   const s = larder.state!, run = larder.run, busy = larder.busy
-  const prepare = can(s, ['manager', 'buyer', 'production', 'agent']), maintain = can(s, ['manager', 'production'])
+  const prepare = can(s, ['manager', 'buyer', 'production', 'planner', 'agent']), maintain = can(s, ['manager', 'production', 'planner'])
   const [inspected, setInspected] = useState('')
   const inspectedRow = s.masterSchedule.find((r: any) => `${r.itemId}:${r.week}` === inspected)
   const [shownItem, setShownItem] = useState('all')

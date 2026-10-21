@@ -27,14 +27,14 @@ function planningBin(s: State, policy: Row) {
 export function inventory(c: Context, type: string, p: any): Row | undefined {
   if (!type.startsWith('inventory.')) return
   if (type === 'inventory.policy') {
-    allow(c, ['manager', 'production'])
+    allow(c, ['manager', 'production', 'planner'])
     const fields = inventoryPolicyFields(c.s, p)
     const revisions = c.s.inventoryPolicies.filter(x => x.itemId === fields.itemId && x.locationId === fields.locationId).sort((a, b) => b.revision - a.revision)
     if ((p.previousId ?? null) !== (revisions[0]?.id ?? null)) fail('STALE', 'This policy changed. Review its latest revision.')
     return row(c, 'inventoryPolicies', { ...fields, revision: (revisions[0]?.revision ?? 0) + 1, previousId: revisions[0]?.id ?? null })
   }
   if (type === 'inventory.supplyAssign') {
-    allow(c, ['manager', 'production'])
+    allow(c, ['manager', 'production', 'planner'])
     const policy = active(c, p.policyId), kind = p.kind
     if (kind !== 'workOrders' && kind !== 'purchaseOrders') fail('INPUT', 'Choose work or purchase supply.')
     const document = get(c.s, kind, p.documentId, 'supply document'); fresh(document, p.version)
@@ -54,7 +54,7 @@ export function inventory(c: Context, type: string, p: any): Row | undefined {
     return bump(document, {})
   }
   if (type === 'inventory.preview') {
-    allow(c, ['manager', 'buyer', 'production', 'agent'])
+    allow(c, ['manager', 'buyer', 'production', 'planner', 'agent'])
     const policy = active(c, p.policyId), bin = planningBin(c.s, policy)
     if (!Array.isArray(p.orderIds) || p.orderIds.length > 500 || p.orderIds.some((id: any) => typeof id !== 'string')) fail('INPUT', 'Select up to 500 sales orders, or none for stock replenishment.')
     const orderIds = new Set<string>(p.orderIds)
@@ -69,7 +69,7 @@ export function inventory(c: Context, type: string, p: any): Row | undefined {
   }
   if (type === 'inventory.approve') {
     const plan = get(c.s, 'inventoryPlans', p.planId, 'inventory preview'); fresh(plan, p.version)
-    approver(c, ['manager', 'production'], plan.preparedBy)
+    approver(c, ['manager', 'production', 'planner'], plan.preparedBy)
     if (plan.status !== 'preview') fail('STATE', 'Only a preview can be approved.')
     if (plan.stateVersion !== c.s.version) fail('STALE', 'Records changed. Prepare a fresh inventory preview.')
     const policy = active(c, plan.preview.policyId), preview = plan.preview
