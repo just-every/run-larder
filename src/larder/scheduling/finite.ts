@@ -36,7 +36,7 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
     })
   })
   const operations: ScheduledOperation[] = [], unscheduled: any[] = [], jobs: any[] = []
-  const work = s.workOrders.filter(w => ['draft', 'released'].includes(w.status)).sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.requiredBy.localeCompare(b.requiredBy) || a.reference.localeCompare(b.reference))
+  const work = s.workOrders.filter(w => ['draft', 'released'].includes(w.status)).sort((a, b) => Number(Boolean(b.operationStates?.some((t: any) => ['running','paused'].includes(t.status)))) - Number(Boolean(a.operationStates?.some((t: any) => ['running','paused'].includes(t.status)))) || (b.priority ?? 0) - (a.priority ?? 0) || a.requiredBy.localeCompare(b.requiredBy) || a.reference.localeCompare(b.reference))
   for (const w of work) {
     const routing: any[] = w.status === 'released' ? w.routing ?? [] : (w.engineeringBomId ? s.boms.find(b => b.id === w.engineeringBomId) : activeBom(s, w.itemId))?.routing ?? []
     const placed = new Map<number, ScheduledOperation>(), blocked = new Set<number>(), complete = new Set<number>((w.operationStates ?? []).filter((t: any) => t.status === 'done').map((t: any) => t.sequence))

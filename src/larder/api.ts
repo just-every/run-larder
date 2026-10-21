@@ -135,7 +135,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   for (let attempt = 0; attempt < 8; attempt++) {
     const before = await load(env.DB), s = structuredClone(before)
     if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
-    const c: Context = { s, actor, commandId, now: new Date().toISOString(), attachments: [] }
+    const c: Context = { s, actor, commandId, now: new Date().toISOString(), attachments: [], ...((type === 'proposal.prepare' || type === 'proposal.approve') ? { people: (await people(env, actor)).people as any } : {}) }
     let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')

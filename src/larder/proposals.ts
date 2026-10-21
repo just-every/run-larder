@@ -1,6 +1,7 @@
 // Agent-prepared proposals. An agent (or a person) prepares; a different person
 // with authority approves the exact version, and only then does anything change.
 // Supplied documents such as an emailed enquiry are kept as data, never obeyed.
+import { capacityPreview, approveCapacity } from './scheduling/reschedule'
 import { sha256, canonicalJson } from '../modules/import-kit/src/d1/index'
 import { decimal, format, times } from './decimal'
 import { fail, forbidden } from './problem'
@@ -54,6 +55,7 @@ function prepare(c: Context, p: any) {
   if (kind === 'reschedule') {
     for (const ch of list(plan.changes)) { const w = get(c.s, 'workOrders', ch.workOrderId, 'work order'); if (!['draft', 'released'].includes(w.status)) fail('STATE', `${w.reference} is ${w.status}.`); date(ch.plannedStart, 'planned start') }
     context = { before: plan.changes.map((ch: any) => { const w = get(c.s, 'workOrders', ch.workOrderId); return { workOrderId: w.id, reference: w.reference, priority: w.priority, plannedStart: w.plannedStart, version: w.version } }), conflicts: (plan.conflicts ?? []).map((x: unknown) => text(x, 'conflict', 400)) }
+    if (plan.capacity || c.s.machineCalendars.length) { const preview = capacityPreview(c, plan); plan.changes = preview.changes; context.capacity = preview }
   }
   if (kind === 'reconciliation') { const h = get(c.s, 'handoffs', plan.handoffId, 'handoff'); list(plan.entries, 'entries', 5000); context = { handoff: h.reference, handoffVersion: h.version } }
   return row(c, 'proposals', { kind, summary: text(p.summary, 'summary', 400), assumptions: optionalText(p.assumptions, 'assumptions', 4000), evidence, plan, context, status: 'awaiting approval', preparedBy: c.actor.id, preparedRole: c.actor.role, snapshotVersion: c.s.version })
@@ -93,6 +95,8 @@ function execute(c: Context, proposal: Row): unknown {
     return bump(dup, { archived: true, mergedInto: keep.id }).id
   }
   if (proposal.kind === 'reschedule') {
+    if (c.s.machineCalendars.length && !proposal.context.capacity) fail('STALE', 'Capacity calendars were configured after this proposal. Prepare a finite preview before approval.')
+    if (proposal.context.capacity) approveCapacity(c, proposal)
     return plan.changes.map((ch: any) => {
       const w = get(c.s, 'workOrders', ch.workOrderId), before = proposal.context.before.find((b: any) => b.workOrderId === w.id)
       if (w.version !== before.version) fail('STALE', `${w.reference} changed since this was prepared. Ask for a fresh proposal.`)

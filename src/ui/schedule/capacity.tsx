@@ -1,3 +1,4 @@
+import { FiniteReschedule } from './reschedule'
 import { useEffect, useState } from 'react'
 import { can, personName, rows } from '../api'
 import type { Larder } from '../app'
@@ -102,6 +103,7 @@ export function Capacity({ larder }: { larder: Larder }) {
         <p className="muted">Dependency slack uses occupied effort and queue time; due slack compares the projected finish with the UTC end of the due date. Resource load uses this complete planning window.</p>
       </>}
     </Card>
+    {plan && <FiniteReschedule larder={larder} plan={plan} />}
     <CalendarEditor larder={larder} kind="machine" />
     <CalendarEditor larder={larder} kind="labor" />
     {can(s, ['manager', 'accounts']) && <Card title="Restricted wage and burden rates"><Form submit="Save labor rates" busy={larder.busy} onSubmit={d => {
