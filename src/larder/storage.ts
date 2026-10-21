@@ -79,6 +79,7 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
       ...(type === 'exception.assign' ? [[(result as any).ownerId, caseHumanRoleSql]] : []),
       [(result as any).escalationOwnerId, "'owner','manager'"],
     ].map(([id, permitted]) => db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN (${permitted})) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), id)) : []),
+    ...(type === 'capacity.labor' ? (result as any).operatorIds.map((id: string) => db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager','production','operator')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), id)) : []),
     ...changes(db, c, before),
     db.prepare('UPDATE larder_meta SET version=version+1 WHERE id=1'),
     db.prepare('INSERT INTO larder_commands VALUES(?,?,?,?,?,?)').bind(c.commandId, c.actor.id, type, digest, JSON.stringify(response), c.now),

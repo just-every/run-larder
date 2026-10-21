@@ -1,7 +1,7 @@
 import { fail } from './problem'
 
 export const collections = [
-  'sourceHistory', 'historyImports', 'items', 'locations', 'parties', 'partyItems', 'boms', 'salesOrders', 'purchaseOrders', 'workOrders',
+  'machineCalendars', 'laborCalendars', 'laborRates', 'sourceHistory', 'historyImports', 'items', 'locations', 'parties', 'partyItems', 'boms', 'salesOrders', 'purchaseOrders', 'workOrders',
   'receipts', 'lots', 'shipments', 'returns', 'transfers', 'counts', 'openings', 'reversals', 'handoffs',
   'inventoryPolicies', 'inventoryPlans', 'certificates', 'certificatePolicies', 'maintenance', 'forecasts', 'productionPlans', 'proposals', 'approvals', 'orderChanges', 'bomChanges', 'catalogChanges', 'engineeringChanges', 'countSessions', 'followUps', 'resolutions', 'imports', 'roles', 'workTransfers', 'reworkOrders', 'subcontractOrders', 'subcontractCustody', 'inspectionPlans', 'inspections', 'qualityHolds', 'nonconformances', 'recalls',
 ] as const

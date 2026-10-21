@@ -1,3 +1,5 @@
+import { calendars, rateReaders } from './scheduling/calendars'
+import { finitePlan } from './scheduling/finite'
 import { supplierQuotes } from './supplier-terms'
 // Larder's public door: /api/larder/*. Every request resolves the current
 // native session and Larder role; every command re-checks both inside the
@@ -64,7 +66,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -93,6 +95,14 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   if (type === 'count.schedule') {
     const counter = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(payload.counterId).first<{ role: string }>()
     if (counter?.role !== 'warehouse') fail('INPUT', 'Assign an active warehouse person.')
+  }
+  if (type.startsWith('capacity.')) {
+    const permitted = type === 'capacity.machine' ? ['owner', 'manager', 'planner'] : type === 'capacity.rate' ? rateReaders : ['owner', 'manager']
+    if (!permitted.includes(actor.role)) forbidden('Your role cannot change these capacity settings.')
+    if (type === 'capacity.labor') for (const id of Array.isArray(payload.operatorIds) ? payload.operatorIds : []) {
+      const target = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(id).first<{ role: string }>()
+      if (!target || !['owner','manager','production','operator'].includes(target.role)) fail('INPUT', 'Calendar members must be active production people, operators or managers.')
+    }
   }
   const digest = sha256(canonicalJson({ type, payload }))
   const previous = await saved(env.DB, commandId, digest, actor)
@@ -157,6 +167,10 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const ok = await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>()
     if (ok?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
     if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, await people(env, actor))) }
+    if (path === '/scheduling/finite') {
+      const named = await people(env, actor)
+      return json(finitePlan(await load(env.DB), named.people as any, url.searchParams.get('asOf') ?? new Date().toISOString(), Number(url.searchParams.get('days') ?? 14)))
+    }
     if (path === '/purchasing/quotes') return json(supplierQuotes(await load(env.DB), url.searchParams.get('itemId') ?? '', url.searchParams.get('quantity') ?? '', url.searchParams.get('requiredBy') ?? '', new Date().toISOString().slice(0, 10)))
     if (path === '/planning/materials') return json(materialDates(await load(env.DB)))
     if (path === '/planning/pegging') return json(materialPegging(await load(env.DB), url.searchParams))

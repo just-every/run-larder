@@ -397,3 +397,126 @@ test('BUY-001 supplier constraints, feasible quote and scheduled approval surviv
   for (const key of ['partyItems','purchaseOrders','approvals','receipts']) assert.deepEqual(after[key], (await h.state())[key], key)
   assert.deepEqual(after.supplierPerformance, (await h.state()).supplierPerformance)
 })
+
+const capacityCalendar = (name, changes = {}) => ({ name, timeZone: 'America/New_York', effectiveFrom: '2026-01-01', effectiveTo: '2027-12-31', shifts: [{ weekdays: [0, 1, 2, 3, 4, 5, 6], start: 0, end: 1440, breaks: [] }], closedDates: [], usHolidays: false, exceptions: [], capacity: 1, efficiency: 100, reason: 'synthetic-larder-1 calendar approval', ...changes })
+const finite = async (h, asOf = '2026-11-25T00:00:00Z', days = 7, as) => {
+  const response = await h.request(`/api/larder/scheduling/finite?asOf=${encodeURIComponent(asOf)}&days=${days}`, { as })
+  assert.equal(response.status, 200); return response.json()
+}
+const minuteOccupancy = operations => {
+  const occupied = new Map()
+  for (const op of operations) for (const span of op.intervals) for (let at = Date.parse(span.startsAt); at < Date.parse(span.endsAt); at += 60000) {
+    const key = `${op.operatorId}:${at}`; occupied.set(key, (occupied.get(key) ?? 0) + 1)
+  }
+  return occupied
+}
+
+test('CAP-001 persisted overnight holiday calendars, breaks, outages, efficiency and parallel named machine intervals survive archive restore', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h), owner = (await h.state()).actor, other = await h.person('capacity-one@example.test', 'operator')
+  const planner = await h.person('capacity-planner@example.test', 'planner')
+  await h.command('capacity.labor', capacityCalendar('Night team', { operatorIds: [owner.id, other.id], skills: ['cutting'] }))
+  const definition = capacityCalendar('Bench', { capacity: 2, efficiency: 50, usHolidays: true, shifts: [{ weekdays: [0, 1, 2, 3, 4, 5, 6], start: 1320, end: 1800, breaks: [{ start: 1380, end: 1410 }] }], exceptions: [{ startsAt: '2026-11-28T04:30:00Z', endsAt: '2026-11-28T06:00:00Z', reason: 'synthetic-larder-2 spindle outage' }] })
+  let machine = await planner.run('capacity.machine', definition)
+  await h.command('bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Night cutting', workCentre: 'Bench', minutes: 120, requiredSkills: ['cutting'] }] })
+  const jobs = []
+  for (let i = 0; i < 3; i++) jobs.push(await h.command('wo.draft', { itemId: w.board.id, quantity: '1', requiredBy: '2026-12-01', reason: 'synthetic-larder-3 parallel overnight work' }))
+  const plan = await finite(h, '2026-11-26T00:00:00Z')
+  assert.equal(plan.counts.unscheduled, 0, JSON.stringify({unscheduled:plan.unscheduled, loads:plan.loads})); assert.equal(plan.operations.length, 3)
+  assert.equal(plan.operations[0].startsAt, plan.operations[1].startsAt, 'two real machine slots and two people run concurrently')
+  assert.notEqual(plan.operations[0].machineSlot, plan.operations[1].machineSlot)
+  assert.ok(plan.operations.every(o => o.occupiedMinutes === 240 && o.machine === 'Bench' && [owner.id, other.id].includes(o.operatorId)))
+  const dt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+  const slots = new Map()
+  for (const op of plan.operations) for (const span of op.intervals) for (let at = Date.parse(span.startsAt); at < Date.parse(span.endsAt); at += 60000) {
+    const p = Object.fromEntries(dt.formatToParts(at).map(p => [p.type, p.value])), day = `${p.year}-${p.month}-${p.day}`, minute = Number(p.hour) * 60 + Number(p.minute)
+    assert.notEqual(day, '2026-11-26', 'no Thanksgiving occupancy, including overnight continuation')
+    assert.ok(minute >= 1320 || minute < 360, 'inside a named overnight shift')
+    assert.ok(minute < 1380 || minute >= 1410, 'outside break')
+    assert.ok(at < Date.parse(definition.exceptions[0].startsAt) || at >= Date.parse(definition.exceptions[0].endsAt), 'outside outage')
+    const key = `${op.machineId}:${op.machineSlot}:${at}`; assert.ok(!slots.has(key)); slots.set(key, true)
+  }
+  machine = await h.command('capacity.machine', { ...definition, id: machine.id, version: machine.version, reason: 'synthetic-larder-4 maintenance revision', closedDates: ['2026-11-27'] })
+  assert.equal(machine.history.length, 1)
+  await h.command('capacity.machine', { ...definition, id: machine.id, version: 1 }, { error: 'STALE' })
+  await h.command('capacity.machine', { ...definition, name: 'Invalid zone', timeZone: 'Moon/Crater' }, { error: 'INPUT' })
+  const changed = await finite(h, '2026-11-26T00:00:00Z'); assert.ok(changed.operations.every(o => o.startsAt !== plan.operations.find(p => p.key === o.key).startsAt || o.endsAt !== plan.operations.find(p => p.key === o.key).endsAt))
+  await h.restart(); assert.deepEqual(await finite(h, '2026-11-26T00:00:00Z'), changed)
+  const archive = await (await h.request('/api/larder/archive')).json(), csv = await (await h.request('/api/larder/archive.csv')).text()
+  assert.match(csv, /machineCalendars/); assert.match(csv, /laborCalendars/)
+  const target = await installation(); t.after(() => target.close())
+  const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restored.status, 200)
+  const again = await (await target.request('/api/larder/archive')).json()
+  for (const name of ['machineCalendars', 'laborCalendars', 'laborRates']) assert.deepEqual(again.records[name], archive.records[name])
+  const inert = await finite(target, '2026-11-26T00:00:00Z'); assert.equal(inert.counts.unscheduled, 3, 'restored unknown people are inert until explicitly mapped')
+  assert.equal((await h.request('/api/larder/scheduling/finite', { as: '' })).status, 401)
+})
+
+test('CAP-002 one qualified person constrains two machines independently, vacation and task limits hold, rates are restricted and revocation blocks replay', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h), owner = (await h.state()).actor, operator = await h.person('labor-operator@example.test', 'operator'), manager = await h.person('labor-manager@example.test', 'manager')
+  const labor = await h.command('capacity.labor', capacityCalendar('Qualified operator', { operatorIds: [owner.id], skills: ['cutting'], shifts: [{ weekdays: [1, 2, 3, 4, 5], start: 420, end: 900, breaks: [{ start: 720, end: 750 }] }], exceptions: [{ startsAt: '2026-11-25T00:00:00Z', endsAt: '2026-11-26T00:00:00Z', reason: 'synthetic-larder-5 vacation' }] }))
+  await h.command('capacity.labor', capacityCalendar('Unqualified team', { operatorIds: [operator.id], skills: [] }))
+  for (const center of ['Bench', 'Finishing']) await h.command('capacity.machine', capacityCalendar(center))
+  for (const center of ['Bench', 'Finishing']) {
+    await h.command('bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Qualified cutting', workCentre: center, setupMinutes: 20, runMinutes: 60, requiredSkills: ['cutting'] }] })
+    const draft = await h.command('wo.draft', { itemId: w.board.id, quantity: '2', requiredBy: '2026-12-01', reason: 'synthetic-larder-6 competing machines' })
+    await h.command('wo.release', { workOrderId: draft.id, version: draft.version })
+  }
+  const plan = await finite(h)
+  assert.equal(plan.operations.length, 2, JSON.stringify({unscheduled:plan.unscheduled, loads:plan.loads})); assert.equal(plan.counts.unscheduled, 0)
+  assert.ok(plan.operations.every(o => o.operatorId === owner.id && o.occupiedMinutes === 140))
+  assert.ok(plan.operations.every(o => Date.parse(o.startsAt) >= Date.parse('2026-11-26T12:00:00Z')))
+  assert.ok([...minuteOccupancy(plan.operations).values()].every(n => n === 1))
+  for (const o of plan.operations) for (const span of o.intervals) assert.ok(Date.parse(span.startsAt) >= Date.parse('2026-11-26T12:00:00Z') && Date.parse(span.endsAt) <= Date.parse('2026-11-26T20:00:00Z'))
+  const id = 'synthetic-larder-rate-command', rate = await manager.run('capacity.rate', { laborId: labor.id, hourlyRate: '37.123456', burdenRate: '8.25', reason: 'synthetic-larder-7 rates for costing only' }, { commandId: id })
+  assert.equal((await h.state()).laborRates[0].hourlyRate, '37.123456')
+  const restricted = await h.state(operator.cookie); assert.deepEqual(restricted.laborRates, []); assert.ok(!JSON.stringify(restricted).includes('37.123456'))
+  assert.ok(!JSON.stringify(await finite(h, undefined, undefined, operator.cookie)).includes('37.123456'))
+  await operator.run('capacity.rate', { laborId: labor.id, hourlyRate: '1', burdenRate: '1', reason: 'denied' }, { error: 'FORBIDDEN' })
+  await operator.run('capacity.labor', { ...labor, name: 'forged skills' }, { error: 'FORBIDDEN' })
+  assert.equal((await h.request('/api/larder/archive', { as: operator.cookie })).status, 403)
+  assert.equal((await h.request('/api/larder/archive.csv', { as: operator.cookie })).status, 403)
+  await h.command('role.set', { operatorId: manager.id, role: 'operator' })
+  await manager.run('capacity.rate', { laborId: labor.id, hourlyRate: '37.123456', burdenRate: '8.25', reason: 'synthetic-larder-7 rates for costing only' }, { commandId: id, error: 'FORBIDDEN' })
+  assert.deepEqual((await h.state(manager.cookie)).laborRates, [])
+  const accounts = await h.person('labor-accounts@example.test', 'accounts'); assert.equal((await h.state(accounts.cookie)).laborRates[0].id, rate.id)
+  await h.command('capacity.labor', { ...labor, capacity: 2, exceptions: [], reason: 'synthetic-larder-8 simultaneous monitoring approved' })
+  const concurrent = await finite(h); assert.ok([...minuteOccupancy(concurrent.operations).values()].some(n => n === 2)); assert.ok([...minuteOccupancy(concurrent.operations).values()].every(n => n <= 2))
+  await h.command('capacity.labor', { ...labor, id: undefined, name: 'Duplicate person' }, { error: 'DUPLICATE' })
+})
+
+test('CAP-004 finite multistep plan exposes critical path, load and truthful late/unscheduled drilldowns without overbooking or changing promises', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h), owner = (await h.state()).actor
+  await h.command('capacity.labor', capacityCalendar('Shared cutter', { operatorIds: [owner.id], skills: ['cutting'] }))
+  for (const center of ['Bench', 'Finishing']) await h.command('capacity.machine', capacityCalendar(center))
+  await h.command('bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Cut', workCentre: 'Bench', setupMinutes: 10, runMinutes: 20, requiredSkills: ['cutting'] }, { name: 'Prepare', workCentre: 'Finishing', runMinutes: 10, dependsOn: [], requiredSkills: ['cutting'] }, { name: 'Finish', workCentre: 'Finishing', runMinutes: 20, queueMinutes: 5, dependsOn: [1, 2], requiredSkills: ['cutting'] }] })
+  const jobs = []
+  for (const requiredBy of ['2026-11-24', '2026-12-01']) {
+    let work = await h.command('wo.draft', { itemId: w.board.id, quantity: '1', requiredBy, reason: 'synthetic-larder-9 constrained multistep order' })
+    work = await h.command('wo.release', { workOrderId: work.id, version: work.version }); jobs.push(work)
+  }
+  await h.command('bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'No machine', workCentre: 'Unconfigured', minutes: 10 }] })
+  const blocked = await h.command('wo.draft', { itemId: w.board.id, quantity: '1', requiredBy: '2026-12-01', reason: 'synthetic-larder-10 no configured machine' })
+  const before = await h.state(), plan = await finite(h, '2026-11-25T00:00:00Z', 2)
+  assert.deepEqual(plan.counts, { late: 1, unscheduled: 1 }); assert.deepEqual(plan.lateJobs, [jobs[0].id]); assert.deepEqual(plan.unscheduledJobs, [blocked.id]); assert.equal(plan.jobs.find(j => j.workOrderId === blocked.id).endsAt, null)
+  assert.equal(plan.operations.length, 6); assert.equal(plan.unscheduled[0].reason, 'No configured eligible machine.')
+  for (const job of jobs) {
+    const ops = plan.operations.filter(o => o.workOrderId === job.id), row = plan.jobs.find(j => j.workOrderId === job.id)
+    assert.deepEqual(ops.filter(o => o.critical).map(o => o.sequence), [1, 3]); assert.equal(ops[1].slackMinutes, 20); assert.equal(row.pathMinutes, 55)
+    assert.ok(ops[2].startsAt >= ops[0].endsAt && ops[2].startsAt >= ops[1].endsAt)
+    assert.ok(Date.parse(ops[2].startsAt) >= Date.parse(ops[1].endsAt) + 5 * 60000)
+  }
+  assert.ok([...minuteOccupancy(plan.operations).values()].every(n => n === 1))
+  assert.ok(plan.loads.every(l => l.bookedMinutes <= l.capacityMinutes)); assert.equal(plan.bottleneck.kind, 'labor')
+  assert.equal(plan.bottleneck.bookedMinutes, plan.operations.reduce((n, o) => n + o.occupiedMinutes, 0))
+  assert.equal(plan.bottleneck.percent, Math.round(plan.bottleneck.bookedMinutes / plan.bottleneck.capacityMinutes * 1000) / 10)
+  assert.deepEqual((await h.state()).workOrders, before.workOrders); assert.deepEqual((await h.state()).reservations, before.reservations)
+  const machine = before.machineCalendars.find(m => m.name === 'Unconfigured')
+  assert.equal(machine, undefined)
+  await h.command('capacity.machine', capacityCalendar('Unconfigured'))
+  await h.command('bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Now feasible', workCentre: 'Unconfigured', minutes: 10 }] })
+  const feasible = await finite(h, '2026-11-23T00:00:00Z', 2); assert.deepEqual(feasible.counts, { late: 0, unscheduled: 0 }); assert.ok(feasible.jobs.every(j => !j.late && !j.unscheduled))
+  assert.equal((await h.request('/api/larder/scheduling/finite?days=61')).status, 409)
+})

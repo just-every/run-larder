@@ -1,3 +1,4 @@
+import { rateReaders } from './scheduling/calendars'
 import { supplierPerformance } from './supplier-terms'
 // What a signed-in person or agent reads: records, formatted ledger, positions,
 // availability, shortages and the exception queue.
@@ -27,7 +28,8 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
   const blind = blindView(s, actor, extra)
   if (blind) return blind
   const today = new Date().toISOString().slice(0, 10), followUpCases = followUpView(s, today)
-  const records = Object.fromEntries(collections.map(k => [k, s[k]]))
+  const records = Object.fromEntries(collections.map(k => [k, k === 'laborRates' && !rateReaders.includes(actor.role) ? [] : s[k]]))
+  if (!rateReaders.includes(actor.role)) records.reworkOrders = s.reworkOrders.map(r => ({ ...r, labor: (r.labor ?? []).map(({ rate, ...line }: any) => line) }))
   return {
     version: s.version, actor, ...records, supplierPerformance: supplierPerformance(s),
     workMaterialPools: Object.fromEntries(s.workOrders.filter(w => w.status === 'released' || (w.outputs ?? []).some((b: any) => !b.allocations)).map(w => [w.id, materialPoolView(s, w)])),
