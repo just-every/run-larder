@@ -143,7 +143,7 @@ The sixteen published clauses keep their IDs and useful operational guarantees. 
 
 ### Purchasing and suppliers
 
-- **BUY-001 — Supplier contracts and delivery rules.** Buyers maintain supplier/item codes, prices/breaks, currency, payment/freight terms, lead times, MOQs, calendars, preferred/alternate vendors and performance history. POs snapshot terms, USD exposure and delivery schedules; acknowledgments preserve supplier revisions. **Acceptance evidence:** Create two vendors with different packs/lead times, select a feasible quote, approve a PO and revise the supplier date; old approved terms remain recoverable.
+- **BUY-001 — Supplier contracts and delivery rules.** Buyers maintain supplier/item codes, prices/breaks, currency, payment/freight terms, lead times, MOQs, calendars, preferred/alternate vendors and performance history. POs snapshot terms, USD exposure and delivery schedules; acknowledgments preserve supplier revisions. Native supplier quotes round total base quantity to MOQ and pack multiples, apply supplier working weekdays/closed dates and working-day lead times, and pin dated buyer-recorded currency rates with source prices and USD exposure. Approval freezes the reviewed terms and per-line delivery schedule; later acknowledgments keep complete before/after schedules. Receipt observations retain arrival, expected and original approved dates with acceptance/quarantine distinct; terms, decisions and schedules survive business archive/restore. **Acceptance evidence:** Create two vendors with different packs/lead times, select a feasible quote, approve a PO and revise the supplier date; old approved terms remain recoverable.
 
 - **BUY-002 — Receiving against production demand.** Receivers handle partial deliveries, tolerances, damage, supplier documents, lots and inspection, then allocate accepted receipts to pegged work and sales commitments. A short delivery updates the remaining PO and downstream plan. **Acceptance evidence:** Receive a short delivery for two pegged jobs, quarantine damaged units and allocate the accepted quantity; inspect open PO, work shortages and proposed date changes.
 
@@ -458,8 +458,8 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 26 | 29 | 57 | 112 |
-| All | 42 | 29 | 57 | 128 |
+| Target and push further | 27 | 28 | 57 | 112 |
+| All | 43 | 28 | 57 | 128 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -510,7 +510,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `CAP-007` | Live dependency-preserving reflow | target | missing |  | Live dependency-preserving reflow workflow and its acceptance journey are not implemented. |
 | `CAP-008` | Grouped jobs and nesting | target | missing |  | Grouped jobs and nesting workflow and its acceptance journey are not implemented. |
 | `CAP-009` | Maintenance and downtime planning | target | done | `src/larder/maintenance.ts`; `src/larder/maintenance-availability.ts`; `src/ui/maintenance.tsx`; `src/ui/schedule/plan.ts`; `tests/api/maintenance.test.mjs`; `tests/browser/maintenance.spec.ts` (CAP-009) | Named public Worker and native-dev journeys prove preventive/breakdown records, repair/evidence/release trail, execution blocks beyond ETA, provisional recovery, archive restore and unchanged physical output/promises at 1440/390. |
-| `BUY-001` | Supplier contracts and delivery rules | target | partial | `src/larder/catalogue.ts`; `src/larder/purchasing.ts`; `tests/api/flows.test.mjs` | Native structured supplier terms, feasible quotations, scheduled PO lines and immutable approval/revision history are implemented and covered through the public HTTP door; desktop/mobile buyer proof is pending. |
+| `BUY-001` | Supplier contracts and delivery rules | target | done | Supplier codes/packs/MOQ/calendars/prices/currency/payment/freight/preferred alternates, feasible quote, scheduled approval/date revisions and retained terms/performance/restore: `tests/api/flows.test.mjs` — “BUY-001 supplier constraints, feasible quote and scheduled approval survive supplier revisions and restore”; two-vendor creation, feasible selection, approval/revision and recovered terms at both widths: `tests/browser/journey.spec.ts` — “BUY-001 buyers maintain two suppliers, select feasible scheduled terms and recover approval history at 1440/390” | — |
 | `BUY-002` | Receiving against production demand | target | partial | `src/larder/purchasing.ts`; `src/larder/planning.ts`; `tests/api/flows.test.mjs` | Partial receipt/quarantine and shortage reasons ship; demand pegging, tolerances and downstream receipt allocation are absent. |
 | `BUY-003` | Purchasing approvals and three-way match | target | partial | `src/larder/purchasing.ts`; `src/larder/roles.ts`; `tests/api/flows.test.mjs` | Role-gated exact PO approvals ship; thresholds, invoice capture, three-way matching and PO billing/payment status in the PO list are absent. |
 | `BUY-004` | Subcontract and free-issue production | target | done | `src/larder/subcontract.ts`; `src/larder/subcontract-custody.ts`; `src/ui/subcontract.tsx`; `tests/api/subcontract.test.mjs`; `tests/browser/subcontract.spec.ts` | — |

@@ -98,5 +98,5 @@ export function purchaseTermFacts(s: LarderState, terms: any): any[] {
   return [{ supplier: terms.supplier?.name ?? partyName(s, terms.supplierId), basicTerms: terms.supplier?.terms ?? '', cashExposure: `USD ${terms.exposure}` },
     ...terms.lines.map((l: any) => ({ item: itemName(s, l.itemId), scheduledQuantity: l.quantity, expectedDate: l.expectedDate ?? terms.expectedDate,
       usdUnitPrice: `USD ${l.unitPrice}`, ...(l.supplierQuote ? { supplierCode: l.supplierQuote.partyCode,
-        quoteVersion: l.supplierQuote.version, quoteQuantity: l.supplierQuote.quantity, ...termFacts(l.supplierQuote.terms) } : {}) }))]
+        selectedPrice: `${l.supplierQuote.currency} ${l.supplierQuote.price}`, quoteVersion: l.supplierQuote.version, quoteQuantity: l.supplierQuote.quantity, ...termFacts(l.supplierQuote.terms) } : {}) }))]
 }
