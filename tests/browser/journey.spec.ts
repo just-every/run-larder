@@ -66,7 +66,7 @@ test('HTTP-001 MRP-001 public Lobby, health and docs stay separate from private 
     await expect(page.locator('article')).toBeVisible()
     await shot(page, 'HTTP-001-docs')
     // MRP-001 is an API slice: its public contract must still disclose the
-    // remaining feasibility/adoption gaps at both supported widths.
+    // remaining feasibility gaps at both supported widths.
     expect((await page.goto(site + '/contract'))!.status()).toBe(200)
     await page.getByPlaceholder('Find a clause').fill('MRP-001')
     const mrp = page.locator('tr.clause[data-id="MRP-001"]')
@@ -78,7 +78,7 @@ test('HTTP-001 MRP-001 public Lobby, health and docs stay separate from private 
     await expect(mrp).toContainText('make/buy/phantom and aggregate yields')
     await expect(mrp).toContainText('nonduplicated current physical catalog safety/minimum floors')
     await expect(mrp).toContainText('future dated floor replenishment')
-    await expect(mrp).toContainText('stale-safe dated draft adoption remain absent')
+    await expect(mrp).toContainText('stale-safe dated draft preparation')
     await mrp.scrollIntoViewIfNeeded()
     if (shots) await page.screenshot({ path: join(shots, `${width}-MRP-001-contract.png`), fullPage: true })
 

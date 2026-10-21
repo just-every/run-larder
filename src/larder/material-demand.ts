@@ -2,7 +2,7 @@
 // shared component is netted; quantities and stock allocation live elsewhere.
 import { activeBom } from './bom'
 import { fail } from './problem'
-import type { State } from './model'
+import type { State, Row } from './model'
 import type { MaterialTiming } from './material-lead'
 
 export type SupplyMode = 'make' | 'buy' | 'phantom'
@@ -45,4 +45,19 @@ export function materialOrder(s: State, demands: MaterialDemand[], on: string) {
   }
   if (ordered.length !== incoming.size) fail('BOM_CYCLE', 'The effective manufacturing recipes contain a cycle. Correct the BOM before planning.')
   return ordered
+}
+
+// Stable demand identity across date/rank/recipe edits. A dated draft remains
+// linked to its root and component branch until its supply is no longer open.
+const datedBranchKey = (d: Pick<MaterialDemand, 'kind' | 'documentId' | 'lineId' | 'itemId' | 'supply' | 'path'>) =>
+  JSON.stringify([d.kind, d.documentId, d.lineId, d.itemId, d.supply, d.path.map(p => p.itemId)])
+
+export const datedRequirementKey = (d: MaterialDemand) => JSON.stringify([datedBranchKey(d), d.date])
+
+export function openDatedSupply(s: State, demand: MaterialDemand) {
+  const branch = datedBranchKey(demand)
+  return [
+    ...s.purchaseOrders.filter(p => ['draft', 'approved', 'confirmed', 'part received'].includes(p.status)).map((p): Row => ({ ...p, kind: 'purchase' })),
+    ...s.workOrders.filter(w => ['draft', 'released'].includes(w.status)).map((w): Row => ({ ...w, kind: 'work' })),
+  ].filter(r => r.datedPlan?.requirement && datedBranchKey(r.datedPlan.requirement) === branch).map(r => ({ kind: r.kind, documentId: r.id, reference: r.reference, status: r.status }))
 }

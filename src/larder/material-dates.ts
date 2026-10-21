@@ -10,7 +10,7 @@ import type { CatalogLocation } from './catalog-fields'
 import { activeBom } from './bom'
 import { impossibleTiming, materialReleaseOn, materialTiming } from './material-lead'
 import { componentQuantity } from './bom-explosion'
-import { demandOrder, materialMode, materialOrder, type MaterialDemand as Demand } from './material-demand'
+import { datedRequirementKey, openDatedSupply, demandOrder, materialMode, materialOrder, type MaterialDemand as Demand } from './material-demand'
 
 export function materialDates(s: State) {
   const today = new Date().toISOString().slice(0, 10)
@@ -160,7 +160,8 @@ export function materialDates(s: State) {
 
     const purchaseRelease = terms ? materialReleaseOn(d.date, terms.leadDays) : null
     const timingBlocked = d.workTiming && impossibleTiming(d.workTiming)
-    return { kind: d.kind, supply: d.supply, path: d.path, ...(d.kind === 'safety' ? { locationId: d.locationId, catalogLocationIds: d.catalogLocationIds } : {}), documentId: d.documentId, lineId: d.lineId, reference: d.reference, itemId: d.itemId, requiredBy: d.date, overdue: d.date < today,
+    const key = datedRequirementKey(d)
+    return { key, linkedSupply: openDatedSupply(s, d), kind: d.kind, supply: d.supply, path: d.path, ...(d.kind === 'safety' ? { locationId: d.locationId, catalogLocationIds: d.catalogLocationIds } : {}), documentId: d.documentId, lineId: d.lineId, reference: d.reference, itemId: d.itemId, requiredBy: d.date, overdue: d.date < today,
       manufacturing, ...(d.workTiming ? { workTiming: d.workTiming } : {}),
       quantity: format(d.quantity), covered: format(d.quantity - d.left), shortage: format(d.left), sources: d.sources, unavailablePurchases: unavailablePurchases.get(d)!,
       unavailableStock: physical.filter(p => p.itemId === d.itemId && (p.status !== 'available' || !usable(d, p.lotId))).map(p => ({ ...p, reason: p.status !== 'available' ? p.status : timingBlocked ? d.workTiming!.basis : d.kind === 'sales' ? shipBlock(s, p.lotId, d.date > today ? d.date : today, d.customerId!) : lotBlock(s.lots.find(l => l.id === p.lotId), d.date > today ? d.date : today) })),
@@ -168,7 +169,7 @@ export function materialDates(s: State) {
         releaseOn: purchaseRelease, leadDays: terms?.leadDays ?? null, requiresPastRelease: purchaseRelease === null ? null : purchaseRelease < today } : d.left > 0n && d.supply === 'make' && manufacturing?.releaseOn ? { kind: 'make', quantity: format(d.left), ...manufacturing } : null }
   })
   return { version: s.version, asOf: today, scope: 'current physical safety floors, dated multilevel sales/forecast demand and pinned released-work inputs; physical stock and dated purchases',
-    limitations: ['Purchase dates are declared expectations; receipt and quality still gate use.', 'Manufacturing offsets use recorded full-batch routing critical paths in UTC calendar days; missing routing remains unknown, and capacity and transfer overlap are not applied.', 'Draft and released work output is provisional; multilevel material feasibility is not proven.', 'Safety floors protect current physical stock only; future floor replenishment, supplier calendars and automatic draft adoption are not applied.'],
+    limitations: ['Purchase dates are declared expectations; receipt and quality still gate use.', 'Manufacturing offsets use recorded full-batch routing critical paths in UTC calendar days; missing routing remains unknown, and capacity and transfer overlap are not applied.', 'Draft and released work output is provisional; multilevel material feasibility is not proven.', 'Safety floors protect current physical stock only; future floor replenishment, supplier calendars and automatic adoption are not applied; exact dated suggestions can be prepared as drafts after current-input review.'],
     requirements, blockedExplosions, unverifiedReservations: unverified,
     provisionalSupply: [
       ...s.purchaseOrders.filter(p => p.status === 'draft').flatMap(po => po.lines.map((l: any) => ({ kind: 'purchase', documentId: po.id, reference: po.reference, itemId: l.itemId, date: po.expectedDate, quantity: l.quantity, reason: 'purchase not approved' }))),

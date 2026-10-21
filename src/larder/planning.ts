@@ -1,6 +1,7 @@
 // Deterministic shortages and drafted purchase or work orders. The numbers come
 // from confirmed orders, residual forecasts, released work, stock and open supply.
 import { activeBom } from './bom'
+import { datedDraft } from './dated-drafts'
 import { day } from './day'
 import { decimal, format } from './decimal'
 import { fail } from './problem'
@@ -30,6 +31,7 @@ export function planning(c: Context, type: string, p: any): Row | undefined {
   allow(c, ['manager', 'buyer', 'production', 'planner', 'agent'])
   const item = get(c.s, 'items', p.itemId, 'item')
   if (c.s.inventoryPolicies.some(p => p.itemId === item.id && p.effectiveOn <= c.now.slice(0, 10))) fail('INVENTORY_POLICY', 'Use the SKU/location inventory policy preview to review batches, common allocation and customer pegs.')
+  if (p.dated !== undefined) return datedDraft(c, p, item)
   const shortage = shortages(c.s).find(x => x.itemId === item.id) ?? fail('NO_SHORTAGE', `${item.name} has no shortage to cover right now.`)
   const supply = p.supply ?? shortage.kind
   if (supply !== 'make' && supply !== 'buy') fail('INPUT', 'Choose make or buy supply.')

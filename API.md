@@ -71,7 +71,7 @@ executing any command or external effect.
 | `shipment.pick` | `{orderId, lines: [{lineId, locationId, quantity, unit?, lotId?}]}` | manager, warehouse |
 | `shipment.pack` | `{shipmentId, version, packages, weightKg?}` | manager, warehouse |
 | `shipment.ship` | `{shipmentId, version, carrier, tracking?}` | manager, warehouse |
-| `plan.draft` | `{itemId, quantity?, supplierId?, unitPrice?, expectedDate?, reason?}` — drafts the work or purchase order a shortage calls for | manager, buyer, production, planner, agent |
+| `plan.draft` | `{itemId, quantity?, supplierId?, unitPrice?, expectedDate?, reason?}` (aggregate) or `{itemId, dated: {version, asOf, key}, unitPrice?, reason}` (exact dated suggestion; see below) — drafts the work or purchase order a shortage calls for | manager, buyer, production, planner, agent |
 | `po.draft` | `{supplierId, expectedDate, requiredBy?, reason, lines: [{itemId, quantity, unit?, unitPrice}]}` | manager, buyer, agent |
 | `po.approve` | `{poId, version, note?}` | manager, buyer (never an agent) |
 | `po.confirm` | `{poId, version, supplierReference, confirmedDate, evidence?}` | manager, buyer |
@@ -325,3 +325,39 @@ Routing JSON and the routing editor accept `transferBatch` (decimal finished-ite
 - `history.commit`: `{importId, version}` — owner or manager; publishes the exact reviewed history, rejecting duplicate source/kind/original-ID keys. Agents cannot commit. Both use the ordinary atomic, session/role-checked command door and idempotency rules.
 - `GET /api/larder/history?q=<reference>` — authenticated, case-insensitive substring search of source systems, kinds, original IDs/references, summaries, linked references and filenames. Subject to the same blind-count restrictions as other downloads. Returns labeled historical evidence only.
 - `GET /api/larder/archive.csv` — owner/manager; lossless `section,index,json` CSV companion to the complete JSON business archive. See MOVE-IN.md for decoding, decimal representations and original-file custody. This is not the installation backup, which has a separate portability policy.
+
+
+## Drafting a dated suggestion (MRP-001, partial)
+
+Read `/api/larder/planning/materials`, review the returned requirement and its
+`suggestion`, then send `plan.draft` with `itemId`, `dated: {version, asOf, key}`
+from that projection and a required `reason`. `key` is an opaque requirement
+selector. A buy suggestion also requires an explicit decimal `unitPrice`; the
+resulting draft shows its exact cash exposure for the existing purchase approval
+flow. Make drafts retain `plannedStart` from the informational routing release
+and `requiredBy` from receipt. These are UTC dates, not capacity bookings.
+
+The existing plan.draft roles (owner, manager, buyer, production, planner and
+agent) may prepare; existing purchase/work approval roles still decide release.
+The existing active inventory-policy guard directs those SKUs to the policy
+preview instead. The command rechecks the full state version and UTC day inside
+the ordinary atomic write; `STALE` means read and review again. Quantity, supplier,
+supply mode and dates are derived server-side: supplying `quantity`, `supplierId`,
+`supply` or `expectedDate` alongside `dated` is refused. Missing suggestions,
+unresolved work/timing blockers, and absent recorded suppliers are refused.
+
+Each draft keeps `datedPlan` with the projection version/day, reviewed requirement
+(including its root/revision path) and exact suggestion/timing. Requirements expose
+`key` and `linkedSupply` (kind, document ID, reference and status). An open draft,
+approved/confirmed/part-received PO or draft/released job linked to that same
+root/component branch (conservatively across delivery dates on one line) returns `DRAFT_EXISTS`, including after date or recipe
+revision changes. Resolve/reconcile that supply before drafting more. Drafts
+remain provisional, never usable material. Once linked supply is fully received
+or work is closed, a new current shortage can be reviewed again.
+
+A stable command identity replays its recorded result; changed content is refused.
+Preparation creates one ordinary draft and its provenance only: it never buys,
+releases work, changes promises, reserves stock, sends anything or adopts a feasible
+schedule. Business JSON/CSV archives preserve the draft and provenance, and empty
+restore reproduces linked supply without reconnecting or replaying commands.
+Material-feasible WIP, future safety floors and supplier calendars remain open.
