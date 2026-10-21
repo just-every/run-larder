@@ -17,6 +17,8 @@ test('MOVE-008 preview and commit source history, find closed job/lot, download 
       await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-MOVE-008-${stage}.png`), fullPage: true })
     }
   }
+  const baseline = await (await page.request.get(origin + '/api/larder/state')).json()
+  const existingHistory = new Set(baseline.sourceHistory.map((r: any) => r.id))
   const source = { format: 'larder-source-history-v1', source: 'Walnut workshop archive', records: [
     { kind: 'closed-job', originalId: 'job/712', reference: 'JOB-712', occurredAt: '2025-12-01T17:30:00-05:00', currency: 'USD', sourceStatus: 'closed', summary: 'Walnut boards completed and inspected', references: ['LOT-WAL-62', 'SHIP-241'], quantity: '3', unit: 'each', amount: '150.75', attachments: ['job-closed.txt'] },
     { kind: 'lot', originalId: 'lot/62', reference: 'LOT-WAL-62', occurredAt: '2025-12-01T17:30:00-05:00', currency: 'AUD', sourceStatus: 'consumed', summary: 'Original timber lot', references: ['JOB-712'], quantity: '3', unit: 'each', amount: '42.5', attachments: [] },
@@ -52,7 +54,9 @@ test('MOVE-008 preview and commit source history, find closed job/lot, download 
   const csv = await csvDownload; expect(await csv.path()).toBeTruthy()
   await shots('archive')
   const state = await (await page.request.get(origin + '/api/larder/state')).json()
-  expect(state.sourceHistory).toHaveLength(2); expect(state.movements).toHaveLength(0); expect(state.shipments).toHaveLength(0)
+  expect(state.sourceHistory).toHaveLength(baseline.sourceHistory.length + 2)
+  for (const key of ['movements', 'reservations', 'shipments', 'workOrders', 'inspections']) expect(state[key], key).toEqual(baseline[key])
+  expect(state.sourceHistory.filter((r: any) => existingHistory.has(r.id))).toEqual(baseline.sourceHistory)
   await page.goto(origin + '/app#more/move-in'); await settled()
   const docs = new URL((await page.getByRole('link', { name: 'Move-in documentation', exact: true }).getAttribute('href'))!)
   // Exercise the delivered run-site build, whose production origin is separate
@@ -61,6 +65,6 @@ test('MOVE-008 preview and commit source history, find closed job/lot, download 
   expect((await page.goto(new URL(docs.pathname, process.env.LARDER_SITE_URL).href))?.status()).toBe(200)
   await shots('documentation')
   const json = await (await page.request.get(origin + '/api/larder/archive')).json()
-  expect(json.records.sourceHistory.map((r: any) => r.currency).sort()).toEqual(['AUD', 'USD'])
+  expect(json.records.sourceHistory.filter((r: any) => !existingHistory.has(r.id)).map((r: any) => r.currency).sort()).toEqual(['AUD', 'USD'])
   if (process.env.LARDER_BROWSER_OUTPUT) await writeFile(join(process.env.LARDER_BROWSER_OUTPUT, 'MOVE-008-archive.json'), JSON.stringify(json))
 })
