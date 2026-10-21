@@ -57,7 +57,7 @@ export function SupplierTerms({ larder }: { larder: Larder }) {
     {refs.map(r => <article key={r.id} aria-label={`Terms for ${partyName(s, r.partyId)}`}>
       <h3>{partyName(s, r.partyId)} · {itemName(s, r.itemId)}</h3><p>{r.partyCode} · {r.preferred ? 'Preferred' : 'Alternate'} · pack {qty(r.supplierTerms.packQuantity)} · minimum {qty(r.supplierTerms.moq)} · {r.supplierTerms.leadDays} working days</p>
       <p>{r.supplierTerms.currency} {r.supplierTerms.price} per base unit · {r.supplierTerms.paymentTerms} · {r.supplierTerms.freightTerms}</p>
-      <Details label="Terms and revision history" value={r.termHistory} s={s} />
+      <Details label="Terms and revision history" value={supplierFacts(r.termHistory)} s={s} />
       {manage && <details><summary>Revise {partyName(s, r.partyId)} terms</summary><TermForm larder={larder} reference={r} /></details>}
     </article>)}
     {manage && <details><summary>Add supplier terms</summary><TermForm larder={larder} /></details>}
@@ -82,4 +82,16 @@ export function SupplierTerms({ larder }: { larder: Larder }) {
       {p.receipts.length > 0 && <Table head={['Receipt', 'Arrival', 'Expected / approved', 'Quantity', 'Inspection']}>{p.receipts.map((r: any, i: number) => <tr key={i}><td>{r.reference}</td><td>{day(r.arrivedOn)} · {r.late ? 'Late' : 'On time'}</td><td>{day(r.expectedDate)} / {day(r.approvedDate)}</td><td>{qty(r.quantity)}</td><td>{r.inspection}</td></tr>)}</Table>}
     </article>)}
   </Card></>
+}
+
+
+// Explicit currency labels prevent generic fact formatting from presenting a
+// source-currency quotation with the installation's money symbol.
+export function supplierFacts(value: any, inheritedCurrency = 'USD'): any {
+  if (Array.isArray(value)) return value.map(v => supplierFacts(v, inheritedCurrency))
+  if (!value || typeof value !== 'object') return value
+  const currency = value.currency ?? inheritedCurrency
+  return Object.fromEntries(Object.entries(value).map(([key, v]) => [key,
+    ['price', 'sourceExposure'].includes(key) && typeof v === 'string' ? `${currency} ${v}` :
+    ['unitPrice', 'exposure'].includes(key) && typeof v === 'string' ? `USD ${v}` : supplierFacts(v, currency)]))
 }

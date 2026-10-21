@@ -249,7 +249,7 @@ test('BUY-001 buyers maintain two suppliers, select feasible scheduled terms and
     await purchases()
     const termsCard = card(page, 'Supplier terms')
     for (let i = 0; i < 2; i++) {
-      await termsCard.getByText('Add supplier terms', { exact: true }).click()
+      await termsCard.locator('summary').filter({ hasText: /^Add supplier terms$/ }).click()
       const form = termsCard.locator('form').filter({ has: page.getByRole('heading', { name: 'Add supplier terms', exact: true }) })
       await form.getByLabel('Terms supplier', { exact: true }).selectOption(vendors[i].id)
       await form.getByLabel('Terms item', { exact: true }).selectOption(item.id)
@@ -257,7 +257,7 @@ test('BUY-001 buyers maintain two suppliers, select feasible scheduled terms and
       await shot(page, `BUY-001-terms-${i}`)
       await act(page, () => form.getByRole('button', { name: 'Save supplier terms', exact: true }).click())
       // Collapse the creation form before using the same disclosure again.
-      await termsCard.getByText('Add supplier terms', { exact: true }).click()
+      await termsCard.locator('summary').filter({ hasText: /^Add supplier terms$/ }).click()
     }
     const compare = card(page, 'Compare supplier quotes')
     await compare.getByLabel('Quote item', { exact: true }).selectOption(item.id)

@@ -1,3 +1,4 @@
+import { purchaseDate } from './supplier-terms'
 // Follow-up identity belongs to the source, never its quantity, version or ETA.
 // Notes and follow-up metadata have no bearing on these business conditions.
 import { decimal, format } from './decimal'
@@ -19,7 +20,7 @@ const link = (kind: string, r: Row): Related => ({ kind, id: r.id, reference: r.
 const unique = (rows: Related[]) => [...new Map(rows.map(r => [`${r.kind}:${r.id}`, r])).values()]
 const itemName = (s: State, id: string) => s.items.find(i => i.id === id)?.name ?? id
 
-const purchaseOpen = (po: Row, accepted: Map<string, bigint>) => po.lines.some((l: any) => (accepted.get(`${po.id}:${l.id}`) ?? 0n) < decimal(l.quantity))
+const purchaseDue = (po: Row, accepted: Map<string, bigint>): string | undefined => po.lines.filter((l: any) => (accepted.get(`${po.id}:${l.id}`) ?? 0n) < decimal(l.quantity)).map((l: any) => purchaseDate(po, l)).sort()[0]
 function workComplete(w: Row): boolean {
   return w.status === 'closed' && decimal(w.output) + decimal(w.scrap) >= decimal(w.quantity)
 }
@@ -70,8 +71,8 @@ export function caseSources(s: State, today: string): CaseSource[] {
     detail: n.pegs.map(p => `${p.reference} needs ${p.quantity} by ${p.date}`).join('; '), view: 'plan', id: n.itemId,
     criteria: 'Cover the current material requirement with accepted usable physical stock or actual completed demand; draft and expected supply do not close this case.',
     related: unique(n.pegs.map(p => ({ kind: p.document, id: p.documentId, reference: p.reference }))) })
-  for (const po of s.purchaseOrders) if (po.status !== 'draft' && po.expectedDate < today && purchaseOpen(po, accepted)) out.push({
-    key: `po-late:${po.id}`, kind: 'late', title: `${po.reference} is overdue (expected ${po.expectedDate})`,
+  for (const po of s.purchaseOrders) if (po.status !== 'draft' && (purchaseDue(po, accepted) ?? '9999-12-31') < today) out.push({
+    key: `po-late:${po.id}`, kind: 'late', title: `${po.reference} is overdue (expected ${purchaseDue(po, accepted)})`,
     detail: `${s.parties.find(p => p.id === po.supplierId)?.name ?? ''}. Related orders are current ranked supply paths, not hard allocations.`, view: 'purchase', id: po.id,
     criteria: 'Every ordered line must be fully covered by non-reversed accepted receipts from this purchase. Quarantine, rejection and a revised ETA do not count as acceptance.',
     related: unique([link('purchaseOrders', po), ...purchasePaths(s, statuses, po.id)]) })
@@ -107,7 +108,7 @@ export function caseSources(s: State, today: string): CaseSource[] {
 export function caseStillOpen(s: State, source: CaseSource, today: string, activeKeys?: ReadonlySet<string>): boolean {
   if (source.key.startsWith('po-late:')) {
     const po = s.purchaseOrders.find(p => p.id === source.id)
-    return !!po && purchaseOpen(po, acceptedPurchases(s))
+    return !!po && purchaseDue(po, acceptedPurchases(s)) !== undefined
   }
   if (source.key.startsWith('wo-blocked:')) {
     const w = s.workOrders.find(w => w.id === source.id)
