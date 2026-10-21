@@ -237,6 +237,7 @@ test('CAP calendars and finite planning: named intervals, holiday outage and vac
   await review.getByRole('button', { name: 'Approve finite schedule', exact: true }).click(); await settled(page)
   const adoptedState = await (await page.request.get(origin + '/api/larder/state')).json(), adopted = adoptedState.proposals.find((p: any) => p.id === candidate.id)
   expect(adopted.status).toBe('approved'); expect(adoptedState.workOrders.find((w: any) => w.id === nextJob.id).priority).toBe(20)
+  await expect(review).toHaveCount(0)
   expect(adoptedState.movements).toEqual(previewState.movements); expect(adoptedState.reservations).toEqual(previewState.reservations); expect(adoptedState.salesOrders).toEqual(previewState.salesOrders)
   await capacity.getByText('Approved finite schedule', { exact: true }).click()
   for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true); await capacity.screenshot({ path: join(process.env.LARDER_SCREENSHOTS!, `${width}-CAP-005-approved.png`) }) }

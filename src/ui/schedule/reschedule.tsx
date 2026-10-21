@@ -6,7 +6,7 @@ import { Area, Card, Choose, Field, Form, Table, text } from '../controls'
 export function FiniteReschedule({ larder, plan }: { larder: Larder; plan: any }) {
   const s = larder.state!, [picked, setPicked] = useState('')
   const jobs = rows(s, 'workOrders').filter(w => ['draft', 'released'].includes(w.status) && !w.operationStates?.some((t: any) => ['running', 'paused'].includes(t.status)))
-  const pending = [...rows(s, 'proposals')].reverse().find(p => p.status === 'awaiting approval' && p.context?.capacity)
+  const pending = [...rows(s, 'proposals')].reverse().find(p => p.status === 'awaiting approval' && p.context?.capacity && p.snapshotVersion + 1 === s.version)
   const approved = [...rows(s, 'proposals')].reverse().find(p => p.status === 'approved' && p.context?.capacity)
   const prepare = (id: string, priority: number, plannedStart: string, reason: string) => larder.run('proposal.prepare', { kind: 'reschedule', summary: reason, evidence: [reason], plan: { changes: [{ workOrderId: id, plannedStart, priority }], capacity: { asOf: plan.asOf, days: plan.horizonDays, reason } } })
   const allowed = can(s, ['manager', 'production', 'planner', 'agent'])
