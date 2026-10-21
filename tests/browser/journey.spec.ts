@@ -289,7 +289,7 @@ test('BUY-001 buyers maintain two suppliers, select feasible scheduled terms and
     await page.reload(); await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false')
     await page.getByRole('button', { name: 'Original approved terms and delivery schedule', exact: true }).click()
     await expect(page.locator('main')).toContainText('Net 30')
-    await expect(page.locator('.details-body').getByText('CAD 1.6', { exact: true })).toBeVisible()
+    await expect(page.locator('.details-body').getByText('CAD 1.6', { exact: true }).first()).toBeVisible()
     await page.getByRole('button', { name: 'Selected supplier quote terms', exact: true }).click()
     for (const detail of await page.locator('.details-body').all()) expect(await detail.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'Historical supplier terms must fit the phone display.').toBe(true)
     await shot(page, 'BUY-001-original-approval')
