@@ -137,9 +137,12 @@ test('CAP-003 configure and execute material, transfer, overlap and QC dependenc
   const location = await command(page, 'location.save', { name: `Material rack ${suffix}` })
   await command(page, 'opening.record', { locationId: location.id, countedOn: today, countedBy: 'Olive', valuationBasis: 'supplier-invoice', evidence: { name: 'blank-count.txt', contentType: 'text/plain', base64: Buffer.from('Counted twenty plate blanks').toString('base64') }, lines: [{ itemId: raw.id, quantity: '20', unitCost: '4' }] })
   const owner = (await state(page)).actor
-  const shotCap = async (name: string) => {
+  const shotCap = async (name: string, detail?: Locator) => {
     expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
-    if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-CAP-003-${name}.png`), fullPage: true })
+    if (process.env.LARDER_SCREENSHOTS) {
+      await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-CAP-003-${name}.png`), fullPage: true })
+      if (detail) await detail.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-CAP-003-${name}-detail.png`) })
+    }
   }
   const refresh = async () => { await page.getByRole('button', { name: 'Refresh dispatch', exact: true }).click(); await settled(page) }
   for (const width of [1440, 390]) {
@@ -155,7 +158,7 @@ test('CAP-003 configure and execute material, transfer, overlap and QC dependenc
     await form.getByLabel('Step 2 allow overlap with predecessors', { exact: true }).check()
     await form.getByLabel('Step 3 transfer batch', { exact: true }).fill('2')
     await expect(form.getByLabel('Step 3 allow overlap with predecessors', { exact: true })).not.toBeChecked()
-    await shotCap('routing-configured')
+    await shotCap('routing-configured', form.locator('fieldset').filter({ has: page.getByText('Step 2: Coat plate', { exact: true }) }).last())
     await act(page, form.getByRole('button', { name: 'Save new revision', exact: true }))
     let work = await command(page, 'wo.draft', { itemId: product.id, quantity: '4', requiredBy: today, reason: `Coated plate batch ${width}` })
     work = await command(page, 'wo.release', { workOrderId: work.id, version: work.version })
@@ -165,7 +168,7 @@ test('CAP-003 configure and execute material, transfer, overlap and QC dependenc
     await expect(machine).toContainText(`Issue 4 more each of Plate blank ${suffix}`)
     await expect(machine).toContainText(`Owner: ${owner.name}`)
     await expect(machine.getByRole('button', { name: 'Start step 1', exact: true })).toBeDisabled()
-    await shotCap('material-blocked')
+    await shotCap('material-blocked', machine)
     const current = async () => (await state(page)).workOrders.find((w: any) => w.id === work.id)
     const refuse = async (sequence: number, code: string, workCentre: string) => {
       const w = await current(), before = await state(page)
@@ -198,14 +201,14 @@ test('CAP-003 configure and execute material, transfer, overlap and QC dependenc
     plan = await command(page, 'quality.plan.approve', { planId: plan.id, version: plan.version }); await refresh()
     await refuse(2, 'QUALITY_CHECK', 'Coating booth')
     const inspect = (value: string) => command(page, 'quality.inspect', { planId: plan.id, planVersion: plan.version, workOrderId: work.id, samples: { Bore: [value] } })
-    await inspect('10.2'); await refresh(); await refuse(2, 'QUALITY_HOLD', 'Coating booth'); await shotCap('qc-blocked')
+    await inspect('10.2'); await refresh(); await refuse(2, 'QUALITY_HOLD', 'Coating booth'); await shotCap('qc-blocked', coat)
     await inspect('10')
     const hold = (await state(page)).qualityHolds.find((h: any) => h.subjectId === work.id)
     await command(page, 'quality.release', { holdId: hold.id, version: hold.version, reason: 'Bore retest accepted', evidence: [{ name: 'release.txt', contentType: 'text/plain', base64: Buffer.from('Qualified retest and release').toString('base64') }] }); await refresh()
     await start(coat, 2, 'Batch handed off and QC released')
     expect((await current()).operationStates[0].status).toBe('running')
     await expect(coat.getByRole('button', { name: 'Complete step 2', exact: true })).toBeDisabled()
-    await transfer(coat, 2, '2'); await refuse(3, 'DEPENDENCY', 'Packing bench'); await shotCap('overlapping-batch')
+    await transfer(coat, 2, '2'); await refuse(3, 'DEPENDENCY', 'Packing bench'); await shotCap('overlapping-batch', coat)
     await transfer(machine, 1, '2'); await complete(machine, 1)
     await transfer(coat, 2, '2'); await complete(coat, 2)
     await expect(pack.getByRole('button', { name: 'Start step 3', exact: true })).toBeEnabled()
@@ -213,8 +216,13 @@ test('CAP-003 configure and execute material, transfer, overlap and QC dependenc
     await page.reload(); await settled(page)
     await machine.getByText('Step 1 transfer history', { exact: true }).click()
     await expect(machine).toContainText('Measured units physically handed to next station')
-    await expect(pack).toContainText('Done'); await shotCap('completed-reloaded')
+    await expect(pack).toContainText('Done'); await shotCap('completed-reloaded', pack)
     const end = await current(); expect(end.output).toBe('0'); expect(end.scrap).toBe('0')
     expect(end.operationStates.map((t: any) => t.status)).toEqual(['done', 'done', 'done'])
+    await page.goto(origin + `/app#make/wo/${work.id}`); await settled(page)
+    const detail = page.getByRole('region', { name: 'Pinned operation tasks' })
+    await expect(detail).toContainText('Overlap allowed')
+    await expect(detail).toContainText('All four units finished at this station')
+    await shotCap('work-detail-completed', detail.locator('fieldset').filter({ has: page.getByText('Step 2: Coat plate', { exact: true }) }).last())
   }
 })
