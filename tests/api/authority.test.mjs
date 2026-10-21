@@ -171,6 +171,12 @@ test('GOV-001 planner role inherits DEMAND-003 forecast/MPS, DEMAND-004 policy a
   const stocked = await p2.run('inventory.approve', { planId: own.id, version: own.version })
   let s = await h.state(), draft = s.workOrders.find(x => x.id === stocked.documents[0].id)
   assert.deepEqual([draft.status, draft.quantity, draft.inventoryPolicy.locationId], ['draft', '10', w.loc.id])
+  // DEMAND-004 supply location: a planner records the bin of unlocated open supply.
+  const manual = await h.command('wo.draft', { itemId: kit.id, quantity: '2', requiredBy: day(6), reason: 'Owner kit draft' })
+  const locate = { policyId: policy.id, kind: 'workOrders', documentId: manual.id, version: manual.version, reason: 'Kits finish at the workshop' }
+  await agent.run('inventory.supplyAssign', locate, { error: 'FORBIDDEN' })
+  const located = await p1.run('inventory.supplyAssign', locate)
+  assert.deepEqual([located.inventoryPolicy.locationId, located.inventoryPolicy.assignedBy], [w.loc.id, p1.id])
   // FLOOR-005: split the approved draft and merge the remaining work back; agents cannot.
   const split = await p1.run('wo.split', { workOrderId: draft.id, version: draft.version, parts: [{ quantity: '4' }], reason: 'Two bench batches' })
   s = await h.state()
@@ -180,12 +186,13 @@ test('GOV-001 planner role inherits DEMAND-003 forecast/MPS, DEMAND-004 policy a
   await agent.run('wo.merge', merge, { error: 'FORBIDDEN' })
   const merged = await p2.run('wo.merge', merge)
   assert.equal((await h.state()).workOrders.find(x => x.id === merged.destinations[0]).quantity, '10')
-  // LARDER-006 MRP drafts, DEMAND-005 ranks and LARDER-015 reschedules approved by a different planner.
+  // LARDER-006 MRP drafts, DEMAND-005 ranks, DEMAND-006 expected completion and LARDER-015 reschedules approved by a different planner.
   const quote = await h.command('so.quote', { customerId: w.customer.id, promiseDate: day(3), lines: [{ itemId: w.board.id, quantity: '6' }] })
   const order = await h.command('so.confirm', { orderId: quote.id, version: quote.version })
   const shortWork = await p1.run('plan.draft', { itemId: w.board.id })
   assert.deepEqual([shortWork.status, shortWork.quantity], ['draft', '2'])
   assert.equal((await p1.run('order.rank', { kind: 'sales', orderId: order.id, version: order.version, rank: 1 })).rank, 1)
+  assert.equal((await p1.run('work.expected', { workOrderId: shortWork.id, version: shortWork.version, expectedOn: day(4) })).expectedOn, day(4))
   const reschedule = await p1.run('proposal.prepare', { kind: 'reschedule', summary: 'Run the shortage job first', evidence: ['bench capacity'], plan: { changes: [{ workOrderId: shortWork.id, priority: 1, plannedStart: day(1) }], conflicts: ['Kit batch waits'] } })
   await p1.run('proposal.approve', { proposalId: reschedule.id, version: reschedule.version }, { error: 'FORBIDDEN' })
   await p2.run('proposal.approve', { proposalId: reschedule.id, version: reschedule.version })
