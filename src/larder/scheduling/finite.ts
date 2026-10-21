@@ -75,8 +75,13 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
       const op: ScheduledOperation = { key, workOrderId: w.id, reference: w.reference, sequence: step.sequence, name: step.name, machineId: m.calendar.id, machine: m.name, machineSlot: Number(m.id.split(':').at(-1)), operatorId: l.id, person: l.name, laborId: l.calendar.id, setupMinutes: step.setupMinutes ?? 0, runMinutes: step.runMinutes ?? step.minutes ?? 0, queueMinutes: step.queueMinutes ?? 0, occupiedMinutes: duration, startsAt, endsAt, intervals, predecessors: previous, slackMinutes: 0, critical: false, maintenanceIds, provisional: maintenanceIds.length > 0 }
       placed.set(step.sequence, op); operations.push(op)
     }
-    const jobOps = [...placed.values()], incomplete = unscheduled.some(u => u.workOrderId === w.id)
-    const endsAt = jobOps.length ? jobOps.map(o => o.endsAt).sort().at(-1)! : null
+    const jobOps = [...placed.values()]
+    const completed = routing.length > 0 && routing.every(step => complete.has(step.sequence))
+    const completedTimes = routing.map(step => w.operationStates?.find((t: any) => t.sequence === step.sequence)?.completedAt)
+    const recorded = completed && completedTimes.every(at => typeof at === 'string' && Number.isFinite(Date.parse(at))) ? completedTimes.sort().at(-1) : null
+    if (completed && !recorded) unscheduled.push({ workOrderId: w.id, reference: w.reference, sequence: null, reason: 'Completed legacy operations have no recorded finish time; the job date is unproven.' })
+    const incomplete = unscheduled.some(u => u.workOrderId === w.id)
+    const endsAt = jobOps.length ? jobOps.map(o => o.endsAt).sort().at(-1)! : recorded ?? null
     // CPM over this job's dependency graph uses occupied effort. Contention,
     // calendars and waiting are shown separately by the actual projected dates.
     const earliest = new Map<number, number>(), latest = new Map<number, number>()
@@ -88,7 +93,7 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
       latest.set(o.sequence, end); o.slackMinutes = Math.max(0, end - earliest.get(o.sequence)!); o.critical = o.slackMinutes === 0
     }
     const dueAt = w.requiredBy + 'T23:59:59.999Z'
-    jobs.push({ workOrderId: w.id, reference: w.reference, dueAt, endsAt: incomplete ? null : endsAt, projectedLastAt: endsAt, late: !incomplete && endsAt !== null && endsAt > dueAt, unscheduled: incomplete, provisional: jobOps.some(o => o.provisional), criticalPath: jobOps.filter(o => o.critical).map(o => o.key), pathMinutes, dueSlackMinutes: !incomplete && endsAt ? Math.floor((Date.parse(dueAt) - Date.parse(endsAt)) / 60000) : null })
+    jobs.push({ workOrderId: w.id, reference: w.reference, completionKind: completed ? 'recorded' : 'projected', dueAt, endsAt: incomplete ? null : endsAt, projectedLastAt: endsAt, late: !incomplete && endsAt !== null && endsAt > dueAt, unscheduled: incomplete, provisional: jobOps.some(o => o.provisional), criticalPath: jobOps.filter(o => o.critical).map(o => o.key), pathMinutes, dueSlackMinutes: !incomplete && endsAt ? Math.floor((Date.parse(dueAt) - Date.parse(endsAt)) / 60000) : null })
   }
   const promises = s.salesOrders.filter(o => ['confirmed', 'part shipped'].includes(o.status)).flatMap(order => order.lines.flatMap((line: any) => deliveries(order, line).map(delivery => {
     const linked = work.filter(w => (w.datedPlan?.requirement.documentId === order.id && w.datedPlan?.requirement.lineId === line.id) || (w.itemId === line.itemId && (w.demandSources ?? []).some((source: any) => source.documentId === order.id)))

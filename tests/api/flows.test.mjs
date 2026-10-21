@@ -569,6 +569,18 @@ test('CAP-004 finite multistep plan exposes critical path, load and truthful lat
   await h.command('capacity.machine', capacityCalendar('Unconfigured'))
   await h.command('bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Now feasible', workCentre: 'Unconfigured', minutes: 10 }] })
   const feasible = await finite(h, '2026-11-23T00:00:00Z', 7); assert.deepEqual(feasible.counts, { late: 0, unscheduled: 0 }); assert.ok(feasible.jobs.every(j => !j.late && !j.unscheduled))
+  // A zero count must also account for open jobs whose operations finished:
+  // completed steps have no future bar, but their real late date still counts.
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+  let completed = await h.command('wo.draft', { itemId: w.board.id, quantity: '1', requiredBy: yesterday, reason: 'synthetic-larder-55 actual late completion' })
+  completed = await h.command('wo.release', { workOrderId: completed.id, version: completed.version })
+  completed = await h.command('wo.operation.assign', { workOrderId: completed.id, version: completed.version, sequence: 1, operatorId: owner.id })
+  completed = await h.command('wo.operation.start', { workOrderId: completed.id, version: completed.version, sequence: 1, workCentre: 'Unconfigured', station: 'synthetic-larder-56 station', reason: 'synthetic-larder-57 actual start' })
+  completed = await h.command('wo.operation.complete', { workOrderId: completed.id, version: completed.version, sequence: 1, reason: 'synthetic-larder-58 actual completion' })
+  const actual = await finite(h, '2026-11-23T00:00:00Z', 7), actualJob = actual.jobs.find(j => j.workOrderId === completed.id)
+  assert.equal(actualJob.endsAt, completed.operationStates[0].completedAt); assert.equal(actualJob.completionKind, 'recorded'); assert.equal(actualJob.late, true)
+  assert.deepEqual(actual.counts, { late: 1, unscheduled: 0 }); assert.deepEqual(actual.lateJobs, [completed.id])
+  assert.ok(!actual.operations.some(o => o.workOrderId === completed.id), 'completed work occupies no invented future interval')
   assert.equal((await h.request('/api/larder/scheduling/finite?days=61')).status, 409)
 })
 

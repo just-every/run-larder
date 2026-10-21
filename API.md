@@ -457,7 +457,9 @@ no default machine, person, balance or shift supplies capacity.
 
 The response includes jobs, current-plan late/unscheduled ID lists and counts,
 machine-slot and person loads and a bottleneck selected by greatest utilization
-(with occupied-minute and stable-ID tie breaks). Due dates end at 23:59:59.999 UTC.
+(with occupied-minute and stable-ID tie breaks). Due dates end at 23:59:59.999 UTC. Open jobs with every operation completed use
+the latest recorded completion time for lateness without inventing future bars;
+legacy completion without a dated finish stays explicitly unproven/unscheduled.
 Dependency CPM slack uses occupied effort plus queue; due slack compares the
 calendar-constrained finish with due. `promises` traces existing MRP demand links
 from confirmed delivery lines to work and operation keys; absent links are

@@ -93,7 +93,7 @@ export function Capacity({ larder }: { larder: Larder }) {
         <h3>{filter === 'all' ? 'Scheduled and unscheduled jobs' : `${filter === 'late' ? 'Late' : 'Unscheduled'} jobs`}</h3>
         <div aria-label="Finite plan jobs">{jobs.length === 0 ? <p>No {filter === 'all' ? 'open' : filter} jobs.</p> : jobs.map((j: any) => <details key={j.workOrderId}>
           <summary>{j.reference} · {j.unscheduled ? 'Unscheduled' : j.late ? 'Late' : 'On time'} · due {j.dueAt.slice(0, 10)}</summary>
-          <p>Finish: {j.endsAt ?? 'unproven'} · Due slack: {j.dueSlackMinutes ?? 'unknown'} minutes · Critical path effort: {j.pathMinutes} minutes{j.provisional && ' · maintenance release required'}</p>
+          <p>{j.completionKind === 'recorded' ? 'Recorded operation finish' : 'Finish'}: {j.endsAt ?? 'unproven'} · Due slack: {j.dueSlackMinutes ?? 'unknown'} minutes · Critical path effort: {j.pathMinutes} minutes{j.provisional && ' · maintenance release required'}</p>
           <a href={`#make/wo/${j.workOrderId}`}>Open {j.reference}</a>
           {(plan.unscheduled ?? []).filter((u: any) => u.workOrderId === j.workOrderId).map((u: any, i: number) => <p key={i}>Operation {u.sequence ?? '—'}: {u.reason}</p>)}
           <Table head={['Operation', 'Machine and person', 'Occupied intervals', 'Timing and path']}>
