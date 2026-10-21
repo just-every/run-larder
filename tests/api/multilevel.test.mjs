@@ -686,7 +686,18 @@ test('MRP-001 dated drafts preserve reviewed quantities, release dates and sourc
   assert.equal(h.outboundCount(), outbound)
   const savedPlan = await read(); await h.restart(); assert.deepEqual(await read(), savedPlan)
   const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
-  const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restored.status, 200, await restored.text())
+  const csv = await (await h.request('/api/larder/archive.csv')).text()
+  const decoded = { records: {} }
+  for (const match of csv.matchAll(/^"((?:[^"]|"")*)","((?:[^"]|"")*)","((?:[^"]|"")*)"\r?$/gm)) {
+    const [section, index, value] = match.slice(1).map(v => v.replaceAll('""', '"'))
+    if (section === 'section') continue
+    const root = section.startsWith('records.') ? decoded.records : decoded
+    const key = section.startsWith('records.') ? section.slice(8) : section
+    if (index === '') root[key] = JSON.parse(value); else root[key][Number(index)] = JSON.parse(value)
+  }
+  decoded.exportedAt = archive.exportedAt
+  assert.deepEqual(decoded, archive) // both downloads retain the reviewed draft provenance
+  const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: decoded }); assert.equal(restored.status, 200, await restored.text())
   const restoredState = await target.state()
   for (const field of ['purchaseOrders', 'workOrders', 'movements', 'reservations']) assert.deepEqual(restoredState[field], after[field])
   assert.deepEqual((await read(target)).requirements, savedPlan.requirements)
