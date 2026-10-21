@@ -26,7 +26,16 @@ jobs:
           # rer dev, which the browser journey starts, requires 15 GiB free. This
           # JavaScript job does not use Android, .NET or Haskell.
           df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
-          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup
+          reclaim_pids=()
+          for reclaim_path in /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup; do
+            sudo rm -rf -- "$reclaim_path" &
+            reclaim_pids+=("$!")
+          done
+          reclaim_failed=0
+          for reclaim_pid in "${reclaim_pids[@]}"; do
+            wait "$reclaim_pid" || reclaim_failed=1
+          done
+          test "$reclaim_failed" -eq 0
           df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0; action runtime Node 24
         with:

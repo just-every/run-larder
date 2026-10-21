@@ -591,9 +591,13 @@ test('CAP-005 finite reschedule previews displacement and unchanged promises, re
   await h.command('capacity.machine', capacityCalendar('Bench'))
   await h.command('capacity.labor', capacityCalendar('Capacity operator', { operatorIds: [scheduledPerson.id], skills: [] }))
   await h.command('bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Constrained assembly', workCentre: 'Bench', minutes: 120 }] })
-  const jobs = []
+  const jobs = [], orders = []
   for (let i = 0; i < 2; i++) {
-    let work = await h.command('wo.draft', { itemId: w.board.id, quantity: '1', requiredBy: '2026-11-26', reason: 'synthetic-larder-38 competing work' })
+    const product = await h.command('item.save', { sku: `synthetic-larder-59-${i}`, name: `Reschedule assembly ${i}`, kind: 'make', baseUnit: 'each' })
+    await h.command('bom.revise', { itemId: product.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Constrained assembly', workCentre: 'Bench', minutes: 120 }] })
+    const quote = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-11-26', lines: [{ itemId: product.id, quantity: '1', unitPrice: '90' }] })
+    orders.push(await h.command('so.confirm', { orderId: quote.id, version: quote.version, reserve: false }))
+    let work = await h.command('plan.draft', { itemId: product.id, reason: 'synthetic-larder-38 competing customer work' })
     work = await h.command('wo.release', { workOrderId: work.id, version: work.version }); jobs.push(work)
   }
   const asOf = '2026-11-25T00:00:00Z', baseline = await finite(h, asOf, 2), firstId = baseline.operations[0].workOrderId, urgent = jobs.find(w => w.id !== firstId)
@@ -601,6 +605,14 @@ test('CAP-005 finite reschedule previews displacement and unchanged promises, re
   const before = await h.state(), preview = await planner.run('proposal.prepare', payload)
   assert.equal(preview.context.capacity.after.operations[0].workOrderId, urgent.id)
   assert.equal(preview.context.capacity.effects.length, 2); assert.equal(preview.context.capacity.changedPromiseCount, 0)
+  assert.equal(preview.context.capacity.promiseEffects.length, 2)
+  for (const [i, order] of orders.entries()) {
+    const consequence = preview.context.capacity.promiseEffects.find(p => p.orderId === order.id)
+    assert.equal(consequence.promiseDate, order.promiseDate)
+    assert.deepEqual(consequence.workOrderIds, [jobs[i].id])
+    assert.notEqual(consequence.before[0].endsAt, consequence.after[0].endsAt, 'each displaced customer order exposes its before/after production date')
+  }
+
   assert.deepEqual((await h.state()).workOrders, before.workOrders, 'preview never changes sequence')
   await planner.run('proposal.approve', { proposalId: preview.id, version: preview.version }, { error: 'FORBIDDEN' })
   await agent.run('proposal.approve', { proposalId: preview.id, version: preview.version }, { error: 'FORBIDDEN' })
