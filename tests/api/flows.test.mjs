@@ -319,6 +319,8 @@ test('BUY-001 supplier constraints, feasible quote and scheduled approval surviv
   const [a,b] = await quotes()
   assert.deepEqual([a.supplierId, a.quantity, a.earliestDate, a.feasible, a.currency, a.price, a.sourceExposure, a.exposure], [vendors[0].id, '12', day(2), true, 'CAD', '1.6', '19.2', '14.4'])
   assert.deepEqual([b.quantity, b.feasible, b.preferred, b.exposure], ['20', false, true, '10'])
+  for (const key of ['packQuantity','moq','leadDays','weekdays','closedDates','price','breaks','currency','usdRate','rateOn','rateSource','paymentTerms','freightTerms']) assert.deepEqual(a.terms[key], base[key], key)
+  assert.equal(a.partyCode, base.partyCode); assert.equal(a.preferred, false)
   const selected = { partyItemId: fast.id, version: fast.version, quantity: '7', requiredBy: day(5), reason: 'Native supply contract', deliveries: [{ quantity: '6', expectedDate: day(2) }, { quantity: '6', expectedDate: day(4) }] }
   await h.command('po.selectQuote', { ...selected, partyItemId: slow.id, version: slow.version }, { error: 'INFEASIBLE_QUOTE' })
   await h.command('po.selectQuote', { ...selected, deliveries: [{ quantity: '5', expectedDate: day(2) }] }, { error: 'SCHEDULE' })
@@ -347,6 +349,8 @@ test('BUY-001 supplier constraints, feasible quote and scheduled approval surviv
   await h.command('po.approve', { poId: stale.id, version: stale.version }, { error: 'STALE' })
   await h.command('po.selectQuote', selected, { error: 'STALE' })
   assert.equal(updated.termHistory.length, 2)
+  assert.equal(updated.termHistory[0].partyCode, base.partyCode); assert.equal(updated.termHistory[0].freightTerms, base.freightTerms)
+  assert.equal(frozen.supplier.name, vendors[0].name); assert.equal(frozen.supplier.terms, 'Original supplier agreement')
   const p = (await h.state()).purchaseOrders.find(x => x.id === po.id)
   assert.deepEqual(p.lines.map(l => l.expectedDate), [day(3), day(8)])
   assert.equal(p.history[0].schedulesBefore[0].expectedDate, day(2)); assert.equal(p.history[1].schedulesAfter[1].expectedDate, day(8))

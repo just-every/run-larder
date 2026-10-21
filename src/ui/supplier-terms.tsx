@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { can, itemName, partyName, rows, type Rec } from './api'
+import { can, itemName, partyName, personName, rows, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
 import { Card, Choose, Details, Empty, Field, Form, Table, options, text } from './controls'
 import { day, money, qty } from './format'
@@ -57,7 +57,7 @@ export function SupplierTerms({ larder }: { larder: Larder }) {
     {refs.map(r => <article key={r.id} aria-label={`Terms for ${partyName(s, r.partyId)}`}>
       <h3>{partyName(s, r.partyId)} · {itemName(s, r.itemId)}</h3><p>{r.partyCode} · {r.preferred ? 'Preferred' : 'Alternate'} · pack {qty(r.supplierTerms.packQuantity)} · minimum {qty(r.supplierTerms.moq)} · {r.supplierTerms.leadDays} working days</p>
       <p>{r.supplierTerms.currency} {r.supplierTerms.price} per base unit · {r.supplierTerms.paymentTerms} · {r.supplierTerms.freightTerms}</p>
-      <Details label="Terms and revision history" value={supplierFacts(r.termHistory)} s={s} />
+      <Details label="Terms and revision history" value={r.termHistory.map((h: any) => ({ version: h.version, recordedAt: h.at, recordedBy: personName(s, h.by), supplierCode: h.partyCode, preferred: h.preferred ? "Preferred" : "Alternate", ...termFacts(h) }))} s={s} />
       {manage && <details><summary>Revise {partyName(s, r.partyId)} terms</summary><TermForm larder={larder} reference={r} /></details>}
     </article>)}
     {manage && <details><summary>Add supplier terms</summary><TermForm larder={larder} /></details>}
@@ -85,13 +85,18 @@ export function SupplierTerms({ larder }: { larder: Larder }) {
 }
 
 
-// Explicit currency labels prevent generic fact formatting from presenting a
-// source-currency quotation with the installation's money symbol.
-export function supplierFacts(value: any, inheritedCurrency = 'USD'): any {
-  if (Array.isArray(value)) return value.map(v => supplierFacts(v, inheritedCurrency))
-  if (!value || typeof value !== 'object') return value
-  const currency = value.currency ?? inheritedCurrency
-  return Object.fromEntries(Object.entries(value).map(([key, v]) => [key,
-    ['price', 'sourceExposure'].includes(key) && typeof v === 'string' ? `${currency} ${v}` :
-    ['unitPrice', 'exposure'].includes(key) && typeof v === 'string' ? `USD ${v}` : supplierFacts(v, currency)]))
+// Flat facts keep historical terms readable on phones and label source money.
+function termFacts(t: any) {
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  return { basePrice: `${t.currency} ${t.price}`, currency: t.currency, paymentTerms: t.paymentTerms, freightTerms: t.freightTerms,
+    packQuantity: t.packQuantity, minimumQuantity: t.moq, leadWorkingDays: t.leadDays,
+    workingDays: t.weekdays.map((d: number) => days[d]).join(', '), closedDates: t.closedDates.join(', ') || 'None',
+    priceBreaks: t.breaks.map((b: any) => `${b.quantity}+ at ${t.currency} ${b.price}`).join('; ') || 'None',
+    recordedRate: `USD ${t.usdRate} per ${t.currency}`, rateDate: t.rateOn, rateSource: t.rateSource, note: t.note }
+}
+export function purchaseTermFacts(s: LarderState, terms: any): any[] {
+  return [{ supplier: terms.supplier?.name ?? partyName(s, terms.supplierId), basicTerms: terms.supplier?.terms ?? '', cashExposure: `USD ${terms.exposure}` },
+    ...terms.lines.map((l: any) => ({ item: itemName(s, l.itemId), scheduledQuantity: l.quantity, expectedDate: l.expectedDate ?? terms.expectedDate,
+      usdUnitPrice: `USD ${l.unitPrice}`, ...(l.supplierQuote ? { supplierCode: l.supplierQuote.partyCode,
+        quoteVersion: l.supplierQuote.version, quoteQuantity: l.supplierQuote.quantity, ...termFacts(l.supplierQuote.terms) } : {}) }))]
 }

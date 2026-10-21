@@ -1,4 +1,4 @@
-import { SupplierTerms, supplierFacts } from './supplier-terms'
+import { SupplierTerms, purchaseTermFacts } from './supplier-terms'
 import { WorkBatchHistory } from './work-batch-history'
 import { Subcontract } from './subcontract'
 import { WorkTransfers } from './work-transfers'
@@ -72,10 +72,10 @@ function Purchase({ larder, po }: { larder: Larder; po: Rec }) {
     <Card title={<>{po.reference} <Chip tone={poTone(po.status)}>{words(po.status)}</Chip></>}>
       <p className="meta">{partyName(s, po.supplierId)} · expected {day(po.expectedDate)}{po.supplierReference && ` · their ref ${po.supplierReference}`}</p><p>{po.reason}</p>
       <Table head={['Item', 'Ordered', 'Received', 'Price']} numeric={[1, 2, 3]}>{po.lines.map((l: any) => <tr key={l.id}><td>{itemName(s, l.itemId)}<small>{sku(s, l.itemId)} · delivery {day(l.expectedDate ?? po.expectedDate)}</small></td><td className="num">{qty(l.quantity)} {unitOf(s, l.itemId)}</td><td className="num">{qty(l.received)}</td><td className="num">{money(l.unitPrice)}</td></tr>)}</Table>
-      {approval && <Details label="Original approved terms and delivery schedule" value={supplierFacts(approval.terms)} s={s} />}
-      {po.lines.some((l: any) => l.supplierQuote) && <Details label="Selected supplier quote terms" value={supplierFacts(po.lines.map((l: any) => l.supplierQuote))} s={s} />}
+      {approval && <Details label="Original approved terms and delivery schedule" value={purchaseTermFacts(s, approval.terms)} s={s} />}
+      {po.lines.some((l: any) => l.supplierQuote) && <Details label="Selected supplier quote terms" value={purchaseTermFacts(s, { ...po, supplier: po.supplierSnapshot })} s={s} />}
       <p>Cash exposure in USD <strong>{money(po.exposure)}</strong>{approval && <> · approved by {personName(s, approval.createdBy)} {when(approval.createdAt)}</>}</p>
-      {po.history.length > 0 && <ul className="history">{po.history.map((h: any, i: number) => <li key={i}>{when(h.at)}: {h.change} {day(h.from)} → {day(h.to)} ({h.note}){h.schedulesBefore && <Details label="Delivery revision details" value={supplierFacts({ before: h.schedulesBefore, after: h.schedulesAfter })} s={s} />}</li>)}</ul>}
+      {po.history.length > 0 && <ul className="history">{po.history.map((h: any, i: number) => <li key={i}>{when(h.at)}: {h.change} {day(h.from)} → {day(h.to)} ({h.note}){h.schedulesBefore && <Details label="Delivery revision details" value={[...purchaseTermFacts(s, { ...po, lines: h.schedulesBefore }).map(x => ({ revision: "Before", ...x })), ...purchaseTermFacts(s, { ...po, lines: h.schedulesAfter }).map(x => ({ revision: "After", ...x }))]} s={s} />}</li>)}</ul>}
       {po.status === 'draft' && buyer && <div className="actions"><button className="button primary" disabled={busy} onClick={() => run('po.approve', { poId: po.id, version: po.version })}>Approve purchase order</button></div>}
     </Card>
     <Card title="Supplier and delivery">
