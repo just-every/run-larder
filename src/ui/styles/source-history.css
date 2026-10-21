@@ -1,0 +1,5 @@
+/* Original source identifiers and file digests must remain readable on phones. */
+.source-history :is(dd, p, li, h3) { overflow-wrap: anywhere; }
+.source-history .facts > div { grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr); }
+.source-history .facts dd { min-width: 0; }
+.source-history article + article { margin-top: 24px; border-top: 1px solid var(--rule); }

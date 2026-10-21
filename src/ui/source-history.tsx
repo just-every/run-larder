@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import './styles/source-history.css'
 import type { Larder } from './app'
 import { can, rows } from './api'
 import { Card, Chip, Empty, Field, Form, Table, fileBase64 } from './controls'
@@ -23,7 +24,7 @@ export function SourceHistory({ larder }: { larder: Larder }) {
       <Table head={['Kind', 'Original reference', 'Original time', 'Currency', 'Quantity / amount']}>{b.records.map((r: any, i: number) => <tr key={i}><td>{r.kind}</td><td>{r.reference} · {r.originalId}</td><td>{r.occurredAt}</td><td>{r.currency}</td><td>{r.quantity ?? '—'} {r.unit} / {r.amount ?? '—'}</td></tr>)}</Table>
       {can(s, ['manager']) && <Form submit={`Commit source history from ${b.source}`} busy={larder.busy} onSubmit={() => larder.run('history.commit', { importId: b.id, version: b.version })}><span>Approve these records as retained source evidence.</span></Form>}
     </Card>)}
-    <Card title="Search source history">
+    <Card title="Search source history" className="source-history">
       <Field label="Search source references or files" name="history-search" type="search" required={false} value={query} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)} />
       {!records.length && <Empty>No source history matches.</Empty>}
       {records.map(r => <article key={r.id} id={`history-${r.id}`}>
