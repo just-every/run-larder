@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './styles/source-history.css'
+import publication from '../../deploy-site.json'
 import type { Larder } from './app'
 import { can, rows } from './api'
 import { Card, Chip, Empty, Field, Form, Table, fileBase64 } from './controls'
@@ -9,7 +10,7 @@ export function SourceHistory({ larder }: { larder: Larder }) {
   const records = rows(s, 'sourceHistory').filter(r => [r.source, r.kind, r.originalId, r.reference, r.summary, ...r.references, ...r.attachments.map((f: any) => f.name)].some(v => String(v).toLowerCase().includes(query.toLowerCase())))
   return <>
     {can(s, ['manager', 'agent']) && <Card title="Import source history">
-      <p>Keep closed jobs, shipments, bills, quality records and lots as source history with their original references, dates, currency and files. These records do not post stock, send documents or reconnect providers. Use the JSON format in <a href="/docs/move-in">Move-in documentation</a>.</p>
+      <p>Keep closed jobs, shipments, bills, quality records and lots as source history with their original references, dates, currency and files. These records do not post stock, send documents or reconnect providers. Use the JSON format in <a href={`https://${publication.domain}/docs/move-in`}>Move-in documentation</a>.</p>
       <Form submit="Preview source history" busy={larder.busy} onSubmit={async d => {
         const file = d.get('history') as File
         const attachments = await Promise.all((d.getAll('attachments') as File[]).filter(f => f.size).map(async f => ({ name: f.name, contentType: f.type || 'text/plain', base64: await fileBase64(f) })))

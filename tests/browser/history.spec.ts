@@ -54,8 +54,11 @@ test('MOVE-008 preview and commit source history, find closed job/lot, download 
   const state = await (await page.request.get(origin + '/api/larder/state')).json()
   expect(state.sourceHistory).toHaveLength(2); expect(state.movements).toHaveLength(0); expect(state.shipments).toHaveLength(0)
   await page.goto(origin + '/app#more/move-in'); await settled()
-  await page.getByRole('link', { name: 'Move-in documentation', exact: true }).click()
-  await page.waitForURL(origin + '/docs/move-in')
+  const docs = new URL((await page.getByRole('link', { name: 'Move-in documentation', exact: true }).getAttribute('href'))!)
+  // Exercise the delivered run-site build, whose production origin is separate
+  // from this self-hosted app. No remote page or synthetic response is substituted.
+  if (!process.env.LARDER_SITE_URL) throw new Error('Built public site required.')
+  expect((await page.goto(new URL(docs.pathname, process.env.LARDER_SITE_URL).href))?.status()).toBe(200)
   await shots('documentation')
   const json = await (await page.request.get(origin + '/api/larder/archive')).json()
   expect(json.records.sourceHistory.map((r: any) => r.currency).sort()).toEqual(['AUD', 'USD'])
