@@ -37,11 +37,11 @@ async function enter(page: Page) {
   }
 }
 
-test('HTTP-001 public Lobby, health and docs stay separate from private app and exports', async ({ page, context }) => {
+test('HTTP-001 MRP-001 public Lobby, health and docs stay separate from private app and exports', async ({ page, context }) => {
   const site = process.env.LARDER_SITE_URL
   if (!site) throw new Error('Set LARDER_SITE_URL to the built run site preview.')
   // This context has never signed in. Redirects are inspected before following.
-  for (const path of ['/api/larder/state', '/api/larder/archive']) {
+  for (const path of ['/api/larder/state', '/api/larder/archive', '/api/larder/planning/materials']) {
     const denied = await context.request.get(origin + path)
     expect(denied.status()).toBe(401)
     expect((await denied.json()).error.code).toBe('AUTH')
@@ -65,6 +65,19 @@ test('HTTP-001 public Lobby, health and docs stay separate from private app and 
     await page.getByRole('link', { name: 'Take an order', exact: false }).first().click()
     await expect(page.locator('article')).toBeVisible()
     await shot(page, 'HTTP-001-docs')
+    // MRP-001 is an API slice: its public contract must still disclose the
+    // remaining feasibility/adoption gaps at both supported widths.
+    expect((await page.goto(site + '/contract'))!.status()).toBe(200)
+    await page.getByPlaceholder('Find a clause').fill('MRP-001')
+    const mrp = page.locator('tr.clause[data-id="MRP-001"]')
+    await expect(mrp).toBeVisible()
+    await expect(mrp).toHaveAttribute('data-status', 'partial')
+    await expect(mrp).toContainText('Dated physical/purchase projection')
+    await expect(mrp).toContainText('material-feasible WIP')
+    await expect(mrp).toContainText('stale-safe dated draft adoption remain absent')
+    await mrp.scrollIntoViewIfNeeded()
+    if (shots) await page.screenshot({ path: join(shots, `${width}-MRP-001-contract.png`), fullPage: true })
+
   }
   await enter(page)
   const before = await state(page)
