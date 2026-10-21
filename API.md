@@ -415,3 +415,71 @@ classification. Counts measure non-reversed receipt-line observations, not
 promises or quality acceptance; late means arrival after the expected date.
 Older receipts without these snapshots are unmeasured. Terms, history, approvals,
 schedules and performance inputs survive business archive/restore.
+
+## Capacity calendars and finite planning (CAP-001, CAP-002, CAP-004)
+
+`capacity.machine` saves `{id?, version?, name, timeZone, effectiveFrom,
+effectiveTo, capacity, efficiency, shifts, closedDates?, usHolidays?, exceptions?,
+reason}`. Owner/manager/planner can maintain machine calendars. Capacity is 1–20
+parallel named slots; efficiency is an integer percentage from 1–100.
+`capacity.labor` saves the same calendar fields, without efficiency, plus
+`operatorIds` (active native owner/manager/production/operator IDs), `skills`
+(exact routing names) and `capacity` (1–10 simultaneous tasks **per person**).
+Owner/manager maintains person/team availability and skill authorization, using
+ENG-002's supervision authority. A person belongs to one labor calendar.
+Every update requires the current row version and a reason and retains prior
+calendar definitions with actor/time. No calendar grants native membership,
+execution assignment or certification.
+
+A shift is `{weekdays:[0..6], start, end, breaks:[{start,end}]}`. Minutes are
+local wall-clock minutes from its starting day's midnight. Start is 0–1439;
+end is later than start and at most 1440 minutes later (e.g. 1320–1800 is
+22:00–06:00). Breaks use the same anchor. Effective dates include both endpoint
+shift-start days. Closed dates and observed US federal holidays close the whole
+local date, including an overnight continuation. Real UTC minutes are tested
+against each resource's IANA timezone, including daylight-saving transitions.
+Exceptions `{startsAt, endsAt, reason}` use offset-bearing timestamps and remove
+capacity; a labor exception is vacation/time off for that person/team. Machine
+maintenance holds also remove capacity until actual authorized release; an ETA
+alone never supplies finite capacity. The original weekday recovery estimate
+continues to label after-ETA maintenance recovery as provisional (CAP-009).
+
+`GET /api/larder/scheduling/finite?asOf=<offset-timestamp>&days=14` reads the
+current state/version and active native people. Horizon is 1–60 elapsed days.
+Each operation names its machine, parallel slot, qualified person, occupied UTC
+intervals, remaining effort, setup/run/queue assumptions and dependencies.
+Efficiency stretches setup/run occupancy, conservatively rounded to whole
+minutes; queue is elapsed wait before occupation. Breaks split occupied intervals.
+A draft uses the currently effective recipe; released work keeps its pinned one.
+Existing exact execution assignments restrict candidate people. Missing calendars,
+qualifications or joint capacity leave explicit unscheduled operations and jobs;
+no default machine, person, balance or shift supplies capacity.
+
+The response includes jobs, current-plan late/unscheduled ID lists and counts,
+machine-slot and person loads and a bottleneck selected by greatest utilization
+(with occupied-minute and stable-ID tie breaks). Due dates end at 23:59:59.999 UTC.
+Dependency CPM slack uses occupied effort plus queue; due slack compares the
+calendar-constrained finish with due. `promises` traces existing MRP demand links
+from confirmed delivery lines to work and operation keys; absent links are
+explicitly unproven. These links do not assert material/shipping/quantity coverage.
+This read creates no bookings, dispatch rights or customer promise changes.
+CAP-005–CAP-008, DEMAND-001/005, MRP-004 and AGENT-001 inherit these finite
+calendar and explicit-unfeasible obligations before adopting or promising work.
+
+`capacity.rate {laborId, version?, hourlyRate, burdenRate, reason}` maintains
+separate USD hourly employment rates under GOV-001's owner/manager/accounts
+rate authority. Rates and their history are absent from other roles' state and
+finite-plan responses. Operators cannot recover rework hourly-rate fields through
+state or a previously authorized command replay; FLOOR-004 retains its explicit
+production authoring authority for its manual job-cost records.
+`GET /api/larder/scheduling/labor-costs` is owner/manager/accounts only. Completed
+operation clocks minus recorded pauses produce exact elapsed-time costing
+evidence at the retained rate in force at start, rounded half up to six places.
+Missing historical rates remain unknown. It makes no payroll or ledger posting;
+FLOOR-002 and COST-001 retain their correction/period-lock and posted-cost duties.
+
+Machine/person calendars, exceptions, skills, rate histories and clock evidence
+inherit MOVE-008: complete JSON and lossless CSV business archives preserve them;
+empty restore retains unknown native person IDs as inert history, never a new
+membership or a replayed command. Edit to an explicitly authorized live person
+before those restored calendars can supply labor capacity.

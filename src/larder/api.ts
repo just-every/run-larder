@@ -1,3 +1,4 @@
+import { laborCosts } from './scheduling/labor-costs'
 import { calendars, rateReaders } from './scheduling/calendars'
 import { finitePlan } from './scheduling/finite'
 import { supplierQuotes } from './supplier-terms'
@@ -76,6 +77,9 @@ async function people(env: Bindings, actor: Actor) {
 }
 
 async function command(env: Bindings, actor: Actor, request: Request): Promise<Response> {
+  // FLOOR-004 retains its explicit production authoring authority. Operators
+  // and other readers never recover a rework rate from a prior command replay.
+  const respond = (body: any) => json(![...rateReaders, 'production'].includes(actor.role) && Array.isArray(body?.result?.labor) ? { ...body, result: { ...body.result, labor: body.result.labor.map(({ rate, ...line }: any) => line) } } : body)
   if (request.headers.get('origin') !== new URL(env.AUTH_ORIGIN).origin) throw new Problem('ORIGIN', 'Send commands from this installation.', null, 403)
   if (!request.headers.get('content-type')?.includes('application/json')) throw new Problem('CONTENT_TYPE', 'Use application/json.', null, 400)
   const raw = await request.text()
@@ -106,7 +110,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   }
   const digest = sha256(canonicalJson({ type, payload }))
   const previous = await saved(env.DB, commandId, digest, actor)
-  if (previous) return json(previous)
+  if (previous) return respond(previous)
   if (type === 'exception.assign' || type === 'exception.escalate') {
     if (!['owner', 'manager'].includes(actor.role)) forbidden('Only an owner or manager assigns or escalates cases.')
     const existing = type === 'exception.escalate' ? (await load(env.DB)).followUps.find(f => f.key === payload.key) : undefined
@@ -138,12 +142,12 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     observeFollowUps(c)
     if (type === 'import.commit' || type === 'import.undo') {
       await publishImport(env, c, before, type, digest, result!)
-      return json((await saved(env.DB, commandId, digest, actor)) ?? fail('IMPORT_PUBLICATION', 'The import did not finish. Send the same command again to resume it.'))
+      return respond((await saved(env.DB, commandId, digest, actor)) ?? fail('IMPORT_PUBLICATION', 'The import did not finish. Send the same command again to resume it.'))
     }
-    try { return json(await commit(env.DB, c, before, type, digest, result)) }
+    try { return respond(await commit(env.DB, c, before, type, digest, result)) }
     catch (error) {
       const replay = await saved(env.DB, commandId, digest, actor)
-      if (replay) return json(replay)
+      if (replay) return respond(replay)
       if ((await load(env.DB)).version !== before.version && attempt < 7) continue
       const message = String((error as Error)?.message ?? '')
       if (/oversold|reserved_stock|negative_stock/.test(message)) fail('DEPENDENCY', 'Stock changed underneath this action. Reload and try again.')
@@ -167,6 +171,10 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const ok = await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>()
     if (ok?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
     if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, await people(env, actor))) }
+    if (path === '/scheduling/labor-costs') {
+      if (!rateReaders.includes(actor.role)) forbidden('Only accounts or authorized managers may read wage-based costing evidence.')
+      return json({ basis: 'Recorded operation time; not payroll or posted accounting cost.', rows: laborCosts(await load(env.DB)) })
+    }
     if (path === '/scheduling/finite') {
       const named = await people(env, actor)
       return json(finitePlan(await load(env.DB), named.people as any, url.searchParams.get('asOf') ?? new Date().toISOString(), Number(url.searchParams.get('days') ?? 14)))

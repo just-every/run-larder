@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { can, personName, rows, type Rec } from '../api'
+import { can, personName, rows } from '../api'
 import type { Larder } from '../app'
 import { Area, Card, Choose, Field, Form, Table, text } from '../controls'
 
@@ -79,12 +79,14 @@ export function Capacity({ larder }: { larder: Larder }) {
         <details><summary>Machine and labor load</summary><Table head={['Resource', 'Occupied minutes', 'Available minutes', 'Load']}>
           {plan.loads.map((l: any) => <tr key={`${l.kind}:${l.id}`}><td>{l.name} · {l.kind}{l.kind === 'machine' && ` slot ${l.id.split(':').at(-1)}`}</td><td>{l.bookedMinutes}</td><td>{l.capacityMinutes}</td><td>{l.percent}%</td></tr>)}
         </Table></details>
+        <details><summary>Customer promises and scheduled operations</summary>{plan.promises.length === 0 ? <p>No open customer promises.</p> : plan.promises.map((p: any, i: number) => <div key={i}><p><a href={`#orders/${p.orderId}`}>{p.reference}</a> · promised {p.promiseDate} · {p.quantity} base units</p><p>{p.basis}</p><ul>{p.workOrderIds.map((id: string) => <li key={id}><a href={`#make/wo/${id}`}>{plan.jobs.find((j: any) => j.workOrderId === id)?.reference}</a> · {p.operationKeys.filter((key: string) => key.startsWith(id + ':')).length} scheduled operations</li>)}</ul></div>)}</details>
         <h3>Production Gantt</h3>
         <p>Current day: <time dateTime={new Date().toISOString().slice(0, 10)}>{new Date().toISOString().slice(0, 10)}</time>. Bars show occupied intervals; gaps are breaks or unavailable capacity.</p>
         <div className="finite-chart" role="img" aria-label="Finite production timeline with current-day marker">
-          <svg viewBox={`0 0 1000 ${Math.max(50, plan.operations.length * 30 + 25)}`} aria-hidden="true">
+          <svg viewBox={`0 0 1000 ${Math.max(70, plan.operations.length * 30 + 50)}`} aria-hidden="true">
             {(() => { const today = new Date().toISOString().slice(0, 10); const x = today >= plan.startsAt.slice(0, 10) && today <= plan.endsAt.slice(0, 10) ? Math.max(230, (Date.now() - Date.parse(plan.startsAt)) / (Date.parse(plan.endsAt) - Date.parse(plan.startsAt)) * 760 + 230) : -1; return x >= 230 && x <= 990 ? <line x1={x} x2={x} y1="0" y2="100%" stroke="currentColor" strokeDasharray="3 3" data-current-day="true" /> : null })()}
-            {plan.operations.map((o: any, i: number) => <g key={o.key}><text x="0" y={i * 30 + 22} fontSize="12">{o.reference} · {o.sequence} · {o.machineSlot}</text>{o.intervals.map((span: any, n: number) => <rect key={n} x={230 + (Date.parse(span.startsAt) - Date.parse(plan.startsAt)) / (Date.parse(plan.endsAt) - Date.parse(plan.startsAt)) * 760} y={i * 30 + 8} width={Math.max(1, (Date.parse(span.endsAt) - Date.parse(span.startsAt)) / (Date.parse(plan.endsAt) - Date.parse(plan.startsAt)) * 760)} height="17" fill={o.critical ? '#365c3d' : '#88a78d'} />)}</g>)}
+            {Array.from({ length: plan.horizonDays + 1 }, (_, i) => { const x = 230 + i / plan.horizonDays * 760; const day = new Date(Date.parse(plan.startsAt) + i * 86400000).toISOString().slice(5, 10); return <g key={i}><line x1={x} x2={x} y1="22" y2="100%" stroke="#e2e5e3" /><text x={x} y="14" fontSize="10" textAnchor="middle">{day}</text></g> })}
+            {plan.operations.map((o: any, i: number) => <g key={o.key}><text x="0" y={i * 30 + 47} fontSize="12">{o.reference} · {o.sequence} · {o.machineSlot}</text>{o.intervals.map((span: any, n: number) => <rect key={n} x={230 + (Date.parse(span.startsAt) - Date.parse(plan.startsAt)) / (Date.parse(plan.endsAt) - Date.parse(plan.startsAt)) * 760} y={i * 30 + 33} width={Math.max(1, (Date.parse(span.endsAt) - Date.parse(span.startsAt)) / (Date.parse(plan.endsAt) - Date.parse(plan.startsAt)) * 760)} height="17" fill={o.critical ? '#365c3d' : '#88a78d'}><title>{o.reference} · {o.name} · {o.machine} slot {o.machineSlot} · {o.person} · {span.startsAt} – {span.endsAt}</title></rect>)}</g>)}
           </svg>
         </div>
         <h3>{filter === 'all' ? 'Scheduled and unscheduled jobs' : `${filter === 'late' ? 'Late' : 'Unscheduled'} jobs`}</h3>
@@ -108,6 +110,6 @@ export function Capacity({ larder }: { larder: Larder }) {
     }}>
       <Choose label="Rate labor calendar" name="labor" options={rows(s, 'laborCalendars').map(r => ({ value: r.id, label: r.name }))} />
       <Field label="Hourly wage USD" name="wage" inputMode="decimal" /><Field label="Hourly burden USD" name="burden" inputMode="decimal" /><Area label="Labor rate reason" name="reason" />
-    </Form>{rows(s, 'laborRates').map(r => <p key={r.id}>{rows(s, 'laborCalendars').find(l => l.id === r.laborId)?.name}: wage {r.hourlyRate} USD/hour; burden {r.burdenRate} USD/hour.</p>)}<p>No payroll or automatic cost posting. Captured operation time remains costing evidence.</p></Card>}
+    </Form>{rows(s, 'laborRates').map(r => <p key={r.id}>{rows(s, 'laborCalendars').find(l => l.id === r.laborId)?.name}: wage {r.hourlyRate} USD/hour; burden {r.burdenRate} USD/hour.</p>)}<a href="/api/larder/scheduling/labor-costs">Recorded operation labor costing evidence (JSON)</a><p>No payroll or automatic cost posting. Captured operation time remains costing evidence.</p></Card>}
   </section>
 }

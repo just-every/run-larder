@@ -39,6 +39,7 @@ export function Schedule({ larder, mode }: { larder: Larder; mode: Mode }) {
         <button type="button" className="button" disabled={offset === 0} onClick={() => setOffset(0)}>Today</button>
       </div>
     </header>
+    <p className="schedule-note">The routing estimate below uses the original weekday shift. The finite capacity plan uses your saved machine and labor calendars.</p>
     {plan.centers.length === 0 ? <Card title="Nothing scheduled yet" className="schedule-empty">
       <p>The schedule lays out draft and released work orders by work center, from the routing on each item's bill of materials: one line per step with its work center and minutes for each unit.</p>
       <div className="actions"><a className="button primary" href="#make/boms">Add a routing</a><a className="button" href="#make/wo">Draft a work order</a></div>

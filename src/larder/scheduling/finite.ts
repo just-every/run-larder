@@ -1,6 +1,8 @@
 // Read-only finite projection. Every occupied minute belongs to one named
 // machine slot and one named live person; unconfigured work is never fabricated.
 import { type Row, type State } from '../model'
+import { activeBom } from '../bom'
+import { deliveries } from '../sales-schedules'
 import { operationEffort, operationReady } from '../operation-effort'
 import { predecessors } from '../operation-dependencies'
 import { calendarMask, instant, integer, localGrid } from './calendars'
@@ -36,7 +38,7 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
   const operations: ScheduledOperation[] = [], unscheduled: any[] = [], jobs: any[] = []
   const work = s.workOrders.filter(w => ['draft', 'released'].includes(w.status)).sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0) || a.requiredBy.localeCompare(b.requiredBy) || a.reference.localeCompare(b.reference))
   for (const w of work) {
-    const routing: any[] = w.status === 'released' ? w.routing ?? [] : s.boms.find(b => w.engineeringBomId ? b.id === w.engineeringBomId : b.itemId === w.itemId && b.status === 'active')?.routing ?? []
+    const routing: any[] = w.status === 'released' ? w.routing ?? [] : (w.engineeringBomId ? s.boms.find(b => b.id === w.engineeringBomId) : activeBom(s, w.itemId))?.routing ?? []
     const placed = new Map<number, ScheduledOperation>(), blocked = new Set<number>(), complete = new Set<number>((w.operationStates ?? []).filter((t: any) => t.status === 'done').map((t: any) => t.sequence))
     const readyDate = Math.max(from, Date.parse((w.plannedStart || asOf.slice(0, 10)) + 'T00:00Z'), ...s.boms.filter(b => Object.values(w.engineeringBomIds ?? {}).includes(b.id)).map(b => Date.parse((b.effectiveOn ?? asOf.slice(0, 10)) + 'T00:00Z')))
     if (!routing.length) unscheduled.push({ workOrderId: w.id, reference: w.reference, sequence: null, reason: 'No routing on this job.' })
@@ -88,7 +90,11 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
     const dueAt = w.requiredBy + 'T23:59:59.999Z'
     jobs.push({ workOrderId: w.id, reference: w.reference, dueAt, endsAt: incomplete ? null : endsAt, projectedLastAt: endsAt, late: !incomplete && endsAt !== null && endsAt > dueAt, unscheduled: incomplete, provisional: jobOps.some(o => o.provisional), criticalPath: jobOps.filter(o => o.critical).map(o => o.key), pathMinutes, dueSlackMinutes: !incomplete && endsAt ? Math.floor((Date.parse(dueAt) - Date.parse(endsAt)) / 60000) : null })
   }
+  const promises = s.salesOrders.filter(o => ['confirmed', 'part shipped'].includes(o.status)).flatMap(order => order.lines.flatMap((line: any) => deliveries(order, line).map(delivery => {
+    const linked = work.filter(w => (w.datedPlan?.requirement.documentId === order.id && w.datedPlan?.requirement.lineId === line.id) || (w.itemId === line.itemId && (w.demandSources ?? []).some((source: any) => source.documentId === order.id)))
+    return { orderId: order.id, reference: order.reference, lineId: line.id, itemId: line.itemId, promiseDate: delivery.date, quantity: delivery.quantity, workOrderIds: linked.map(w => w.id), operationKeys: operations.filter(o => linked.some(w => w.id === o.workOrderId)).map(o => o.key), basis: linked.length ? 'Recorded MRP demand links; inspect every linked operation and blockers. Capacity projection alone does not prove material, shipping or quantity coverage.' : 'No recorded open work link; this promise has no finite production proof.' }
+  })))
   const loads = [...machines, ...labor].map(r => ({ kind: machines.includes(r) ? 'machine' : 'labor', id: r.id, calendarId: r.calendar.id, name: r.name, capacityMinutes: r.available.reduce((n, v) => n + v * r.capacity, 0), bookedMinutes: r.used.reduce((n, v) => n + v, 0) })).map(r => ({ ...r, percent: r.capacityMinutes ? Math.round(r.bookedMinutes / r.capacityMinutes * 1000) / 10 : 0 }))
   const bottleneck = loads.filter(l => l.bookedMinutes > 0).sort((a, b) => b.percent - a.percent || b.bookedMinutes - a.bookedMinutes || a.id.localeCompare(b.id))[0] ?? null
-  return { version: s.version, asOf, startsAt: iso(from), endsAt: iso(until), horizonDays, today: asOf.slice(0, 10), operations, jobs, unscheduled, lateJobs: jobs.filter(j => j.late).map(j => j.workOrderId), unscheduledJobs: jobs.filter(j => j.unscheduled).map(j => j.workOrderId), loads, bottleneck, counts: { late: jobs.filter(j => j.late).length, unscheduled: jobs.filter(j => j.unscheduled).length }, semantics: 'Read-only finite projection; intervals are occupied minutes, queue is elapsed before occupation; CPM slack uses dependency effort and due slack uses projected finish. Drafts do not book or approve execution. Unreleased maintenance recovery is provisional.' }
+  return { version: s.version, asOf, startsAt: iso(from), endsAt: iso(until), horizonDays, today: asOf.slice(0, 10), promises, operations, jobs, unscheduled, lateJobs: jobs.filter(j => j.late).map(j => j.workOrderId), unscheduledJobs: jobs.filter(j => j.unscheduled).map(j => j.workOrderId), loads, bottleneck, counts: { late: jobs.filter(j => j.late).length, unscheduled: jobs.filter(j => j.unscheduled).length }, semantics: 'Read-only finite projection; intervals are occupied minutes, queue is elapsed before occupation; CPM slack uses dependency effort and due slack uses projected finish. Drafts do not book or approve execution. Unreleased maintenance recovery is provisional.' }
 }

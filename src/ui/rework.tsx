@@ -19,7 +19,7 @@ export function ReworkOrders({ larder, jobId }: { larder: Larder; jobId?: string
       <p>Evidence {w.evidence.map((f: Rec) => <a key={f.id} href={`/api/larder/attachments/${f.id}`}>{f.name} </a>)}{w.approval && ` · instructions approved by ${personName(s, w.approval.by)} ${when(w.approval.at)}`}</p>
       <Table head={['Output', 'Quantity', 'Allocated value', 'Lot']} numeric={[1, 2]}>{w.outputs.map((o: Rec) => <tr key={o.itemId}><td>{itemName(s, o.itemId)}</td><td>{qty(o.quantity)}</td><td>{money(o.value)}</td><td>{o.lot}</td></tr>)}</Table>
       {w.materials.map((m: Rec, i: number) => <p key={i}>Extra material: {qty(m.quantity)} {itemName(s, m.itemId)}</p>)}
-      {w.labor.map((l: Rec, i: number) => <p key={i}>Labor: {l.person} · {l.hours} hours × {money(l.rate)}/hour · {l.note}</p>)}
+      {w.labor.map((l: Rec, i: number) => <p key={i}>Labor: {l.person} · {l.hours} hours{l.rate === undefined ? ' · rate restricted' : ` × ${money(l.rate)}/hour`} · {l.note}</p>)}
       {w.cost && <p>Source {money(w.cost.source)} + extra material {money(w.cost.extraMaterials)} + labor {money(w.cost.labor)} = total {money(w.cost.total)} · outputs {money(w.cost.outputs)} · scrap {money(w.cost.scrap)}</p>}
       {w.status === 'draft' && manager && <Form submit="Approve instructions" busy={busy} onSubmit={d => run('rework.approve', { orderId: w.id, version: w.version, reason: text(d, 'reason') })}><Field label="Approval reason" name="reason" /></Form>}
       {w.status === 'approved' && production && <button className="button" disabled={busy} onClick={() => run('rework.execute', { orderId: w.id, version: w.version })}>Execute approved order</button>}
