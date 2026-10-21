@@ -6,9 +6,10 @@ import { lotBlock, shipBlock } from './lot-dates'
 import { positions } from './stock'
 import { deliveries } from './sales-schedules'
 import type { State } from './model'
+import type { CatalogLocation } from './catalog-fields'
 
 type Source = { kind: 'stock' | 'purchase'; documentId: string; lineId?: string; reference: string; locationId?: string; lotId?: string; date: string; quantity: string; reserved: boolean }
-type Demand = { kind: 'sales' | 'work' | 'forecast'; documentId: string; lineId: string; reference: string; itemId: string; date: string; quantity: bigint; customerId?: string; rank: number; sources: Source[]; left: bigint }
+type Demand = { kind: 'sales' | 'work' | 'forecast' | 'safety'; documentId: string; lineId: string; reference: string; itemId: string; date: string; quantity: bigint; customerId?: string; locationId?: string; catalogLocationIds?: string[]; rank: number; sources: Source[]; left: bigint }
 
 export function materialDates(s: State) {
   const today = new Date().toISOString().slice(0, 10)
@@ -65,9 +66,29 @@ export function materialDates(s: State) {
   const purchases = s.purchaseOrders.filter(p => ['approved', 'confirmed', 'part received'].includes(p.status)).flatMap(po => po.lines.map((l: any) => ({
     itemId: l.itemId as string, documentId: po.id, lineId: l.id as string, reference: po.reference as string, date: po.expectedDate as string, left: max(0n, decimal(l.quantity) - decimal(l.received)),
   }))).filter(p => p.left > 0n).sort((a, b) => a.date.localeCompare(b.date) || a.reference.localeCompare(b.reference) || a.lineId.localeCompare(b.lineId))
-  const requirements = demands.map(d => {
-    takeStock(d, undefined, d.left, false)
-    for (const p of purchases) if (p.itemId === d.itemId && p.date >= today && p.date <= d.date) {
+  // DEMAND-004 already protects max(safetyStock, minStock) at the default
+  // bin. Apply that same current physical floor once, after hard commitments.
+  // Several catalog locations can name one bin: take their maximum, not sum.
+  const floors = new Map<string, Demand>()
+  for (const item of s.items) if (!item.archived) for (const settings of (item.catalogLocations ?? []) as CatalogLocation[]) {
+    const quantity = max(decimal(settings.safetyStock ?? '0'), decimal(settings.minStock ?? '0'))
+    if (quantity <= 0n) continue
+    const locationId = settings.defaultBin ?? settings.locationId, key = JSON.stringify([item.id, locationId])
+    const previous = floors.get(key)
+    if (previous) {
+      previous.quantity = max(previous.quantity, quantity); previous.left = previous.quantity
+      previous.catalogLocationIds!.push(settings.locationId)
+    } else floors.set(key, { kind: 'safety', documentId: item.id, lineId: locationId, itemId: item.id, locationId,
+      catalogLocationIds: [settings.locationId], reference: `Safety floor ${item.sku}`, date: today,
+      quantity, left: quantity, sources: [], rank: Infinity })
+  }
+  const floorDemands = [...floors.values()].sort((a, b) => a.itemId.localeCompare(b.itemId) || a.locationId!.localeCompare(b.locationId!))
+  for (const d of floorDemands) d.catalogLocationIds!.sort()
+  const requirements = [...floorDemands, ...demands].map(d => {
+    takeStock(d, d.locationId, d.left, false)
+    // A current physical floor cannot be filled by an unreceived PO, even
+    // one due today: no receipt or destination has yet been proven.
+    for (const p of purchases) if (d.kind !== 'safety' && p.itemId === d.itemId && p.date >= today && p.date <= d.date) {
       const take = min(d.left, p.left)
       if (take <= 0n) continue
       d.left -= take; p.left -= take
@@ -77,14 +98,14 @@ export function materialDates(s: State) {
     const terms = s.partyItems.filter(t => t.itemId === item.id && s.parties.some(p => p.id === t.partyId && p.kind !== 'customer'))
       .sort((a, b) => Number(b.preferred) - Number(a.preferred) || a.id.localeCompare(b.id))[0]
     const late = purchases.filter(p => p.itemId === d.itemId && p.left > 0n && (p.date > d.date || p.date < today)).map(p => ({ documentId: p.documentId, lineId: p.lineId, reference: p.reference, date: p.date, quantity: format(p.left), reason: p.date < today ? 'overdue; receipt not recorded' : 'after required date' }))
-    return { kind: d.kind, documentId: d.documentId, lineId: d.lineId, reference: d.reference, itemId: d.itemId, requiredBy: d.date, overdue: d.date < today,
+    return { kind: d.kind, ...(d.kind === 'safety' ? { locationId: d.locationId, catalogLocationIds: d.catalogLocationIds } : {}), documentId: d.documentId, lineId: d.lineId, reference: d.reference, itemId: d.itemId, requiredBy: d.date, overdue: d.date < today,
       quantity: format(d.quantity), covered: format(d.quantity - d.left), shortage: format(d.left), sources: d.sources, unavailablePurchases: late,
       unavailableStock: physical.filter(p => p.itemId === d.itemId && (p.status !== 'available' || !usable(d, p.lotId))).map(p => ({ ...p, reason: p.status !== 'available' ? p.status : d.kind === 'sales' ? shipBlock(s, p.lotId, d.date > today ? d.date : today, d.customerId!) : lotBlock(s.lots.find(l => l.id === p.lotId), d.date > today ? d.date : today) })),
       suggestion: d.left > 0n && item.kind === 'buy' ? { kind: 'buy', quantity: format(d.left), supplierId: terms?.partyId ?? null, receiptOn: d.date,
         releaseOn: terms ? addDays(d.date, -terms.leadDays) : null, leadDays: terms?.leadDays ?? null, requiresPastRelease: terms ? addDays(d.date, -terms.leadDays) < today : null } : null }
   })
-  return { version: s.version, asOf: today, scope: 'direct sales, residual forecast and pinned released-work inputs; physical stock and dated purchases',
-    limitations: ['Purchase dates are declared expectations; receipt and quality still gate use.', 'Unmade BOM demand is not exploded.', 'Draft and released work output is provisional; multilevel material feasibility is not proven.', 'Safety floors, supplier calendars and automatic draft adoption are not applied.'],
+  return { version: s.version, asOf: today, scope: 'current physical safety floors, direct sales, residual forecast and pinned released-work inputs; physical stock and dated purchases',
+    limitations: ['Purchase dates are declared expectations; receipt and quality still gate use.', 'Unmade BOM demand is not exploded.', 'Draft and released work output is provisional; multilevel material feasibility is not proven.', 'Safety floors protect current physical stock only; future floor replenishment, supplier calendars and automatic draft adoption are not applied.'],
     requirements, unverifiedReservations: unverified,
     provisionalSupply: [
       ...s.purchaseOrders.filter(p => p.status === 'draft').flatMap(po => po.lines.map((l: any) => ({ kind: 'purchase', documentId: po.id, reference: po.reference, itemId: l.itemId, date: po.expectedDate, quantity: l.quantity, reason: 'purchase not approved' }))),

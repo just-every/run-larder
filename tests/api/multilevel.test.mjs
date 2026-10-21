@@ -76,7 +76,7 @@ test('ENG-001 three-level shared netting, stocked subassembly, phantom/yield/mak
 })
 
 // MRP-001 remains partial: these journeys prove dated physical/purchase
-// coverage, not multilevel WIP feasibility or approval of a dated plan.
+// coverage and current physical floors, not multilevel WIP feasibility or approval of a dated plan.
 test('MRP-001 dated physical and PO pools never cover earlier demand with late, held, expired, overdue or draft supply', async t => {
   const h = await installation(); t.after(() => h.close())
   const location = await h.command('location.save', { name: 'MRP dated stores' })
@@ -206,5 +206,80 @@ test('MRP-001 protects each reservation bin on its demand date, pins released in
   const counter = await h.person('mrp-counter@example.test', 'warehouse')
   await h.command('count.schedule', { locationId: b.id, scheduledOn: date(0), basis: 'bin', counterId: counter.id, recountTolerance: '0' })
   assert.equal((await h.request('/api/larder/planning/materials', { as: counter.cookie })).status, 403)
+  await h.invariant()
+})
+
+test('MRP-001 current safety floors share bins once, follow catalog edits, protect hard commitments and never treat expected or held stock as physical cover', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const a = await h.command('location.save', { name: 'Floor bin A' }), b = await h.command('location.save', { name: 'Floor bin B' })
+  const alias = await h.command('location.save', { name: 'Catalog alias for A' })
+  const customer = await h.command('party.save', { name: 'Safety floor customer', kind: 'customer' })
+  const supplier = await h.command('party.save', { name: 'Safety floor supplier', kind: 'supplier' })
+  let item = await h.command('item.save', { sku: 'MRP-FLOOR', name: 'Floor material', kind: 'buy', baseUnit: 'each', catalogLocations: [
+    { locationId: a.id, safetyStock: '2', minStock: '3' },
+    { locationId: alias.id, defaultBin: a.id, safetyStock: '2' },
+    { locationId: b.id, safetyStock: '2', minStock: '1' },
+  ] })
+  const fractional = await h.command('item.save', { sku: 'MRP-FLOOR-FRACTION', name: 'Fractional floor', kind: 'buy', baseUnit: 'kg', catalogLocations: [{ locationId: a.id, safetyStock: '1.000001', minStock: '0.5' }] })
+  const zero = await h.command('item.save', { sku: 'MRP-FLOOR-ZERO', name: 'No floor', kind: 'buy', baseUnit: 'each', catalogLocations: [{ locationId: a.id, safetyStock: '0' }] })
+  await h.command('partyItem.save', { itemId: fractional.id, partyId: supplier.id, partyCode: 'FLOOR-F', leadDays: 2, preferred: true })
+  for (const [locationId, lines] of [[a.id, [{ itemId: item.id, quantity: '6', unitCost: '1' }, { itemId: fractional.id, quantity: '0.000001', unitCost: '1' }]], [b.id, [{ itemId: item.id, quantity: '5', unitCost: '1' }]]])
+    await h.command('opening.record', { locationId, countedOn: date(0), countedBy: 'Olive', valuationBasis: 'owner-estimate', evidence: evidence(), lines })
+  const order = async (quantity, days, reserve = false) => {
+    const q = await h.command('so.quote', { customerId: customer.id, promiseDate: date(days), lines: [{ itemId: item.id, quantity }] })
+    const o = await h.command('so.confirm', { orderId: q.id, version: q.version, reserve: false })
+    if (reserve) await h.command('so.reserve', { orderId: o.id, locationId: a.id })
+    return o
+  }
+  const protectedOrder = await order('4', 10, true), competing = await order('4', 2)
+  const purchase = async (quantity, itemId, expectedDate, approve = true) => {
+    const p = await h.command('po.draft', { supplierId: supplier.id, expectedDate, reason: 'MRP-001 floor proof', lines: [{ itemId, quantity, unitPrice: '1' }] })
+    return approve ? h.command('po.approve', { poId: p.id, version: p.version }) : p
+  }
+  const expected = await purchase('10', fractional.id, date(0))
+  const held = await purchase('4', fractional.id, date(0))
+  await h.command('receipt.create', { poId: held.id, supplierReference: 'Held floor delivery', lines: [{ lineId: held.lines[0].id, locationId: a.id, quantity: '4', lot: 'FLOOR-HELD', inspection: 'quarantine' }] })
+  const expired = await purchase('4', fractional.id, date(0))
+  await h.command('receipt.create', { poId: expired.id, supplierReference: 'Expired floor delivery', lines: [{ lineId: expired.lines[0].id, locationId: a.id, quantity: '4', lot: 'FLOOR-EXPIRED', dates: { expiresOn: date(-1) } }] })
+  const drafted = await purchase('20', fractional.id, date(0), false)
+  const read = async instance => { const r = await instance.request('/api/larder/planning/materials'); assert.equal(r.status, 200); return r.json() }
+  const before = await h.state(), outbound = h.outboundCount(), plan = await read(h)
+  const floors = plan.requirements.filter(r => r.kind === 'safety'), floor = (id, bin) => floors.find(r => r.itemId === id && r.locationId === bin)
+  assert.equal(floors.length, 3); assert.equal(floors.some(r => r.itemId === zero.id), false)
+  assert.deepEqual([floor(item.id, a.id).quantity, floor(item.id, a.id).covered, floor(item.id, a.id).shortage], ['3', '2', '1'])
+  assert.deepEqual(floor(item.id, a.id).catalogLocationIds, [a.id, alias.id].sort())
+  assert.deepEqual([floor(item.id, b.id).quantity, floor(item.id, b.id).covered, floor(item.id, b.id).shortage], ['2', '2', '0'])
+  for (const row of floors) {
+    assert.equal(row.requiredBy, date(0))
+    assert.ok(row.sources.every(s => s.kind === 'stock' && s.locationId === row.locationId && !s.reserved))
+  }
+  const fractionalFloor = floor(fractional.id, a.id)
+  assert.deepEqual([fractionalFloor.quantity, fractionalFloor.covered, fractionalFloor.shortage], ['1.000001', '0.000001', '1'])
+  assert.deepEqual(fractionalFloor.suggestion, { kind: 'buy', quantity: '1', supplierId: supplier.id, receiptOn: date(0), releaseOn: date(-2), leadDays: 2, requiresPastRelease: true })
+  assert.ok(fractionalFloor.unavailableStock.some(p => p.reason === 'quarantine'))
+  assert.ok(fractionalFloor.unavailableStock.some(p => p.reason === `expired on ${date(-1)}`))
+  assert.ok(plan.provisionalSupply.some(p => p.documentId === drafted.id))
+  assert.equal(fractionalFloor.sources.some(s => s.documentId === expected.id), false)
+  const reserved = plan.requirements.find(r => r.documentId === protectedOrder.id), free = plan.requirements.find(r => r.documentId === competing.id)
+  assert.equal(reserved.covered, '4'); assert.ok(reserved.sources.every(s => s.reserved && s.locationId === a.id))
+  assert.deepEqual([free.covered, free.shortage], ['3', '1']); assert.equal(free.sources[0].locationId, b.id)
+  assert.match(plan.limitations.join(' '), /current physical stock only; future floor replenishment/)
+  assert.deepEqual(await read(h), plan); assert.deepEqual(await h.state(), before); assert.equal(h.outboundCount(), outbound)
+  await h.restart(); assert.deepEqual(await read(h), plan)
+  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restored.status, 200, await restored.text())
+  const copy = await read(target)
+  for (const key of ['requirements', 'unverifiedReservations', 'provisionalSupply', 'excludedStock', 'scope', 'limitations']) assert.deepEqual(copy[key], plan[key], key)
+  await target.command('receipt.create', { poId: expected.id, supplierReference: 'Actual usable floor delivery', lines: [{ lineId: expected.lines[0].id, locationId: a.id, quantity: '1', lot: 'FLOOR-ACCEPTED' }] })
+  const receivedFloor = (await read(target)).requirements.find(r => r.kind === 'safety' && r.itemId === fractional.id)
+  assert.equal(receivedFloor.covered, '1.000001'); assert.equal(receivedFloor.shortage, '0')
+  // Current catalog values are authoritative; neither a read nor an edit moves
+  // physical stock or silently reallocates the protected customer's commitment.
+  item = await h.command('item.save', { ...item, catalogLocations: [{ locationId: a.id, safetyStock: '1' }, { locationId: alias.id, defaultBin: a.id, minStock: '4' }, { locationId: b.id, safetyStock: '0' }] })
+  const changed = await read(h), changedFloor = changed.requirements.find(r => r.kind === 'safety' && r.itemId === item.id)
+  assert.equal(changedFloor.quantity, '4'); assert.equal(changedFloor.shortage, '2')
+  assert.equal(changed.requirements.filter(r => r.kind === 'safety' && r.itemId === item.id).length, 1)
+  assert.equal(changed.requirements.find(r => r.documentId === competing.id).covered, '4')
+  assert.deepEqual((await h.state()).movements, before.movements); assert.deepEqual((await h.state()).reservations, before.reservations)
   await h.invariant()
 })

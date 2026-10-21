@@ -74,6 +74,8 @@ test('HTTP-001 MRP-001 public Lobby, health and docs stay separate from private 
     await expect(mrp).toHaveAttribute('data-status', 'partial')
     await expect(mrp).toContainText('Dated physical/purchase projection')
     await expect(mrp).toContainText('material-feasible WIP')
+    await expect(mrp).toContainText('nonduplicated current physical catalog safety/minimum floors')
+    await expect(mrp).toContainText('future dated floor replenishment')
     await expect(mrp).toContainText('stale-safe dated draft adoption remain absent')
     await mrp.scrollIntoViewIfNeeded()
     if (shots) await page.screenshot({ path: join(shots, `${width}-MRP-001-contract.png`), fullPage: true })
