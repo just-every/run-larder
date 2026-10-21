@@ -10,6 +10,7 @@ function hits(s: LarderState, query: string): Hit[] {
   if (q.length < 2) return []
   const has = (...t: unknown[]) => t.some(x => String(x ?? '').toLowerCase().includes(q))
   return [
+    ...rows(s, 'sourceHistory').filter(r => has(r.source, r.originalId, r.reference, r.summary, ...r.references, ...r.attachments.map((f: any) => f.name))).map(r => ({ href: '#more/move-in', label: r.reference, detail: `Source history · ${r.source} · ${r.originalId}` })),
     ...rows(s, 'salesOrders').filter(o => has(o.reference, o.customerReference, partyName(s, o.customerId))).map(o => ({ href: `#orders/${o.id}`, label: o.reference, detail: `Sales order · ${partyName(s, o.customerId)}` })),
     ...rows(s, 'workOrders').filter(w => has(w.reference, itemName(s, w.itemId))).map(w => ({ href: `#make/wo/${w.id}`, label: w.reference, detail: `Work order · ${itemName(s, w.itemId)}` })),
     ...rows(s, 'purchaseOrders').filter(p => has(p.reference, p.supplierReference, partyName(s, p.supplierId))).map(p => ({ href: `#make/po/${p.id}`, label: p.reference, detail: `Purchase order · ${partyName(s, p.supplierId)}` })),

@@ -15,17 +15,20 @@ const base64 = (bytes: ArrayBuffer | Uint8Array) => { let s = ''; for (const b o
 export async function archive(env: Bindings, actor: Actor) {
   if (!['owner', 'manager'].includes(actor.role)) forbidden('Only the owner or a manager can export the business archive.')
   const s = await load(env.DB)
-  const [commands, attachments, people] = await env.DB.batch<any>([
+  const [commands, attachments, people, historicalPeople, historicalRoles] = await env.DB.batch<any>([
     env.DB.prepare('SELECT * FROM larder_commands ORDER BY created_at,id'),
     env.DB.prepare('SELECT * FROM larder_attachments ORDER BY created_at,id'),
     env.DB.prepare('SELECT id,display_name AS name FROM oa_operators ORDER BY id'),
+    env.DB.prepare("SELECT data FROM larder_records WHERE kind='people' AND id='archive'"),
+    env.DB.prepare("SELECT data FROM larder_records WHERE kind='archiveRoleHistory' AND id='archive'"),
   ])
   const content = {
     format: FORMAT, version: s.version, currency: 'USD', precision: 6,
     records: Object.fromEntries(collections.map(k => [k, s[k]])),
     movements: s.movements.map(m => ({ ...m, quantity: m.quantity.toString(), unitCost: m.unitCost.toString() })),
     reservations: s.reservations.map(r => ({ ...r, quantity: r.quantity.toString() })),
-    commands: commands.results, people: people.results,
+    commands: commands.results, people: [...new Map([...historicalPeople.results.flatMap((r: any) => JSON.parse(r.data)), ...people.results].map((p: any) => [p.id, p])).values()],
+    unmappedRoles: historicalRoles.results.flatMap((r: any) => JSON.parse(r.data)),
     attachments: attachments.results.map((a: any) => ({ ...a, bytes: base64(a.bytes) })),
     reconciliation: positions(s),
   }
@@ -45,11 +48,12 @@ export async function restore(env: Bindings, actor: Actor, request: Request) {
   const empty = await env.DB.prepare('SELECT (SELECT version FROM larder_meta WHERE id=1)=0 AND NOT EXISTS(SELECT 1 FROM larder_records) AND NOT EXISTS(SELECT 1 FROM larder_movements) AND NOT EXISTS(SELECT 1 FROM larder_commands) AS empty').first<{ empty: number }>()
   if (empty?.empty !== 1) fail('NOT_EMPTY', 'Restore only into an empty installation. This one already has records.')
   const db = env.DB, guard = authority(actor)
-  const statements: D1PreparedStatement[] = [db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${guard.sql}) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...guard.params)]
+  const statements: D1PreparedStatement[] = [db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${guard.sql}) AND (SELECT version FROM larder_meta WHERE id=1)=0 AND NOT EXISTS(SELECT 1 FROM larder_records) AND NOT EXISTS(SELECT 1 FROM larder_movements) AND NOT EXISTS(SELECT 1 FROM larder_commands) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...guard.params)]
   const operators = new Set((await db.prepare('SELECT id FROM oa_operators').all<{ id: string }>()).results.map(r => r.id))
   let skippedRoles = 0
+  const unmappedRoles = [...(content.unmappedRoles ?? [])]
   for (const kind of collections) for (const r of content.records[kind] ?? []) {
-    if (kind === 'roles' && !operators.has(r.id)) { skippedRoles++; continue }
+    if (kind === 'roles' && !operators.has(r.id)) { skippedRoles++; unmappedRoles.push(r); continue }
     const data = kind === 'imports' ? { ...r, status: r.status === 'committed' ? 'restored' : r.status } : r
     statements.push(db.prepare('INSERT INTO larder_records(kind,id,version,data) VALUES(?,?,?,?)').bind(kind, r.id, r.version, JSON.stringify(data)))
   }
@@ -62,6 +66,7 @@ export async function restore(env: Bindings, actor: Actor, request: Request) {
     statements.push(db.prepare('INSERT INTO larder_attachments VALUES(?,?,?,?,?,?,?,?)').bind(f.id, f.name, f.content_type, f.size, f.sha256, bytes, f.created_by, f.created_at))
   }
   statements.push(db.prepare("INSERT INTO larder_records(kind,id,version,data) VALUES('people','archive',1,?)").bind(JSON.stringify(content.people)))
+  statements.push(db.prepare("INSERT INTO larder_records(kind,id,version,data) VALUES('archiveRoleHistory','archive',1,?)").bind(JSON.stringify(unmappedRoles)))
   // Prove every archived position from the restored movements, inside the write.
   for (const p of content.reconciliation) statements.push(db.prepare("INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (SELECT COALESCE(SUM(quantity),0) FROM larder_movements WHERE item_id=? AND location_id=? AND status=? AND lot_id=?)=? THEN 1 ELSE 0 END)").bind(crypto.randomUUID(), p.itemId, p.locationId, p.status, p.lotId, scaled(p.quantity)))
   statements.push(db.prepare('INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (SELECT COUNT(*) FROM larder_movements)=? THEN 1 ELSE 0 END)').bind(crypto.randomUUID(), content.movements.length))

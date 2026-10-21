@@ -4,6 +4,8 @@
 import { operatorAuth, runtimeBindings, type Bindings } from '../auth.server'
 import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
 import { archive, restore } from './archive'
+import { archiveCsv } from './archive-csv'
+import { history, historyMatches } from './history'
 import { bom } from './bom'
 import { bomBulk } from './bom-bulk'
 import { bomCsv } from './bom-csv'
@@ -59,7 +61,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -160,6 +162,8 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const recallDownload = /^\/recalls\/([-0-9a-f]{36})\.json$/.exec(path)
     if (recallDownload) return json(recallPack(await load(env.DB), recallDownload[1]))
     if (path === '/archive') return json(await archive(env, actor))
+    if (path === '/archive.csv') return new Response(archiveCsv(await archive(env, actor)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-archive.csv"' } })
+    if (path === '/history') return json((await load(env.DB)).sourceHistory.filter(r => historyMatches(r, url.searchParams.get('q') ?? '')))
     if (path === '/catalog.csv') {
       if (!['owner', 'manager', 'buyer', 'production', 'engineer'].includes(actor.role)) forbidden('Only catalog managers, buyers or engineers export the catalog.')
       return new Response(catalogCsv(await load(env.DB)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-catalog.csv"' } })

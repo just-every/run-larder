@@ -1,3 +1,4 @@
+import { SourceHistory } from './source-history'
 import { useState } from 'react'
 import { can, personName, rows, type Rec } from './api'
 import type { Larder } from './app'
@@ -9,6 +10,7 @@ export function MoveIn({ larder }: { larder: Larder }) {
   const [selected, setSelected] = useState<string | undefined>(batches[0]?.id)
   const batch = batches.find(b => b.id === selected)
   return <>
+    <SourceHistory larder={larder} />
     {can(s, ['manager', 'agent']) && <Card title="Preview an Odoo export">
       <p className="muted">Export each model from Odoo with “I want to update data (import-compatible export)” ticked, as CSV, and name each file after its model (res.partner.csv, uom.uom.csv, product.product.csv, stock.location.csv, mrp.bom.csv, stock.quant.csv, sale.order.csv, purchase.order.csv). The preview changes nothing.</p>
       <Form submit="Preview move-in" busy={larder.busy} onSubmit={async d => {

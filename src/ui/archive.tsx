@@ -21,7 +21,7 @@ export function Archive({ larder }: { larder: Larder }) {
     return body.ok
   }
   return <div className="split">
-    {['owner', 'manager'].includes(s.actor.role) ? <Card title="Export"><p>Download the complete business archive: records, the full movement ledger, reservations, approvals, attachments and every recorded action.</p><button className="button primary" onClick={() => void download()}>Download archive</button></Card> : <Empty>Only the owner or a manager can export the archive.</Empty>}
+    {['owner', 'manager'].includes(s.actor.role) ? <Card title="Export"><p>Download the complete business archive: records, the full movement ledger, reservations, approvals, attachments and every recorded action.</p><button className="button primary" onClick={() => void download()}>Download archive</button> <a className="button" href="/api/larder/archive.csv">Download archive CSV</a></Card> : <Empty>Only the owner or a manager can export the archive.</Empty>}
     {s.actor.role === 'owner' && <Card title="Restore">{empty ? <Form submit="Restore archive" busy={larder.busy} note="Restores into this empty installation in one step. If any stock position does not match the archive, nothing is written." onSubmit={restore}><label className="field wide"><span>Archive file</span><input type="file" name="archive" accept=".json,application/json" required /></label></Form> : <Empty>Restore only works on an empty installation. This one already has records.</Empty>}</Card>}
     {result && <p role="status" className="notice wide">{result}</p>}
   </div>

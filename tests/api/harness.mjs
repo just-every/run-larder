@@ -96,7 +96,7 @@ export async function installation() {
       if (role) await command('role.set', { operatorId: session.operator.id, role })
       return { cookie, id: session.operator.id, run: (type, payload, opts = {}) => command(type, payload, { as: cookie, ...opts }) }
     }
-    return { get mf() { return mf }, origin, get db() { return db }, async restart() {
+    return { outboundCount: () => mails.length, get mf() { return mf }, origin, get db() { return db }, async restart() {
       await mf.dispose()
       mf = new Miniflare(options(Number(new URL(origin).port)))
       await mf.ready

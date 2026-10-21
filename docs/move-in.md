@@ -36,3 +36,20 @@ Confirmed sales orders arrive confirmed but unreserved, so reserve them when you
 ## Try it beside what you have
 
 Move in a copy of your Odoo export on your own computer and run this week's orders through both. Nothing in Larder writes back to Odoo.
+
+## Keep closed source history
+
+On this same screen, **Import source history** previews a JSON interchange file
+plus original evidence attachments; the owner or a manager then commits it.
+Supported history kinds are closed jobs, shipments, bills, quality records and
+lots. Each needs its original ID/reference, timestamp with time-zone offset,
+currency, source status and summary. Quantity, amount, linked references and
+original filenames remain searchable. The exact schema and portable CSV/JSON
+export format are documented in the repository's [MOVE-IN.md](https://github.com/just-every/run-larder/blob/main/MOVE-IN.md#source-history-move-008).
+
+Search original lot/job references or filenames in **Search source history** or
+the top bar. Records are labeled **Source history** and retain their original
+files with digests. They never post stock, create live shipments, or send anything.
+From **More → Business archive**, download JSON for restore or its lossless CSV
+companion. Restore into an empty installation preserves history/files without
+reconnecting providers or replaying their actions.
