@@ -5,6 +5,8 @@ import { decimal, format, max, min } from './decimal'
 import { changeImpact } from './order-change-impact'
 import { fail } from './problem'
 import { allow, approver } from './roles'
+import { gate, policyFor } from './approval-policy'
+import { orderMargin } from './margin'
 import { commercialSnapshot, deliveryDate, pickedQuantity, refreshPromise } from './sales-schedules'
 import { bump, fresh, get, list, newId, optionalText, row, text, type Context, type Row } from './model'
 
@@ -85,12 +87,19 @@ export function orderChanges(c: Context, type: string, p: any): Row | undefined 
   const order = get(c.s, 'salesOrders', preview.orderId, 'order'); fresh(order, preview.before.version)
   const before = commercialSnapshot(order)
   const lines = preview.after.lines.map(({ activeQuantity, ...line }: any) => line)
+  // GOV-002 margin floor. A preview binds the exact records, so it cannot wait for a second
+  // signature: below the floor it needs a one-signature policy or the owner's override.
+  const below = policyFor(c, 'margin', () => orderMargin(c.s, lines))
+  if (below && below.policy.signatures > 1 && p.override === undefined) fail('APPROVAL_REQUIRED', 'This amendment leaves the order below the owner\'s margin floor, which needs two signatures. An amendment preview binds the exact records, so only the owner can approve it, with an override naming the accountable person.', { marginPercent: below.value === null ? null : format(below.value) })
+  const signed = below ? gate(c, { category: 'margin', subjectKind: 'orderChanges', subject: preview, measure: () => orderMargin(c.s, lines), permitted: ['manager'], preparedBy: preview.createdBy, p }) : null
+  if (signed && 'pending' in signed) fail('APPROVAL_REQUIRED', 'This amendment needs the owner\'s override naming the accountable person.')
   bump(order, { lines: structuredClone(lines), billingAddress: preview.after.billingAddress, shippingAddress: preview.after.shippingAddress,
     promiseDate: preview.after.promiseDate, status: preview.after.status, commercialRevision: (order.commercialRevision ?? 1) + 1 })
   trimOrderReservations(c, order)
   const history = { changeId: preview.id, kind: 'approved amendment', reason: preview.reason, customerApproval: preview.customerApproval,
     before, after: commercialSnapshot(order), approvedBy: c.actor.id, approvedAt: c.now }
   order.changeHistory = [...(order.changeHistory ?? []), history]
+  if (signed && !('pending' in signed)) { Object.assign(history, { marginSignatureIds: signed.signatureIds, override: signed.override }); signed.consume(preview.id) }
   bump(preview, { status: 'approved', approvedBy: c.actor.id, approvedAt: c.now, appliedOrderVersion: order.version })
   return order
 }

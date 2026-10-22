@@ -1,28 +1,47 @@
-// GOV-002: approval policies and delegated authority. The owner sets a USD
-// threshold, how many distinct people must sign (one or two) and how long a
-// signature stays good. A signature binds the exact inputs it saw; when the
-// inputs change, or it expires, it stops counting. A deputy signs a principal's
-// seat inside a dated delegation; an owner override names its accountable human.
+// GOV-002: approval policies and delegated authority. The owner sets, per
+// category, a threshold, how many distinct people must sign (one or two) and how
+// long a signature stays good. A signature binds the exact inputs it saw; when the
+// inputs change, it expires or its signer loses the authority, it stops counting.
+// A deputy signs a principal's seat inside a dated delegation; an owner override
+// names its accountable human.
 import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
 import { decimal, format } from './decimal'
 import { fail, forbidden } from './problem'
 import { approver, type Role } from './roles'
+import { balance } from './stock'
 import { bump, get, oneOf, optionalText, row, text, type Context, type Row, type State } from './model'
 
 // Categories whose approval doors honour a policy today. A threshold for any other
-// category is refused rather than stored and ignored.
-export const enforcedCategories = ['spend', 'inventoryAdjustment'] as const
+// category is refused rather than stored and ignored: schedule adoption waits for the
+// CAP-007/MRP-004 ruling, and no Larder door posts to a ledger yet.
+export const enforcedCategories = ['spend', 'inventoryAdjustment', 'margin', 'quality'] as const
+// A margin policy is a floor in percent: an order below it, or whose margin is unknown,
+// needs the signatures. Every other category is a USD amount at or above its threshold.
+const floors = ['margin']
 const nonApprovers = ['agent', 'viewer', 'operator']
 const maxDelegationMs = 30 * 86400000
-// Who holds each category's authority in their own role (the owner holds every one).
-const permittedFor: Record<string, string[]> = { spend: ['manager', 'buyer'], inventoryAdjustment: ['manager'] }
+// Who holds each category's authority in their own role (the owner holds every one). A door
+// may narrow it to its own roles; each signature records the roles it was given under.
+const permittedFor: Record<string, string[]> = { spend: ['manager', 'buyer'], inventoryAdjustment: ['manager'], margin: ['manager'], quality: ['manager', 'quality', 'warehouse'] }
+const holdsCategory = (role: string, category: string) => role === 'owner' || (permittedFor[category] ?? []).includes(role)
 type Person = { id: string; role: string }
 
-const inputsOf: Record<string, (s: State, r: Row) => unknown> = {
+const lineCost = (s: State, itemId: string) => s.items.find(i => i.id === itemId)?.standardCost ?? null
+const quarantined = (s: State, t: any) => format(balance(s, t.itemId, t.locationId, 'quarantine', t.lotId ?? ''))
+// The current inputs each kind of decision depends on; the decision's own terms (a quantity,
+// an inspection, a deviation) are bound alongside them.
+const inputsOf: Record<string, (s: State, r: Row, terms: any) => unknown> = {
   purchaseOrders: (_s, po) => ({ supplierId: po.supplierId, currency: po.currency, expectedDate: po.expectedDate, exposure: po.exposure, lines: po.lines.map((l: any) => ({ id: l.id, itemId: l.itemId, quantity: l.quantity, unitPrice: l.unitPrice, expectedDate: l.expectedDate, quote: l.supplierQuote ?? null })) }),
   counts: (s, n) => ({ itemId: n.itemId, locationId: n.locationId, lotId: n.lotId, counted: n.counted, system: n.system, variance: n.variance, unitCost: n.unitCost, movedSince: s.movements.some(m => m.sequence > n.frontier && m.itemId === n.itemId && m.locationId === n.locationId && (!n.sessionId || m.lotId === n.lotId)) }),
+  salesOrders: (s, o) => ({ customerId: o.customerId, promiseDate: o.promiseDate, status: o.status, lines: o.lines.map((l: any) => ({ id: l.id, itemId: l.itemId, quantity: l.quantity, cancelled: l.cancelled ?? '0', unitPrice: l.unitPrice, standardCost: lineCost(s, l.itemId) })) }),
+  orderChanges: (s, x) => ({ status: x.status, stateVersion: x.stateVersion, lines: x.after.lines.map((l: any) => ({ ...l, standardCost: lineCost(s, l.itemId) })) }),
+  qualityHolds: (s, h) => ({ status: h.status, held: h.held, lots: h.lots, inspections: s.inspections.filter(i => i.planId === h.planId && i.subjectId === h.subjectId).map(i => i.id), quarantine: h.held.map((x: any) => format(balance(s, s.lots.find(l => l.id === x.lotId)?.itemId ?? '', x.locationId, 'quarantine', x.lotId))) }),
+  nonconformances: (s, n, t) => ({ status: n.status, remaining: n.remaining, lotVersion: s.lots.find(l => l.id === n.lotId)?.version ?? null, inspections: s.inspections.filter(i => i.subjectId === n.id).map(i => i.id), deviation: t?.deviationId ? (n.deviationProposals ?? []).find((d: any) => d.id === t.deviationId) ?? null : null }),
+  lots: (s, _lot, t) => ({ quarantine: quarantined(s, t) }),
+  items: (s, _item, t) => ({ quarantine: quarantined(s, t) }),
 }
-const digestOf = (s: State, kind: string, r: Row) => sha256(canonicalJson(inputsOf[kind](s, r) as any))
+// Decisions without terms keep the digest of their inputs alone.
+const digestOf = (s: State, kind: string, r: Row, terms: unknown) => sha256(canonicalJson((terms === null || terms === undefined ? inputsOf[kind](s, r, null) : { inputs: inputsOf[kind](s, r, terms), terms }) as any))
 
 // A delegation is live while it is active and in date and its principal still holds the authority.
 function liveDelegation(d: Row | undefined, people: Person[] | undefined, permitted: readonly string[], now: string) {
@@ -36,10 +55,10 @@ function liveDelegation(d: Row | undefined, people: Person[] | undefined, permit
 export function signatureStatus(s: State, sig: Row, now: string, people?: Person[]) {
   if (sig.consumedBy) return 'used'
   const subject = (s as any)[sig.subjectKind]?.find((r: Row) => r.id === sig.subjectId) as Row | undefined
-  if (!subject || subject.version !== sig.subjectVersion || digestOf(s, sig.subjectKind, subject) !== sig.inputsDigest) return 'invalidated'
+  if (!subject || subject.version !== sig.subjectVersion || digestOf(s, sig.subjectKind, subject, sig.terms) !== sig.inputsDigest) return 'invalidated'
   if (now > sig.expiresAt) return 'expired'
   if (people) {
-    const signer = people.find(x => x.id === sig.signerId), permitted = permittedFor[sig.category] ?? []
+    const signer = people.find(x => x.id === sig.signerId), permitted: string[] = sig.permitted ?? permittedFor[sig.category] ?? []
     const holds = !!signer && (sig.delegationId ? !nonApprovers.includes(signer.role) && liveDelegation(s.approvalDelegations.find(d => d.id === sig.delegationId), people, permitted, now) : signer.role === 'owner' || permitted.includes(signer.role))
     if (!holds) return 'withdrawn'
   }
@@ -56,14 +75,26 @@ export function authorize(c: Context, permitted: Role[], category: string, prepa
   return { seat: deputy.principalId, deputy }
 }
 
-type Gate = { pending: Row } | { signatureIds: string[]; override: Row['override']; consume: (approvalId: string) => void }
+// The enabled policy a decision falls under, with the measured value, when the value crosses it.
+// The measure is computed only when the owner set a policy for the category.
+export function policyFor(c: Context, category: string, measure: () => bigint | null) {
+  const policy = c.s.approvalPolicies.find(x => x.category === category && x.enabled)
+  if (!policy) return null
+  const value = measure(), threshold = decimal(policy.threshold)
+  const applies = floors.includes(category) ? value === null || value < threshold : value !== null && value >= threshold
+  return applies ? { policy, value } : null
+}
+
+type Gate = { pending: Row } | { signatureIds: string[]; override: Row['override']; consume: (byId: string) => void }
+type Decision = { category: string; subjectKind: string; subject: Row; measure: () => bigint | null; permitted: Role[]; preparedBy?: string; terms?: Record<string, unknown>; p: any }
 
 // Null when no policy applies: the door keeps its single-approver behaviour.
-export function gate(c: Context, o: { category: string; subjectKind: string; subject: Row; valueUsd: bigint; permitted: Role[]; preparedBy?: string; p: any }): Gate | null {
-  const policy = c.s.approvalPolicies.find(x => x.category === o.category && x.enabled)
-  if (!policy || o.valueUsd < decimal(policy.threshold)) return null
+export function gate(c: Context, o: Decision): Gate | null {
+  const hit = policyFor(c, o.category, o.measure)
+  if (!hit) return null
+  const { policy, value } = hit, terms = o.terms ?? null, same = canonicalJson(terms as any)
   const who = authorize(c, o.permitted, o.category, o.preparedBy)
-  const live = c.s.approvalSignatures.filter(x => x.subjectKind === o.subjectKind && x.subjectId === o.subject.id && signatureStatus(c.s, x, c.now, c.people ?? []) === 'valid')
+  const live = c.s.approvalSignatures.filter(x => x.subjectKind === o.subjectKind && x.subjectId === o.subject.id && x.category === o.category && canonicalJson((x.terms ?? null) as any) === same && signatureStatus(c.s, x, c.now, c.people ?? []) === 'valid')
   let override: Row['override'] = null
   if (o.p.override !== undefined) {
     if (c.actor.role !== 'owner') forbidden('Only the owner can override a dual approval.')
@@ -74,35 +105,38 @@ export function gate(c: Context, o: { category: string; subjectKind: string; sub
   if (live.some(x => x.signerId === c.actor.id || x.seat === who.seat)) fail('DUPLICATE_SIGNATURE', 'You, or the person you stand in for, already signed these exact inputs. A different person must sign next.')
   const needed = override ? 1 : policy.signatures
   const signature = row(c, 'approvalSignatures', {
-    category: o.category, policyId: policy.id, policyVersion: policy.version, subjectKind: o.subjectKind, subjectId: o.subject.id, subjectVersion: o.subject.version, inputsDigest: digestOf(c.s, o.subjectKind, o.subject),
-    valueUsd: format(o.valueUsd), signerId: c.actor.id, signerName: c.actor.name, signerRole: c.actor.role, seat: who.seat, onBehalfOf: who.deputy ? who.seat : null, delegationId: who.deputy?.id ?? null,
+    category: o.category, policyId: policy.id, policyVersion: policy.version, subjectKind: o.subjectKind, subjectId: o.subject.id, subjectVersion: o.subject.version, inputsDigest: digestOf(c.s, o.subjectKind, o.subject, terms), terms, permitted: o.permitted,
+    ...(floors.includes(o.category) ? { marginPercent: value === null ? null : format(value) } : { valueUsd: format(value!) }),
+    signerId: c.actor.id, signerName: c.actor.name, signerRole: c.actor.role, seat: who.seat, onBehalfOf: who.deputy ? who.seat : null, delegationId: who.deputy?.id ?? null,
     note: optionalText(o.p.note, 'note', 400), signedAt: c.now, expiresAt: new Date(Date.parse(c.now) + policy.expiryMinutes * 60000).toISOString(), override, remainingAtSigning: Math.max(0, needed - live.length - 1),
   })
   if (live.length + 1 < needed) return { pending: signature }
-  return { signatureIds: [...live.map(x => x.id), signature.id], override, consume: approvalId => { for (const x of [...live, signature]) bump(x, { consumedBy: approvalId }) } }
+  return { signatureIds: [...live.map(x => x.id), signature.id], override, consume: byId => { for (const x of [...live, signature]) bump(x, { consumedBy: byId }) } }
 }
 
 export function approvalCommand(c: Context, type: string, p: any): Row | undefined {
   switch (type) {
     case 'approval.policy': {
       if (c.actor.role !== 'owner') forbidden('Only the owner sets approval policies.')
-      const category = oneOf(p.category, enforcedCategories, 'category')
-      const threshold = format(decimal(p.thresholdUsd, 'threshold (USD)'))
+      const category = oneOf(p.category, enforcedCategories, 'category'), floor = floors.includes(category)
+      const threshold = format(floor ? decimal(p.thresholdPercent, 'margin floor (percent)') : decimal(p.thresholdUsd, 'threshold (USD)'))
+      if (floor && decimal(threshold) > decimal('100')) fail('INPUT', 'A margin floor is a percentage from 0 to 100.', { field: 'thresholdPercent' })
       const signatures = p.signatures === 1 || p.signatures === 2 ? p.signatures as number : fail('INPUT', 'signatures must be 1 or 2.', { field: 'signatures' })
       const expiryMinutes = p.expiryMinutes === undefined ? 1440 : Number.isSafeInteger(p.expiryMinutes) && p.expiryMinutes >= 1 && p.expiryMinutes <= 43200 ? p.expiryMinutes : fail('INPUT', 'expiryMinutes must be a whole number from 1 to 43200.', { field: 'expiryMinutes' })
-      const reason = text(p.reason, 'reason', 400), enabled = p.enabled !== false
+      const reason = text(p.reason, 'reason', 400), enabled = p.enabled !== false, unit = floor ? 'percent' : 'USD'
       const existing = c.s.approvalPolicies.find(x => x.category === category)
-      const entry = { at: c.now, by: c.actor.id, reason, threshold, signatures, expiryMinutes, enabled }
-      if (!existing) return row(c, 'approvalPolicies', { category, threshold, signatures, expiryMinutes, enabled, history: [entry] })
-      return bump(existing, { threshold, signatures, expiryMinutes, enabled, history: [...existing.history, entry] })
+      const entry = { at: c.now, by: c.actor.id, reason, threshold, unit, signatures, expiryMinutes, enabled }
+      if (!existing) return row(c, 'approvalPolicies', { category, threshold, unit, signatures, expiryMinutes, enabled, history: [entry] })
+      return bump(existing, { threshold, unit, signatures, expiryMinutes, enabled, history: [...existing.history, entry] })
     }
     case 'approval.deputize': {
-      if (!['owner', 'manager', 'buyer'].includes(c.actor.role)) forbidden('Only a person holding approval authority names a deputy.')
+      const held = enforcedCategories.filter(x => holdsCategory(c.actor.role, x))
+      if (!held.length) forbidden('Only a person holding approval authority names a deputy.')
       const deputy = c.people?.find(x => x.id === p.deputyId)
       if (!deputy || deputy.id === c.actor.id || nonApprovers.includes(deputy.role)) fail('INPUT', 'Choose another active person who can hold approval authority (not an agent, viewer or operator).', { field: 'deputyId' })
       const until = typeof p.validUntil === 'string' ? Date.parse(p.validUntil) : NaN, now = Date.parse(c.now)
       if (!(until > now) || until - now > maxDelegationMs) fail('INPUT', 'validUntil must be a future time within 30 days.', { field: 'validUntil' })
-      const categories = p.categories === undefined ? [...enforcedCategories] : (Array.isArray(p.categories) && p.categories.length ? p.categories : fail('INPUT', 'Choose at least one category.')).map((x: unknown) => oneOf(x, enforcedCategories, 'category'))
+      const categories = p.categories === undefined ? held : (Array.isArray(p.categories) && p.categories.length ? p.categories : fail('INPUT', 'Choose at least one category.')).map((x: unknown) => oneOf(x, held, 'category'))
       return row(c, 'approvalDelegations', { principalId: c.actor.id, principalName: c.actor.name, principalRole: c.actor.role, deputyId: deputy!.id, deputyName: deputy!.name, categories, validFrom: c.now, validUntil: new Date(until).toISOString(), reason: text(p.reason, 'reason', 400), status: 'active' })
     }
     case 'approval.revokeDeputy': {

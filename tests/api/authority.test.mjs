@@ -1,7 +1,7 @@
 // LARDER-014 roles are enforced in every handler; LARDER-015 agents prepare and people approve; GOV-001 roles inherit their clauses' doors.
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { installation, workshop } from './harness.mjs'
+import { installation, workshop, evidence } from './harness.mjs'
 
 test('LARDER-014 roles and sessions are checked on every command and read', async t => {
   const h = await installation(); t.after(() => h.close())
@@ -399,7 +399,7 @@ test('GOV-002 high-value PO and stock write-off need two signatures, a deputy si
   const policy = (category, thresholdUsd, signatures = 2, more = {}) => h.command('approval.policy', { category, thresholdUsd, signatures, expiryMinutes: 60, reason: 'Two people above the limit', ...more })
   // Only the owner sets policy, only for categories whose doors enforce it.
   await mgrA.run('approval.policy', { category: 'spend', thresholdUsd: '100', signatures: 2, reason: 'x' }, { error: 'FORBIDDEN' })
-  await h.command('approval.policy', { category: 'margin', thresholdUsd: '10', signatures: 2, reason: 'x' }, { error: 'INPUT' })
+  await h.command('approval.policy', { category: 'schedule', thresholdUsd: '10', signatures: 2, reason: 'x' }, { error: 'INPUT' })
   await h.command('approval.policy', { category: 'spend', thresholdUsd: '100', signatures: 3, reason: 'x' }, { error: 'INPUT' })
   const spend = await policy('spend', '100')
   assert.deepEqual([spend.category, spend.threshold, spend.signatures], ['spend', '100', 2])
@@ -489,5 +489,62 @@ test('GOV-002 high-value PO and stock write-off need two signatures, a deputy si
   const adjusted = (await h.state()).counts.find(x => x.id === count.id)
   assert.deepEqual([adjusted.status, adjusted.valueVariance, adjusted.adjustmentMovementIds.length], ['adjusted', '-19', 1])
   assert.equal((await h.state()).approvals.find(a => a.id === adjusted.approvalId).signatureIds.length, 2)
+  await h.invariant()
+})
+
+// GOV-002: a margin floor on sales orders and a quality threshold on releases use the same signatures, exact inputs and override.
+test('GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h)
+  const mgrA = await h.person('gov2m-a@example.test', 'manager'), mgrB = await h.person('gov2m-b@example.test', 'manager'), sales = await h.person('gov2m-sales@example.test', 'sales')
+  const warehouse = await h.person('gov2m-wh@example.test', 'warehouse'), agent = await h.person('gov2m-agent@example.test', 'agent')
+  await h.command('approval.policy', { category: 'margin', thresholdPercent: '120', signatures: 2, reason: 'x' }, { error: 'INPUT' })
+  const floor = await h.command('approval.policy', { category: 'margin', thresholdPercent: '25', signatures: 2, expiryMinutes: 60, reason: 'Two managers below a 25% margin' })
+  assert.deepEqual([floor.threshold, floor.unit], ['25', 'percent'])
+  const quote = (unitPrice, itemId = w.timber.id) => sales.run('so.quote', { customerId: w.customer.id, promiseDate: '2026-12-01', lines: [{ itemId, quantity: '10', unitPrice }] })
+  const confirm = (who, order, error) => who.run('so.confirm', { orderId: order.id, version: order.version, reserve: false }, error && { error })
+  // At or above the floor (52.5% on a 9.5 standard cost) the sales person confirms alone.
+  const healthy = await quote('20')
+  assert.equal((await confirm(sales, healthy)).status, 'confirmed')
+  // Below it (13.636364%) the preparer and agents cannot confirm, one manager's signature is not enough and changed inputs invalidate it.
+  let order = await quote('11')
+  await confirm(sales, order, 'FORBIDDEN')
+  await confirm(agent, order, 'FORBIDDEN')
+  const first = await confirm(mgrA, order)
+  assert.deepEqual([first.category, first.marginPercent, first.remainingAtSigning], ['margin', '13.636364', 1])
+  await confirm(mgrA, order, 'DUPLICATE_SIGNATURE')
+  order = await sales.run('so.quote', { orderId: order.id, version: order.version, customerId: w.customer.id, promiseDate: '2026-12-05', lines: [{ itemId: w.timber.id, quantity: '10', unitPrice: '11' }] })
+  const signature = async id => (await h.state()).approvalSignatures.find(x => x.id === id)
+  assert.equal((await signature(first.id)).status, 'invalidated')
+  await confirm(mgrA, order)
+  assert.equal((await confirm(mgrB, order)).status, 'confirmed')
+  assert.equal((await h.state()).approvals.find(a => a.subjectId === order.id && a.category === 'margin').signatureIds.length, 2)
+  // An unknown margin (no standard cost) never passes the floor.
+  const unknown = await quote('89', w.board.id)
+  assert.deepEqual([(await confirm(mgrA, unknown)).marginPercent, (await h.state()).salesOrders.find(x => x.id === unknown.id).status], [null, 'quote'])
+  // An amendment preview binds the exact records, so below the floor only the owner approves it, naming the accountable person.
+  const current = (await h.state()).salesOrders.find(x => x.id === healthy.id)
+  const amendment = await sales.run('so.changePreview', { orderId: current.id, version: current.version, reason: 'Customer asked for a lower price', customerApproval: { name: 'Casey Customer', reference: 'Price email', approvedOn: new Date().toISOString().slice(0, 10), evidence: evidence('Please lower the price.') },
+    lines: current.lines.map(l => ({ lineId: l.id, itemId: l.itemId, quantity: l.quantity, unitPrice: '10', schedules: [{ quantity: l.quantity, date: '2026-12-01' }] })) })
+  assert.equal((await mgrA.run('so.changeApprove', { previewId: amendment.id, version: amendment.version }, { error: 'APPROVAL_REQUIRED' })).error.details.marginPercent, '5')
+  await h.command('so.changeApprove', { previewId: amendment.id, version: amendment.version, override: { reason: 'Keep the account this season', accountableId: mgrA.id } })
+  const amended = (await h.state()).salesOrders.find(x => x.id === healthy.id)
+  assert.deepEqual([amended.lines[0].unitPrice, amended.changeHistory.at(-1).override.accountableId, amended.changeHistory.at(-1).marginSignatureIds.length], ['10', mgrA.id, 1])
+  // Quality: releasing quarantined stock worth $50 or more needs two signatures on the same terms.
+  await h.command('approval.policy', { category: 'quality', thresholdUsd: '50', signatures: 2, reason: 'Two people release high-value held stock' })
+  const po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-11-20', reason: 'Held timber', lines: [{ itemId: w.timber.id, quantity: '10', unitPrice: '9.5' }] })
+  await h.command('po.approve', { poId: po.id, version: po.version })
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-21', lines: [{ lineId: po.lines[0].id, quantity: '10', locationId: w.loc.id, lot: 'synthetic-larder-22', inspection: 'quarantine' }] })
+  const lot = (await h.state()).lots.find(l => l.code === 'synthetic-larder-22')
+  const release = (who, quantity, error) => who.run('quarantine.decide', { itemId: w.timber.id, locationId: w.loc.id, lotId: lot.id, quantity, decision: 'release', reason: 'Moisture 9%' }, error && { error })
+  await release(agent, '10', 'FORBIDDEN')
+  const held = await release(warehouse, '10')
+  assert.deepEqual([held.category, held.valueUsd, held.remainingAtSigning], ['quality', '95', 1])
+  assert.equal((await release(mgrA, '6')).remainingAtSigning, 1)
+  const released = await release(mgrA, '10')
+  assert.deepEqual([released.decision, released.signatureIds.length], ['released', 2])
+  assert.equal((await h.state()).positions.find(x => x.itemId === w.timber.id && x.lotId === lot.id && x.status === 'available').quantity, '10')
+  // Policies without a door are refused rather than stored and ignored.
+  await h.command('approval.policy', { category: 'ledger', thresholdUsd: '100', signatures: 2, reason: 'x' }, { error: 'INPUT' })
   await h.invariant()
 })

@@ -11,7 +11,7 @@ import { decimal, format, times } from './decimal'
 import { fail } from './problem'
 import { allow } from './roles'
 import { authorize, gate } from './approval-policy'
-import { balance, move } from './stock'
+import { averageCost, balance, move } from './stock'
 import { lotDates } from './lot-dates'
 import { bump, date, fresh, get, list, newId, nextReference, oneOf, optionalText, row, text, type Context, type Row } from './model'
 
@@ -53,7 +53,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
         const ref = get(c.s, 'partyItems', l.supplierQuote.partyItemId, 'supplier terms')
         if (ref.version !== l.supplierQuote.version) fail('STALE', 'Supplier terms changed. Select the quote again before approval.')
       }
-      const signed = gate(c, { category: 'spend', subjectKind: 'purchaseOrders', subject: po, valueUsd: decimal(po.exposure), permitted: ['manager', 'buyer'], preparedBy: po.preparedBy, p })
+      const signed = gate(c, { category: 'spend', subjectKind: 'purchaseOrders', subject: po, measure: () => decimal(po.exposure), permitted: ['manager', 'buyer'], preparedBy: po.preparedBy, p })
       if (signed && 'pending' in signed) return signed.pending
       const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision: 'approved', role: c.actor.role, note: optionalText(p.note, 'note', 400), terms: structuredClone({ supplierId: po.supplierId, lines: po.lines, expectedDate: po.expectedDate, exposure: po.exposure, currency: po.currency, supplier: po.supplierSnapshot }), ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
       signed?.consume(approval.id)
@@ -135,7 +135,11 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       if (balance(c.s, item.id, location.id, 'quarantine', lotId) < q) fail('INSUFFICIENT_STOCK', `Only ${format(balance(c.s, item.id, location.id, 'quarantine', lotId))} ${item.baseUnit} is in quarantine there.`)
       if (decision === 'release') approvedCertificates(c.s, item.id, lotId, c.now.slice(0, 10))
       if (decision === 'release') assertLotNotHeld(c.s, lotId, 'released from quarantine')
-      const approval = row(c, 'approvals', { subjectKind: 'lots', subjectId: lotId || item.id, subjectVersion: 0, decision: decision === 'release' ? 'released' : 'rejected', role: c.actor.role, note: text(p.reason, 'reason', 400), quantity: format(q), locationId: location.id })
+      // GOV-002 quality threshold: the value a release makes available.
+      const signed = decision === 'release' ? gate(c, { category: 'quality', subjectKind: lotId ? 'lots' : 'items', subject: lotId ? get(c.s, 'lots', lotId) : item, measure: () => times(q, averageCost(c.s, item.id)), permitted: ['manager', 'warehouse'], terms: { decision, itemId: item.id, locationId: location.id, lotId, quantity: format(q) }, p }) : null
+      if (signed && 'pending' in signed) return signed.pending
+      const approval = row(c, 'approvals', { subjectKind: 'lots', subjectId: lotId || item.id, subjectVersion: 0, decision: decision === 'release' ? 'released' : 'rejected', role: c.actor.role, note: text(p.reason, 'reason', 400), quantity: format(q), locationId: location.id , ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
+      signed?.consume(approval.id)
       const out = move(c, { itemId: item.id, locationId: location.id, status: 'quarantine', lotId, quantity: -q, kind: decision === 'release' ? 'release' : 'reject', documentKind: 'approvals', documentId: approval.id, reason: approval.note })
       if (decision === 'release') move(c, { itemId: item.id, locationId: location.id, status: 'available', lotId, quantity: q, unitCost: out.unitCost, kind: 'release', documentKind: 'approvals', documentId: approval.id, reason: approval.note })
       if (lotId && balance(c.s, item.id, location.id, 'quarantine', lotId) === 0n) {

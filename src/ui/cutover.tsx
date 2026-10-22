@@ -4,7 +4,8 @@ import { Card, Chip, Choose, Empty, Field, Form, Table, text } from './controls'
 import { money, when, words } from './format'
 
 const metrics = ['stockValueUsd', 'stockUnits', 'reservedUnits', 'activeBoms', 'openWorkOrders', 'wipValueUsd', 'capacityMinutes', 'openSalesOrders', 'openSalesValueUsd', 'openPurchaseOrders', 'openPurchaseValueUsd']
-const metricLabel = (m: string) => words(m.replace(/([A-Z])/g, ' $1').toLowerCase())
+const metricLabels: Record<string, string> = { stockValueUsd: 'Stock value (USD)', stockUnits: 'Stock units', reservedUnits: 'Reserved units', activeBoms: 'Active BOMs', openWorkOrders: 'Open work orders', wipValueUsd: 'WIP value (USD)', capacityMinutes: 'Capacity minutes', openSalesOrders: 'Open sales orders', openSalesValueUsd: 'Open sales value (USD)', openPurchaseOrders: 'Open purchase orders', openPurchaseValueUsd: 'Open purchase value (USD)' }
+const metricLabel = (m: string) => metricLabels[m] ?? words(m)
 const channels = [{ value: 'sales-orders', label: 'Sales orders, reservations, shipments and returns' }, { value: 'purchase-orders', label: 'Purchase orders and receipts' }, { value: 'stock-ledger', label: 'Stock ledger (every stock movement)' }, { value: 'accounting-handoff', label: 'Accounting handoff to your ledger' }]
 
 // MOVE-007: rehearse, compare a day, approve one cutover time and choose which system writes each channel.

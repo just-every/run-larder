@@ -9,6 +9,8 @@ import { toBase } from './catalogue'
 import { decimal, format, max } from './decimal'
 import { fail } from './problem'
 import { allow } from './roles'
+import { gate } from './approval-policy'
+import { orderMargin } from './margin'
 import { consume, release, reserve, reservedQuantity, withdraw } from './stock'
 import { dated, pickLots, shipBlock } from './lot-dates'
 import { bump, date, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Row } from './model'
@@ -51,6 +53,10 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'sales'])
       const order = get(c.s, 'salesOrders', p.orderId, 'order'); fresh(order, p.version)
       if (order.status !== 'quote') fail('STATE', 'Only a quote can be confirmed.')
+      // GOV-002 margin floor: an order below it needs the policy's signatures from managers.
+      const signed = gate(c, { category: 'margin', subjectKind: 'salesOrders', subject: order, measure: () => orderMargin(c.s, order.lines), permitted: ['manager'], preparedBy: order.preparedBy, p })
+      if (signed && 'pending' in signed) return signed.pending
+      if (signed) signed.consume(row(c, 'approvals', { subjectKind: 'salesOrders', subjectId: order.id, subjectVersion: order.version, decision: 'approved', role: c.actor.role, category: 'margin', signatureIds: signed.signatureIds, override: signed.override }).id)
       bump(order, { status: 'confirmed', confirmedBy: c.actor.id, confirmedAt: c.now })
       if (p.reserve !== false) order.reservation = reserveOrder(c, order)
       return order

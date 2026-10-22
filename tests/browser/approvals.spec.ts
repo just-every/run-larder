@@ -22,7 +22,7 @@ test('GOV-002 the owner sets a two-signature policy, a signature is given and th
     await page.goto(origin + '/app#more/approvals'); await settled()
     const policy = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Approval policies', exact: true }) })
     await policy.getByLabel('Approval', { exact: true }).selectOption('spend')
-    await policy.getByLabel('Threshold (USD)', { exact: true }).fill('100')
+    await policy.getByLabel('Threshold', { exact: true }).fill('100')
     await policy.getByLabel('Signatures needed', { exact: true }).selectOption('2')
     await policy.getByLabel('Reason', { exact: true }).fill('Two people above $100')
     await policy.getByRole('button', { name: 'Save policy', exact: true }).click(); await settled()

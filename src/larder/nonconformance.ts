@@ -2,7 +2,8 @@
 // movements; case custody cannot be released through another quarantine door.
 import { attach } from './attachments'
 import { approvedCertificates } from './certificate-policy'
-import { decimal, format } from './decimal'
+import { decimal, format, times } from './decimal'
+import { gate } from './approval-policy'
 import { lotBlock } from './lot-dates'
 import { deviationLabel } from './deviations'
 import { bump, date, fresh, get, list, newId, nextReference, row, text, type Context, type Row } from './model'
@@ -90,8 +91,12 @@ export function nonconformance(c: Context, type: string, p: any): Row | undefine
     const lot = gates(c, n, 'released under deviation')
     if (lot.version !== d.lotVersion || n.remaining !== d.heldAtProposal || snapshot(failing(c, n)) !== snapshot(d.inspections))
       fail('STALE_INPUTS', 'The lot, held quantity or failing results changed after this proposal; propose the deviation again.')
+    // GOV-002 quality threshold: the value of the units this deviation would release.
+    const signed = gate(c, { category: 'quality', subjectKind: 'nonconformances', subject: n, measure: () => times(decimal(d.quantity), decimal(n.unitCost)), permitted: ['quality'], preparedBy: d.proposedBy, terms: { decision: 'deviation', deviationId: d.id }, p })
+    if (signed && 'pending' in signed) return signed.pending
+    signed?.consume(n.id)
     const inputs = { lotVersion: lot.version, held: n.remaining, inspections: snapshot(c.s.inspections.filter(i => i.subjectId === n.id)) }
-    Object.assign(d, { version: d.version + 1, status: 'approved; not yet released', approvedBy: c.actor.id, approverRole: c.actor.role, approvedAt: c.now, approvalNote: text(p.note, 'approval note', 1000), approvedInputs: inputs })
+    Object.assign(d, { version: d.version + 1, status: 'approved; not yet released', approvedBy: c.actor.id, approverRole: c.actor.role, approvedAt: c.now, approvalNote: text(p.note, 'approval note', 1000), approvedInputs: inputs, ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
     return bump(n, {})
   }
   if (type === 'nonconformance.deviation.execute') {
@@ -142,12 +147,17 @@ export function nonconformance(c: Context, type: string, p: any): Row | undefine
       }
       inspectionId = inspection.id
     }
+    // GOV-002 quality threshold: the value a release makes available.
+    const signed = type === 'nonconformance.release' ? gate(c, { category: 'quality', subjectKind: 'nonconformances', subject: n, measure: () => times(quantity, decimal(n.unitCost)), permitted: ['manager', 'quality'], preparedBy: n.createdBy, terms: { decision: 'release', quantity: format(quantity), inspectionId }, p }) : null
+    if (signed && 'pending' in signed) return signed.pending
+    signed?.consume(n.id)
     const decision = type === 'nonconformance.release' ? 'release' : type === 'nonconformance.return' ? 'return' : 'reject'
     const supplier = decision === 'return' ? get(c.s, 'parties', p.supplierId, 'supplier') : undefined
     if (supplier?.kind === 'customer') fail('INPUT', 'Return to a named supplier.')
     const out = move(c, { itemId: n.itemId, lotId: n.lotId, locationId: n.locationId, status: 'quarantine', quantity: -quantity, unitCost: decimal(n.unitCost), kind: `nonconformance-${decision}`, documentKind: 'nonconformances', documentId: n.id, reason })
     if (decision === 'release') move(c, { ...out, status: 'available', quantity })
     n.decisions.push({ by: c.actor.id, at: c.now, decision, ...(supplier ? { supplierId: supplier.id, supplierReference: text(p.supplierReference, 'supplier return reference', 200), delivery: 'recorded in app; not provider-confirmed' } : {}), quantity: format(quantity), reason, evidence, inspectionId, inspectionIds: c.s.inspections.filter(i => i.subjectId === n.id).map(i => i.id) })
+    if (signed) Object.assign(n.decisions.at(-1), { signatureIds: signed.signatureIds, override: signed.override })
     return bump(n, { remaining: format(decimal(n.remaining) - quantity) })
   }
   if (type === 'nonconformance.close') {

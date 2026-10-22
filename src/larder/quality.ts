@@ -9,10 +9,11 @@
 import { lotRecalls, recallReason } from './recall-policy'
 import { attach } from './attachments'
 import { holdReason, openHolds } from './quality-holds'
-import { SCALE, decimal, divide, format } from './decimal'
+import { SCALE, decimal, divide, format, times } from './decimal'
 import { fail, forbidden } from './problem'
 import { allow, approver } from './roles'
-import { balance, move, reservedAt } from './stock'
+import { averageCost, balance, move, reservedAt } from './stock'
+import { gate } from './approval-policy'
 import { bump, fresh, get, list, oneOf, optionalText, row, text, type Context, type Row, type State } from './model'
 
 export const stages = ['receipt', 'in-process', 'final'] as const
@@ -146,6 +147,14 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
       if (!latest || latest.id === hold.inspectionId || !latest.passed) fail('RETEST', 'Record a passing retest under the approved plan before releasing.')
       const reason = text(p.reason, 'release reason', 400)
       if (!Array.isArray(p.evidence) || !p.evidence.length) fail('EVIDENCE', 'Attach the retest or disposition record.')
+      // GOV-002 quality threshold: the value of the held stock this release makes available.
+      const heldValue = () => hold.subjectKind === 'reworkOrders' ? 0n : hold.held.reduce((n: bigint, x: any) => {
+        const lot = get(c.s, 'lots', x.lotId, 'lot'), still = balance(c.s, lot.itemId, x.locationId, 'quarantine', lot.id), q = still < decimal(x.quantity) ? still : decimal(x.quantity)
+        return q > 0n ? n + times(q, averageCost(c.s, lot.itemId)) : n
+      }, 0n)
+      const signed = gate(c, { category: 'quality', subjectKind: 'qualityHolds', subject: hold, measure: heldValue, permitted: ['manager', 'quality'], preparedBy: hold.failedBy, p })
+      if (signed && 'pending' in signed) return signed.pending
+      signed?.consume(hold.id)
       const evidence = files(c, p.evidence, 'release evidence'), released: any[] = []
       for (const x of hold.held) {
         if (hold.subjectKind === 'reworkOrders') continue // Only the dedicated evidence-backed release can make repair output available.
@@ -156,7 +165,7 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
         released.push({ lotId: lot.id, locationId: x.locationId, quantity: format(quantity) })
       }
       for (const x of hold.lots) { const lot = get(c.s, 'lots', x.lotId, 'lot'); if (lot.status === 'quality hold' && !lotHolds(c.s, lot.id).some(h => h.id !== hold.id)) bump(lot, { status: x.priorStatus }) }
-      return bump(hold, { status: 'released', release: { by: c.actor.id, role: c.actor.role, at: c.now, reason, evidence, retestId: latest!.id, released } })
+      return bump(hold, { status: 'released', release: { by: c.actor.id, role: c.actor.role, at: c.now, reason, evidence, retestId: latest!.id, released, ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) } })
     }
   }
 }

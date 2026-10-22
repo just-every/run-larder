@@ -31,7 +31,7 @@ export function counts(c: Context, type: string, p: any): Row | undefined {
       if (count.status !== 'awaiting approval') fail('STATE', 'Only a count awaiting approval can be decided.')
       const later = c.s.movements.some(m => m.sequence > count.frontier && m.itemId === count.itemId && m.locationId === count.locationId && (!count.sessionId || m.lotId === count.lotId))
       if (type === 'count.approve' && later) fail('STALE_COUNT', 'Stock moved at this location after the count. Count again before adjusting.', { countId: count.id })
-      const signed = type === 'count.approve' ? gate(c, { category: 'inventoryAdjustment', subjectKind: 'counts', subject: count, valueUsd: times(abs(decimal(count.variance, 'variance', { signed: true })), decimal(count.unitCost || '0')), permitted: ['manager'], preparedBy: count.createdBy, p }) : null
+      const signed = type === 'count.approve' ? gate(c, { category: 'inventoryAdjustment', subjectKind: 'counts', subject: count, measure: () => times(abs(decimal(count.variance, 'variance', { signed: true })), decimal(count.unitCost || '0')), permitted: ['manager'], preparedBy: count.createdBy, p }) : null
       if (signed && 'pending' in signed) return signed.pending
       const approval = row(c, 'approvals', { subjectKind: 'counts', subjectId: count.id, subjectVersion: count.version, decision: type === 'count.approve' ? 'approved' : 'rejected', role: c.actor.role, note: optionalText(p.note, 'note', 400), ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
       signed?.consume(approval.id)
