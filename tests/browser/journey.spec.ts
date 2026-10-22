@@ -325,4 +325,3 @@ test('BUY-001 buyers maintain two suppliers, select feasible scheduled terms and
     await shot(page, 'BUY-001-performance')
   }
 })
-

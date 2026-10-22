@@ -30,9 +30,9 @@ export function FiniteReschedule({ larder, plan }: { larder: Larder; plan: any }
       <Table head={['Job', 'Before finish', 'After finish', 'Due and risk']}>
         {pending.context.capacity.effects.map((e: any) => <tr key={e.workOrderId}><td>{e.reference}</td><td>{e.before ?? 'Unscheduled'}</td><td>{e.after ?? 'Unscheduled'}</td><td>Due {e.dueAt.slice(0, 10)} · {e.unscheduledAfter ? 'Unscheduled' : e.lateAfter ? 'Late' : 'On time'}</td></tr>)}
       </Table>
-      <details open><summary>Alternate setup, labor and cost consequences</summary><Table head={['Operation', 'Machine / person', 'Setup and tools', 'Cost and delivery']}>
+      {pending.plan.changes.some((ch:any)=>ch.scheduleChoices) && <details open><summary>Alternate setup, labor and cost consequences</summary><Table head={['Operation', 'Machine / person', 'Setup and tools', 'Cost and delivery']}>
         {pending.context.capacity.after.operations.map((o: any) => <tr key={o.key}><td>{o.reference} · {o.name}</td><td>{o.machine} · {o.person}</td><td>Family {o.priorFamily || 'unconfigured'} → {o.setupFamily || 'unconfigured'}; base setup {o.setupMinutes}; changeover {o.changeoverMinutes}; cleanup {o.cleanupMinutes} minutes. Tools: {o.requiredTools?.join(', ') || 'none required'}</td><td>{o.endsAt} · {o.occupiedMinutes} labor minutes · {o.planningCost ?? 'unknown'} USD estimate{o.comparisons?.filter((c: any) => c.kind !== 'internal').map((c: any) => <p key={c.kind}>{c.kind}: {c.cost ?? 'not authorized / not quoted'} USD. {c.leadDays !== undefined && `${c.leadDays} days. `}{c.basis}</p>)}</td></tr>)}
-      </Table></details>
+      </Table></details>}
       <p>Capacity conflicts: {pending.context.capacity.conflicts.length}. New unscheduled jobs: {pending.context.capacity.newUnscheduled.length}.</p>
       {pending.context.capacity.conflicts.map((c: any, i: number) => <p key={i}>{c.reference}: {c.reason}</p>)}
       <details><summary>Customer promise consequences</summary>{pending.context.capacity.promiseEffects.map((p: any, i: number) => <p key={i}>{p.reference} · retained promise {p.promiseDate} · {p.after.map((j: any) => `${j.reference}: ${j.endsAt ?? 'unscheduled'}${j.late ? ' (late)' : ''}`).join('; ') || 'No recorded finite work link'}</p>)}</details>
