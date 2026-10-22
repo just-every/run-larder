@@ -13,6 +13,7 @@ import { masterSchedule } from './forecast-plan'
 import { orderStatuses } from './order-status'
 import { blindView } from './count-visibility'
 import { availability } from './availability'
+import { kitAvailability } from './kits'
 import { format } from './decimal'
 import { exceptionRows } from './exceptions'
 import { followUpView } from './follow-up-state'
@@ -67,6 +68,7 @@ function fullView(s: State, actor: Actor, extra: Record<string, unknown>) {
     reservations: s.reservations.map(r => ({ ...r, quantity: format(r.quantity) })),
     positions: positions(s),
     availability: s.items.map(i => availability(s, i.id)),
+    kitAvailability: kitAvailability(s),
     shortages: shortages(s),
     exceptions: exceptionRows(followUpCases),
     followUpCases,

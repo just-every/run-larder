@@ -17,6 +17,7 @@ import { covers, firstStart, stories, timing } from './supply'
 import { schedule } from './schedule/plan'
 import { Forecasts } from './forecasts'
 import { Boms } from './bom-editor'
+import { Kits } from './kits'
 import { ConfigurationNote } from './configure'
 import { WorkOperations } from './work-operations'
 import { WorkLedger } from './work-ledger'
@@ -25,7 +26,7 @@ import { SupplyChanges, ReceiptAllocation } from './supply-changes'
 import { ReceiptJobAllocation } from './receipt-job-allocation'
 import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
 
-const tabs = [{ id: 'subcontract', title: 'Subcontract' }, { id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }, { id: 'forecast', title: 'Forecast & MPS' }, { id: 'dispatch', title: 'Shop-floor dispatch' }, { id: 'quality', title: 'Quality plans' }, { id: 'policies', title: 'Inventory policies' }]
+const tabs = [{ id: 'subcontract', title: 'Subcontract' }, { id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }, { id: 'kits', title: 'Kits' }, { id: 'forecast', title: 'Forecast & MPS' }, { id: 'dispatch', title: 'Shop-floor dispatch' }, { id: 'quality', title: 'Quality plans' }, { id: 'policies', title: 'Inventory policies' }]
 
 export function MakeBuy({ larder, section = 'plan', id }: { larder: Larder; section?: string; id?: string }) {
   const s = larder.state!
@@ -41,6 +42,7 @@ export function MakeBuy({ larder, section = 'plan', id }: { larder: Larder; sect
     {section === 'wo' && (id && byId(s, 'workOrders', id) ? <Work larder={larder} w={byId(s, 'workOrders', id)!} /> : <Works larder={larder} />)}
     {section === 'forecast' && <Forecasts larder={larder} />}
     {section === 'boms' && <Boms larder={larder} />}
+    {section === 'kits' && <Kits larder={larder} />}
   </div>
 }
 

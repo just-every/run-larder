@@ -143,3 +143,47 @@ test('ENG-003 configure two sizes and finishes on the quote, compare the resolve
     expect(after.workOrders.filter((w: any) => w.configurationSource?.orderId === order.id).map((w: any) => w.configuration.cost.unit)).toEqual(['9.5', '32.96'])
   }
 })
+
+test('ENG-006 prepare and approve a kit, then record a channel sale twice with one event id and once more, and see two assemblies and no oversell at 1440/390', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  const suffix = crypto.randomUUID().slice(0, 6), today = new Date().toISOString().slice(0, 10)
+  const tin = await command(page, 'item.save', { sku: `TIN-${suffix}`, name: `Gift tin ${suffix}`, kind: 'buy', baseUnit: 'each' })
+  const balm = await command(page, 'item.save', { sku: `BALM-${suffix}`, name: `Board balm ${suffix}`, kind: 'buy', baseUnit: 'each' })
+  const kit = await command(page, 'item.save', { sku: `KIT-${suffix}`, name: `Care kit ${suffix}`, kind: 'make', baseUnit: 'each', salePrice: '40' })
+  const shelf = await command(page, 'location.save', { name: `Kit shelf ${suffix}` })
+  await command(page, 'opening.record', { locationId: shelf.id, countedOn: today, valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: { name: 'count.txt', contentType: 'text/plain', base64: Buffer.from('Counted').toString('base64') }, lines: [{ itemId: tin.id, quantity: '10', unitCost: '2' }, { itemId: balm.id, quantity: '10', unitCost: '3' }] })
+  await page.goto(origin + '/app#make/kits'); await page.reload(); await settled(page)
+  const card = (title: string) => page.locator('section.card').filter({ has: page.getByRole('heading', { name: title, exact: true }) })
+  const prepare = card('Prepare a kit')
+  await prepare.getByLabel('Kit item', { exact: true }).selectOption(kit.id); await prepare.getByLabel('Policy', { exact: true }).selectOption('assemble')
+  await prepare.getByLabel('Item 1', { exact: true }).selectOption(tin.id); await prepare.getByLabel('Quantity').first().fill('2')
+  await prepare.getByRole('button', { name: 'Add line', exact: true }).click()
+  await prepare.getByLabel('Item 2', { exact: true }).selectOption(balm.id); await prepare.getByLabel('Quantity').nth(1).fill('1')
+  await prepare.getByRole('button', { name: 'Save for approval', exact: true }).click(); await settled(page)
+  await card('Kits').getByRole('button', { name: 'Approve policy', exact: true }).click(); await settled(page)
+  await expect(card('Kits')).toContainText('Active'); await expect(card('Kits')).toContainText('5 at Kit shelf')
+  const sell = async (eventId: string, quantity: string) => {
+    const form = card('Record a channel sale')
+    await form.getByLabel('Kit sold', { exact: true }).selectOption(kit.id); await form.getByLabel('Channel event id', { exact: true }).fill(eventId)
+    await form.getByLabel('Quantity', { exact: true }).fill(quantity); await form.getByLabel('From', { exact: true }).selectOption(shelf.id)
+    await form.getByRole('button', { name: 'Record sale', exact: true }).click()
+  }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const tag = `${suffix}-${width}`
+    await sell(`evt-${tag}`, '1'); await settled(page)
+    await sell(`evt-${tag}`, '1'); await settled(page)
+    await expect(card('Kit sales').getByText(`evt-${tag}`)).toHaveCount(1)
+    await sell(`evt-${tag}-b`, '1'); await settled(page)
+    await expect(card('Kit sales').getByText(`evt-${tag}`, { exact: false })).toHaveCount(2)
+    await sell(`evt-${tag}-c`, '9')
+    await expect(page.getByRole('alert')).toContainText('cannot cover')
+    await shots(page, 'kits', card('Kit sales'))
+    await page.reload(); await settled(page)
+  }
+  const state = await (await page.request.get(origin + '/api/larder/state')).json()
+  expect(state.kitSales.filter((k: any) => k.itemId === kit.id).length).toBe(4)
+  expect(state.positions.find((p: any) => p.itemId === tin.id).quantity).toBe('2')
+})
