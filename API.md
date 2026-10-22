@@ -527,7 +527,7 @@ A finite `reschedule` proposal change can include `scheduleChoices: {"1": "Quali
 
 ## Durable recovery and outage scenarios (CAP-007 / MRP-004, partial)
 
-` schedule.protect` (without leading space) accepts `{version?, asOf, days, freezeUntil, manualLocks: [{workOrderId,sequence}], automatic:false, reason}`. The owner/manager records the exact frozen and locked feasible intervals. Relevant production progress/pause/resume/completion, maintenance, supplier ETA and priority events record one durable `schedulePlans` reflow per command, never approval.
+`schedule.protect` accepts `{version?, asOf, days, freezeUntil, manualLocks: [{workOrderId,sequence}], automatic:false, reason}`. The owner/manager records the exact frozen and locked feasible intervals. Relevant production progress/pause/resume/completion, maintenance, supplier ETA and priority events record one durable `schedulePlans` reflow per command, never approval.
 
 `schedule.scenario` accepts `{asOf,days,name,reason,outages?:[{machineId,startsAt,endsAt}],changes?:[finite reschedule change]}` for manager/planner/agent preparation. Each isolated plan retains baseline, changed-job consequences and named finite resources. Sibling comparisons do not mutate live data.
 

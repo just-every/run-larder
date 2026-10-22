@@ -426,7 +426,7 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   const before=await state(page)
   await page.getByLabel('Decision reason for Long outage',{exact:true}).fill('synthetic-larder-824 stale adoption')
   const reply=page.waitForResponse(r=>r.url().endsWith('/api/larder/commands')&&r.request().postDataJSON()?.type==='schedule.adopt');await page.getByRole('button',{name:'Adopt Long outage',exact:true}).click()
-  const denied=await(await reply).json();expect(denied.error.code).toBe('STALE');await expect(page.getByText('Planning inputs, live people or planning window changed. Prepare a fresh scenario.',{exact:true})).toBeVisible()
+  const denied=await(await reply).json();expect(denied.error.code).toBe('STALE');await expect(page.getByRole('alert')).toContainText('Planning inputs, live people or planning window changed. Prepare a fresh scenario.')
   expect((await state(page)).scheduleBookings).toEqual(before.scheduleBookings)
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'MRP-004-stale')}
 })
