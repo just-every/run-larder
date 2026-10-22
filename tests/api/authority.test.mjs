@@ -426,6 +426,11 @@ test('GOV-002 high-value PO and stock write-off need two signatures, a deputy si
   await mgrB.run('approval.deputize', { deputyId: agent.id, validUntil: new Date(Date.now() + 3600000).toISOString(), reason: 'x' }, { error: 'INPUT' })
   await mgrB.run('approval.deputize', { deputyId: sales.id, validUntil: new Date(Date.now() + 40 * 86400000).toISOString(), reason: 'x' }, { error: 'INPUT' })
   const delegation = await mgrB.run('approval.deputize', { deputyId: sales.id, validUntil: new Date(Date.now() + 3600000).toISOString(), categories: ['spend'], reason: 'Away on Friday' })
+  // A deputy holds only the principal's own authority for that door and cannot hand it on: a warehouse deputy for spend cannot name a spend deputy, and the person they do name holds no spend seat.
+  const stand = await mgrB.run('approval.deputize', { deputyId: warehouse.id, validUntil: new Date(Date.now() + 3600000).toISOString(), categories: ['spend'], reason: 'Warehouse covers spend for an hour' })
+  await warehouse.run('approval.deputize', { deputyId: sales.id, validUntil: new Date(Date.now() + 3600000).toISOString(), categories: ['spend'], reason: 'Pass it on' }, { error: 'INPUT' })
+  await warehouse.run('approval.deputize', { deputyId: sales.id, validUntil: new Date(Date.now() + 3600000).toISOString(), reason: 'Pass on my own seat only' })
+  await mgrB.run('approval.revokeDeputy', { delegationId: stand.id, reason: 'Sales covers instead' })
   const viaDeputy = await sales.run('po.approve', { poId: po.id, version: po.version })
   assert.deepEqual([viaDeputy.signerId, viaDeputy.onBehalfOf, viaDeputy.remainingAtSigning], [sales.id, mgrB.id, 1])
   await sales.run('po.approve', { poId: po.id, version: po.version }, { error: 'DUPLICATE_SIGNATURE' })
@@ -453,6 +458,8 @@ test('GOV-002 high-value PO and stock write-off need two signatures, a deputy si
   await h.db.prepare("UPDATE larder_records SET data=json_set(data,'$.expiresAt',?) WHERE kind='approvalSignatures' AND id=?").bind(new Date(Date.now() - 1000).toISOString(), sig.id).run()
   assert.equal((await signatures(po2.id)).find(x => x.id === sig.id).status, 'expired')
   assert.equal((await mgrB.run('po.approve', { poId: po2.id, version: po2.version })).remainingAtSigning, 1)
+  // The same person never supplies two signatures on one decision, as principal and as deputy in either order.
+  await sales.run('po.approve', { poId: po2.id, version: po2.version }, { error: 'DUPLICATE_SIGNATURE' })
   // Owner override: only the owner, with a reason and a named accountable owner or manager.
   await mgrB.run('po.approve', { poId: po2.id, version: po2.version, override: { reason: 'Supplier closing', accountableId: mgrB.id } }, { error: 'FORBIDDEN' })
   await agent.run('po.approve', { poId: po2.id, version: po2.version, override: { reason: 'Agent', accountableId: mgrB.id } }, { error: 'FORBIDDEN' })
@@ -469,6 +476,25 @@ test('GOV-002 high-value PO and stock write-off need two signatures, a deputy si
   assert.equal((await signatures(po3.id))[0].status, 'withdrawn')
   assert.equal((await mgrB.run('po.approve', { poId: po3.id, version: po3.version })).remainingAtSigning, 1)
   await h.command('role.set', { operatorId: mgrA.id, role: 'manager' })
+  // A threshold change never voids a signature already given: the decision in flight completes under the policy it began under and the change applies to the next one.
+  const po4 = await draft('30')
+  const given = await mgrA.run('po.approve', { poId: po4.id, version: po4.version })
+  const changed = await policy('spend', '1000', 1, { reason: 'Raise the limit and ask one person' })
+  assert.deepEqual([changed.threshold, changed.signatures, (await signatures(po4.id))[0].status], ['1000', 1, 'valid'])
+  assert.equal((await mgrA.run('po.approve', { poId: po4.id, version: po4.version }, { error: 'DUPLICATE_SIGNATURE' })).error.code, 'DUPLICATE_SIGNATURE')
+  await mgrB.run('po.approve', { poId: po4.id, version: po4.version })
+  const done4 = (await h.state()).purchaseOrders.find(x => x.id === po4.id), record4 = (await h.state()).approvals.find(a => a.id === done4.approvalId)
+  assert.deepEqual([done4.status, record4.signatureIds.includes(given.id), record4.signatureIds.length], ['approved', true, 2])
+  const po5 = await draft('30')
+  assert.equal((await mgrA.run('po.approve', { poId: po5.id, version: po5.version })).status, 'approved')
+  await policy('spend', '100', 2)
+  // Every threshold, deputy and override change is in the audit with its actor, reason and exact before and after.
+  const trail = async type => (await (await h.request(`/api/larder/audit?type=${type}&limit=200`)).json()).entries
+  const policies = (await trail('approval.policy')).filter(e => e.subjectKind === 'approvalPolicies' && e.after.threshold)
+  assert.deepEqual([policies.some(e => e.op === 'update' && e.before.threshold === '100' && e.after.threshold === '1000' && /ask one person/.test(e.reason)), policies.every(e => e.actorRole === 'owner' && e.domain === 'roles')], [true, true])
+  assert.ok((await trail('approval.deputize')).some(e => e.subjectKind === 'approvalDelegations' && e.op === 'create' && e.actorId === mgrB.id && e.after.deputyId === sales.id && /Away on Friday/.test(e.reason)))
+  assert.ok((await trail('approval.revokeDeputy')).some(e => e.subjectKind === 'approvalDelegations' && e.before.status === 'active' && e.after.status === 'revoked' && /Back early/.test(e.reason)))
+  assert.ok((await trail('po.approve')).some(e => e.subjectKind === 'approvals' && e.after.override?.accountableId === mgrB.id && e.after.override?.reason === 'Supplier closing tomorrow; buy now'))
   // Stock write-off: a count whose adjustment is worth more than the limit needs two signatures on unchanged stock.
   await policy('inventoryAdjustment', '10')
   const counted = async quantity => warehouse.run('count.record', { itemId: w.timber.id, locationId: w.loc.id, counted: quantity, note: 'Shelf count' })

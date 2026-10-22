@@ -58,19 +58,23 @@ function liveDelegation(d: Row | undefined, people: Person[] | undefined, permit
   return !!d && d.status === 'active' && d.validFrom <= now && now < d.validUntil && !!principal && (principal.role === 'owner' || permitted.includes(principal.role))
 }
 
+// Whether a signature's signer, or the principal a deputy stood in for, still holds the authority
+// it was given under (judged against the active people).
+export function authorityHeld(s: State, sig: Row, now: string, people: Person[]) {
+  const signer = people.find(x => x.id === sig.signerId), permitted: string[] = sig.permitted ?? permittedFor[sig.category] ?? []
+  return !!signer && (sig.delegationId ? !nonApprovers.includes(signer.role) && liveDelegation(s.approvalDelegations.find(d => d.id === sig.delegationId), people, permitted, now) : signer.role === 'owner' || permitted.includes(signer.role))
+}
+
 // valid: counts toward approval now; invalidated: the version or exact inputs changed; expired;
 // withdrawn: the signer, or the principal a deputy stood in for, no longer holds the authority
-// (judged when the active people are known); used: spent by the approval it completed.
+// (judged when the active people are known); used: spent by the approval it completed. A change
+// to the owner's policy never moves a signature between these: it applies to the next decision.
 export function signatureStatus(s: State, sig: Row, now: string, people?: Person[]) {
   if (sig.consumedBy) return 'used'
   const subject = (s as any)[sig.subjectKind]?.find((r: Row) => r.id === sig.subjectId) as Row | undefined
   if (!subject || subject.version !== sig.subjectVersion || digestOf(s, sig.subjectKind, subject, sig.terms, people) !== sig.inputsDigest) return 'invalidated'
   if (now > sig.expiresAt) return 'expired'
-  if (people) {
-    const signer = people.find(x => x.id === sig.signerId), permitted: string[] = sig.permitted ?? permittedFor[sig.category] ?? []
-    const holds = !!signer && (sig.delegationId ? !nonApprovers.includes(signer.role) && liveDelegation(s.approvalDelegations.find(d => d.id === sig.delegationId), people, permitted, now) : signer.role === 'owner' || permitted.includes(signer.role))
-    if (!holds) return 'withdrawn'
-  }
+  if (people && !authorityHeld(s, sig, now, people)) return 'withdrawn'
   return 'valid'
 }
 
@@ -97,13 +101,17 @@ export function policyFor(c: Context, category: string, measure: () => bigint | 
 type Gate = { pending: Row } | { signatureIds: string[]; override: Row['override']; seat: string; consume: (byId: string) => void }
 type Decision = { category: string; subjectKind: string; subject: Row; measure: () => bigint | null; permitted: Role[]; preparedBy?: string; terms?: Record<string, unknown>; p: any }
 
-// Null when no policy applies: the door keeps its single-approver behaviour.
+// Null when no policy applies: the door keeps its single-approver behaviour. A decision that
+// already holds a valid signature completes under the policy it began under, so changing a
+// threshold, signature count or lifetime takes effect on the next decision, never mid-decision.
 export function gate(c: Context, o: Decision): Gate | null {
-  const hit = policyFor(c, o.category, o.measure)
-  if (!hit) return null
-  const { policy, value } = hit, terms = o.terms ?? null, same = canonicalJson(terms as any)
-  const who = authorize(c, o.permitted, o.category, o.preparedBy)
+  const terms = o.terms ?? null, same = canonicalJson(terms as any)
   const live = c.s.approvalSignatures.filter(x => x.subjectKind === o.subjectKind && x.subjectId === o.subject.id && x.category === o.category && canonicalJson((x.terms ?? null) as any) === same && signatureStatus(c.s, x, c.now, c.people ?? []) === 'valid')
+  const begun = live[0], hit = policyFor(c, o.category, o.measure)
+  if (!hit && !begun) return null
+  const policy = begun ? { id: begun.policyId, version: begun.policyVersion, signatures: begun.signaturesRequired ?? hit?.policy.signatures ?? 2, expiryMinutes: begun.expiryMinutes ?? hit?.policy.expiryMinutes ?? 1440 } : hit!.policy
+  const value = hit?.value ?? o.measure()
+  const who = authorize(c, o.permitted, o.category, o.preparedBy)
   let override: Row['override'] = null
   if (o.p.override !== undefined) {
     if (c.actor.role !== 'owner') forbidden('Only the owner can override a dual approval.')
@@ -114,7 +122,7 @@ export function gate(c: Context, o: Decision): Gate | null {
   if (live.some(x => x.signerId === c.actor.id || x.seat === who.seat)) fail('DUPLICATE_SIGNATURE', 'You, or the person you stand in for, already signed these exact inputs. A different person must sign next.')
   const needed = override ? 1 : policy.signatures
   const signature = row(c, 'approvalSignatures', {
-    category: o.category, policyId: policy.id, policyVersion: policy.version, subjectKind: o.subjectKind, subjectId: o.subject.id, subjectVersion: o.subject.version, inputsDigest: digestOf(c.s, o.subjectKind, o.subject, terms, c.people), terms, permitted: o.permitted,
+    category: o.category, policyId: policy.id, policyVersion: policy.version, signaturesRequired: policy.signatures, expiryMinutes: policy.expiryMinutes, subjectKind: o.subjectKind, subjectId: o.subject.id, subjectVersion: o.subject.version, inputsDigest: digestOf(c.s, o.subjectKind, o.subject, terms, c.people), terms, permitted: o.permitted,
     ...(floors.includes(o.category) ? { marginPercent: value === null ? null : format(value) } : o.category === 'schedule' ? { delayMinutes: format(value!) } : { valueUsd: format(value!) }),
     signerId: c.actor.id, signerName: c.actor.name, signerRole: c.actor.role, seat: who.seat, onBehalfOf: who.deputy ? who.seat : null, delegationId: who.deputy?.id ?? null,
     note: optionalText(o.p.note, 'note', 400), signedAt: c.now, expiresAt: new Date(Date.parse(c.now) + policy.expiryMinutes * 60000).toISOString(), override, remainingAtSigning: Math.max(0, needed - live.length - 1),
