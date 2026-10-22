@@ -305,7 +305,7 @@ The sixteen published clauses keep their IDs and useful operational guarantees. 
 
 - **GOV-010 — Ledger approval threshold.** (Split from GOV-002.) Every ledger posting or journal adjustment at or above the owner's USD ledger threshold needs the policy signatures on its exact lines, with deputies, expiry, invalidation and the named owner override; CONN-001, CONN-002 and AGENT-004 post only through it. **Acceptance evidence:** Through the first ledger door, route an above-threshold journal adjustment through dual approval with a deputy, change one line after one signature and inspect invalidation; deny agent approval; log an owner override.
 
-- **GOV-011 — Inventory-adjustment threshold on every write-off.** (Split from GOV-002.) Every door that writes stock off outside a count, including expiry-disposition scrap, honours the inventory-adjustment threshold on the USD value written off, binding the exact lot, location and quantity. **Acceptance evidence:** Scrap a high-value expired lot under a two-signature policy with a deputy; move stock at that location after one signature and inspect invalidation; deny agent approval; log an owner override.
+- **GOV-011 — Inventory-adjustment threshold on every write-off.** (Split from GOV-002.) Every door that writes stock off outside a count, including expiry-disposition scrap, honours the inventory-adjustment threshold on the USD value written off, binding the exact lot, location and quantity. *As built:* the doors that write stock off outside a count are the expiry-disposition scrap (`lot.dispose`, signed by a manager or quality-role holder or a deputy for one), the quarantine rejection (`quarantine.decide`, manager or warehouse) and the nonconformance rejection (`nonconformance.reject`, manager or quality); each measures the USD value written off (quantity times average cost) and binds the exact item, lot, location and quantity, so a changed balance, lot version or case quantity voids a signature. A return to a supplier is a credit, not a write-off, and `movement.reverse` reverses a document someone already authorised. **Acceptance evidence:** Scrap a high-value expired lot under a two-signature policy with a deputy; move stock at that location after one signature and inspect invalidation; deny agent approval; log an owner override.
 
 - **GOV-012 — Auditable journal adjustments.** (Split from GOV-004.) Each ledger posting and journal adjustment writes audit entries (actor, time, source, exact lines before/after, reason, evidence) in its own atomic write, without provider credentials. **Acceptance evidence:** Extend the GOV-004 changed-BOM thread with a journal adjustment through the first ledger door; query it by record link, export JSON/CSV, refuse its deletion and confirm a planted provider token is absent.
 
@@ -470,8 +470,8 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 38 | 27 | 53 | 118 |
-| All | 54 | 27 | 53 | 134 |
+| Target and push further | 39 | 27 | 52 | 118 |
+| All | 55 | 27 | 52 | 134 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -591,7 +591,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `GOV-008` | Quality-release approval journeys | target | done | `src/larder/quality.ts`; `src/larder/nonconformance.ts`; `src/larder/approval-policy.ts`; `tests/api/quality-approval.test.mjs` (GOV-008); `tests/browser/approvals.spec.ts` (GOV-008) | Conforms: a quality-hold release, a nonconformance release and a deviation approval each need two signatures above the quality threshold, the first signature is invalidated by a changed held quantity and an owner override names its accountable manager. |
 | `GOV-009` | Schedule approval thresholds | target | missing |  | The schedule category is refused; no threshold caps adoptions or CAP-007 grants. |
 | `GOV-010` | Ledger approval threshold | target | missing |  | No Larder door posts to a ledger. |
-| `GOV-011` | Inventory-adjustment threshold on every write-off | target | missing |  | Only count adjustments are gated; expiry-disposition scrap is not. |
+| `GOV-011` | Inventory-adjustment threshold on every write-off | target | done | `src/larder/lot-dates.ts`; `src/larder/purchasing.ts`; `src/larder/nonconformance.ts`; `src/larder/approval-policy.ts`; `src/ui/approvals.tsx`; `tests/api/expiry.test.mjs` (GOV-011); `tests/browser/approvals.spec.ts` (GOV-011) | Conforms: expiry-disposition scrap, quarantine rejection and nonconformance rejection each honour the inventory-adjustment threshold alongside the count door; supplier returns are not write-offs and `movement.reverse` reverses an already authorised document. |
 | `GOV-012` | Auditable journal adjustments | target | missing |  | No ledger door exists to audit. |
 | `GOV-013` | Audit retention and purge authority | target | partial | `src/larder/audit-read.ts`; `tests/api/authority.test.mjs` (GOV-004) | The default (kept forever, purge refused for every role) is asserted; the period and authority await ct. |
 | `HTTP-001` | Preserve Base public and private paths | target | done | `src/server.ts`; `src/larder/api.ts`; `tests/browser/journey.spec.ts` (HTTP-001); `tests/runtime.mjs` | Named browser journey opens signed-out Lobby, health and built docs, refuses private app/state/archive and direct commands, verifies real document/API/site 404s, signs in through native setup, posts a domain command and refuses cross-origin writes without mutation; Lobby/docs/private app inspected at 1440 and 390 pixels. |
