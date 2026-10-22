@@ -23,6 +23,7 @@ export function materialPegging(s: State, query: URLSearchParams) {
     : ['sales', 'work', 'forecast'].includes(kind) && r.documentId === id && (lineId === null || r.lineId === lineId)
   const matchesSource = (source: (typeof plan.requirements)[number]['sources'][number]) =>
     (kind === 'purchase' && source.kind === 'purchase' && source.documentId === id && (lineId === null || source.lineId === lineId))
+    || (kind === 'work' && source.kind === 'work' && source.documentId === id)
     || (source.kind === 'stock' && lots.has(source.lotId ?? ''))
   const requirements = plan.requirements.filter(r => matchesDemand(r) || r.sources.some(matchesSource)
     || (kind === 'purchase' && decimal(r.shortage) > 0n && r.unavailablePurchases.some(p => p.documentId === id && (lineId === null || p.lineId === lineId))))

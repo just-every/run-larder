@@ -10,7 +10,7 @@ const integer = (v: unknown, name: string, upper: number) => Number.isSafeIntege
 const day = (v: unknown) => { const d = date(v); if (new Date(d + 'T00:00:00Z').toISOString().slice(0, 10) !== d) fail('INPUT', 'Use a real calendar date.'); return d }
 const positive = (v: unknown, name: string) => format(decimal(v, name, { positive: true }))
 const array = (v: unknown, name: string, cap: number): any[] => Array.isArray(v) && v.length <= cap ? v : fail('INPUT', `${name} must be an array of at most ${cap} entries.`)
-const openDay = (t: any, on: string) => t.weekdays.includes(new Date(on + 'T00:00:00Z').getUTCDay()) && !t.closedDates.includes(on)
+export const openDay = (t: any, on: string) => t.weekdays.includes(new Date(on + 'T00:00:00Z').getUTCDay()) && !t.closedDates.includes(on)
 const nextDay = (on: string) => new Date(Date.parse(on + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10)
 
 export function supplierTerms(c: Context, p: any): Row {

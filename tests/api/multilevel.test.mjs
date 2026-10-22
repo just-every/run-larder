@@ -152,7 +152,7 @@ test('MRP-001 dated physical and PO pools never cover earlier demand with late, 
   await h.invariant()
 })
 
-test('MRP-001 protects each reservation bin on its demand date, pins released inputs and restores the read-only projection without treating WIP as feasible supply', async t => {
+test('MRP-001 protects each reservation bin on its demand date, pins released inputs and restores the read-only projection without treating unproven WIP as feasible supply', async t => {
   const h = await installation(); t.after(() => h.close())
   const a = await h.command('location.save', { name: 'Reserved bin A' }), b = await h.command('location.save', { name: 'Free bin B' })
   const item = async (sku, kind = 'buy') => h.command('item.save', { sku, name: sku, kind, baseUnit: 'each' })
@@ -255,7 +255,9 @@ test('MRP-001 current safety floors share bins once, follow catalog edits, prote
   }
   const fractionalFloor = floor(fractional.id, a.id)
   assert.deepEqual([fractionalFloor.quantity, fractionalFloor.covered, fractionalFloor.shortage], ['1.000001', '0.000001', '1'])
-  assert.deepEqual(fractionalFloor.suggestion, { kind: 'buy', quantity: '1', supplierId: supplier.id, receiptOn: date(0), releaseOn: date(-2), leadDays: 2, requiresPastRelease: true })
+  // The approved PO dated today restores the floor on its receipt day; it is never physical cover and leaves nothing to buy.
+  assert.deepEqual([fractionalFloor.suggestion, fractionalFloor.restoredOn, fractionalFloor.replenishment.map(r => [r.kind, r.documentId, r.date, r.quantity])], [null, date(0), [['purchase', expected.id, date(0), '1']]])
+  assert.deepEqual([floor(item.id, a.id).restoredOn, floor(item.id, a.id).replenishment, floor(item.id, a.id).suggestion.quantity], [null, [], '1'])
   assert.ok(fractionalFloor.unavailableStock.some(p => p.reason === 'quarantine'))
   assert.ok(fractionalFloor.unavailableStock.some(p => p.reason === `expired on ${date(-1)}`))
   assert.ok(plan.provisionalSupply.some(p => p.documentId === drafted.id))
@@ -263,7 +265,7 @@ test('MRP-001 current safety floors share bins once, follow catalog edits, prote
   const reserved = plan.requirements.find(r => r.documentId === protectedOrder.id), free = plan.requirements.find(r => r.documentId === competing.id)
   assert.equal(reserved.covered, '4'); assert.ok(reserved.sources.every(s => s.reserved && s.locationId === a.id))
   assert.deepEqual([free.covered, free.shortage], ['3', '1']); assert.equal(free.sources[0].locationId, b.id)
-  assert.match(plan.limitations.join(' '), /current physical stock only; future floor replenishment/)
+  assert.match(plan.limitations.join(' '), /automatic adoption is not applied; open supply restores an uncovered floor/)
   assert.deepEqual(await read(h), plan); assert.deepEqual(await h.state(), before); assert.equal(h.outboundCount(), outbound)
   await h.restart(); assert.deepEqual(await read(h), plan)
   const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())

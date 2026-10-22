@@ -6,7 +6,7 @@ import type { State, Row } from './model'
 import type { MaterialTiming } from './material-lead'
 
 export type SupplyMode = 'make' | 'buy' | 'phantom'
-export type MaterialSource = { kind: 'stock' | 'purchase'; documentId: string; lineId?: string; reference: string; locationId?: string; lotId?: string; date: string; quantity: string; reserved: boolean }
+export type MaterialSource = { kind: 'stock' | 'purchase' | 'work'; documentId: string; lineId?: string; reference: string; locationId?: string; lotId?: string; date: string; quantity: string; reserved: boolean }
 export type MaterialDemand = {
   kind: 'sales' | 'work' | 'forecast' | 'safety' | 'dependent'; documentId: string; lineId: string; reference: string
   itemId: string; date: string; quantity: bigint; customerId?: string; locationId?: string; catalogLocationIds?: string[]
