@@ -418,6 +418,7 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   await prepare.getByLabel('Maximum per-job displacement (minutes)',{exact:true}).fill('1440')
   await prepare.getByLabel('Grant expires (local time)',{exact:true}).fill(day(2)+'T00:00')
   await prepare.getByLabel('Grant preparation reason',{exact:true}).fill('synthetic-larder-975 bounded internal recovery')
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-007-grant-prepare');if(process.env.LARDER_SCREENSHOTS)await prepare.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-CAP-007-grant-prepare-detail.png`)})}
   await planningAct(page,()=>prepare.getByRole('button',{name:'Prepare automation grant',exact:true}).click())
   let grant=(await planningState(page)).scheduleGrants.find((g:any)=>g.reason==='synthetic-larder-975 bounded internal recovery')
   let grantPanel=page.getByLabel(`Automation grant: ${grant.reason}, version ${grant.version}`,{exact:true})
@@ -435,6 +436,7 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   await grantPanel.getByText('Replace with a newly reviewed version',{exact:true}).click()
   await grantPanel.getByLabel('Maximum per-job displacement (minutes)',{exact:true}).fill('4320')
   await grantPanel.getByLabel('Replacement grant reason',{exact:true}).fill('synthetic-larder-981 explicit three-day displacement bound')
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});if(process.env.LARDER_SCREENSHOTS)await grantPanel.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-CAP-007-grant-replacement-detail.png`)})}
   await planningAct(page,()=>grantPanel.getByRole('button',{name:'Prepare replacement grant',exact:true}).click())
   grant=(await planningState(page)).scheduleGrants.find((g:any)=>g.id===grant.id)
   grantPanel=page.getByLabel(`Automation grant: ${grant.reason}, version ${grant.version}`,{exact:true})
@@ -457,7 +459,10 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
   await expect(page.getByLabel('Schedule review wo.operation.progress recovery',{exact:true}).filter({hasText:'No active automatic booking grant'})).toHaveCount(1)
   expect((await planningState(page)).scheduleBookings).toEqual(bookingBefore)
-  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-007-revoked')}
+  grant=(await planningState(page)).scheduleGrants.find((g:any)=>g.id===grant.id)
+  grantPanel=page.getByLabel(`Automation grant: ${grant.reason}, version ${grant.version}`,{exact:true})
+  await grantPanel.locator('summary').first().click()
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-007-revoked');if(process.env.LARDER_SCREENSHOTS)await grantPanel.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-CAP-007-revoked-detail.png`)})}
 })
 
 test('Replenishment reviews revised MOQ and uncertain coverage/cash, selectively approves and retains rejected reasons at 1440/390',async({page})=>{
