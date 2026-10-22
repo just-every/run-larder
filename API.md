@@ -548,3 +548,15 @@ Scenario assumptions also accept:
 - `overtime: [{kind:machine|labor,id,startsAt,endsAt,reason}]`: bounded inside the reviewed horizon. Explicit owner/manager adoption records those exact calendar windows with history. Holidays/closures/time-off/outages and live people still constrain capacity; no payroll or financial action occurs.
 
 Relevant supplier ETA events expose named supply references, new material-not-before dates and dependent buffer displacement. Missing shared allocation remains an explicit conflict, never invented material. New assumptions/history remain in the complete archive. These defaults and disabled automatic sequencing await ct approval; CAP-007 and MRP-004 remain partial.
+
+## Audit of production decisions (GOV-004, partial)
+
+Every command that changes records appends one entry per changed record to `larder_audit` in the same atomic batch: actor, role, time, source (`person`, `agent` or `import`), command type and id, area, subject, the changed fields before and after (the whole record on create), the reason the command gave, linked evidence (attachment id, name, size, SHA-256) and every record id the subject links to. Stock postings are entries of their own, and a command that touches more than 40 records of one kind records one `bulk` entry (count, first ids and an ids digest). Approvals keep their exact approved terms.
+
+Areas: `stock`, `revisions`, `time`, `quality`, `schedules`, `roles`, `integrations`, `commercial`, `records`, and `agent` (prepared by an agent).
+
+- `GET /api/larder/audit` — owner and manager only. Filters: `domain`, `actor`, `source`, `kind`, `op`, `type` (a command or its prefix), `ref` (an entry's subject or any record it links to, which follows one record through every domain), `commandId`, `from`, `to`, `q` (text over reason, command, actor, subject and values); `limit` (default 100, at most 500) and `after` (a sequence number) page the list.
+- `GET /api/larder/audit.json` and `/audit.csv` — the complete filtered export, with retention stated.
+- There is no write door: `audit.*` commands are refused for every role including the owner, `DELETE` is refused, and the database aborts any update or delete of an audit row.
+
+Minimising: a value is never logged when its key names a credential (secret, token, password, API key, authorization and the like) or a document body (content, base64, bytes, message, files); `label: value` text such as `password: …` and credential-shaped tokens are withheld wherever they appear; text over 240 characters or a large list is kept as a digest and length. Retention default: entries are kept for the life of the installation and nothing removes one. A time-limited retention or purge authority is not built and is open with ct.

@@ -15,7 +15,7 @@ export function AuditTrail() {
     return () => { live = false }
   }, [query])
   const detail = (e: Entry) => {
-    const keys = Object.keys(e.after).filter(k => !['id', 'createdAt', 'createdBy'].includes(k) && !empty(e.after[k]) || (e.op === 'update' && k in e.after)).slice(0, 5)
+    const keys = Object.keys(e.after).filter(k => !['id', 'version', 'createdAt', 'createdBy'].includes(k) && !empty(e.after[k]) || (e.op === 'update' && k in e.after)).slice(0, 5)
     return keys.length === 0 ? '—' : keys.map(k => `${words(k)}: ${e.op === 'update' ? `${short(e.before[k])} → ${short(e.after[k])}` : short(e.after[k])}`).join('; ')
   }
   return <Card title="Audit trail" aside={<span><a className="link" href={`/api/larder/audit.csv?${query}`}>Download CSV</a> · <a className="link" href={`/api/larder/audit.json?${query}`}>Download JSON</a></span>}>
