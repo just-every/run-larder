@@ -103,7 +103,8 @@ and the usual audit entries.
 | `po.approve` | `{poId, version, note?}` | manager, buyer (never an agent) |
 | `po.confirm` | `{poId, version, supplierReference, confirmedDate, evidence?}` | manager, buyer |
 | `po.revise` | `{poId, version, expectedDate, note}` | manager, buyer |
-| `receipt.create` | `{poId, supplierReference, lines: [{lineId, quantity, unit?, locationId, lot?, dates?, inspection?: accept\|quarantine}]}` | manager, warehouse |
+| `receipt.create` | `{poId, supplierReference, documents?: [{name, contentType, base64}], lines: [{lineId, quantity, unit?, locationId, lot?, dates?, inspection?: accept\|quarantine, damage?: {quantity, reason}}]}` — `quantity` is what arrived; `damage.quantity` of it is received into quarantine as its own `<lot>-DAMAGED` lot with the reason; supplier documents are kept on the receipt; a PO line's `tolerancePercent` (0–20, set on `po.draft` lines, default 0) lets a delivery exceed the ordered quantity by that share | manager, warehouse |
+| `receipt.allocate` | `{receiptId, version, asOf, reason}` from a current `GET /planning/pegging?kind=receipt&id=<receiptId>` — reserves the receipt's accepted, unreserved stock for the sales lines and released-job components the dated plan pegs it to, in the plan's date order; demand reached only through a make path is skipped and listed; the record lists `allocated` and `skipped`; a stale version or UTC day answers `STALE` | manager, warehouse (never an agent) |
 | `quarantine.decide` | `{itemId, locationId, lotId?, quantity, decision: release\|reject, reason}` | manager, warehouse |
 | `lot.dispose` | `{lotId, version, decision: extend\|scrap, expiresOn?, retestOn?, locationId?, reason, evidence: [{name, contentType, base64}]}` — documented disposition of an expired or retest-due lot | manager (never an agent) |
 | `wo.draft` | `{itemId, quantity, requiredBy, reason, priority?, plannedStart?}` | manager, production, planner, agent |
