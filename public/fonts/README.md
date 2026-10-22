@@ -8,6 +8,9 @@
 The WOFF2 subsets come from Fontsource's variable distributions (`@fontsource-variable/inter` 5.2.8, the
 `opsz` files that carry both axes; `@fontsource-variable/jetbrains-mono` 5.3.0).
 
-`fonts.css` declares both families once. The app's root document and `/setup` link it and preload the Inter
-Latin file (`src/base/font-head.ts`); `public/rer-theme.css` imports it, so the sign-in page, the Lobby, the
-run site and Base's Run page get the same faces. Do not import this CSS from a component.
+`public/rer-theme.css` declares both families once, so the installer serves them too. `fonts.css` carries the
+rest of Larder's look that Base's theme grammar keeps out of the theme: the form controls' font, Larder's own
+tokens and the run site's palette, and the rules for Base's sign-in, `/setup`, Lobby and Run pages. The app's
+root document and `/setup` link it before the theme and preload the Inter Latin file (`src/base/font-head.ts`);
+the Lobby, Base's Run pages and the run site link it before the theme too, and the sign-in pages add it after
+their own style. Do not import this CSS from a component.

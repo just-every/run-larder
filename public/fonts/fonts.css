@@ -1,27 +1,108 @@
-/* Inter (headings, interface and body; optical size and weight axes) and JetBrains Mono (commands and code),
-   both SIL Open Font License 1.1, self-hosted from public/fonts. The page makes no third-party request. */
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url('/fonts/inter/inter-latin-opsz-normal.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url('/fonts/inter/inter-latin-ext-opsz-normal.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 100 800;
-  font-display: swap;
-  src: url('/fonts/jetbrains-mono/jetbrains-mono-latin-wght-normal.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
+/* Larder's look beyond its theme. /rer-theme.css holds only what Base's theme grammar allows (the --rer-* tokens
+   and the faces; the installer reads it), so everything else Larder's pages wear is here: the form controls' font,
+   Larder's own tokens and the run site's palette, then the rules for Base's frames, the Lobby and the Run pages.
+   The root document, /setup, the Lobby, Base's Run, contract and not-found pages and the run site link this file
+   before the theme, and the hosted demo's gate inlines it there; the sign-in and confirmation pages, and the
+   development sign-in and hand-off (src/server.dev.ts), add it after their own style (src/base/font-response.ts). */
+
+/* Form controls take the page font. */
 button, input, select, textarea { font-family: inherit; }
+
+/* Larder's tokens, defined once: the app (src/ui/styles), the run site (src/site/styles), the rules below and
+   Base's Lobby and Run pages read them with the --rer-* tokens in /rer-theme.css. */
+:root {
+  --rer-font-print: 'Inter', Arial, sans-serif;
+  --rer-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --rer-rule: #E3E3E3;
+  --rer-red-wash: #FCE5E3;
+  --rer-button-radius: 8px;
+  --rer-wordmark-weight: 800;
+  --rer-wordmark-tracking: -.035em;
+  --rer-code-background: #2D2D2D;
+  --rer-code-text: #F1F1EF;
+
+  /* The run site's palette and scale, named from the --rer-* tokens (src/site/styles read only these). */
+  --charcoal: #2D2D2D;
+  --charcoal-2: #393939;
+  --charcoal-line: #4A4A4A;
+  --paper: var(--rer-page);
+  --card: var(--rer-surface);
+  --ink: var(--rer-text);
+  --body: #4A4E55;
+  --muted: var(--rer-muted);
+  --soft: #7C8087;
+  --faint: #A4A7AC;
+  --line: var(--rer-rule);
+  --line-strong: #D2D2D2;
+  --chip: #EEEEEE;
+  --red: var(--rer-accent);
+  --red-ink: #C4261D;
+  --red-hover: #C92A21;
+  --lime: #C9E84A;
+  --lime-ink: #1C1C1C;
+  --lime-deep: #6E8F00;
+  --amber: #E8A21A;
+  --amber-tint: #FDF1D8;
+  --green-tint: #E8F3E6;
+  --green-ink: #2F7A3A;
+  --font-body: var(--rer-font-body);
+  --font-head: var(--rer-font-heading);
+  --font-mono: var(--rer-font-mono);
+  --shadow-card: 0 1px 2px rgba(20, 20, 20, .04), 0 12px 32px -18px rgba(20, 20, 20, .22);
+  --shadow-lift: 0 2px 4px rgba(20, 20, 20, .05), 0 28px 56px -28px rgba(20, 20, 20, .38);
+  --radius-card: 14px;
+  --radius-chip: 999px;
+  --wrap: 1300px;
+  --gutter: 70px;
+}
+@media (max-width: 1100px) { :root { --gutter: 40px; } }
+@media (max-width: 760px) { :root { --gutter: 16px; } }
+
+/* Sign-in, confirmation and /setup (Base's no-JavaScript frames): one white card on the grey paper with a
+   hairline and soft shadow, the jar and name at top, a heavy title, quiet 1 px fields and the red button. */
+html.rer-themed body { position: relative; background: var(--rer-page); }
+/* The app's charcoal band with the workshop in fine white line and the ruled ticks of the top bar, under the card. */
+html.rer-themed body::before { content: ''; position: absolute; z-index: 0; inset: 0 0 auto 0; height: 232px; pointer-events: none;
+  background: url('/brand/workshop-line.webp') right 6% top -24px / 210px auto no-repeat, repeating-linear-gradient(to right, rgba(255, 255, 255, .16) 0 1px, transparent 1px 12px) left bottom / 100% 5px no-repeat, var(--charcoal);
+  background-blend-mode: lighten, normal, normal; }
+html.rer-themed main { position: relative; z-index: 1; }
+html.rer-themed main { max-width: 520px; padding: 36px 40px; background: var(--rer-surface); border: 1px solid var(--rer-rule); border-radius: 16px; box-shadow: var(--shadow-card); }
+html.rer-themed .brand, html.rer-themed .rer-brand { gap: 10px; margin: 0 0 28px; font-size: 22px; font-weight: 800; letter-spacing: -.035em; color: var(--rer-text); }
+html.rer-themed .brand::before, html.rer-themed .rer-brand::before { width: 27px; height: 28px; }
+html.rer-themed h1 { font-size: 42px; font-weight: 850; line-height: 1.04; letter-spacing: -.04em; margin: 0 0 18px; }
+html.rer-themed p { color: var(--rer-muted); }
+html.rer-themed label { font-weight: 600; }
+html.rer-themed input:not([type=checkbox]):not([type=hidden]) { min-height: 46px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fff; }
+html.rer-themed input:not([type=checkbox]):not([type=hidden]):focus { border-color: var(--rer-text); }
+html.rer-themed input[type=checkbox] { accent-color: var(--rer-accent); }
+html.rer-themed button, html.rer-themed .action { min-height: 48px; border: 0; border-radius: var(--rer-button-radius); background: var(--rer-accent); color: var(--rer-accent-text); font-weight: 600; }
+html.rer-themed button.secondary { background: transparent; color: var(--rer-text); border: 1px solid var(--line-strong); }
+html.rer-themed dl { grid-template-columns: 96px minmax(0, 1fr); gap: 0; border-top: 1px solid var(--rer-rule); }
+html.rer-themed dt, html.rer-themed dd { padding: 12px 0; border-bottom: 1px solid var(--rer-rule); }
+html.rer-themed dt { font-size: 14px; }
+html.rer-themed :focus-visible { outline: 3px solid var(--rer-focus); outline-offset: 2px; }
+@media (max-width: 480px) { html.rer-themed main { padding: 26px 20px; } html.rer-themed h1 { font-size: 34px; } }
+
+/* The Lobby (Base's shared page): the same red button as every other primary action. */
+html[data-state] .btn { background: var(--rer-accent); color: var(--rer-accent-text); box-shadow: none; }
+
+/* Base's shared Run, contract and not-found pages: heavy tight headings in the display optical size, white
+   hairline step cards with a soft shadow; the layout stays Base's. The workshop blueprint (the band) sits
+   under them on charcoal, so keep their last lines clear of it. */
+body > .bar .brand { font-weight: 800; letter-spacing: -.035em; }
+body > .bar .brand img { width: 38px; height: 40px; }
+body > main > :is(.intro, .hero) h1, body > main .step h2 { font-weight: 850; letter-spacing: -.04em; }
+body > main > :is(.intro, .hero) h1 { font-weight: 900; letter-spacing: -.045em; }
+body > main :is(.step, .step.option) { border: 1px solid var(--rer-rule); border-radius: 16px; background: var(--rer-surface); box-shadow: var(--shadow-card); backdrop-filter: none; }
+body > main .num { border-radius: 12px; font-weight: 800; }
+body > main .code { border-radius: 12px; }
+body:has(> .art) { background: var(--rer-page); }
+.art { background: var(--charcoal); }
+body > .art img { object-fit: cover; object-position: 50% 0; }
+.art ~ main { padding-bottom: calc(var(--art) + 64px) !important; }
+/* Base's code cards keep the command on one line beside Copy down to 760 px; the install line no longer fits beside the
+   button under 900, so from there the command wraps under it (letters, not words, so no line starts with "|"). */
+@media (max-width: 900px) {
+  body > main .code pre { padding: 46px 14px 14px; white-space: pre-wrap; word-break: break-all; }
+  body > main .copy { top: 8px; right: 8px; transform: none; }
+}
