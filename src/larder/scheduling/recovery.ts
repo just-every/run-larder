@@ -14,6 +14,8 @@ import { move, balance } from '../stock'
 import { canonicalJson } from '../../modules/import-kit/src/d1/index'
 import { bump, fresh, get, list, row, text, type Context, type State, type Row } from '../model'
 import { allow, approver } from '../roles'
+import { authorize, gate } from '../approval-policy'
+import { largestJobDelay } from './delay'
 import { fail } from '../problem'
 import { finitePlan } from './finite'
 import { instant, integer } from './calendars'
@@ -129,13 +131,19 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
   }
   if(type!=='schedule.adopt'&&type!=='schedule.reject')return
   const plan=get(c.s,'schedulePlans',p.planId);fresh(plan,p.version)
-  approver(c,['manager','production','planner'],plan.preparedBy)
+  // A deputy may stand in for a manager, production or planner principal when adopting (GOV-002).
+  if(type==='schedule.adopt')authorize(c,['manager','production','planner'],'schedule',plan.preparedBy)
+  else approver(c,['manager','production','planner'],plan.preparedBy)
   if(plan.status!=='review')fail('STATE','This plan was already decided.')
   if(['promises','spend','automatic'].some(k=>p[k]!==undefined))fail('AUTHORITY','Customer dates and spending require their separate recorded authority.')
   const note=text(p.reason,'decision reason')
   if(type==='schedule.reject')return bump(plan,{status:'rejected',decidedBy:c.actor.id,decidedAt:c.now,note})
   const problem=adoptionProblem(c,plan)
   if(problem)fail(problem.code,problem.message)
+  // GOV-009: a plan whose largest per-job delay is at or above the schedule threshold needs the policy signatures on its exact changes.
+  const signed=gate(c,{category:'schedule',subjectKind:'schedulePlans',subject:plan,measure:()=>largestJobDelay(plan.effects),permitted:['manager','production','planner'],preparedBy:plan.preparedBy,p})
+  if(signed&&'pending' in signed)return signed.pending
+  signed?.consume(plan.id)
   // A schedule approval carries no authority to bypass each adopted piece's door.
   if(plan.extraWork?.length)allow(c,['manager','production','planner'])
   for(const change of plan.overtime??[])allow(c,change.kind==='labor'?['manager']:['manager','planner'])
@@ -147,7 +155,8 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
   // An outage is hypothetical: adoption books around it, never clears a real
   // hold or edits the underlying maintenance/calendar record.
   for(const ch of plan.changes)bump(get(c.s,'workOrders',ch.workOrderId),ch)
-  return bookIntervals(c,plan,note,c.actor.id)
+  const booked=bookIntervals(c,plan,note,c.actor.id)
+  return signed?bump(booked,{signatureIds:signed.signatureIds,override:signed.override}):booked
 }
 
 const events=['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected']

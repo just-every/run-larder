@@ -1,15 +1,29 @@
 // A grant delegates only bounded internal interval bookings, never business
 // authority. Every revision suspends the previous approval immediately.
 import { bump, fresh, get, list, row, text, type Context, type Row } from '../model'
-import { allow, approver } from '../roles'
+import { authorize, gate } from '../approval-policy'
+import { allow } from '../roles'
 import { fail, forbidden } from '../problem'
 import { instant, integer } from './calendars'
+import { grantReach } from './delay'
 
 export const grantEvents = ['progress', 'ETA', 'breakdown', 'priority']
 export const recoveryEvent = (type: string) => type.startsWith('maintenance.') || type === 'wo.operation.pause' ? 'breakdown' : type.startsWith('po.') ? 'ETA' : type === 'order.rank' ? 'priority' : 'progress'
 const protectionVersion = (c: Context) => c.s.schedulePolicies[0]?.version
 const snapshot = (g: Row) => { const { history, ...data } = g; return data }
 const revise = (g: Row, data: Record<string, any>) => bump(g, { ...data, history: [...(g.history ?? []), snapshot(g)] })
+
+// GOV-009: with a schedule policy in force its threshold, signatures and signature lifetime cap every
+// grant. A standing grant may delay or displace a job by at most the threshold for each signature the
+// policy requires, and may not outlive a signature's lifetime from the moment it is prepared or approved.
+function capRefusal(c: Context, g: { maxDelayMinutes: number; maxDisplacementMinutes: number; expiresAt: string }) {
+  const policy = c.s.approvalPolicies.find(x => x.category === 'schedule' && x.enabled)
+  if (!policy) return
+  const cap = Number(policy.threshold) * policy.signatures, reach = Number(grantReach(g) / 1_000_000n)
+  if (reach > cap) fail('POLICY', `The owner's schedule policy caps a grant's per-job delay and displacement at ${cap} minutes (${policy.threshold} for each of ${policy.signatures} signature${policy.signatures === 1 ? '' : 's'}).`, { cap, requested: reach })
+  const latest = new Date(Date.parse(c.now) + policy.expiryMinutes * 60000).toISOString()
+  if (g.expiresAt > latest) fail('POLICY', `The owner's schedule policy caps a grant's life at ${policy.expiryMinutes} minutes, the lifetime of one signature.`, { latest })
+}
 
 export function suspendGrant(c: Context, grant: Row, reason: string) {
   return revise(grant, { status: 'suspended', suspendedAt: c.now, suspensionReason: reason })
@@ -30,9 +44,10 @@ export function scheduleGrant(c: Context, type: string, p: any): Row | undefined
     if (!machineIds.length && !workOrderIds.length) fail('INPUT', 'Choose at least one work center or job; there is no installation-wide default.')
     const expiresAt = instant(p.expiresAt, 'grant expiry')
     if (expiresAt <= c.now) fail('INPUT', 'The grant expiry must be in the future.')
+    const limits = { maxDelayMinutes: integer(p.maxDelayMinutes, 'per-job delay limit', 0, 86400), maxDisplacementMinutes: integer(p.maxDisplacementMinutes, 'per-job displacement limit', 0, 86400) }
+    capRefusal(c, { ...limits, expiresAt })
     const data = { status: 'draft', preparedBy: c.actor.id, preparedAt: c.now, eventTypes, machineIds, workOrderIds,
-      maxDelayMinutes: integer(p.maxDelayMinutes, 'per-job delay limit', 0, 86400),
-      maxDisplacementMinutes: integer(p.maxDisplacementMinutes, 'per-job displacement limit', 0, 86400),
+      ...limits,
       expiresAt, protectionVersion: protectionVersion(c), reason: text(p.reason, 'grant reason'), approvedBy: null, approvedAt: null, revokedBy: null, revokedAt: null, revokeReason: null, suspendedAt: null, suspensionReason: null }
     if (!p.id) return row(c, 'scheduleGrants', { ...data, history: [] })
     const grant = get(c.s, 'scheduleGrants', p.id); fresh(grant, p.version)
@@ -41,10 +56,16 @@ export function scheduleGrant(c: Context, type: string, p: any): Row | undefined
   const grant = get(c.s, 'scheduleGrants', p.grantId); fresh(grant, p.version)
   const reason = text(p.reason, 'grant decision reason')
   if (type === 'schedule.grant.approve') {
-    approver(c, ['manager', 'planner'], grant.preparedBy)
+    // A deputy may stand in for a manager or planner (GOV-002); the grant's authorizer is the seat they signed for.
+    authorize(c, ['manager', 'planner'], 'schedule', grant.preparedBy)
     if (grant.status !== 'draft') fail('STATE', 'Prepare a new grant version before approval.')
     if (grant.protectionVersion !== protectionVersion(c) || grant.expiresAt <= c.now) fail('STALE', 'The protection version or expiry changed; prepare a fresh grant.')
-    return revise(grant, { status: 'active', approvedBy: c.actor.id, approvedAt: c.now, approvalReason: reason })
+    capRefusal(c, grant as any)
+    // GOV-009: switching on a grant whose reach is at or above the schedule threshold needs the policy signatures on its exact terms.
+    const signed = gate(c, { category: 'schedule', subjectKind: 'scheduleGrants', subject: grant, measure: () => grantReach(grant as any), permitted: ['manager', 'planner'], preparedBy: grant.preparedBy, p })
+    if (signed && 'pending' in signed) return signed.pending
+    signed?.consume(grant.id)
+    return revise(grant, { status: 'active', approvedBy: signed?.seat ?? c.actor.id, approvedAt: c.now, approvalReason: reason, ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
   }
   if (type === 'schedule.grant.revoke') {
     if (!(['owner', 'manager'].includes(c.actor.role) || [grant.preparedBy, grant.approvedBy].includes(c.actor.id))) forbidden('Only the owner, a manager, the preparer or approver can revoke a grant.')

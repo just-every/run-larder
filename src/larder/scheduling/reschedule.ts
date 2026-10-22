@@ -37,9 +37,9 @@ export function capacityPreview(c: Context, plan: any) {
   return { changes, asOf, days, before, after, effects, conflicts, newUnscheduled, changedPromiseCount: 0, promiseEffects: after.promises.map(p => ({ ...p, before: before.jobs.filter(j => p.workOrderIds.includes(j.workOrderId)).map(j => ({ reference: j.reference, endsAt: j.endsAt, late: j.late })), after: after.jobs.filter(j => p.workOrderIds.includes(j.workOrderId)).map(j => ({ reference: j.reference, endsAt: j.endsAt, late: j.late })) })), fingerprint: fingerprint(after), reason: text(plan.capacity?.reason ?? 'Reviewed finite reschedule', 'schedule reason') }
 }
 
-export function approveCapacity(c: Context, proposal: any) {
+export function approveCapacity(c: Context, proposal: any, earlierSignatures = 0) {
   const preview = proposal.context.capacity
-  if (c.s.version !== proposal.snapshotVersion + 1) fail('STALE', 'Shop-floor, calendars or other records changed after preview. Prepare a new finite schedule.')
+  if (c.s.version !== proposal.snapshotVersion + 1 + earlierSignatures) fail('STALE', 'Shop-floor, calendars or other records changed after preview. Prepare a new finite schedule.')
   if (preview.conflicts.length || preview.newUnscheduled.length) fail('CAPACITY', 'The reviewed move leaves work without finite capacity. Resolve its explicit conflicts before approval.', preview.conflicts)
   if (Date.parse(preview.after.startsAt) < Date.parse(c.now)) fail('STALE', 'This planning window has already started. Preview again with a current or future window.')
   const clone = structuredClone(c.s)

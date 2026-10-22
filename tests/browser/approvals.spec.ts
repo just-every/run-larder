@@ -126,3 +126,38 @@ test('GOV-011 an expired-lot write-off under a two-signature inventory-adjustmen
     await send('approval.policy', { category: 'inventoryAdjustment', thresholdUsd: '50', signatures: 2, enabled: false, reason: 'Approval journey finished' })
   }
 })
+
+test('GOV-009 a reschedule under a two-signature schedule threshold is signed once and then invalidated by a changed work order at 1440/390', async ({ page }) => {
+  const { send, settled, shots } = await start(page, 'GOV-009')
+  const part = await send('item.save', { sku: 'SCH-1', name: 'Schedule assembly', kind: 'make', baseUnit: 'each' })
+  const blank = await send('item.save', { sku: 'SCH-2', name: 'Schedule blank', kind: 'buy', baseUnit: 'each' })
+  await send('bom.revise', { itemId: part.id, components: [{ itemId: blank.id, quantity: '1' }] })
+  const job = await send('wo.draft', { itemId: part.id, quantity: '1', requiredBy: '2030-01-20', plannedStart: '2030-01-10', reason: 'Schedule approval proof' })
+  const proposal = await send('proposal.prepare', { kind: 'reschedule', summary: 'Move the assembly later', evidence: ['bench review'], plan: { changes: [{ workOrderId: job.id, plannedStart: '2030-01-14', priority: 1 }], conflicts: [] } })
+  try {
+    await page.goto(origin + '/app#more/approvals'); await settled()
+    const policy = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Approval policies', exact: true }) })
+    await policy.getByLabel('Approval', { exact: true }).selectOption('schedule')
+    await policy.getByLabel('Threshold', { exact: true }).fill('0')
+    await policy.getByLabel('Signatures needed', { exact: true }).selectOption('2')
+    await policy.getByLabel('Reason', { exact: true }).fill('Two people for every reschedule')
+    await policy.getByRole('button', { name: 'Save policy', exact: true }).click(); await settled()
+    await expect(policy).toContainText('Schedule adoptions and grants')
+    await expect(policy).toContainText('min of per-job delay')
+    const signed = await send('proposal.approve', { proposalId: proposal.id, version: proposal.version })
+    expect(signed.remainingAtSigning).toBe(1)
+    await page.reload(); await settled()
+    const signatures = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Signatures', exact: true }) })
+    await expect(signatures).toContainText('Reschedule')
+    await expect(signatures).toContainText('min of delay')
+    await expect(signatures).toContainText('Valid')
+    await shots('valid')
+    await send('order.rank', { kind: 'work', orderId: job.id, version: job.version, rank: 1 })
+    await page.reload(); await settled()
+    await expect(signatures).toContainText('Invalidated')
+    await shots('invalidated')
+  } finally {
+    // Later journeys share this installation: reschedules go back to one approver.
+    await send('approval.policy', { category: 'schedule', thresholdMinutes: 0, signatures: 2, enabled: false, reason: 'Approval journey finished' })
+  }
+})

@@ -6,6 +6,8 @@ import { sha256, canonicalJson } from '../modules/import-kit/src/d1/index'
 import { decimal, format, times } from './decimal'
 import { fail, forbidden } from './problem'
 import { allow, approver, type Role } from './roles'
+import { authorize, gate } from './approval-policy'
+import { largestJobDelay } from './scheduling/delay'
 import { createQuote } from './sales'
 import { draftPurchase } from './purchasing'
 import { shortages } from './planning'
@@ -61,7 +63,7 @@ function prepare(c: Context, p: any) {
   return row(c, 'proposals', { kind, summary: text(p.summary, 'summary', 400), assumptions: optionalText(p.assumptions, 'assumptions', 4000), evidence, plan, context, status: 'awaiting approval', preparedBy: c.actor.id, preparedRole: c.actor.role, snapshotVersion: c.s.version })
 }
 
-function execute(c: Context, proposal: Row): unknown {
+function execute(c: Context, proposal: Row, earlierSignatures: number): unknown {
   const plan = proposal.plan
   if (proposal.kind === 'order-intake') {
     if (plan.lines.some((l: any) => l.quantity === null)) fail('INCOMPLETE', 'Some quantities are still missing. Ask the customer, then prepare the proposal again.')
@@ -96,7 +98,7 @@ function execute(c: Context, proposal: Row): unknown {
   }
   if (proposal.kind === 'reschedule') {
     if (c.s.machineCalendars.length && !proposal.context.capacity) fail('STALE', 'Capacity calendars were configured after this proposal. Prepare a finite preview before approval.')
-    if (proposal.context.capacity) approveCapacity(c, proposal)
+    if (proposal.context.capacity) approveCapacity(c, proposal, earlierSignatures)
     return plan.changes.map((ch: any) => {
       const w = get(c.s, 'workOrders', ch.workOrderId), before = proposal.context.before.find((b: any) => b.workOrderId === w.id)
       if (w.version !== before.version) fail('STALE', `${w.reference} changed since this was prepared. Ask for a fresh proposal.`)
@@ -119,11 +121,18 @@ export function proposals(c: Context, type: string, p: any): Row | undefined {
     case 'proposal.reject': {
       if (c.actor.role === 'agent' || c.actor.role === 'viewer') forbidden('Agents prepare; a person with authority approves.')
       const proposal = get(c.s, 'proposals', p.proposalId, 'proposal'); fresh(proposal, p.version)
-      approver(c, approvers[proposal.kind], proposal.preparedBy)
+      const rescheduling = proposal.kind === 'reschedule' && type === 'proposal.approve'
+      if (rescheduling) authorize(c, approvers.reschedule, 'schedule', proposal.preparedBy)
+      else approver(c, approvers[proposal.kind], proposal.preparedBy)
       if (proposal.status !== 'awaiting approval') fail('STATE', 'This proposal was already decided.')
       const decision = type === 'proposal.approve' ? 'approved' : 'rejected'
-      const approval = row(c, 'approvals', { subjectKind: 'proposals', subjectId: proposal.id, subjectVersion: proposal.version, decision, role: c.actor.role, note: optionalText(p.note, 'note', 1000) })
-      const result = decision === 'approved' ? execute(c, proposal) : null
+      // GOV-009: a reschedule whose largest per-job delay is at or above the schedule threshold needs the policy signatures.
+      const signed = rescheduling ? gate(c, { category: 'schedule', subjectKind: 'proposals', subject: proposal, measure: () => largestJobDelay(proposal.context.capacity?.effects), permitted: approvers.reschedule, preparedBy: proposal.preparedBy, p }) : null
+      if (signed && 'pending' in signed) return signed.pending
+      const approval = row(c, 'approvals', { subjectKind: 'proposals', subjectId: proposal.id, subjectVersion: proposal.version, decision, role: c.actor.role, note: optionalText(p.note, 'note', 1000), ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
+      signed?.consume(approval.id)
+      // Each earlier signature was its own command, so the preview's snapshot has moved on by exactly that many versions.
+      const result = decision === 'approved' ? execute(c, proposal, signed ? signed.signatureIds.length - 1 : 0) : null
       return bump(proposal, { status: decision, approvalId: approval.id, decidedBy: c.actor.id, result })
     }
   }
