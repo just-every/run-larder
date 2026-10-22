@@ -10,7 +10,7 @@ import { signOut } from './shell'
 import { DowntimeReport } from './downtime-report'
 import { byId, can, itemName, locationName, partyName, personName, rows, sku, unitOf, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
-import { Card, Chip, Choose, Details, Empty, Field, Form, Lines, Table, options, readLines, text } from './controls'
+import { Card, Chip, Choose, Details, Empty, Field, Form, Lines, Table, fileBase64, options, readLines, text } from './controls'
 import { LotDateFields, readLotDates } from './lot-expiry'
 import { day, dayName, minus, money, positive, qty, when, words } from './format'
 import { covers, firstStart, stories, timing } from './supply'
@@ -20,6 +20,7 @@ import { Boms } from './bom-editor'
 import { WorkOperations } from './work-operations'
 import { WorkLedger } from './work-ledger'
 import { QualityPlans, WorkQuality } from './quality'
+import { SupplyChanges, ReceiptAllocation } from './supply-changes'
 import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
 
 const tabs = [{ id: 'subcontract', title: 'Subcontract' }, { id: 'plan', title: 'Shortages' }, { id: 'po', title: 'Purchase orders' }, { id: 'wo', title: 'Work orders' }, { id: 'boms', title: 'Bills of materials' }, { id: 'forecast', title: 'Forecast & MPS' }, { id: 'dispatch', title: 'Shop-floor dispatch' }, { id: 'quality', title: 'Quality plans' }, { id: 'policies', title: 'Inventory policies' }]
@@ -82,13 +83,14 @@ function Purchase({ larder, po }: { larder: Larder; po: Rec }) {
     <Card title="Supplier and delivery">
       {buyer && ['approved', 'confirmed'].includes(po.status) && <Form title="Record supplier confirmation" submit="Save confirmation" busy={busy} onSubmit={d => run('po.confirm', { poId: po.id, version: po.version, supplierReference: text(d, 'ref'), confirmedDate: text(d, 'date'), lineId: text(d, 'lineId') || undefined })}><Choose label="Delivery to confirm" name="lineId" required={false} options={po.lines.filter((l: any) => positive(minus(l.quantity, l.received))).map((l: any) => ({ value: l.id, label: `${itemName(s, l.itemId)} · ${qty(l.quantity)} · ${day(l.expectedDate ?? po.expectedDate)}` }))} /><Field label="Supplier reference" name="ref" /><Field label="Confirmed delivery" name="date" type="date" /></Form>}
       {buyer && open && <Form title="Revise expected delivery" submit="Revise date" quiet busy={busy} onSubmit={d => run('po.revise', { poId: po.id, version: po.version, expectedDate: text(d, 'date'), note: text(d, 'note'), lineId: text(d, 'lineId') === 'all' ? undefined : text(d, 'lineId') || undefined })}><Choose label="Delivery to revise" name="lineId" required={false} options={[{ value: "all", label: "All outstanding deliveries" }, ...po.lines.filter((l: any) => positive(minus(l.quantity, l.received))).map((l: any) => ({ value: l.id, label: `${itemName(s, l.itemId)} · ${qty(l.quantity)} · ${day(l.expectedDate ?? po.expectedDate)}` }))]} /><Field label="New expected date" name="date" type="date" /><Field label="Why" name="note" /></Form>}
-      {open && can(s, ['manager', 'warehouse']) && <Form title="Receive delivery" submit="Receive" busy={busy} onSubmit={d => run('receipt.create', { poId: po.id, supplierReference: text(d, 'ref'), lines: po.lines.map((l: any) => ({ lineId: l.id, quantity: text(d, `q.${l.id}`), locationId: text(d, 'locationId'), lot: text(d, `lot.${l.id}`), dates: readLotDates(d, `dates.${l.id}.`), inspection: text(d, 'inspection') })).filter((l: any) => l.quantity && positive(l.quantity)) })}>
-        <Field label="Packing slip" name="ref" /><Choose label="Into location" name="locationId" defaultValue={po.inventoryPolicy?.locationId ?? ''} options={options(rows(s, 'locations'), r => r.name)} />
+      {open && can(s, ['manager', 'warehouse']) && <Form title="Receive delivery" submit="Receive" busy={busy} onSubmit={async d => { const note = d.get('note') as File, documents = note && note.size > 0 ? [{ name: note.name, contentType: note.type || 'application/octet-stream', base64: await fileBase64(note) }] : undefined; return run('receipt.create', { poId: po.id, supplierReference: text(d, 'ref'), ...(documents ? { documents } : {}), lines: po.lines.map((l: any) => ({ lineId: l.id, quantity: text(d, `q.${l.id}`), locationId: text(d, 'locationId'), lot: text(d, `lot.${l.id}`), dates: readLotDates(d, `dates.${l.id}.`), inspection: text(d, 'inspection'), ...(text(d, `dmg.${l.id}`) ? { damage: { quantity: text(d, `dmg.${l.id}`), reason: text(d, `why.${l.id}`) } } : {}) })).filter((l: any) => l.quantity && positive(l.quantity)) }) }}>
+        <Field label="Packing slip" name="ref" /><Field label="Delivery note file (optional)" name="note" type="file" required={false} /><Choose label="Into location" name="locationId" defaultValue={po.inventoryPolicy?.locationId ?? ''} options={options(rows(s, 'locations'), r => r.name)} />
         <Choose label="Inspection" name="inspection" options={[{ value: 'accept', label: 'Accept into stock' }, { value: 'quarantine', label: 'Hold in quarantine' }]} />
-        {po.lines.filter((l: any) => positive(minus(l.quantity, l.received))).map((l: any) => <div className="line" key={l.id}><Field label={`${itemName(s, l.itemId)} (outstanding ${qty(minus(l.quantity, l.received))})${po.lines.filter((x: any) => x.itemId === l.itemId).length > 1 ? ` · delivery ${day(l.expectedDate ?? po.expectedDate)}` : ""}`} name={`q.${l.id}`} inputMode="decimal" required={false} /><Field label="Supplier lot" name={`lot.${l.id}`} required={false} /><LotDateFields prefix={`dates.${l.id}.`} /></div>)}
+        {po.lines.filter((l: any) => positive(minus(l.quantity, l.received))).map((l: any) => <div className="line" key={l.id}><Field label={`${itemName(s, l.itemId)} (outstanding ${qty(minus(l.quantity, l.received))})${po.lines.filter((x: any) => x.itemId === l.itemId).length > 1 ? ` · delivery ${day(l.expectedDate ?? po.expectedDate)}` : ""}`} name={`q.${l.id}`} inputMode="decimal" required={false} /><Field label="Supplier lot" name={`lot.${l.id}`} required={false} /><Field label="Damaged units (quarantined)" name={`dmg.${l.id}`} inputMode="decimal" required={false} /><Field label="Damage reason" name={`why.${l.id}`} required={false} /><LotDateFields prefix={`dates.${l.id}.`} /></div>)}
       </Form>}
-      {rows(s, 'receipts').filter(r => r.poId === po.id).map(r => <p key={r.id} className="muted">{r.reference} · {r.supplierReference} · {when(r.createdAt)} · {words(r.status)}</p>)}
-      {!open && po.status !== 'draft' && <Empty>Fully received.</Empty>}
+      {rows(s, 'receipts').filter(r => r.poId === po.id).map(r => <p key={r.id} className="muted">{r.reference} · {r.supplierReference} · {when(r.createdAt)} · {words(r.status)}{(r.documents ?? []).length > 0 && ` · ${r.documents.map((x: any) => x.name).join(', ')}`}{r.lines.filter((l: any) => l.damageReason).map((l: any) => <small key={l.movementId}> {qty(l.quantity)} damaged: {l.damageReason}.</small>)} <ReceiptAllocation larder={larder} receipt={r} /></p>)}
+      {open && <SupplyChanges larder={larder} po={po} />}
+      {!open && po.status !== 'draft' && <Empty>{po.status === 'cancelled' ? 'Cancelled: nothing is still expected.' : 'Fully received.'}</Empty>}
     </Card>
   </div>
 }

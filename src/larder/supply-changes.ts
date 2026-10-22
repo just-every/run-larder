@@ -60,7 +60,12 @@ export function supplyChanges(s: State) {
           reason: `Arrives ${date}, first needed ${first}.`, affected: use })
     }
   }
-  return { version: s.version, asOf: today, recommendations,
+  // An expedite or deferral already approved for the same date stays visible as a recorded request rather than a new decision.
+  const requested = (r: Record<string, unknown>) => {
+    const asked = s.purchaseOrders.find(p => p.id === r.poId)?.lines.find((l: any) => l.id === r.lineId)?.supplyRequest
+    return asked && asked.kind === r.kind && asked.requestedDate === r.requestedDate ? { by: asked.by, at: asked.at, reason: asked.reason } : null
+  }
+  return { version: s.version, asOf: today, recommendations: recommendations.map(r => ({ ...r, requested: requested(r) })),
     scope: 'recommendations on open approved purchase lines from the dated material allocation; a decision records a request or trims excess and sends nothing',
     limitations: ['An expedite or deferral is a recorded request: the supplier’s date changes only through po.revise.', 'A cancellation trims only the unallocated outstanding quantity; received stock and reservations are untouched.', 'Late candidates and shared pools are recomputed on every read, so a recommendation expires when planning inputs or the UTC day change.'] }
 }
@@ -71,6 +76,7 @@ export function supplyChange(c: Context, type: string, p: any): Row | undefined 
   allow(c, ['manager', 'buyer'])
   if (p.version !== c.s.version || p.asOf !== c.now.slice(0, 10)) fail('STALE', 'Planning inputs or the UTC day changed. Read the recommendations again.')
   const rec: any = supplyChanges(c.s).recommendations.find((r: any) => r.key === p.key) ?? fail('NOT_FOUND', 'That recommendation is no longer in the projection.')
+  if (rec.requested && type === 'supply.change.approve') fail('STATE', 'That request is already recorded.')
   const reason = text(p.reason, 'decision reason', 400), decision = type === 'supply.change.approve' ? 'approved' : 'rejected'
   if (rec.kind === 'cancel') allow(c, ['manager'])
   const po = c.s.purchaseOrders.find(x => x.id === rec.poId)!, line = po.lines.find((l: any) => l.id === rec.lineId)
