@@ -14,7 +14,10 @@ export function AuditTrail() {
     fetch(`/api/larder/audit?${query}&limit=200`, { credentials: 'same-origin', cache: 'no-store' }).then(async res => { const body: any = await res.json(); if (!res.ok) throw new Error(body?.error?.message ?? 'The audit could not load.'); if (live) { setData(body); setError('') } }).catch(e => live && setError(e.message))
     return () => { live = false }
   }, [query])
-  const detail = (e: Entry) => Object.keys(e.after).length === 0 && Object.keys(e.before).length === 0 ? '—' : Object.keys(e.after).slice(0, 4).map(k => `${words(k)}: ${e.op === 'update' ? `${short(e.before[k])} → ${short(e.after[k])}` : short(e.after[k])}`).join('; ')
+  const detail = (e: Entry) => {
+    const keys = Object.keys(e.after).filter(k => !['id', 'createdAt', 'createdBy'].includes(k) && !empty(e.after[k]) || (e.op === 'update' && k in e.after)).slice(0, 5)
+    return keys.length === 0 ? '—' : keys.map(k => `${words(k)}: ${e.op === 'update' ? `${short(e.before[k])} → ${short(e.after[k])}` : short(e.after[k])}`).join('; ')
+  }
   return <Card title="Audit trail" aside={<span><a className="link" href={`/api/larder/audit.csv?${query}`}>Download CSV</a> · <a className="link" href={`/api/larder/audit.json?${query}`}>Download JSON</a></span>}>
     <p className="muted">Append-only: every change records who, when, what it was and what it became, with the reason and linked evidence. Passwords, keys and document bodies are never logged, and nobody can edit or delete an entry.</p>
     <div className="form-grid">
@@ -26,4 +29,5 @@ export function AuditTrail() {
     {data && <p className="muted">{data.total} matching {data.total === 1 ? 'entry' : 'entries'}{data.total > data.entries.length ? `; showing the first ${data.entries.length}` : ''}. Retained for the life of the installation.</p>}
   </Card>
 }
+const empty = (v: unknown) => v === '' || v === null || v === undefined || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && v !== null && !Array.isArray(v) && Object.keys(v).length === 0)
 const short = (v: unknown) => { const t = typeof v === 'string' ? v : JSON.stringify(v ?? ''); return t.length > 60 ? t.slice(0, 57) + '…' : t }
