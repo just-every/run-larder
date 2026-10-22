@@ -17,6 +17,7 @@ import { covers, firstStart, stories, timing } from './supply'
 import { schedule } from './schedule/plan'
 import { Forecasts } from './forecasts'
 import { Boms } from './bom-editor'
+import { ConfigurationNote } from './configure'
 import { WorkOperations } from './work-operations'
 import { WorkLedger } from './work-ledger'
 import { QualityPlans, WorkQuality } from './quality'
@@ -100,7 +101,7 @@ const woTone = (status: string) => status === 'released' ? 'info' : status === '
 function Works({ larder }: { larder: Larder }) {
   const s = larder.state!, statuses = useOrderStatusList(s, 'work'), list = statuses.list(rows(s, 'workOrders'))
   return <><DowntimeReport larder={larder} /><Card title="Work orders">{statuses.controls}{list.length === 0 ? <Empty>{rows(s, 'workOrders').length ? 'No work orders match these filters.' : 'No work orders yet. Draft one from a shortage or below.'}</Empty> :
-    <Table head={['Work order', 'Makes', 'Dates', 'BOM', 'Status', 'Materials / production', 'Done']} numeric={[6]}>{list.map(w => <tr key={w.id}><td><a href={`#make/wo/${w.id}`}>{w.reference}</a><OrderRank status={statuses.status(w.id)} /><OrderStatusActions larder={larder} kind="work" order={w} status={statuses.status(w.id)} /></td><td>{qty(w.quantity)} {itemName(s, w.itemId)}</td><td>Needed {day(w.requiredBy)}<small>Expected completion {day(w.expectedOn ?? w.requiredBy)}</small></td><td>{w.bomRevision ? `Rev ${w.bomRevision}` : '—'}</td><td><Chip tone={woTone(w.status)}>{words(w.status)}</Chip></td><td><OrderStatusDisplay s={s} status={statuses.status(w.id)} /></td><td className="num">{qty(w.output)}</td></tr>)}</Table>}</Card>
+    <Table head={['Work order', 'Makes', 'Dates', 'BOM', 'Status', 'Materials / production', 'Done']} numeric={[6]}>{list.map(w => <tr key={w.id}><td><a href={`#make/wo/${w.id}`}>{w.reference}</a><OrderRank status={statuses.status(w.id)} /><OrderStatusActions larder={larder} kind="work" order={w} status={statuses.status(w.id)} /></td><td>{qty(w.quantity)} {itemName(s, w.itemId)}</td><td>Needed {day(w.requiredBy)}<small>Expected completion {day(w.expectedOn ?? w.requiredBy)}</small></td><td>{w.bomRevision ? `Rev ${w.bomRevision}` : w.configuration ? `Configured rev ${w.configuration.revision}` : '—'}</td><td><Chip tone={woTone(w.status)}>{words(w.status)}</Chip></td><td><OrderStatusDisplay s={s} status={statuses.status(w.id)} /></td><td className="num">{qty(w.output)}</td></tr>)}</Table>}</Card>
     {can(s, ['manager', 'production', 'planner', 'agent']) && <Card title="New work order"><Form submit="Save draft" busy={larder.busy} onSubmit={d => larder.run('wo.draft', { itemId: text(d, 'itemId'), quantity: text(d, 'quantity'), requiredBy: text(d, 'requiredBy'), reason: text(d, 'reason') })}>
       <Choose label="Item to make" name="itemId" options={options(rows(s, 'items').filter(i => i.kind === 'make' && !i.archived), r => `${r.name} · ${r.sku}`)} /><Field label="Quantity" name="quantity" inputMode="decimal" /><Field label="Needed by" name="requiredBy" type="date" /><Field label="Reason" name="reason" /></Form></Card>}</>
 }
@@ -110,6 +111,7 @@ function Work({ larder, w }: { larder: Larder; w: Rec }) {
   const reserved = (lineId: string) => rows(s, 'reservations').filter(r => r.demandId === w.id && r.lineId === lineId)
   return <div className="split">
     <Card title={<>{w.reference} <Chip tone={woTone(w.status)}>{words(w.status)}</Chip></>}>
+      {w.configuration && <ConfigurationNote s={s} c={w.configuration} />}
       {w.bomRevisions?.length > 0 && <p className="muted">Pinned recipes: {w.bomRevisions.map((b: any) => `${itemName(s, b.itemId)} rev ${b.revision} (yield ${b.yield})`).join('; ')}</p>}
       <p className="meta">Make {qty(w.quantity)} {itemName(s, w.itemId)} by {day(w.requiredBy)}{w.bomRevision && ` · pinned to BOM revision ${w.bomRevision}`}</p><p>{w.reason}</p>{w.engineeringBomIds && <p>Engineering review pins: {Object.entries(w.engineeringBomIds).map(([itemId, bomId]) => `${itemName(s, itemId)} rev ${byId(s, 'boms', bomId)?.revision}`).join('; ')}. <a href="#make/boms">Review and acknowledge engineering changes</a>.</p>}
       {w.status === 'draft' && prod && <div className="actions"><button className="button primary" disabled={busy} onClick={() => run('wo.release', { workOrderId: w.id, version: w.version })}>Release and reserve materials</button></div>}

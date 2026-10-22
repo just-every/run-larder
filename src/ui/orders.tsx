@@ -5,6 +5,7 @@ import type { Larder } from './app'
 import { Card, Chip, Choose, Details, Empty, Field, Form, Lines, Table, options, readLines, text } from './controls'
 import { day, isZero, minus, money, negative, perUnit, plus, positive, qty, timesMoney, unitLabel, words } from './format'
 import { NeedsList } from './needs'
+import { ConfigurationNote, ConfigureQuote } from './configure'
 import { FefoPick } from './lot-expiry'
 import { OrderChanges } from './order-changes'
 import { commercialValue } from './order-value'
@@ -31,6 +32,7 @@ export function Orders({ larder, id }: { larder: Larder; id?: string }) {
       <Field label="Customer reference" name="customerReference" required={false} />
       <Lines items={rows(s, 'items').filter(i => !i.archived)} />
     </Form></Card>}
+    <ConfigureQuote larder={larder} />
   </div>
 }
 
@@ -81,6 +83,7 @@ function OrderWorkspace({ larder, order }: { larder: Larder; order: Rec }) {
             <td className="num">{qty(minus(l.quantity, l.cancelled))}{positive(l.cancelled) && <small>{qty(l.cancelled)} cancelled</small>}</td><td className="num">{qty(reserved)}</td><td className="num">{qty(l.shipped)}</td>
             <td className="num"><span className={`short ${positive(short) ? 'bad' : 'ok'}`}>{qty(short)}</span></td></tr>
         })}</Table>
+        {order.lines.filter((l: any) => l.configuration).map((l: any) => <div key={`cfg-${l.id}`}><ConfigurationNote s={s} c={l.configuration} />{open && can(s, ['manager', 'production', 'planner']) && <button type="button" className="button" disabled={busy} onClick={() => run('wo.draft', { itemId: l.itemId, quantity: openOf(l), requiredBy: order.promiseDate, reason: `Configured line of ${order.reference}`, orderId: order.id, lineId: l.id })}>Draft work to this configuration</button>}</div>)}
         {order.status === 'quote' && can(s, ['manager', 'sales']) && <div className="actions"><button className="button primary" disabled={busy} onClick={() => run('so.confirm', { orderId: order.id, version: order.version })}>Confirm order and reserve stock</button></div>}
       </Card>
       {selected && <Availability s={s} itemId={selected} larder={larder} order={order} />}

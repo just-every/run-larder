@@ -11,6 +11,7 @@ import { fail } from './problem'
 import { allow } from './roles'
 import { gate } from './approval-policy'
 import { orderMargin } from './margin'
+import { resolveFor } from './configurations'
 import { consume, release, reserve, reservedQuantity, withdraw } from './stock'
 import { dated, pickLots, shipBlock } from './lot-dates'
 import { bump, date, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Row } from './model'
@@ -19,7 +20,9 @@ export function quoteLines(c: Context, lines: unknown) {
   return list(lines).map((line: any) => {
     const item = get(c.s, 'items', line.itemId, 'item')
     if (item.archived) fail('ARCHIVED', `${item.name} is archived and cannot be sold.`)
-    return { id: newId(), itemId: item.id, quantity: format(toBase(item, line.quantity, line.unit)), unitPrice: format(decimal(line.unitPrice ?? item.salePrice, 'unit price')), shipped: '0', returned: '0', cancelled: '0' }
+    // ENG-003: a configured line pins the resolved configuration (revision, choices, components, routing and cost).
+    const configuration = line.configuration ? resolveFor(c.s, item.id, line.configuration) : undefined
+    return { id: newId(), itemId: item.id, quantity: format(toBase(item, line.quantity, line.unit)), unitPrice: format(decimal(line.unitPrice ?? item.salePrice, 'unit price')), shipped: '0', returned: '0', cancelled: '0', ...(configuration ? { configuration } : {}) }
   })
 }
 

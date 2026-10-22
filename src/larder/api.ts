@@ -29,6 +29,7 @@ import { blindSessions } from './count-visibility'
 import { catalogBulk } from './catalog-bulk'
 import { catalogCsv } from './catalog-csv'
 import { catalogue } from './catalogue'
+import { configurations, resolveFor } from './configurations'
 import { exportBatch, imports, publishImport } from './odoo/imports'
 import { handoff, handoffCsv } from './handoff'
 import { forecasts } from './forecast'
@@ -85,7 +86,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version, scope: effectiveScope(member, custom) }
 }
 
-const handlers = [approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -214,6 +215,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
       return json(await read(s => finitePlan(s, named.people as any, url.searchParams.get('asOf') ?? new Date().toISOString(), Number(url.searchParams.get('days') ?? 14))))
     }
     if (path === '/purchasing/quotes') return json(await read(s => supplierQuotes(s, url.searchParams.get('itemId') ?? '', url.searchParams.get('quantity') ?? '', url.searchParams.get('requiredBy') ?? '', new Date().toISOString().slice(0, 10))))
+    if (path === '/configurations/resolve') return json(await read(s => resolveFor(s, url.searchParams.get('itemId') ?? '', JSON.parse(url.searchParams.get('selection') ?? '{}'))))
     if (path === '/planning/materials') return json(await read(s => materialDates(s)))
     if (path === '/planning/pegging') return json(await read(s => materialPegging(s, url.searchParams)))
     if (path === '/planning/supply-changes') return json(await read(s => supplyChanges(s)))

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { installation, evidence } from './harness.mjs'
+import { installation, evidence, workshop } from './harness.mjs'
 const today = () => new Date().toISOString().slice(0, 10)
 const tomorrow = () => new Date(Date.parse(today() + 'T00:00:00Z') + 86400000).toISOString().slice(0, 10)
 
@@ -101,4 +101,73 @@ test('ENG-005 safety replacement review, eligibility/evidence, effectivity, stoc
   await h.command('engineering.approve', { changeId: next.id, version: next.version }, { error: 'STALE' })
   const declined = await h.command('engineering.decline', { changeId: next.id, version: next.version, reason: 'Refresh changed business state' })
   assert.equal(declined.status, 'declined'); assert.equal(declined.declineReason, 'Refresh changed business state')
+})
+
+test('ENG-003 configure two sizes and finishes through the quote, compare the resolved BOM and cost, release both, refuse an invalid choice and keep old work stable after a rule edit', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h), engineer = await h.person('eng3@example.test', 'engineer'), sales = await h.person('sal3@example.test', 'sales'), agent = await h.person('agent3@example.test', 'agent')
+  const lacquer = await h.command('item.save', { sku: 'LAC-1L', name: 'Board lacquer', kind: 'buy', baseUnit: 'l', standardCost: '12' })
+  await h.command('opening.record', { locationId: w.loc.id, countedOn: '2026-10-01', valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: lacquer.id, quantity: '5', unitCost: '12' }] })
+  const model = {
+    itemId: w.board.id, note: 'Board sizes and finishes',
+    attributes: [{ name: 'Size', values: ['Small', 'Large'] }, { name: 'Finish', values: ['Oil', 'Lacquer'] }],
+    dimensions: [{ name: 'thickness', unit: 'mm', min: '15', max: '40' }], options: [{ name: 'Engraving' }],
+    rules: [
+      { name: 'Small blank', when: { Size: 'Small' }, components: [{ itemId: w.timber.id, quantity: '1' }] },
+      { name: 'Large blank', when: { Size: 'Large' }, components: [{ itemId: w.timber.id, quantity: '2 * thickness / 20' }] },
+      { name: 'Oil finish', when: { Finish: 'Oil' }, components: [{ itemId: w.oil.id, quantity: '0.05' }] },
+      { name: 'Lacquer finish', when: { Finish: 'Lacquer' }, components: [{ itemId: lacquer.id, quantity: '0.08' }] },
+      { name: 'Plane and cut', routing: [{ name: 'Plane and cut', workCentre: 'Bench', runMinutes: '10 + thickness / 5' }] },
+      { name: 'Engraving', when: { Engraving: true }, routing: [{ name: 'Engrave', workCentre: 'Laser', runMinutes: '4' }], cost: '3.5' },
+    ],
+    invalid: [{ when: { Size: 'Small', Finish: 'Lacquer' }, reason: 'Lacquer is only offered on the Large board.' }],
+  }
+  // Engineering saves versioned rules; sales and agents cannot, and a formula that cannot run is refused when saved.
+  await sales.run('config.save', model, { error: 'FORBIDDEN' }); await agent.run('config.save', model, { error: 'FORBIDDEN' })
+  await engineer.run('config.save', { ...model, rules: [{ name: 'Bad', components: [{ itemId: w.timber.id, quantity: 'depth * 2' }] }] }, { error: 'FORMULA' })
+  await engineer.run('config.save', { ...model, rules: [{ name: 'Bad', components: [{ itemId: w.timber.id, quantity: '1 / (thickness - thickness)' }] }] }, { error: 'FORMULA' })
+  const v1 = await engineer.run('config.save', model)
+  assert.deepEqual([v1.revision, v1.status], [1, 'active'])
+  const small = { attributes: { Size: 'Small', Finish: 'Oil' }, dimensions: { thickness: '20' }, options: {} }, large = { attributes: { Size: 'Large', Finish: 'Lacquer' }, dimensions: { thickness: '30' }, options: { Engraving: true } }
+  const resolve = async (selection, as) => (await h.request(`/api/larder/configurations/resolve?itemId=${w.board.id}&selection=${encodeURIComponent(JSON.stringify(selection))}`, { as })).json()
+  // Compare the two resolved BOMs and costs, each figure with the rule and arithmetic behind it.
+  const a = await resolve(small), b = await resolve(large)
+  assert.deepEqual(a.components.map(l => [l.itemId, l.quantity, l.cost]), [[w.timber.id, '1', '9.5'], [w.oil.id, '0.05', '0.9']])
+  assert.deepEqual(b.components.map(l => [l.itemId, l.quantity, l.cost]), [[w.timber.id, '3', '28.5'], [lacquer.id, '0.08', '0.96']])
+  assert.deepEqual([a.cost.unit, b.cost.unit, b.cost.extra], ['10.4', '32.96', '3.5'])
+  assert.deepEqual([a.routing.map(r => [r.name, r.runMinutes]), b.routing.map(r => [r.name, r.runMinutes])], [[['Plane and cut', 14]], [['Plane and cut', 16], ['Engrave', 4]]])
+  assert.match(b.components[0].because[0].formula, /2 \* thickness \/ 20 with thickness = 30 = 3/); assert.equal(b.components[0].because[0].rule, 'Large blank')
+  // An invalid combination, a dimension outside its range and an unmade choice are refused through the resolve and quote doors.
+  for (const bad of [{ ...small, attributes: { Size: 'Small', Finish: 'Lacquer' } }, { ...small, dimensions: { thickness: '50' } }, { ...small, attributes: { Size: 'Small' } }]) {
+    assert.equal((await h.request(`/api/larder/configurations/resolve?itemId=${w.board.id}&selection=${encodeURIComponent(JSON.stringify(bad))}`)).status, 409)
+    await sales.run('so.quote', { customerId: w.customer.id, promiseDate: '2026-12-01', lines: [{ itemId: w.board.id, quantity: '1', unitPrice: '99', configuration: { selection: bad } }] }, { error: 'INVALID_CONFIGURATION' })
+  }
+  assert.equal((await h.state()).salesOrders.length, 0)
+  // The quote pins the resolved configuration on each line; both lines confirm and release as their own work.
+  const quote = await sales.run('so.quote', { customerId: w.customer.id, promiseDate: '2026-12-01', lines: [{ itemId: w.board.id, quantity: '2', unitPrice: '60', configuration: { selection: small } }, { itemId: w.board.id, quantity: '1', unitPrice: '140', configuration: { selection: large } }] })
+  assert.deepEqual(quote.lines.map(l => [l.configuration.revision, l.configuration.cost.unit]), [[1, '10.4'], [1, '32.96']])
+  const order = await sales.run('so.confirm', { orderId: quote.id, version: quote.version, reserve: false })
+  const drafts = [], released = []
+  for (const line of order.lines) {
+    const draft = await h.command('wo.draft', { itemId: w.board.id, quantity: line.quantity, requiredBy: '2026-12-01', reason: 'Configured line', orderId: order.id, lineId: line.id })
+    assert.equal(draft.configuration.revision, 1); assert.deepEqual(draft.configurationSource, { orderId: order.id, lineId: line.id, reference: order.reference })
+    await agent.run('wo.release', { workOrderId: draft.id, version: draft.version }, { error: 'FORBIDDEN' })
+    drafts.push(draft); released.push(await h.command('wo.release', { workOrderId: draft.id, version: draft.version }))
+  }
+  const [wo1, wo2] = released
+  assert.deepEqual(wo1.components.map(l => [l.itemId, l.required]), [[w.timber.id, '2'], [w.oil.id, '0.1']])
+  assert.deepEqual(wo2.components.map(l => [l.itemId, l.required]), [[w.timber.id, '3'], [lacquer.id, '0.08']])
+  assert.deepEqual([wo1.routing.length, wo2.routing.map(r => r.name), wo1.standardUnitCost, wo2.standardUnitCost, wo1.bomRevision], [1, ['Plane and cut', 'Engrave'], '10.4', '32.96', null])
+  // A rule edit makes a new revision for new quotes and leaves the old quote and released work exactly as they were.
+  const v2 = await engineer.run('config.save', { ...model, note: 'Large boards use a fixed 4 blanks', rules: model.rules.map(r => r.name === 'Large blank' ? { ...r, components: [{ itemId: w.timber.id, quantity: '4' }] } : r) })
+  assert.deepEqual([v2.revision, (await h.state()).configModels.find(m => m.id === v1.id).status], [2, 'superseded'])
+  assert.equal((await resolve(large)).components[0].quantity, '4')
+  const after = await h.state(), line = after.salesOrders[0].lines[1]
+  assert.deepEqual([line.configuration.revision, line.configuration.components[0].quantity], [1, '3'])
+  assert.deepEqual(after.workOrders.find(x => x.id === wo2.id).components.map(l => l.required), ['3', '0.08'])
+  await sales.run('so.quote', { customerId: w.customer.id, promiseDate: '2026-12-01', lines: [{ itemId: w.board.id, quantity: '1', unitPrice: '140', configuration: { modelId: v1.id, selection: large } }] }, { error: 'STALE' })
+  // Work drafted later from the old quote line still makes revision 1.
+  const late = await h.command('wo.draft', { itemId: w.board.id, quantity: '1', requiredBy: '2026-12-02', reason: 'Repeat of the old line', orderId: order.id, lineId: order.lines[1].id })
+  assert.equal((await h.command('wo.release', { workOrderId: late.id, version: late.version })).components[0].required, '3')
+  await h.invariant()
 })

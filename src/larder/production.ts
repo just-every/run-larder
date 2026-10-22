@@ -8,6 +8,7 @@ import { requiredTypes } from './certificate-policy'
 import { engineeringReleaseBom } from './engineering-policy'
 import { requireCatalogLot } from './catalog-fields'
 import { activeBom } from './bom'
+import { configuredBom, workConfiguration } from './configurations'
 import { resolvedComponents } from './bom-explosion'
 import { toBase } from './catalogue'
 import { decimal, divide, format, max, min, times } from './decimal'
@@ -32,28 +33,31 @@ const component = (w: Row, itemId: unknown) => w.components.find((l: any) => l.i
 
 export function production(c: Context, type: string, p: any): Row | undefined {
   switch (type) {
-    case 'wo.draft':
+    case 'wo.draft': {
       allow(c, ['manager', 'production', 'planner', 'agent'])
-      return draftWork(c, p)
+      // ENG-003: configured work pins the resolved configuration of its quote line (or a direct choice) from the draft.
+      const { configuration, source } = workConfiguration(c, p), w = draftWork(c, p)
+      return configuration ? Object.assign(w, { configuration, ...(source ? { configurationSource: source } : {}) }) : w
+    }
     case 'wo.release': {
       approver(c, ['manager', 'production'])
       const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
       approver(c, ['manager', 'production'])
       if (w.status !== 'draft') fail('STATE', 'Only a draft work order can be released.')
-      const bom = engineeringReleaseBom(c, w) ?? activeBom(c.s, w.itemId, c.now.slice(0, 10)) ?? fail('NO_BOM', 'Give this item a bill of materials before releasing work.')
+      const bom = w.configuration ? configuredBom(c.s, w) : engineeringReleaseBom(c, w) ?? activeBom(c.s, w.itemId, c.now.slice(0, 10)) ?? fail('NO_BOM', 'Give this item a bill of materials before releasing work.')
       const quantity = decimal(w.quantity)
       const resolved = resolvedComponents(c.s, bom, quantity, c.now.slice(0, 10), w.engineeringBomIds)
       const totals = new Map<string, bigint>()
       for (const l of resolved.components) totals.set(l.itemId, (totals.get(l.itemId) ?? 0n) + decimal(l.quantity))
       const components = [...totals].map(([itemId, required]) => ({ id: newId(), itemId, perUnit: format(divide(required, quantity)), required: format(required), supplyRequirements: resolved.components.filter(l => l.itemId === itemId).map(l => ({ supply: l.supply, quantity: l.quantity })), issued: '0' }))
-      const standardUnitCost = divide(components.reduce((n: bigint, l: any) => n + times(decimal(l.required), averageCost(c.s, l.itemId)), 0n), quantity)
+      const standardUnitCost = divide(components.reduce((n: bigint, l: any) => n + times(decimal(l.required), averageCost(c.s, l.itemId)), 0n) + (w.configuration ? times(decimal(w.configuration.cost.extra), quantity) : 0n), quantity)
       const routing = structuredClone(bom.routing)
       for (const step of routing) if (w.plannedCentres?.[step.sequence]) {
         const center = w.plannedCentres[step.sequence], eligible = step.eligibleCentres?.length ? step.eligibleCentres : [step.workCentre]
         if (!eligible.includes(center)) fail('WORK_CENTER', 'The planned split/merge center is not eligible in the release revision.')
         step.workCentre = center
       }
-      bump(w, { traceAllocationVersion: 1, status: 'released', bomId: bom.id, bomRevision: bom.revision, bomRevisions: resolved.revisions, components, routing, operationStates: bom.routing.map((r: any) => ({ sequence: r.sequence, status: 'pending', acknowledgments: [] })), standardUnitCost: format(standardUnitCost), releasedBy: c.actor.id, releasedAt: c.now })
+      bump(w, { traceAllocationVersion: 1, status: 'released', bomId: bom.id, bomRevision: bom.revision, bomRevisions: w.configuration ? [] : resolved.revisions, components, routing, operationStates: bom.routing.map((r: any) => ({ sequence: r.sequence, status: 'pending', acknowledgments: [] })), standardUnitCost: format(standardUnitCost), releasedBy: c.actor.id, releasedAt: c.now })
       w.shortages = components.map((l: any) => {
         const got = reserve(c, { demandKind: 'work', demandId: w.id, lineId: l.id, itemId: l.itemId }, decimal(l.required))
         return { itemId: l.itemId, short: format(decimal(l.required) - got) }

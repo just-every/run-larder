@@ -94,3 +94,52 @@ test('ENG-005 review a safety replacement, evidence and stock/work dispositions,
   await expect(page.locator('main')).toContainText('pinned to BOM revision 3'); await expect(page.locator('main')).toContainText(replacement.name)
   await shots(page, 'adopted-work')
 })
+
+test('ENG-003 configure two sizes and finishes on the quote, compare the resolved BOM and cost, refuse an invalid choice and draft work to both at 1440/390', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  const suffix = crypto.randomUUID().slice(0, 6)
+  const blank = await command(page, 'item.save', { sku: `BLK-${suffix}`, name: `Maple blank ${suffix}`, kind: 'buy', baseUnit: 'each', standardCost: '9.5' })
+  const lacquer = await command(page, 'item.save', { sku: `LAC-${suffix}`, name: `Lacquer ${suffix}`, kind: 'buy', baseUnit: 'l', standardCost: '12' })
+  const board = await command(page, 'item.save', { sku: `BRD-${suffix}`, name: `Maple board ${suffix}`, kind: 'make', baseUnit: 'each', salePrice: '80' })
+  const customer = await command(page, 'party.save', { name: `Board buyer ${suffix}`, kind: 'customer' })
+  await command(page, 'config.save', { itemId: board.id, attributes: [{ name: 'Size', values: ['Small', 'Large'] }, { name: 'Finish', values: ['Oil', 'Lacquer'] }], dimensions: [{ name: 'thickness', unit: 'mm', min: '15', max: '40' }], options: [{ name: 'Engraving' }],
+    rules: [{ name: 'Small blank', when: { Size: 'Small' }, components: [{ itemId: blank.id, quantity: '1' }] }, { name: 'Large blank', when: { Size: 'Large' }, components: [{ itemId: blank.id, quantity: '2 * thickness / 20' }] }, { name: 'Lacquer finish', when: { Finish: 'Lacquer' }, components: [{ itemId: lacquer.id, quantity: '0.08' }] }, { name: 'Plane', routing: [{ name: 'Plane and cut', workCentre: `Bench ${suffix}`, runMinutes: '10 + thickness / 5' }] }, { name: 'Engraving', when: { Engraving: true }, cost: '3.5' }],
+    invalid: [{ when: { Size: 'Small', Finish: 'Lacquer' }, reason: 'Lacquer is only offered on the Large board.' }] })
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await page.goto(origin + '/app#orders'); await page.reload(); await settled(page)
+    const quote = page.locator('section.card').filter({ has: page.getByRole('heading', { name: 'Configured quote', exact: true }) })
+    await quote.getByLabel('Customer', { exact: true }).selectOption(customer.id)
+    await quote.getByLabel('Promise date', { exact: true }).fill('2030-01-10')
+    await quote.getByLabel('Configurable item', { exact: true }).selectOption(board.id)
+    // An invalid combination is refused with the engineering reason and adds nothing.
+    await quote.getByLabel('Size', { exact: true }).selectOption('Small'); await quote.getByLabel('Finish', { exact: true }).selectOption('Lacquer')
+    await quote.getByLabel(/^thickness/).fill('20')
+    await quote.getByRole('button', { name: 'Add to quote', exact: true }).click()
+    await expect(quote).toContainText('Lacquer is only offered on the Large board.')
+    await expect(quote.getByRole('region', { name: /Configured line/ })).toHaveCount(0)
+    await quote.getByLabel('Finish', { exact: true }).selectOption('Oil')
+    await quote.getByRole('button', { name: 'Add to quote', exact: true }).click()
+    await quote.getByLabel('Size', { exact: true }).selectOption('Large'); await quote.getByLabel('Finish', { exact: true }).selectOption('Lacquer')
+    await quote.getByLabel(/^thickness/).fill('30'); await quote.getByLabel('Engraving', { exact: true }).check()
+    await quote.getByRole('button', { name: 'Add to quote', exact: true }).click()
+    const first = quote.getByRole('region', { name: 'Configured line 1' }), second = quote.getByRole('region', { name: 'Configured line 2' })
+    await expect(first).toContainText('Size: Small; Finish: Oil'); await expect(first).toContainText('$9.50 each')
+    await expect(second).toContainText('Size: Large; Finish: Lacquer'); await expect(second).toContainText('$32.96 each'); await expect(second).toContainText('2 * thickness / 20 with thickness = 30 = 3')
+    await shots(page, 'compare', quote)
+    await quote.getByRole('button', { name: 'Save configured quote', exact: true }).click(); await settled(page)
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('SO-')
+    const state = await (await page.request.get(origin + '/api/larder/state')).json(), order = state.salesOrders.filter((o: any) => o.customerId === customer.id).at(-1)
+    expect(order.lines.map((l: any) => l.configuration.cost.unit)).toEqual(['9.5', '32.96'])
+    await command(page, 'so.confirm', { orderId: order.id, version: order.version, reserve: false })
+    await page.reload(); await settled(page)
+    const drafts = page.getByRole('button', { name: 'Draft work to this configuration', exact: true })
+    await expect(drafts).toHaveCount(2)
+    for (const i of [0, 1]) { await drafts.nth(i).click(); await settled(page) }
+    await shots(page, 'order')
+    const after = await (await page.request.get(origin + '/api/larder/state')).json()
+    expect(after.workOrders.filter((w: any) => w.configurationSource?.orderId === order.id).map((w: any) => w.configuration.cost.unit)).toEqual(['9.5', '32.96'])
+  }
+})
