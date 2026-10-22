@@ -1,3 +1,4 @@
+import { Replenishment } from './replenishment'
 import { SupplierTerms, purchaseTermFacts } from './supplier-terms'
 import { WorkBatchHistory } from './work-batch-history'
 import { Subcontract } from './subcontract'
@@ -32,7 +33,7 @@ export function MakeBuy({ larder, section = 'plan', id }: { larder: Larder; sect
     {section === 'policies' && <InventoryPolicies larder={larder} />}
     {section === 'quality' && <QualityPlans larder={larder} />}
     {section === 'dispatch' && <Dispatch larder={larder} onSignOut={() => void signOut()} />}
-    {section === 'plan' && <Shortages larder={larder} />}
+    {section === 'plan' && <><Shortages larder={larder} /><Replenishment larder={larder} /></>}
     {section === 'po' && (id && byId(s, 'purchaseOrders', id) ? <Purchase larder={larder} po={byId(s, 'purchaseOrders', id)!} /> : <Purchases larder={larder} />)}
     {section === 'wo' && (id && byId(s, 'workOrders', id) ? <Work larder={larder} w={byId(s, 'workOrders', id)!} /> : <Works larder={larder} />)}
     {section === 'forecast' && <Forecasts larder={larder} />}

@@ -10,7 +10,7 @@ function TermForm({ larder, reference }: { larder: Larder; reference?: Rec }) {
   const s = larder.state!, t = reference?.supplierTerms
   return <Form key={`${reference?.id ?? 'new'}:${reference?.version ?? 0}`} title={reference ? 'Revise terms' : 'Add supplier terms'} submit="Save supplier terms" busy={larder.busy} onSubmit={d => larder.run('supplier.terms', {
     id: reference?.id, version: reference?.version, partyId: reference?.partyId ?? text(d, 'partyId'), itemId: reference?.itemId ?? text(d, 'itemId'),
-    partyCode: text(d, 'partyCode'), preferred: d.get('preferred') === 'on', packQuantity: text(d, 'pack'), moq: text(d, 'moq'), leadDays: Number(text(d, 'leadDays')),
+    partyCode: text(d, 'partyCode'), preferred: d.get('preferred') === 'on', packQuantity: text(d, 'pack'), moq: text(d, 'moq'), leadDays: Number(text(d, 'leadDays')), leadDaysMax: text(d, 'leadDaysMax') ? Number(text(d, 'leadDaysMax')) : undefined,
     price: text(d, 'price'), currency: text(d, 'currency'), usdRate: text(d, 'usdRate'), rateOn: text(d, 'rateOn'), rateSource: text(d, 'rateSource'),
     paymentTerms: text(d, 'paymentTerms'), freightTerms: text(d, 'freightTerms'), weekdays: csv(text(d, 'weekdays')).map(Number), closedDates: csv(text(d, 'closedDates')),
     breaks: csv(text(d, 'breaks')).map(b => { const [quantity, price] = b.split('='); return { quantity, price } }), note: text(d, 'note'),
@@ -19,6 +19,7 @@ function TermForm({ larder, reference }: { larder: Larder; reference?: Rec }) {
     <Field label="Supplier item code" name="partyCode" defaultValue={reference?.partyCode} />
     <Field label="Pack quantity" name="pack" defaultValue={t?.packQuantity ?? '1'} inputMode="decimal" /><Field label="Minimum order quantity" name="moq" defaultValue={t?.moq ?? '1'} inputMode="decimal" />
     <Field label="Lead working days" name="leadDays" type="number" min="0" max="365" defaultValue={t?.leadDays ?? 0} />
+    <Field label="Maximum uncertain lead working days" name="leadDaysMax" type="number" min="0" max="365" defaultValue={t?.leadDaysMax ?? t?.leadDays} required={false} hint="Blank means the normal lead time. A declared bound, never a probability." />
     <Field label="Price per base unit" name="price" defaultValue={t?.price ?? '0'} inputMode="decimal" />
     <Field label="Price breaks" name="breaks" defaultValue={t?.breaks.map((b: any) => `${b.quantity}=${b.price}`).join(', ')} required={false} hint="Quantity=price, e.g. 24=8, 48=7.5" />
     <Field label="Currency" name="currency" defaultValue={t?.currency ?? 'USD'} maxLength={3} />
@@ -89,7 +90,7 @@ export function SupplierTerms({ larder }: { larder: Larder }) {
 function termFacts(t: any) {
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
   return { basePrice: `${t.currency} ${t.price}`, currency: t.currency, paymentTerms: t.paymentTerms, freightTerms: t.freightTerms,
-    packQuantity: t.packQuantity, minimumQuantity: t.moq, leadWorkingDays: t.leadDays,
+    packQuantity: t.packQuantity, minimumQuantity: t.moq, leadWorkingDays: t.leadDays, maximumLeadWorkingDays: t.leadDaysMax ?? t.leadDays,
     workingDays: t.weekdays.map((d: number) => days[d]).join(', '), closedDates: t.closedDates.join(', ') || 'None',
     priceBreaks: t.breaks.map((b: any) => `${b.quantity}+ at ${t.currency} ${b.price}`).join('; ') || 'None',
     recordedRate: `USD ${t.usdRate} per ${t.currency}`, rateDate: t.rateOn, rateSource: t.rateSource, note: t.note }

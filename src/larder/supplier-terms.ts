@@ -34,6 +34,9 @@ export function supplierTerms(c: Context, p: any): Row {
   if (new Set(breaks.map(b => b.quantity)).size !== breaks.length) fail('INPUT', 'Price break quantities must be distinct.')
   const terms = { packQuantity: positive(p.packQuantity, 'pack quantity'), moq: positive(p.moq, 'minimum order quantity'), leadDays: integer(p.leadDays, 'lead days', 365), weekdays, closedDates,
     currency, usdRate, rateOn, rateSource, price: format(decimal(p.price, 'price')), breaks, paymentTerms: text(p.paymentTerms, 'payment terms', 200), freightTerms: text(p.freightTerms, 'freight terms', 200), note: optionalText(p.note, 'note', 400) }
+  const leadDaysMax = integer(p.leadDaysMax ?? terms.leadDays, 'maximum uncertain lead days', 365)
+  if (leadDaysMax < terms.leadDays) fail('INPUT', 'Maximum lead time cannot be shorter than normal lead time.')
+  Object.assign(terms, { leadDaysMax })
   // Supplier/item pairs are unambiguous; alternatives are separate suppliers.
   if (c.s.partyItems.some(r => r.id !== existing?.id && r.partyId === p.partyId && r.itemId === p.itemId && r.supplierTerms)) fail('INPUT', 'Revise the existing supplier/item terms.')
   const history = structuredClone(existing?.termHistory ?? [])

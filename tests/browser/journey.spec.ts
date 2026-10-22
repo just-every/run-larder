@@ -430,3 +430,36 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   expect((await state(page)).scheduleBookings).toEqual(before.scheduleBookings)
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'MRP-004-stale')}
 })
+
+test('Replenishment reviews revised MOQ and uncertain coverage/cash, selectively approves and retains rejected reasons at 1440/390',async({page})=>{
+  await enter(page)
+  const call=async(type:string,payload:any)=>{const r=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}});const b=await r.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result}
+  const day=(n:number)=>new Date(Date.now()+n*86400000).toISOString().slice(0,10),suffix=crypto.randomUUID().slice(0,6),items:any[]=[],vendors:any[]=[]
+  for(let i=0;i<2;i++){items.push(await call('item.save',{sku:`synthetic-larder-920-${suffix}-${i}`,name:`Replenishment metal ${suffix} ${i}`,kind:'buy',baseUnit:'each'}));vendors.push(await call('party.save',{name:`Replenishment vendor ${suffix} ${i}`,kind:'supplier'}))}
+  const customer=await call('party.save',{name:`synthetic-larder-921-${suffix}`,kind:'customer'})
+  let so=await call('so.quote',{customerId:customer.id,promiseDate:day(10),lines:items.map(i=>({itemId:i.id,quantity:'7',unitPrice:'9'}))});await call('so.confirm',{orderId:so.id,version:so.version,reserve:false})
+  const terms={partyCode:'synthetic-larder-922',packQuantity:'6',moq:'6',leadDays:1,leadDaysMax:2,weekdays:[0,1,2,3,4,5,6],closedDates:[day(1)],currency:'CAD',usdRate:'0.75',rateOn:day(0),rateSource:'synthetic-larder-923 buyer quote',price:'2',breaks:[{quantity:'12',price:'1.6'}],paymentTerms:'Net 30',freightTerms:'Delivered'}
+  for(const item of items)await call('supplier.terms',{...terms,itemId:item.id,partyId:vendors[0].id,partyCode:item.sku})
+  await call('supplier.terms',{...terms,itemId:items[0].id,partyId:vendors[1].id,leadDaysMax:15})
+  await page.goto(origin+'/app#make/po');await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  const article=page.getByRole('article',{name:'Terms for '+vendors[0].name}).filter({has:page.getByRole('heading',{name:vendors[0].name+' · '+items[0].name,exact:true})})
+  await article.getByText('Revise '+vendors[0].name+' terms',{exact:true}).click()
+  await article.getByLabel('Minimum order quantity',{exact:true}).fill('18');await article.getByLabel('Maximum uncertain lead working days',{exact:true}).fill('4')
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'MRP-003-constraints');if(shots)await article.screenshot({path:join(shots,`${width}-MRP-003-constraints-detail.png`)})}
+  await act(page,()=>article.getByRole('button',{name:'Save supplier terms',exact:true}).click())
+  await page.goto(origin+'/app#make/plan');await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  await page.getByLabel('Planner forecast confidence percent',{exact:true}).fill('75');await page.getByLabel('Forecast confidence basis',{exact:true}).fill('synthetic-larder-924 planner review of sparse history');await page.getByLabel('Replenishment reason',{exact:true}).fill('synthetic-larder-925 selective restock')
+  await act(page,()=>page.getByRole('button',{name:'Run replenishment',exact:true}).click())
+  const review=page.getByRole('region',{name:'Replenishment comparison',exact:true})
+  await expect(review).toContainText('75% planner confidence');await expect(review).toContainText('Too late at uncertain bound')
+  const row=review.getByRole('row').filter({hasText:vendors[0].name}).first();await expect(row).toContainText('18');await expect(row).toContainText('21.6 USD');await expect(row).toContainText('0 at risk')
+  const reasons=review.locator('textarea[aria-label^="Selection or rejection reason for "]')
+  for(let i=0;i<await reasons.count();i++)await reasons.nth(i).fill('synthetic-larder-926 retain rejected suggestion for later review')
+  await page.getByLabel('Approve supplier for '+items[0].name,{exact:true}).selectOption({label:vendors[0].name+' · 21.6 USD'})
+  await page.getByLabel('Selection or rejection reason for '+items[0].name,{exact:true}).fill('synthetic-larder-927 accept conservative lead bound and pack surplus')
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'MRP-003-review');if(shots)await review.screenshot({path:join(shots,`${width}-MRP-003-review-detail.png`)})}
+  const before=await state(page);await act(page,()=>page.getByRole('button',{name:'Approve selected replenishment',exact:true}).click())
+  await expect(page.getByText('Approved replenishment decisions',{exact:true})).toBeVisible();await expect(page.getByText('21.6 USD approved; 1 purchase orders. Nothing was sent to a supplier.',{exact:true})).toBeVisible()
+  const after=await state(page),selected=after.purchaseOrders.filter((p:any)=>!before.purchaseOrders.some((b:any)=>b.id===p.id));expect(selected).toHaveLength(1);expect(selected[0].lines[0].itemId).toBe(items[0].id);expect(selected[0].status).toBe('approved');expect(after.movements).toEqual(before.movements)
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'MRP-003-approved')}
+})
