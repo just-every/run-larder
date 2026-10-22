@@ -11,6 +11,10 @@ const protectionVersion = (c: Context) => c.s.schedulePolicies[0]?.version
 const snapshot = (g: Row) => { const { history, ...data } = g; return data }
 const revise = (g: Row, data: Record<string, any>) => bump(g, { ...data, history: [...(g.history ?? []), snapshot(g)] })
 
+export function suspendGrant(c: Context, grant: Row, reason: string) {
+  return revise(grant, { status: 'suspended', suspendedAt: c.now, suspensionReason: reason })
+}
+
 export function scheduleGrant(c: Context, type: string, p: any): Row | undefined {
   if (!type.startsWith('schedule.grant.')) return
   if (type === 'schedule.grant.prepare') {
@@ -29,7 +33,7 @@ export function scheduleGrant(c: Context, type: string, p: any): Row | undefined
     const data = { status: 'draft', preparedBy: c.actor.id, preparedAt: c.now, eventTypes, machineIds, workOrderIds,
       maxDelayMinutes: integer(p.maxDelayMinutes, 'per-job delay limit', 0, 86400),
       maxDisplacementMinutes: integer(p.maxDisplacementMinutes, 'per-job displacement limit', 0, 86400),
-      expiresAt, protectionVersion: protectionVersion(c), reason: text(p.reason, 'grant reason'), approvedBy: null, approvedAt: null, revokedBy: null, revokedAt: null, revokeReason: null }
+      expiresAt, protectionVersion: protectionVersion(c), reason: text(p.reason, 'grant reason'), approvedBy: null, approvedAt: null, revokedBy: null, revokedAt: null, revokeReason: null, suspendedAt: null, suspensionReason: null }
     if (!p.id) return row(c, 'scheduleGrants', { ...data, history: [] })
     const grant = get(c.s, 'scheduleGrants', p.id); fresh(grant, p.version)
     return revise(grant, data)

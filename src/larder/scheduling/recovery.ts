@@ -1,4 +1,4 @@
-import { scheduleGrant, grantRefusal } from './grants'
+import { scheduleGrant, grantRefusal, suspendGrant } from './grants'
 import { adoptionProblem, bookIntervals } from './booking'
 import { planningDigest } from './fingerprint'
 export { planningDigest } from './fingerprint'
@@ -9,7 +9,8 @@ import { draftPurchase } from '../purchasing'
 import { decimal, format } from '../decimal'
 import { move, balance } from '../stock'
 // Durable event proposals and isolated schedule scenarios. No observer may
-// approve work, change a customer date, buy, or perform an external action.
+// approve execution, change a customer date, buy, or perform an external action.
+// Internal interval booking alone may be delegated by a bounded human grant.
 import { canonicalJson } from '../../modules/import-kit/src/d1/index'
 import { bump, fresh, get, list, row, text, type Context, type State, type Row } from '../model'
 import { allow, approver } from '../roles'
@@ -157,7 +158,11 @@ export function observeRecovery(c:Context,before:State,type:string,payload:any) 
   const grant=grants.at(-1)
   if(!grant){plan.automation={status:'review',reason:'No active automatic booking grant.'};return}
   const refusal=adoptionProblem(c,plan)?.message??grantRefusal(c,grant,plan)
-  if(refusal){plan.automation={status:'review',grantId:grant.id,grantVersion:grant.version,reason:refusal};return}
+  if(refusal){
+    plan.automation={status:'review',grantId:grant.id,grantVersion:grant.version,reason:refusal}
+    if(grant.expiresAt<=c.now||grant.protectionVersion!==policy(c.s).version||!c.people?.some(p=>p.id===grant.approvedBy&&['owner','manager','planner'].includes(p.role)))suspendGrant(c,grant,refusal)
+    return
+  }
   plan.automation={status:'applied',grantId:grant.id,grantVersion:grant.version}
   bookIntervals(c,plan,'Bounded internal event booking under independently approved grant.',grant.approvedBy,{grantId:grant.id,grantVersion:grant.version})
 }

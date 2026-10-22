@@ -4,7 +4,8 @@ import { bump, row, type Context, type Row } from './model'
 // Larder roles. The owner holds every authority; an agent prepares drafts and
 // proposals and never approves, posts stock or changes roles. GOV-001: a planner
 // holds today's planning doors (forecast/MPS, inventory policies, shortage and
-// work drafts, ranks, reschedules, split/merge) but never releases work or buys;
+// work drafts, ranks, reschedules, protections, independent plan adoption,
+// bounded sequencing grants and split/merge) but never releases work or buys;
 // an engineer holds revision doors (BOMs/routings, BOM and catalog CSV, change
 // proposals) while managers approve changes; an operator executes only their
 // own assigned operations and posts no stock.
