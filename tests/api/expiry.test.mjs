@@ -134,3 +134,54 @@ test('TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; ex
   assert.equal(s.movements.filter(m => m.documentId === boundaryPacked.id).length, 0)
 
 })
+
+test('GOV-011 expiry scrap and quarantine and nonconformance rejections honour the inventory-adjustment threshold: two signatures on the exact lot, location and quantity, a deputy, invalidation when stock moves, agents denied and a named owner override', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const person = (name, role) => h.person(`gov11-${name}@example.test`, role)
+  const quality = await person('quality', 'quality'), mgrA = await person('a', 'manager'), mgrB = await person('b', 'manager'), deputy = await person('deputy', 'sales'), agent = await person('agent', 'agent'), warehouse = await person('wh', 'warehouse')
+  const cold = await h.command('location.save', { name: 'Write-off room' })
+  const item = await h.command('item.save', { sku: 'GOV11-EXT', name: 'Write-off extract', kind: 'buy', baseUnit: 'each' })
+  const supplier = await h.command('party.save', { name: 'Write-off supplier', kind: 'supplier' })
+  let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: day(0), reason: 'Write-off proof', lines: [{ itemId: item.id, quantity: '40', unitPrice: '10' }] })
+  po = await h.command('po.approve', { poId: po.id, version: po.version })
+  const line = (lot, quantity, more = {}) => ({ lineId: po.lines[0].id, locationId: cold.id, quantity, lot, ...more })
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-41', lines: [line('GOV11-OLD', '10', { dates: { expiresOn: day(-1) } }), line('GOV11-OVERRIDE', '10', { dates: { expiresOn: day(-1) } }), line('GOV11-QUARANTINE', '10', { inspection: 'quarantine' }), line('GOV11-CASE', '10')] })
+  const lotOf = async code => (await h.state()).lots.find(l => l.code === code)
+  await h.command('approval.policy', { category: 'inventoryAdjustment', thresholdUsd: '50', signatures: 2, expiryMinutes: 60, reason: 'Two people write off stock above $50' })
+  await mgrB.run('approval.deputize', { deputyId: deputy.id, validUntil: new Date(Date.now() + 7 * 86400000).toISOString(), reason: 'Cover the stores review', categories: ['inventoryAdjustment'] })
+  const signature = async id => (await h.state()).approvalSignatures.find(x => x.id === id)
+  const available = async lotId => (await h.state()).positions.find(p => p.lotId === lotId && p.status === 'available')?.quantity ?? '0'
+  const scrap = async (who, code, more = {}, error) => { const lot = await lotOf(code); return who.run('lot.dispose', { lotId: lot.id, version: lot.version, decision: 'scrap', locationId: cold.id, reason: 'Expired; destroyed', evidence: [evidence('Disposal record')], ...more }, error && { error }) }
+
+  // Expired stock worth $100: an agent and a warehouse person cannot decide; one signature scraps nothing.
+  await scrap(agent, 'GOV11-OLD', {}, 'FORBIDDEN'); await scrap(warehouse, 'GOV11-OLD', {}, 'FORBIDDEN'); await scrap(mgrA, 'GOV11-OLD', { override: { reason: 'Nobody checked', accountableId: mgrA.id } }, 'FORBIDDEN')
+  const first = await scrap(quality, 'GOV11-OLD')
+  assert.deepEqual([first.category, first.valueUsd, first.remainingAtSigning, first.terms.decision, first.terms.quantity], ['inventoryAdjustment', '100', 1, 'scrap', '10'])
+  const old = await lotOf('GOV11-OLD')
+  assert.deepEqual([await available(old.id), old.dispositions ?? []], ['10', []])
+  // Stock moves at that location after the signature, so it no longer counts.
+  const count = await warehouse.run('count.record', { itemId: item.id, locationId: cold.id, lotId: old.id, counted: '9' })
+  await mgrA.run('count.approve', { countId: count.id, version: count.version })
+  assert.equal((await signature(first.id)).status, 'invalidated')
+  assert.equal((await scrap(quality, 'GOV11-OLD')).valueUsd, '90')
+  await scrap(quality, 'GOV11-OLD', {}, 'DUPLICATE_SIGNATURE')
+  const done = await scrap(deputy, 'GOV11-OLD')
+  assert.deepEqual([done.dispositions[0].quantity, done.dispositions[0].signatureIds.length, await available(old.id)], ['9', 2, '0'])
+  assert.equal((await signature(done.dispositions[0].signatureIds.at(-1))).onBehalfOf, mgrB.id)
+  // The owner overrides a second scrap, naming the accountable manager.
+  const overridden = await scrap({ run: h.command }, 'GOV11-OVERRIDE', { override: { reason: 'Audit tomorrow', accountableId: mgrA.id } })
+  assert.deepEqual([overridden.dispositions[0].override.accountableId, overridden.dispositions[0].signatureIds.length, await available(overridden.id)], [mgrA.id, 1, '0'])
+
+  // A $100 quarantine rejection and a $50 nonconformance rejection write stock off the same way.
+  const quarantined = await lotOf('GOV11-QUARANTINE')
+  const reject = (who, error) => who.run('quarantine.decide', { itemId: item.id, locationId: cold.id, lotId: quarantined.id, quantity: '10', decision: 'reject', reason: 'Failed receipt check' }, error && { error })
+  await reject(agent, 'FORBIDDEN')
+  assert.equal((await reject(mgrA)).category, 'inventoryAdjustment')
+  assert.equal((await reject(mgrB)).decision, 'rejected')
+  const caseLot = await lotOf('GOV11-CASE')
+  const n = await mgrA.run('nonconformance.open', { lotId: caseLot.id, locationId: cold.id, quantity: '5', complaint: 'Contaminated', dueOn: day(0), evidence: [evidence('Complaint')] })
+  const rejectCase = who => who.run('nonconformance.reject', { caseId: n.id, version: n.version, quantity: '5', reason: 'Scrap contaminated units', evidence: [evidence('Scrap record')] })
+  assert.equal((await rejectCase(quality)).valueUsd, '50')
+  assert.equal((await rejectCase(mgrA)).remaining, '0')
+  await h.invariant()
+})

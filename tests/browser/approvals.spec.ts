@@ -89,3 +89,40 @@ test('GOV-008 a quality-hold release under a two-signature quality threshold is 
     await send('approval.policy', { category: 'quality', thresholdUsd: '15', signatures: 2, enabled: false, reason: 'Approval journey finished' })
   }
 })
+
+test('GOV-011 an expired-lot write-off under a two-signature inventory-adjustment threshold is signed once and then invalidated by a stock movement at 1440/390', async ({ page }) => {
+  const { send, settled, shots } = await start(page, 'GOV-011')
+  const day = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
+  const supplier = await send('party.save', { name: 'Write-off Extracts', kind: 'supplier' })
+  const location = await send('location.save', { name: 'Write-off shelf' })
+  const item = await send('item.save', { sku: 'WOF-1', name: 'Write-off extract', kind: 'buy', baseUnit: 'each' })
+  const po = await send('po.draft', { supplierId: supplier.id, expectedDate: day(0), reason: 'Expired extract', lines: [{ itemId: item.id, quantity: '10', unitPrice: '10' }] })
+  await send('po.approve', { poId: po.id, version: po.version })
+  await send('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-42', lines: [{ lineId: po.lines[0].id, locationId: location.id, quantity: '10', lot: 'WOF-LOT', dates: { expiresOn: day(-1) } }] })
+  const lot = (await (await page.request.get(origin + '/api/larder/state')).json()).lots.find((l: any) => l.code === 'WOF-LOT')
+  try {
+    await page.goto(origin + '/app#more/approvals'); await settled()
+    const policy = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Approval policies', exact: true }) })
+    await policy.getByLabel('Approval', { exact: true }).selectOption('inventoryAdjustment')
+    await policy.getByLabel('Threshold', { exact: true }).fill('50')
+    await policy.getByLabel('Signatures needed', { exact: true }).selectOption('2')
+    await policy.getByLabel('Reason', { exact: true }).fill('Two people write off stock above $50')
+    await policy.getByRole('button', { name: 'Save policy', exact: true }).click(); await settled()
+    await expect(policy).toContainText('Stock write-offs')
+    const signed = await send('lot.dispose', { lotId: lot.id, version: lot.version, decision: 'scrap', locationId: location.id, reason: 'Expired; destroyed', evidence: [{ name: 'disposal.txt', contentType: 'text/plain', base64: Buffer.from('Disposal record').toString('base64') }] })
+    expect(signed.remainingAtSigning).toBe(1)
+    await page.reload(); await settled()
+    const signatures = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Signatures', exact: true }) })
+    await expect(signatures).toContainText('Expired lot write-off')
+    await expect(signatures).toContainText('Valid')
+    await shots('valid')
+    const count = await send('count.record', { itemId: item.id, locationId: location.id, lotId: lot.id, counted: '9' })
+    await send('count.approve', { countId: count.id, version: count.version })
+    await page.reload(); await settled()
+    await expect(signatures).toContainText('Invalidated')
+    await shots('invalidated')
+  } finally {
+    // Later journeys share this installation: write-offs go back to one approver.
+    await send('approval.policy', { category: 'inventoryAdjustment', thresholdUsd: '50', signatures: 2, enabled: false, reason: 'Approval journey finished' })
+  }
+})

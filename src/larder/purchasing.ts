@@ -135,8 +135,8 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       if (balance(c.s, item.id, location.id, 'quarantine', lotId) < q) fail('INSUFFICIENT_STOCK', `Only ${format(balance(c.s, item.id, location.id, 'quarantine', lotId))} ${item.baseUnit} is in quarantine there.`)
       if (decision === 'release') approvedCertificates(c.s, item.id, lotId, c.now.slice(0, 10))
       if (decision === 'release') assertLotNotHeld(c.s, lotId, 'released from quarantine')
-      // GOV-002 quality threshold: the value a release makes available.
-      const signed = decision === 'release' ? gate(c, { category: 'quality', subjectKind: lotId ? 'lots' : 'items', subject: lotId ? get(c.s, 'lots', lotId) : item, measure: () => times(q, averageCost(c.s, item.id)), permitted: ['manager', 'warehouse'], terms: { decision, itemId: item.id, locationId: location.id, lotId, quantity: format(q) }, p }) : null
+      // GOV-002 thresholds on the value: a release makes it available (quality), a rejection writes it off (inventory adjustment).
+      const signed = gate(c, { category: decision === 'release' ? 'quality' : 'inventoryAdjustment', subjectKind: lotId ? 'lots' : 'items', subject: lotId ? get(c.s, 'lots', lotId) : item, measure: () => times(q, averageCost(c.s, item.id)), permitted: ['manager', 'warehouse'], terms: { decision, itemId: item.id, locationId: location.id, lotId, quantity: format(q) }, p })
       if (signed && 'pending' in signed) return signed.pending
       const approval = row(c, 'approvals', { subjectKind: 'lots', subjectId: lotId || item.id, subjectVersion: 0, decision: decision === 'release' ? 'released' : 'rejected', role: c.actor.role, note: text(p.reason, 'reason', 400), quantity: format(q), locationId: location.id , ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
       signed?.consume(approval.id)

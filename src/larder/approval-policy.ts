@@ -22,12 +22,14 @@ const nonApprovers = ['agent', 'viewer', 'operator']
 const maxDelegationMs = 30 * 86400000
 // Who holds each category's authority in their own role (the owner holds every one). A door
 // may narrow it to its own roles; each signature records the roles it was given under.
-const permittedFor: Record<string, string[]> = { spend: ['manager', 'buyer'], inventoryAdjustment: ['manager'], margin: ['manager'], quality: ['manager', 'quality', 'warehouse'] }
+const permittedFor: Record<string, string[]> = { spend: ['manager', 'buyer'], inventoryAdjustment: ['manager', 'quality', 'warehouse'], margin: ['manager'], quality: ['manager', 'quality', 'warehouse'] }
 const holdsCategory = (role: string, category: string) => role === 'owner' || (permittedFor[category] ?? []).includes(role)
 type Person = { id: string; role: string }
 
 const lineCost = (s: State, itemId: string) => s.items.find(i => i.id === itemId)?.standardCost ?? null
 const quarantined = (s: State, t: any) => format(balance(s, t.itemId, t.locationId, 'quarantine', t.lotId ?? ''))
+// An expiry-disposition write-off binds the available stock it scraps; a release or rejection binds the quarantine it clears.
+const stockOf = (s: State, t: any) => t?.decision === 'scrap' ? { available: format(balance(s, t.itemId, t.locationId, 'available', t.lotId ?? '')) } : { quarantine: quarantined(s, t) }
 // The current inputs each kind of decision depends on; the decision's own terms (a quantity,
 // an inspection, a deviation) are bound alongside them.
 const inputsOf: Record<string, (s: State, r: Row, terms: any) => unknown> = {
@@ -37,8 +39,8 @@ const inputsOf: Record<string, (s: State, r: Row, terms: any) => unknown> = {
   orderChanges: (s, x) => ({ status: x.status, stateVersion: x.stateVersion, lines: x.after.lines.map((l: any) => ({ ...l, standardCost: lineCost(s, l.itemId) })) }),
   qualityHolds: (s, h) => ({ status: h.status, held: h.held, lots: h.lots, inspections: s.inspections.filter(i => i.planId === h.planId && i.subjectId === h.subjectId).map(i => i.id), quarantine: h.held.map((x: any) => format(balance(s, s.lots.find(l => l.id === x.lotId)?.itemId ?? '', x.locationId, 'quarantine', x.lotId))) }),
   nonconformances: (s, n, t) => ({ status: n.status, remaining: n.remaining, lotVersion: s.lots.find(l => l.id === n.lotId)?.version ?? null, inspections: s.inspections.filter(i => i.subjectId === n.id).map(i => i.id), deviation: t?.deviationId ? (n.deviationProposals ?? []).find((d: any) => d.id === t.deviationId) ?? null : null }),
-  lots: (s, _lot, t) => ({ quarantine: quarantined(s, t) }),
-  items: (s, _item, t) => ({ quarantine: quarantined(s, t) }),
+  lots: (s, _lot, t) => stockOf(s, t),
+  items: (s, _item, t) => stockOf(s, t),
 }
 // Decisions without terms keep the digest of their inputs alone.
 const digestOf = (s: State, kind: string, r: Row, terms: unknown) => sha256(canonicalJson((terms === null || terms === undefined ? inputsOf[kind](s, r, null) : { inputs: inputsOf[kind](s, r, terms), terms }) as any))

@@ -2,10 +2,11 @@
 // documented expiry disposition. Dates are UTC calendar days; an expiry or
 // retest date is usable through that day and blocked from the next.
 import { attach } from './attachments'
-import { decimal, format } from './decimal'
+import { authorize, gate } from './approval-policy'
+import { decimal, format, times } from './decimal'
 import { fail, forbidden } from './problem'
 import { allow } from './roles'
-import { balance, move } from './stock'
+import { averageCost, balance, move } from './stock'
 import { bump, date, fresh, get, list, oneOf, optionalText, text, type Context, type Row, type State } from './model'
 
 export const utcToday = () => new Date().toISOString().slice(0, 10)
@@ -152,7 +153,9 @@ export function lotStatuses(s: State, today: string) {
 // Owner/manager/quality documented disposition of an expired or retest-due lot.
 export function expiry(c: Context, type: string, p: any): Row | undefined {
   if (type !== 'lot.dispose') return
-  allow(c, ['manager', 'quality'])
+  // A scrap is a write-off, so a deputy standing in for a manager or quality principal may decide it (GOV-002); an extension needs the role itself.
+  if (p.decision === 'scrap') authorize(c, ['manager', 'quality'], 'inventoryAdjustment')
+  else allow(c, ['manager', 'quality'])
   if (c.actor.role === 'agent') forbidden('Agents cannot decide a lot disposition.')
   const lot = get(c.s, 'lots', p.lotId, 'lot'); fresh(lot, p.version)
   const today = c.now.slice(0, 10), was = lotBlock(lot, today)
@@ -172,6 +175,10 @@ export function expiry(c: Context, type: string, p: any): Row | undefined {
   }
   const location = get(c.s, 'locations', p.locationId, 'location'), on = balance(c.s, lot.itemId, location.id, 'available', lot.id)
   if (on <= 0n) fail('INSUFFICIENT_STOCK', `Lot ${lot.code} has no available stock at ${location.name}.`)
+  // GOV-002 inventory-adjustment threshold: scrapping an expired lot writes off the value on hand.
+  const signed = gate(c, { category: 'inventoryAdjustment', subjectKind: 'lots', subject: lot, measure: () => times(on, averageCost(c.s, lot.itemId)), permitted: ['manager', 'quality'], terms: { decision: 'scrap', itemId: lot.itemId, locationId: location.id, lotId: lot.id, quantity: format(on) }, p })
+  if (signed && 'pending' in signed) return signed.pending
+  signed?.consume(lot.id)
   move(c, { itemId: lot.itemId, locationId: location.id, status: 'available', lotId: lot.id, quantity: -on, kind: 'scrap', documentKind: 'lots', documentId: lot.id, reason: `Expiry disposition: ${reason}` })
-  return bump(lot, { dispositions: [...(lot.dispositions ?? []), { ...entry, locationId: location.id, quantity: format(on) }] })
+  return bump(lot, { dispositions: [...(lot.dispositions ?? []), { ...entry, locationId: location.id, quantity: format(on), ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) }] })
 }

@@ -3,14 +3,16 @@ import type { Larder } from './app'
 import { Card, Chip, Choose, Empty, Field, Form, Table, text } from './controls'
 import { money, when, words } from './format'
 
-const categories = [{ value: 'spend', label: 'Purchase orders (spend)' }, { value: 'inventoryAdjustment', label: 'Stock adjustments (counts)' }, { value: 'margin', label: 'Sales orders below a margin floor' }, { value: 'quality', label: 'Quality releases (value released)' }]
+const categories = [{ value: 'spend', label: 'Purchase orders (spend)' }, { value: 'inventoryAdjustment', label: 'Stock write-offs (counts, expiry scrap, rejections)' }, { value: 'margin', label: 'Sales orders below a margin floor' }, { value: 'quality', label: 'Quality releases (value released)' }]
 const subjects: Record<string, string> = { purchaseOrders: 'Purchase order', counts: 'Count', salesOrders: 'Sales order', orderChanges: 'Order amendment', qualityHolds: 'Quality hold release', nonconformances: 'Nonconformance release', lots: 'Quarantine release', items: 'Quarantine release' }
+// A write-off under the inventory-adjustment threshold names what was written off, not the release door it shares.
+const writeOffs: Record<string, string> = { scrap: 'Expired lot write-off', reject: 'Rejection write-off' }
 const tone: Record<string, 'good' | 'warn' | 'bad' | 'neutral'> = { valid: 'good', used: 'neutral', invalidated: 'bad', expired: 'warn', withdrawn: 'warn' }
 
 // GOV-002: who must sign what, the signatures given and what became of them, and who stands in for whom.
 export function Approvals({ larder }: { larder: Larder }) {
   const s = larder.state!, owner = s.actor.role === 'owner'
-  const subject = (x: any) => { const r = rows(s, x.subjectKind).find(y => y.id === x.subjectId); return `${subjects[x.subjectKind] ?? words(x.subjectKind)} ${r?.reference ?? r?.code ?? r?.sku ?? ''}`.trim() }
+  const subject = (x: any) => { const r = rows(s, x.subjectKind).find(y => y.id === x.subjectId); return `${(x.category === 'inventoryAdjustment' && writeOffs[x.terms?.decision]) || subjects[x.subjectKind] || words(x.subjectKind)} ${r?.reference ?? r?.code ?? r?.sku ?? ''}`.trim() }
   const value = (x: any) => 'marginPercent' in x ? (x.marginPercent === null ? 'Unknown margin' : `${x.marginPercent}% margin`) : money(x.valueUsd)
   const policies = rows(s, 'approvalPolicies'), signatures = [...rows(s, 'approvalSignatures')].reverse(), delegations = [...rows(s, 'approvalDelegations')].reverse()
   const people = rows(s, 'people').filter(p => p.id !== s.actor.id && !['agent', 'viewer', 'operator'].includes(p.role))

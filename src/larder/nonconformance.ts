@@ -147,8 +147,8 @@ export function nonconformance(c: Context, type: string, p: any): Row | undefine
       }
       inspectionId = inspection.id
     }
-    // GOV-002 quality threshold: the value a release makes available.
-    const signed = type === 'nonconformance.release' ? gate(c, { category: 'quality', subjectKind: 'nonconformances', subject: n, measure: () => times(quantity, decimal(n.unitCost)), permitted: ['manager', 'quality'], preparedBy: n.createdBy, terms: { decision: 'release', quantity: format(quantity), inspectionId }, p }) : null
+    // GOV-002 thresholds on the value: a release makes it available (quality), a rejection writes it off (inventory adjustment).
+    const signed = type === 'nonconformance.return' ? null : gate(c, { category: type === 'nonconformance.release' ? 'quality' : 'inventoryAdjustment', subjectKind: 'nonconformances', subject: n, measure: () => times(quantity, decimal(n.unitCost)), permitted: ['manager', 'quality'], ...(type === 'nonconformance.release' ? { preparedBy: n.createdBy } : {}), terms: { decision: type === 'nonconformance.release' ? 'release' : 'reject', quantity: format(quantity), inspectionId }, p })
     if (signed && 'pending' in signed) return signed.pending
     signed?.consume(n.id)
     const decision = type === 'nonconformance.release' ? 'release' : type === 'nonconformance.return' ? 'return' : 'reject'
