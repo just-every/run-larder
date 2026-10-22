@@ -269,9 +269,11 @@ test('BUY-001 buyers maintain two suppliers, select feasible scheduled terms and
     const frozen = (await state(page)).approvals.find((a: any) => a.subjectId === draft.id).terms
     const delivery = card(page, 'Supplier and delivery')
     const confirmation = delivery.locator('form').filter({ has: page.getByRole('heading', { name: 'Record supplier confirmation', exact: true }) })
+    await confirmation.getByLabel('Received by', { exact: true }).selectOption('phone')
     await confirmation.getByLabel('Supplier reference', { exact: true }).fill(`synthetic-larder-${tag}-ack`)
     await confirmation.getByLabel('Confirmed delivery', { exact: true }).fill(day(3))
     await act(page, () => confirmation.getByRole('button', { name: 'Save confirmation', exact: true }).click())
+    await expect(page.getByText(/supplier confirmed .* by phone, ref/).first()).toBeVisible()
     const revise = delivery.locator('form').filter({ has: page.getByRole('heading', { name: 'Revise expected delivery', exact: true }) })
     await revise.getByLabel('Delivery to revise', { exact: true }).selectOption(draft.lines[1].id)
     await revise.getByLabel('New expected date', { exact: true }).fill(day(8))

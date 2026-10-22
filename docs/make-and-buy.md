@@ -13,9 +13,11 @@ Press **Draft work order** for an item you make, or **Draft purchase order** for
 A purchase order moves through these steps:
 
 1. **Approve purchase order**: a manager or buyer approves the draft and its cash exposure.
-2. **Record supplier confirmation**: their reference and the delivery date they confirmed.
+2. **Record supplier confirmation**: how it reached you (phone, email, portal, in person), their reference and the delivery date they confirmed. The line keeps the date you asked for beside the date the supplier confirmed; an approved expedite or deferral changes only the date you asked for.
 3. **Revise expected delivery** when the date moves; every change is kept with its reason.
 4. **Receive delivery**: what actually arrived, into which location, with the supplier's lot. Choose **Accept into stock** or **Hold in quarantine**. Receive part of an order and the rest stays expected; Larder refuses more than was ordered.
+
+After a delivery, **Allocate accepted stock** reserves it to the demand the plan pegs it to. **Allocate to a job** reserves accepted stock by hand to one released job that needs it; damaged and quarantined stock is never allocated, and taking stock reserved to another job needs a manager or the owner and a reason.
 
 An approved order past its expected date appears on **Today** as late.
 
