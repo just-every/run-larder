@@ -1,4 +1,4 @@
-import { scheduleGrant, grantRefusal, suspendGrant } from './grants'
+import { scheduleGrant, grantLapsed, grantRefusal, suspendGrant } from './grants'
 import { adoptionProblem, bookIntervals } from './booking'
 import { planningDigest } from './fingerprint'
 export { planningDigest } from './fingerprint'
@@ -169,7 +169,7 @@ export function observeRecovery(c:Context,before:State,type:string,payload:any) 
   const refusal=adoptionProblem(c,plan)?.message??grantRefusal(c,grant,plan)
   if(refusal){
     plan.automation={status:'review',grantId:grant.id,grantVersion:grant.version,reason:refusal}
-    if(grant.expiresAt<=c.now||grant.protectionVersion!==policy(c.s).version||!c.people?.some(p=>p.id===grant.approvedBy&&['owner','manager','planner'].includes(p.role)))suspendGrant(c,grant,refusal)
+    if(grantLapsed(c,grant))suspendGrant(c,grant,refusal)
     return
   }
   plan.automation={status:'applied',grantId:grant.id,grantVersion:grant.version}

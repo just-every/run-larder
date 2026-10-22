@@ -79,12 +79,43 @@ test('GOV-009 a two-signature schedule threshold gates an above-threshold plan a
   await approve(reviewer, revised); await approve(reviewer, revised, {}, 'DUPLICATE_SIGNATURE')
   grant = await approve(grantDeputy, revised)
   assert.deepEqual([grant.status, grant.signatureIds.length, grant.approvedBy], ['active', 2, principal.id])
-  // A grant below the threshold keeps its single approver; the owner overrides another above it.
+  // A grant needing no signature stays under the threshold and keeps its single approver.
   const modest = await planner.run('schedule.grant.prepare', { ...args, maxDelayMinutes: 300, maxDisplacementMinutes: 300 })
-  assert.equal((await approve(reviewer, modest)).status, 'active')
+  const modestActive = await approve(reviewer, modest)
+  assert.deepEqual([modestActive.status, modestActive.signatureIds], ['active', undefined])
+  // One signature reaches at most one threshold, two at most two: the owner's override is one signature, so it cannot switch on the 900-minute grant that a pair could.
   const exception = await planner.run('schedule.grant.prepare', args)
-  const excepted = await approve(owned, exception, { override: override('Standing cover for the stoppage') })
+  const refusal = await approve(owned, exception, { override: override('Standing cover for the stoppage') }, 'POLICY')
+  assert.deepEqual([refusal.error.details.cap, refusal.error.details.requested], [600, 900])
+  const second = await approve(reviewer, exception)
+  assert.deepEqual([second.remainingAtSigning, (await h.state()).scheduleGrants.find(g => g.id === exception.id).status], [1, 'draft'])
+  assert.equal((await approve(owned, exception, { override: override() }, 'POLICY')).error.details.cap, 600)
+  const capped = await planner.run('schedule.grant.prepare', { ...args, maxDelayMinutes: 600, maxDisplacementMinutes: 600 })
+  const excepted = await approve(owned, capped, { override: override('Standing cover for the stoppage') })
   assert.deepEqual([excepted.status, excepted.override.accountableId, excepted.signatureIds.length], ['active', manager.id, 1])
+  // A one-signature policy caps every grant at one threshold.
+  await h.command('approval.policy', { category: 'schedule', thresholdMinutes: 600, signatures: 1, expiryMinutes: 60, reason: 'One signature above ten hours' })
+  await planner.run('schedule.grant.prepare', args, { error: 'POLICY' })
+  await h.command('approval.policy', { category: 'schedule', thresholdMinutes: 6000, signatures: 2, expiryMinutes: 60, reason: 'Two people for a job delayed four days or more' })
+
+  // A signed grant ends when the plan it was signed against changes or any signer loses authority, and its replacement needs fresh signatures.
+  for (const g of (await h.state()).scheduleGrants.filter(x => x.status === 'active')) await planner.run('schedule.grant.revoke', { grantId: g.id, version: g.version, reason: 'Replace standing grants' })
+  const standing = { ...args, eventTypes: ['ETA'], maxDelayMinutes: 11000, maxDisplacementMinutes: 11000 }
+  let eta = 27
+  const rank = async () => { const current = (await h.state()).purchaseOrders.find(x => x.id === po.id); await h.command('po.revise', { poId: current.id, version: current.version, expectedDate: `2026-11-${++eta}`, note: 'synthetic-larder-105 supplier ETA slip' }); return (await h.state()).schedulePlans.filter(p => p.kind === 'reflow').at(-1) }
+  const dual = async () => { const g = await planner.run('schedule.grant.prepare', standing); await approve(reviewer, g); return approve(grantDeputy, g) }
+  let live = await dual()
+  const applied = await rank();
+  assert.deepEqual([applied.status, applied.autoApplication.grantVersion], ['adopted', live.version])
+  const protection = (await h.state()).schedulePolicies[0]
+  await planner.run('schedule.protect', { version: protection.version, asOf: week, days: 14, freezeUntil: '2026-11-26T00:00:00Z', manualLocks: [], reason: 'synthetic-larder-104 the plan the grant was signed against changes' })
+  const moved = await rank()
+  assert.deepEqual([moved.status, /Protection/.test(moved.automation.reason), (await h.state()).scheduleGrants.find(g => g.id === live.id).status], ['review', true, 'suspended'])
+  live = await dual()
+  assert.equal((await rank()).status, 'adopted')
+  await h.command('role.set', { operatorId: reviewer.id, role: 'viewer' })
+  const lost = await rank()
+  assert.deepEqual([lost.status, /signer/.test(lost.automation.reason), (await h.state()).scheduleGrants.find(g => g.id === live.id).status], ['review', true, 'suspended'])
   await h.invariant()
 })
 

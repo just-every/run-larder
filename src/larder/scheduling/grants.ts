@@ -1,7 +1,7 @@
 // A grant delegates only bounded internal interval bookings, never business
 // authority. Every revision suspends the previous approval immediately.
 import { bump, fresh, get, list, row, text, type Context, type Row } from '../model'
-import { authorize, gate } from '../approval-policy'
+import { authorityHeld, authorize, gate } from '../approval-policy'
 import { allow } from '../roles'
 import { fail, forbidden } from '../problem'
 import { instant, integer } from './calendars'
@@ -13,16 +13,28 @@ const protectionVersion = (c: Context) => c.s.schedulePolicies[0]?.version
 const snapshot = (g: Row) => { const { history, ...data } = g; return data }
 const revise = (g: Row, data: Record<string, any>) => bump(g, { ...data, history: [...(g.history ?? []), snapshot(g)] })
 
-// GOV-009: with a schedule policy in force its threshold, signatures and signature lifetime cap every
-// grant. A standing grant may delay or displace a job by at most the threshold for each signature the
-// policy requires, and may not outlive a signature's lifetime from the moment it is prepared or approved.
-function capRefusal(c: Context, g: { maxDelayMinutes: number; maxDisplacementMinutes: number; expiresAt: string }) {
+// GOV-009 (ct ruling, 22 October 2026): with a schedule policy in force a grant that needs no signature stays
+// under the threshold, a grant carrying one signature reaches at most one threshold and one carrying two at most
+// two, never above the policy's own signatures times the threshold; the owner's override is one signature. A
+// grant's life is at most one signature lifetime from the moment it is prepared or approved.
+function capRefusal(c: Context, g: { maxDelayMinutes: number; maxDisplacementMinutes: number; expiresAt: string }, signatures?: number) {
   const policy = c.s.approvalPolicies.find(x => x.category === 'schedule' && x.enabled)
   if (!policy) return
-  const cap = Number(policy.threshold) * policy.signatures, reach = Number(grantReach(g) / 1_000_000n)
-  if (reach > cap) fail('POLICY', `The owner's schedule policy caps a grant's per-job delay and displacement at ${cap} minutes (${policy.threshold} for each of ${policy.signatures} signature${policy.signatures === 1 ? '' : 's'}).`, { cap, requested: reach })
+  const carried = Math.min(signatures ?? policy.signatures, policy.signatures)
+  const cap = Number(policy.threshold) * carried, reach = Number(grantReach(g) / 1_000_000n)
+  if (reach > cap) fail('POLICY', `The owner's schedule policy caps this grant's per-job delay and displacement at ${cap} minutes (${policy.threshold} for each of ${carried} signature${carried === 1 ? '' : 's'}).`, { cap, requested: reach })
   const latest = new Date(Date.parse(c.now) + policy.expiryMinutes * 60000).toISOString()
   if (g.expiresAt > latest) fail('POLICY', `The owner's schedule policy caps a grant's life at ${policy.expiryMinutes} minutes, the lifetime of one signature.`, { latest })
+}
+
+// Why a grant's life has ended, or null while it stands: it expired, the protection plan it was signed against
+// changed, or the person it names as authorizer or any person who signed it lost active authority.
+export function grantLapsed(c: Context, grant: Row): string | null {
+  if (grant.expiresAt <= c.now) return 'Grant expired.'
+  if (grant.protectionVersion !== protectionVersion(c)) return 'Protection version changed.'
+  if (!c.people?.some(p => p.id === grant.approvedBy && ['owner', 'manager', 'planner'].includes(p.role))) return 'Grant approver lost active membership or authority.'
+  const lost = (grant.signatureIds ?? []).some((id: string) => { const sig = c.s.approvalSignatures.find(x => x.id === id); return !sig || !authorityHeld(c.s, sig, c.now, c.people!) })
+  return lost ? 'A signer of the grant lost authority.' : null
 }
 
 export function suspendGrant(c: Context, grant: Row, reason: string) {
@@ -60,7 +72,7 @@ export function scheduleGrant(c: Context, type: string, p: any): Row | undefined
     authorize(c, ['manager', 'planner'], 'schedule', grant.preparedBy)
     if (grant.status !== 'draft') fail('STATE', 'Prepare a new grant version before approval.')
     if (grant.protectionVersion !== protectionVersion(c) || grant.expiresAt <= c.now) fail('STALE', 'The protection version or expiry changed; prepare a fresh grant.')
-    capRefusal(c, grant as any)
+    capRefusal(c, grant as any, p.override !== undefined && c.actor.role === 'owner' ? 1 : undefined)
     // GOV-009: switching on a grant whose reach is at or above the schedule threshold needs the policy signatures on its exact terms.
     const signed = gate(c, { category: 'schedule', subjectKind: 'scheduleGrants', subject: grant, measure: () => grantReach(grant as any), permitted: ['manager', 'planner'], preparedBy: grant.preparedBy, p })
     if (signed && 'pending' in signed) return signed.pending
@@ -79,9 +91,8 @@ export function scheduleGrant(c: Context, type: string, p: any): Row | undefined
 // with its proposal left for human review and no partial booking.
 export function grantRefusal(c: Context, grant: Row, plan: Row): string | null {
   if (grant.status !== 'active') return 'Grant is not active.'
-  if (grant.expiresAt <= c.now) return 'Grant expired.'
-  if (grant.protectionVersion !== protectionVersion(c)) return 'Protection version changed.'
-  if (!c.people?.some(p => p.id === grant.approvedBy && ['owner', 'manager', 'planner'].includes(p.role))) return 'Grant approver lost active membership or authority.'
+  const lapsed = grantLapsed(c, grant)
+  if (lapsed) return lapsed
   if (c.actor.role === 'agent' || plan.kind !== 'reflow') return 'Only recorded human events qualify.'
   if (!grant.eventTypes.includes(recoveryEvent(plan.event.type))) return 'Event type is outside the grant.'
   if (plan.after.protectionConflicts?.length || plan.protectionConflicts.length) return 'Protected intervals conflict.'
