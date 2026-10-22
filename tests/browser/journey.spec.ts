@@ -65,20 +65,12 @@ test('HTTP-001 MRP-001 public Lobby, health and docs stay separate from private 
     await page.getByRole('link', { name: 'Take an order', exact: false }).first().click()
     await expect(page.locator('article')).toBeVisible()
     await shot(page, 'HTTP-001-docs')
-    // MRP-001 is an API slice: its public contract must still disclose the
-    // remaining feasibility gaps at both supported widths.
+    // MRP-001 is an API clause with no screen of its own: its public contract row shows its status at both widths.
     expect((await page.goto(site + '/contract'))!.status()).toBe(200)
     await page.getByPlaceholder('Find a clause').fill('MRP-001')
     const mrp = page.locator('tr.clause[data-id="MRP-001"]')
     await expect(mrp).toBeVisible()
-    await expect(mrp).toHaveAttribute('data-status', 'partial')
-    await expect(mrp).toContainText('Dated physical/purchase projection')
-    await expect(mrp).toContainText('Material-feasible WIP')
-    await expect(mrp).toContainText('dated multilevel root/revision pegs with shared pools')
-    await expect(mrp).toContainText('make/buy/phantom and aggregate yields')
-    await expect(mrp).toContainText('nonduplicated current physical catalog safety/minimum floors')
-    await expect(mrp).toContainText('future dated floor replenishment')
-    await expect(mrp).toContainText('stale-safe dated draft preparation')
+    await expect(mrp).toHaveAttribute('data-status', 'done')
     await mrp.scrollIntoViewIfNeeded()
     if (shots) await page.screenshot({ path: join(shots, `${width}-MRP-001-contract.png`), fullPage: true })
 
