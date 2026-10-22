@@ -912,7 +912,7 @@ test('Bounded grants independently authorize one internal reflow, stop at limits
   const bookings=s.scheduleBookings;await h.restart();await h.command('wo.operation.pause',pause,{commandId:stopped.commandId})
   s=await h.state();assert.deepEqual(s.scheduleBookings,bookings);assert.equal(s.schedulePlans.filter(p=>p.event?.commandId===stopped.commandId).length,1)
   const rank=async(force)=>{const current=(await h.state()).workOrders.find(w=>w.id===jobs[1].id);const sent=await h.send('order.rank',{kind:'work',orderId:current.id,version:current.version,rank:force??((current.rank??2)===1?2:1)});assert.equal(sent.body.ok,true);return (await h.state()).schedulePlans.find(p=>p.event?.commandId===sent.commandId)}
-  const replace=async(overrides={})=>{grant=await planner.run('schedule.grant.prepare',{...args,id:grant.id,version:grant.version,...overrides});return grant}
+  const replace=async(overrides={})=>{grant=(await h.state()).scheduleGrants.find(g=>g.id===grant.id);grant=await planner.run('schedule.grant.prepare',{...args,id:grant.id,version:grant.version,...overrides});return grant}
   const approve=async()=>grant=await reviewer.run('schedule.grant.approve',{grantId:grant.id,version:grant.version,reason:'synthetic-larder-962 review exact revision'})
   await replace({maxDelayMinutes:0,maxDisplacementMinutes:0});const revisedBookings=(await h.state()).scheduleBookings
   plan=await rank();assert.equal(plan.status,'review');assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
@@ -923,6 +923,12 @@ test('Bounded grants independently authorize one internal reflow, stop at limits
   await replace();await approve()
   protection=await planner.run('schedule.protect',{version:protection.version,asOf:start,days:14,freezeUntil:start,manualLocks:[],reason:'synthetic-larder-964 protection revision suspends grant'})
   plan=await rank();assert.equal(plan.status,'review');assert.match(plan.automation.reason,/Protection/);assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
+  await replace();await approve()
+  await h.command('role.set',{operatorId:reviewer.id,role:'production'})
+  plan=await rank();assert.equal(plan.status,'review');assert.match(plan.automation.reason,/approver/)
+  assert.equal((await h.state()).scheduleGrants.find(g=>g.id===grant.id).status,'suspended')
+  await h.command('role.set',{operatorId:reviewer.id,role:'manager'})
+  plan=await rank();assert.equal(plan.status,'review');assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
   await replace();await approve()
   assert.equal((await h.request('/auth/operator/status',{method:'POST',body:{operatorId:reviewer.id,status:'inactive'}})).status,200)
   plan=await rank();assert.equal(plan.status,'review');assert.match(plan.automation.reason,/approver/);assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
