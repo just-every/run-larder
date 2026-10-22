@@ -254,3 +254,182 @@ test('CAP calendars and finite planning: named intervals, holiday outage and vac
   for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true); await capacity.screenshot({ path: join(process.env.LARDER_SCREENSHOTS!, `${width}-CAP-005-approved.png`) }) }
 
 })
+
+async function planningEnter(page: Page) {
+  const entry=process.env.LARDER_OPEN;if(!entry)throw new Error('Private local owner entry required.')
+  await page.goto(entry);await page.waitForURL(u=>['/setup','/app'].includes(u.pathname))
+  if(new URL(page.url()).pathname==='/setup'){await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Finish setup',exact:true}).click();await page.waitForURL(u=>u.pathname==='/app')}
+}
+async function planningAct(page:Page,click:()=>Promise<unknown>){
+  const reply=page.waitForResponse(r=>r.url()===origin+'/api/larder/commands'&&r.request().method()==='POST')
+  await click();const body=await(await reply).json();expect(body.ok,JSON.stringify(body.error)).toBe(true);await expect(page.locator('main')).toHaveAttribute('aria-busy','false');return body.result
+}
+const planningState=(page:Page)=>page.evaluate(async()=>(await fetch('/api/larder/state')).json())
+async function planningShot(page:Page,name:string){
+  if(!process.env.LARDER_SCREENSHOTS)return
+  await mkdir(process.env.LARDER_SCREENSHOTS,{recursive:true})
+  await page.screenshot({path:join(process.env.LARDER_SCREENSHOTS,`${page.viewportSize()!.width}-${name}.png`),fullPage:true})
+}
+
+test('Qualified alternates compare setup, tools, labor, delivery and cost before human approval at 1440/390', async ({ page }) => {
+  await planningEnter(page)
+  const call = async (type: string, payload: any) => { const r=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}}); const b=await r.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result }
+  const suffix=crypto.randomUUID().slice(0,6), day=(n:number)=>new Date(Date.now()+n*86400000).toISOString().slice(0,10)
+  const raw=await call('item.save',{sku:`synthetic-larder-611-${suffix}`,name:'Fixture blank',kind:'buy',baseUnit:'each'})
+  const made=await call('item.save',{sku:`synthetic-larder-612-${suffix}`,name:'Fixture bracket',kind:'make',baseUnit:'each'})
+  const names=['Primary','Alternate A','Alternate B'].map(n=>`${n} ${suffix}`)
+  const calendar=(name:string)=>({name,timeZone:'UTC',effectiveFrom:day(0),effectiveTo:day(60),shifts:[{weekdays:[0,1,2,3,4,5,6],start:0,end:1440,breaks:[]}],closedDates:[],exceptions:[],usHolidays:false,capacity:1,efficiency:100,reason:'synthetic-larder-613 calendar'})
+  for (const name of names) await call('capacity.machine',calendar(name))
+  const s=await (await page.request.get(origin+'/api/larder/state')).json(), old=s.laborCalendars.find((l:any)=>l.operatorIds.includes(s.actor.id))
+  await call('capacity.labor',{...calendar(old?.name??`Fixture team ${suffix}`),...(old?{id:old.id,version:old.version}:{}),operatorIds:[s.actor.id],skills:old?.skills??[]})
+  await call('bom.revise',{itemId:made.id,components:[{itemId:raw.id,quantity:'1'}],routing:[{name:'Fixture cutting',workCentre:names[0],eligibleCentres:names,requiredTools:['Fixture'],setupFamily:'wood',setupMinutes:5,runMinutes:20,instructions:'Keep the approved fixture and inspection.'}]})
+  let w=await call('wo.draft',{itemId:made.id,quantity:'1',requiredBy:day(3),reason:'synthetic-larder-614 order'});w=await call('wo.release',{workOrderId:w.id,version:w.version})
+  await call('maintenance.create',{workCentre:names[0],kind:'breakdown',expectedReturnAt:day(5)+'T00:00:00Z',repairOwner:'Owner',note:'synthetic-larder-615 spindle unavailable'})
+  await page.goto(origin+'/app#schedule');await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  for(const [index,name] of names.entries()) {
+    await page.getByLabel('Sequence machine',{exact:true}).selectOption({label:name})
+    await page.getByLabel('Qualified machine tools',{exact:true}).fill('Fixture')
+    await page.getByLabel('Initial setup family',{exact:true}).fill('steel')
+    await page.getByLabel('Public planning tariff USD/hour',{exact:true}).fill('60')
+    await page.getByLabel('Overtime estimate USD/hour',{exact:true}).fill('90')
+    await page.getByLabel('External service quote USD',{exact:true}).fill('150')
+    await page.getByLabel('External service lead days',{exact:true}).fill('3')
+    await page.getByLabel('Family transitions',{exact:true}).fill(`steel,wood,${index===2?40:10},${index===2?10:5}`)
+    await page.getByLabel('Sequence constraint reason',{exact:true}).fill('synthetic-larder-616 qualified transition')
+    await planningAct(page,()=>page.getByRole('button',{name:'Save sequence constraints',exact:true}).click())
+  }
+  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00')
+  await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click()
+  await expect(page.getByLabel('Move work order',{exact:true})).toBeVisible()
+  for(const alternate of [names[1],names[2]]) {
+    await page.getByLabel('Move work order',{exact:true}).selectOption(w.id)
+    await page.getByLabel('Move not before date',{exact:true}).fill(day(1))
+    await page.getByLabel('Move priority',{exact:true}).fill('500')
+    await page.getByLabel('Qualified alternate center',{exact:true}).fill(alternate)
+    await page.getByLabel('Finite move reason',{exact:true}).fill('synthetic-larder-617 review '+alternate)
+    await planningAct(page,()=>page.getByRole('button',{name:'Preview finite move',exact:true}).click())
+    const review=page.getByRole('region',{name:'Finite reschedule review'})
+    await expect(review).toContainText(alternate);await expect(review).toContainText('Fixture');await expect(review).toContainText('overtime');await expect(review).toContainText('outsource')
+    const row=review.getByRole('row').filter({hasText:'Fixture cutting'})
+    await expect(row).toContainText(alternate===names[1]?'40 labor minutes':'75 labor minutes')
+    for(const width of [1440,390]) { await page.setViewportSize({width,height:1000});await planningShot(page,`CAP-006-${alternate===names[1]?'a':'b'}-review`);if(process.env.LARDER_SCREENSHOTS)await review.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-CAP-006-${alternate===names[1]?'a':'b'}-detail.png`)}) }
+  }
+  await planningAct(page,()=>page.getByRole('button',{name:'Approve finite schedule',exact:true}).click())
+  await expect(page.getByText('Approved finite schedule',{exact:true})).toBeVisible()
+  const current=await planningState(page);expect(current.workOrders.find((j:any)=>j.id===w.id).scheduleChoices[1]).toBe(names[2]);expect(current.workOrders.find((j:any)=>j.id===w.id).routing).toEqual(w.routing)
+  for(const width of [1440,390]) {await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-006-approved')}
+  await page.goto(origin+'/app#make/wo/'+w.id);await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  const actor=(await planningState(page)).actor
+  await page.getByLabel('Step 1 authorized operator',{exact:true}).selectOption(actor.id)
+  await planningAct(page,()=>page.getByRole('button',{name:'Authorize step 1 operator',exact:true}).click())
+  await planningAct(page,()=>page.getByRole('button',{name:'Acknowledge step 1 instructions and drawings',exact:true}).click())
+  await page.getByLabel('Step 1 work center',{exact:true}).selectOption(names[1]);await page.getByLabel('Step 1 station',{exact:true}).fill('synthetic-larder-618 alternate station');await page.getByLabel('Step 1 start reason',{exact:true}).fill('synthetic-larder-619 reviewed alternate')
+  const deniedReply=page.waitForResponse(r=>r.url().endsWith('/api/larder/commands')&&r.request().postDataJSON()?.type==='wo.operation.start');await page.getByRole('button',{name:'Start step 1',exact:true}).click();expect((await(await deniedReply).json()).error.code).toBe('WORK_CENTER')
+  await expect(page.getByRole('alert')).toContainText('Use the exact reviewed alternate center')
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-006-wrong-center')}
+  await page.getByLabel('Step 1 work center',{exact:true}).selectOption(names[2])
+  await planningAct(page,()=>page.getByRole('button',{name:'Start step 1',exact:true}).click())
+  await expect(page.getByRole('region',{name:'Pinned operation tasks',exact:true})).toContainText(names[2])
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-006-execution')}
+})
+
+test('Frozen recovery and isolated outage scenarios retain locks, show displacement and reject stale adoption at 1440/390',async({page})=>{
+  await planningEnter(page)
+  const call=async(type:string,payload:any)=>{const r=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}});const b=await r.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result}
+  const day=(n:number)=>new Date(Date.now()+n*86400000).toISOString().slice(0,10),suffix=crypto.randomUUID().slice(0,6)
+  const raw=await call('item.save',{sku:`synthetic-larder-811-${suffix}`,name:'Recovery blank',kind:'buy',baseUnit:'each'})
+  const calendar=(name:string)=>({name,timeZone:'UTC',effectiveFrom:day(0),effectiveTo:day(60),shifts:[{weekdays:[0,1,2,3,4,5,6],start:0,end:1440,breaks:[]}],closedDates:[],exceptions:[],usHolidays:false,capacity:1,efficiency:100,reason:'synthetic-larder-812 calendar'})
+  const s=await(await page.request.get(origin+'/api/larder/state')).json(),old=s.laborCalendars.find((l:any)=>l.operatorIds.includes(s.actor.id))
+  await call('capacity.labor',{...calendar(old?.name??`Recovery team ${suffix}`),...(old?{id:old.id,version:old.version}:{}),operatorIds:[s.actor.id],skills:old?.skills??[]})
+  const machines:any[]=[],jobs:any[]=[]
+  for(let i=0;i<3;i++) {
+    const m=await call('capacity.machine',calendar(`Recovery ${suffix} ${i}`));machines.push(m)
+    const item=await call('item.save',{sku:`synthetic-larder-813-${suffix}-${i}`,name:`Recovery assembly ${i}`,kind:'make',baseUnit:'each'})
+    await call('bom.revise',{itemId:item.id,components:[{itemId:raw.id,quantity:'1'}],routing:[{name:'Recovery operation',workCentre:m.name,minutes:60}]})
+    let j=await call('wo.draft',{itemId:item.id,quantity:'1',requiredBy:day(13),plannedStart:day(i===0?1:8),reason:'synthetic-larder-814 customer work'});j=await call('wo.release',{workOrderId:j.id,version:j.version});jobs.push(j)
+  }
+  await page.goto(origin+'/app#schedule');await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00');await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click()
+  await page.getByLabel('Freeze schedule through (local time)',{exact:true}).fill(day(7)+'T00:00')
+  await page.getByLabel('Manual operation lock',{exact:true}).selectOption(jobs[1].id+':1')
+  await page.getByLabel('Protection reason',{exact:true}).fill('synthetic-larder-815 freeze this week and keep manual override')
+  await planningAct(page,()=>page.getByRole('button',{name:'Save schedule protections',exact:true}).click())
+  let active=jobs[2];active=await call('wo.operation.assign',{workOrderId:active.id,version:active.version,sequence:1,operatorId:s.actor.id})
+  active=await call('wo.operation.start',{workOrderId:active.id,version:active.version,sequence:1,workCentre:machines[2].name,station:'synthetic-larder-816 tablet',reason:'synthetic-larder-817 start'})
+  await call('wo.operation.pause',{workOrderId:active.id,version:active.version,sequence:1,reason:'breakdown',note:'synthetic-larder-818 spindle stopped',escalationOwnerId:s.actor.id,anticipatedResumeAt:day(10)+'T12:00:00Z'})
+  await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  const recovery=page.getByLabel('Schedule review wo.operation.pause recovery',{exact:true})
+  await expect(recovery).toContainText(jobs[2].reference);await expect(recovery).toContainText('Changed customer promises: 0')
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-007-reflow');if(process.env.LARDER_SCREENSHOTS)await recovery.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-CAP-007-detail.png`)})}
+  // A reload restarts the scheduler projection; it must not duplicate the event.
+  await page.reload();await expect(page.getByLabel('Schedule review wo.operation.pause recovery',{exact:true})).toHaveCount(1)
+  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00');await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click()
+  for(const [name,end] of [['Short outage',day(9)],['Long outage',day(11)]]){
+    await page.getByLabel('Scenario name',{exact:true}).fill(name)
+    await page.getByLabel('Scenario unavailable machine',{exact:true}).selectOption(machines[2].id)
+    await page.getByLabel('Scenario outage starts (local time)',{exact:true}).fill(day(8)+'T00:00');await page.getByLabel('Scenario outage ends (local time)',{exact:true}).fill(end+'T00:00')
+    await page.getByLabel('Scenario reason',{exact:true}).fill('synthetic-larder-819 compare future capacity')
+    await planningAct(page,()=>page.getByRole('button',{name:'Compare outage scenario',exact:true}).click())
+    await expect(page.getByLabel('Schedule review '+name,{exact:true})).toContainText('Frozen/manual conflicts: 0')
+  }
+  const panel=page.locator('section.card').filter({has:page.getByRole('heading',{name:'Planning scenarios and event recovery',exact:true})})
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'MRP-004-scenarios');if(process.env.LARDER_SCREENSHOTS)await panel.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-MRP-004-detail.png`)})}
+  await page.getByLabel('Decision reason for Short outage',{exact:true}).fill('synthetic-larder-820 approved next week')
+  await planningAct(page,()=>page.getByRole('button',{name:'Adopt Short outage',exact:true}).click())
+  await expect(page.getByLabel('Schedule review Short outage',{exact:true})).toContainText('adopted')
+  // Material ETA change invalidates the other review; the UI displays the API refusal.
+  const supplier=await call('party.save',{name:`synthetic-larder-821-${suffix}`,kind:'supplier'})
+  let po=await call('po.draft',{supplierId:supplier.id,expectedDate:day(3),reason:'synthetic-larder-822 scheduled material',lines:[{itemId:raw.id,quantity:'1',unitPrice:'2'}]});po=await call('po.approve',{poId:po.id,version:po.version});await call('po.revise',{poId:po.id,version:po.version,expectedDate:day(4),note:'synthetic-larder-823 ETA changed'})
+  await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  const before=await planningState(page)
+  await page.getByLabel('Decision reason for Long outage',{exact:true}).fill('synthetic-larder-824 stale adoption')
+  const reply=page.waitForResponse(r=>r.url().endsWith('/api/larder/commands')&&r.request().postDataJSON()?.type==='schedule.adopt');await page.getByRole('button',{name:'Adopt Long outage',exact:true}).click()
+  const denied=await(await reply).json();expect(denied.error.code).toBe('STALE');await expect(page.getByRole('alert')).toContainText('Planning inputs, live people or planning window changed. Prepare a fresh scenario.')
+  expect((await planningState(page)).scheduleBookings).toEqual(before.scheduleBookings)
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'MRP-004-stale')}
+  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00');await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click()
+  await page.getByText('Additional scenario assumptions',{exact:true}).click()
+  await page.getByLabel('Scenario name',{exact:true}).fill('Demand and overtime assumptions')
+  await page.getByLabel('Scenario additional demand item',{exact:true}).selectOption(jobs[2].itemId)
+  await page.getByLabel('Scenario additional demand quantity',{exact:true}).fill('1');await page.getByLabel('Scenario demand due',{exact:true}).fill(day(13));await page.getByLabel('Scenario demand not before',{exact:true}).fill(day(11))
+  await page.getByLabel('Scenario overtime resource',{exact:true}).selectOption('machine:'+machines[2].id)
+  await page.getByLabel('Scenario overtime starts (local time)',{exact:true}).fill(day(11)+'T00:00');await page.getByLabel('Scenario overtime ends (local time)',{exact:true}).fill(day(11)+'T01:00');await page.getByLabel('Scenario reason',{exact:true}).fill('synthetic-larder-839 compare draft demand and bounded overtime')
+  const scenarioBefore=await planningState(page)
+  await planningAct(page,()=>page.getByRole('button',{name:'Compare outage scenario',exact:true}).click())
+  await expect(page.getByLabel('Schedule review Demand and overtime assumptions',{exact:true})).toContainText('Additional draft jobs: 1; inventory assumptions: 0; supplier assumptions: 0; bounded overtime windows: 1.')
+  const scenarioAfter=await planningState(page);expect(scenarioAfter.workOrders).toEqual(scenarioBefore.workOrders);expect(scenarioAfter.machineCalendars).toEqual(scenarioBefore.machineCalendars)
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'MRP-004-extra-assumptions')}
+})
+
+test('Replenishment reviews revised MOQ and uncertain coverage/cash, selectively approves and retains rejected reasons at 1440/390',async({page})=>{
+  await planningEnter(page)
+  const call=async(type:string,payload:any)=>{const r=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}});const b=await r.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result}
+  const day=(n:number)=>new Date(Date.now()+n*86400000).toISOString().slice(0,10),suffix=crypto.randomUUID().slice(0,6),items:any[]=[],vendors:any[]=[]
+  for(let i=0;i<2;i++){items.push(await call('item.save',{sku:`synthetic-larder-920-${suffix}-${i}`,name:`Replenishment metal ${suffix} ${i}`,kind:'buy',baseUnit:'each'}));vendors.push(await call('party.save',{name:`Replenishment vendor ${suffix} ${i}`,kind:'supplier'}))}
+  const customer=await call('party.save',{name:`synthetic-larder-921-${suffix}`,kind:'customer'})
+  let so=await call('so.quote',{customerId:customer.id,promiseDate:day(10),lines:items.map(i=>({itemId:i.id,quantity:'7',unitPrice:'9'}))});await call('so.confirm',{orderId:so.id,version:so.version,reserve:false})
+  const terms={partyCode:'synthetic-larder-922',packQuantity:'6',moq:'6',leadDays:1,leadDaysMax:2,weekdays:[0,1,2,3,4,5,6],closedDates:[day(1)],currency:'CAD',usdRate:'0.75',rateOn:day(0),rateSource:'synthetic-larder-923 buyer quote',price:'2',breaks:[{quantity:'12',price:'1.6'}],paymentTerms:'Net 30',freightTerms:'Delivered'}
+  for(const item of items)await call('supplier.terms',{...terms,itemId:item.id,partyId:vendors[0].id,partyCode:item.sku})
+  await call('supplier.terms',{...terms,itemId:items[0].id,partyId:vendors[1].id,leadDaysMax:15})
+  await page.goto(origin+'/app#make/po');await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  const article=page.getByRole('article',{name:'Terms for '+vendors[0].name}).filter({has:page.getByRole('heading',{name:vendors[0].name+' · '+items[0].name,exact:true})})
+  await article.getByText('Revise '+vendors[0].name+' terms',{exact:true}).click()
+  await article.getByLabel('Minimum order quantity',{exact:true}).fill('18');await article.getByLabel('Maximum uncertain lead working days',{exact:true}).fill('4')
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'MRP-003-constraints');if(process.env.LARDER_SCREENSHOTS)await article.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-MRP-003-constraints-detail.png`)})}
+  await planningAct(page,()=>article.getByRole('button',{name:'Save supplier terms',exact:true}).click())
+  await page.goto(origin+'/app#make/plan');await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  await page.getByLabel('Planner forecast confidence percent',{exact:true}).fill('75');await page.getByLabel('Forecast confidence basis',{exact:true}).fill('synthetic-larder-924 planner review of sparse history');await page.getByLabel('Replenishment reason',{exact:true}).fill('synthetic-larder-925 selective restock')
+  await planningAct(page,()=>page.getByRole('button',{name:'Run replenishment',exact:true}).click())
+  const review=page.getByRole('region',{name:'Replenishment comparison',exact:true})
+  await expect(review).toContainText('75% planner confidence');await expect(review).toContainText('Too late at uncertain bound')
+  const row=review.getByRole('row').filter({hasText:vendors[0].name}).first();await expect(row).toContainText('18');await expect(row).toContainText('21.6 USD');await expect(row).toContainText('0 at risk')
+  const reasons=review.locator('textarea[aria-label^="Selection or rejection reason for "]')
+  for(let i=0;i<await reasons.count();i++)await reasons.nth(i).fill('synthetic-larder-926 retain rejected suggestion for later review')
+  await page.getByLabel('Approve supplier for '+items[0].name,{exact:true}).selectOption({label:vendors[0].name+' · 21.6 USD'})
+  await page.getByLabel('Selection or rejection reason for '+items[0].name,{exact:true}).fill('synthetic-larder-927 accept conservative lead bound and pack surplus')
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'MRP-003-review');if(process.env.LARDER_SCREENSHOTS)await review.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-MRP-003-review-detail.png`)})}
+  const before=await planningState(page);await planningAct(page,()=>page.getByRole('button',{name:'Approve selected replenishment',exact:true}).click())
+  await expect(page.getByText('Approved replenishment decisions',{exact:true})).toBeVisible();await expect(page.getByText('21.6 USD approved; 1 purchase orders. Nothing was sent to a supplier.',{exact:true})).toBeVisible()
+  const after=await planningState(page),selected=after.purchaseOrders.filter((p:any)=>!before.purchaseOrders.some((b:any)=>b.id===p.id));expect(selected).toHaveLength(1);expect(selected[0].lines[0].itemId).toBe(items[0].id);expect(selected[0].status).toBe('approved');expect(after.movements).toEqual(before.movements)
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'MRP-003-approved')}
+})
