@@ -104,7 +104,7 @@ test('FLOOR-007 pause for broken tool, notify supervisor in app, revise effort, 
   await expect(report).not.toContainText('Still open'); await shots(page, 'closed-report', report)
 })
 
-test('FLOOR-002 clock a setup and run, pause for a breakdown, correct a missed stop and approve it, then see a locked period refuse the change at 1440/390', async ({ page }) => {
+test('FLOOR-002 clock a setup and run, pause for a breakdown, correct a missed stop and have a supervisor approve it at 1440/390', async ({ page }) => {
   if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
