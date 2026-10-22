@@ -374,3 +374,59 @@ test('Qualified alternates compare setup, tools, labor, delivery and cost before
   const current=await state(page);expect(current.workOrders.find((j:any)=>j.id===w.id).scheduleChoices[1]).toBe(names[2]);expect(current.workOrders.find((j:any)=>j.id===w.id).routing).toEqual(w.routing)
   for(const width of [1440,390]) {await page.setViewportSize({width,height:1000});await shot(page,'CAP-006-approved')}
 })
+
+test('Frozen recovery and isolated outage scenarios retain locks, show displacement and reject stale adoption at 1440/390',async({page})=>{
+  await enter(page)
+  const call=async(type:string,payload:any)=>{const r=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}});const b=await r.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result}
+  const day=(n:number)=>new Date(Date.now()+n*86400000).toISOString().slice(0,10),suffix=crypto.randomUUID().slice(0,6)
+  const raw=await call('item.save',{sku:`synthetic-larder-811-${suffix}`,name:'Recovery blank',kind:'buy',baseUnit:'each'})
+  const calendar=(name:string)=>({name,timeZone:'UTC',effectiveFrom:day(0),effectiveTo:day(60),shifts:[{weekdays:[0,1,2,3,4,5,6],start:0,end:1440,breaks:[]}],closedDates:[],exceptions:[],usHolidays:false,capacity:1,efficiency:100,reason:'synthetic-larder-812 calendar'})
+  const s=await(await page.request.get(origin+'/api/larder/state')).json(),old=s.laborCalendars.find((l:any)=>l.operatorIds.includes(s.actor.id))
+  await call('capacity.labor',{...calendar(old?.name??`Recovery team ${suffix}`),...(old?{id:old.id,version:old.version}:{}),operatorIds:[s.actor.id],skills:old?.skills??[]})
+  const machines:any[]=[],jobs:any[]=[]
+  for(let i=0;i<3;i++) {
+    const m=await call('capacity.machine',calendar(`Recovery ${suffix} ${i}`));machines.push(m)
+    const item=await call('item.save',{sku:`synthetic-larder-813-${suffix}-${i}`,name:`Recovery assembly ${i}`,kind:'make',baseUnit:'each'})
+    await call('bom.revise',{itemId:item.id,components:[{itemId:raw.id,quantity:'1'}],routing:[{name:'Recovery operation',workCentre:m.name,minutes:60}]})
+    let j=await call('wo.draft',{itemId:item.id,quantity:'1',requiredBy:day(13),plannedStart:day(i===0?1:8),reason:'synthetic-larder-814 customer work'});j=await call('wo.release',{workOrderId:j.id,version:j.version});jobs.push(j)
+  }
+  await page.goto(origin+'/app#schedule');await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00');await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click()
+  await page.getByLabel('Freeze schedule through (local time)',{exact:true}).fill(day(7)+'T00:00')
+  await page.getByLabel('Manual operation lock',{exact:true}).selectOption(jobs[1].id+':1')
+  await page.getByLabel('Protection reason',{exact:true}).fill('synthetic-larder-815 freeze this week and keep manual override')
+  await act(page,()=>page.getByRole('button',{name:'Save schedule protections',exact:true}).click())
+  let active=jobs[2];active=await call('wo.operation.assign',{workOrderId:active.id,version:active.version,sequence:1,operatorId:s.actor.id})
+  active=await call('wo.operation.start',{workOrderId:active.id,version:active.version,sequence:1,workCentre:machines[2].name,station:'synthetic-larder-816 tablet',reason:'synthetic-larder-817 start'})
+  await call('wo.operation.pause',{workOrderId:active.id,version:active.version,sequence:1,reason:'breakdown',note:'synthetic-larder-818 spindle stopped',escalationOwnerId:s.actor.id,anticipatedResumeAt:day(10)+'T12:00:00Z'})
+  await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  const recovery=page.getByLabel('Schedule review wo.operation.pause recovery',{exact:true})
+  await expect(recovery).toContainText(jobs[2].reference);await expect(recovery).toContainText('Changed customer promises: 0')
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'CAP-007-reflow');if(shots)await recovery.screenshot({path:join(shots,`${width}-CAP-007-detail.png`)})}
+  // A reload restarts the scheduler projection; it must not duplicate the event.
+  await page.reload();await expect(page.getByLabel('Schedule review wo.operation.pause recovery',{exact:true})).toHaveCount(1)
+  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00');await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click()
+  for(const [name,end] of [['Short outage',day(9)],['Long outage',day(11)]]){
+    await page.getByLabel('Scenario name',{exact:true}).fill(name)
+    await page.getByLabel('Scenario unavailable machine',{exact:true}).selectOption(machines[2].id)
+    await page.getByLabel('Scenario outage starts (local time)',{exact:true}).fill(day(8)+'T00:00');await page.getByLabel('Scenario outage ends (local time)',{exact:true}).fill(end+'T00:00')
+    await page.getByLabel('Scenario reason',{exact:true}).fill('synthetic-larder-819 compare future capacity')
+    await act(page,()=>page.getByRole('button',{name:'Compare outage scenario',exact:true}).click())
+    await expect(page.getByLabel('Schedule review '+name,{exact:true})).toContainText('Frozen/manual conflicts: 0')
+  }
+  const panel=page.locator('section.card').filter({has:page.getByRole('heading',{name:'Planning scenarios and event recovery',exact:true})})
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'MRP-004-scenarios');if(shots)await panel.screenshot({path:join(shots,`${width}-MRP-004-detail.png`)})}
+  await page.getByLabel('Decision reason for Short outage',{exact:true}).fill('synthetic-larder-820 approved next week')
+  await act(page,()=>page.getByRole('button',{name:'Adopt Short outage',exact:true}).click())
+  await expect(page.getByLabel('Schedule review Short outage',{exact:true})).toContainText('adopted')
+  // Material ETA change invalidates the other review; the UI displays the API refusal.
+  const supplier=await call('party.save',{name:`synthetic-larder-821-${suffix}`,kind:'supplier'})
+  let po=await call('po.draft',{supplierId:supplier.id,expectedDate:day(3),reason:'synthetic-larder-822 scheduled material',lines:[{itemId:raw.id,quantity:'1',unitPrice:'2'}]});po=await call('po.approve',{poId:po.id,version:po.version});await call('po.revise',{poId:po.id,version:po.version,expectedDate:day(4),note:'synthetic-larder-823 ETA changed'})
+  await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  const before=await state(page)
+  await page.getByLabel('Decision reason for Long outage',{exact:true}).fill('synthetic-larder-824 stale adoption')
+  const reply=page.waitForResponse(r=>r.url().endsWith('/api/larder/commands')&&r.request().postDataJSON()?.type==='schedule.adopt');await page.getByRole('button',{name:'Adopt Long outage',exact:true}).click()
+  const denied=await(await reply).json();expect(denied.error.code).toBe('STALE');await expect(page.getByText('Planning inputs, live people or planning window changed. Prepare a fresh scenario.',{exact:true})).toBeVisible()
+  expect((await state(page)).scheduleBookings).toEqual(before.scheduleBookings)
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'MRP-004-stale')}
+})

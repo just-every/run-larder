@@ -14,7 +14,7 @@ type Segment = { startsAt: string; endsAt: string }
 export type ScheduledOperation = { key: string; workOrderId: string; reference: string; sequence: number; name: string; machineId: string; machine: string; machineSlot: number; operatorId: string; person: string; laborId: string; setupMinutes: number; runMinutes: number; queueMinutes: number; occupiedMinutes: number; startsAt: string; endsAt: string; intervals: Segment[]; predecessors: number[]; slackMinutes: number; critical: boolean; maintenanceIds: string[]; provisional: boolean; setupFamily: string; priorFamily: string; changeoverMinutes: number; cleanupMinutes: number; requiredTools: string[]; planningCost: string | null; comparisons: any[] }
 const iso = (n: number) => new Date(n).toISOString()
 const activeRoles = ['owner', 'manager', 'production', 'operator']
-export function finitePlan(s: State, people: Person[], at = new Date().toISOString(), days = 14) {
+export function finitePlan(s: State, people: Person[], at = new Date().toISOString(), days = 14, options: { releaseBookings?: boolean } = {}) {
   const asOf = instant(at, 'plan start'), horizonDays = integer(days, 'plan horizon days', 1, 60)
   const from = Math.ceil(Date.parse(asOf) / 60000) * 60000, length = horizonDays * 1440, until = from + length * 60000
   const grids = new Map<string, ReturnType<typeof localGrid>>()
@@ -37,7 +37,22 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
     })
   })
   const families = new Map(machines.map(m => [m.id, m.calendar.sequencing?.initialFamily ?? '']))
-  const operations: ScheduledOperation[] = [], unscheduled: any[] = [], jobs: any[] = []
+  const operations: ScheduledOperation[] = [], unscheduled: any[] = [], jobs: any[] = [], protectionConflicts: string[] = []
+  const pins = new Map<string, ScheduledOperation>()
+  const booking = options.releaseBookings ? [] : s.scheduleBookings.filter(b => b.status === 'active').flatMap(b => b.operations)
+  const protectedPins = s.schedulePolicies[0]?.protectedOperations ?? []
+  for (const op of [...booking, ...protectedPins] as ScheduledOperation[]) pins.set(op.key, op)
+  const fixed = new Map<string, ScheduledOperation>()
+  for (const op of pins.values()) {
+    const job = s.workOrders.find(w => w.id === op.workOrderId && ['draft','released'].includes(w.status))
+    if (!job || job.operationStates?.some((t: any) => t.sequence === op.sequence && t.status === 'done')) continue
+    const m = machines.find(m => m.calendar.id === op.machineId && Number(m.id.split(':').at(-1)) === op.machineSlot), l = labor.find(l => l.id === op.operatorId && l.calendar.id === op.laborId)
+    const slots = op.intervals.flatMap(span => { const a = (Date.parse(span.startsAt)-from)/60000, b = (Date.parse(span.endsAt)-from)/60000; return Array.from({length: Math.max(0,b-a)},(_,i)=>a+i) })
+    const valid = m && l && slots.length && slots.every(i=>Number.isInteger(i) && i>=0 && i<length && m.available[i] && !m.used[i] && l.available[i] && l.used[i]!<l.capacity)
+    if (!valid) { protectionConflicts.push(op.key); continue }
+    for(const i of slots){m.used[i]=1;l.used[i]=l.used[i]!+1}
+    fixed.set(op.key,op)
+  }
   const work = s.workOrders.filter(w => ['draft', 'released'].includes(w.status)).sort((a, b) => Number(Boolean(b.operationStates?.some((t: any) => ['running','paused'].includes(t.status)))) - Number(Boolean(a.operationStates?.some((t: any) => ['running','paused'].includes(t.status)))) || (b.priority ?? 0) - (a.priority ?? 0) || a.requiredBy.localeCompare(b.requiredBy) || a.reference.localeCompare(b.reference))
   for (const w of work) {
     const routing: any[] = w.status === 'released' ? w.routing ?? [] : (w.engineeringBomId ? s.boms.find(b => b.id === w.engineeringBomId) : activeBom(s, w.itemId))?.routing ?? []
@@ -47,6 +62,15 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
     for (const step of [...routing].sort((a, b) => a.sequence - b.sequence)) {
       if (complete.has(step.sequence)) continue
       const key = `${w.id}:${step.sequence}`, previous = predecessors(step), task = w.operationStates?.find((t: any) => t.sequence === step.sequence)
+      if (pins.has(key)) {
+        const pinned=fixed.get(key)
+        const machine=pinned&&machines.find(m=>m.calendar.id===pinned.machineId), person=pinned&&labor.find(l=>l.id===pinned.operatorId)
+        const earliest=Math.max(readyDate,operationReady(w,step,new Date(asOf))?.getTime()??from,...previous.map(n=>Date.parse(placed.get(n)?.endsAt??asOf)))+(step.queueMinutes??0)*60000
+        const qualified=pinned&&machine&&person&&!previous.some(n=>blocked.has(n))&&Date.parse(pinned.startsAt)>=earliest&&(step.eligibleCentres?.length?step.eligibleCentres:[step.workCentre]).includes(pinned.machine)&&(step.requiredSkills??[]).every((skill:string)=>person.calendar.skills.includes(skill))&&(step.requiredTools??[]).every((tool:string)=>machine.calendar.sequencing?.tools.includes(tool))&&(!w.scheduleChoices?.[step.sequence]||w.scheduleChoices[step.sequence]===pinned.machine)
+        if(qualified){const op=structuredClone(pinned);placed.set(step.sequence,op);operations.push(op)}
+        else {blocked.add(step.sequence);unscheduled.push({key,workOrderId:w.id,reference:w.reference,sequence:step.sequence,reason:'Protected or booked interval is unavailable; explicit review required.'})}
+        continue
+      }
       const eligible = step.eligibleCentres?.length ? step.eligibleCentres : [step.workCentre]
       const choice = w.scheduleChoices?.[step.sequence]
       const centers = machines.filter(m => eligible.includes(m.name) && (!task?.workCentre || task.workCentre === m.name) && (!choice || choice === m.name) && (step.requiredTools ?? []).every((tool: string) => m.calendar.sequencing?.tools.includes(tool)))
@@ -111,5 +135,5 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
   })))
   const loads = [...machines, ...labor].map(r => ({ kind: machines.includes(r) ? 'machine' : 'labor', id: r.id, calendarId: r.calendar.id, name: r.name, capacityMinutes: r.available.reduce((n, v) => n + v * r.capacity, 0), bookedMinutes: r.used.reduce((n, v) => n + v, 0) })).map(r => ({ ...r, percent: r.capacityMinutes ? Math.round(r.bookedMinutes / r.capacityMinutes * 1000) / 10 : 0 }))
   const bottleneck = loads.filter(l => l.bookedMinutes > 0).sort((a, b) => b.percent - a.percent || b.bookedMinutes - a.bookedMinutes || a.id.localeCompare(b.id))[0] ?? null
-  return { version: s.version, asOf, startsAt: iso(from), endsAt: iso(until), horizonDays, today: asOf.slice(0, 10), promises, operations, jobs, unscheduled, lateJobs: jobs.filter(j => j.late).map(j => j.workOrderId), unscheduledJobs: jobs.filter(j => j.unscheduled).map(j => j.workOrderId), loads, bottleneck, counts: { late: jobs.filter(j => j.late).length, unscheduled: jobs.filter(j => j.unscheduled).length }, semantics: 'Read-only finite projection; intervals are occupied minutes, queue is elapsed before occupation; CPM slack uses dependency effort and due slack uses projected finish. Drafts do not book or approve execution. Unreleased maintenance recovery is provisional.' }
+  return { protectionConflicts, version: s.version, asOf, startsAt: iso(from), endsAt: iso(until), horizonDays, today: asOf.slice(0, 10), promises, operations, jobs, unscheduled, lateJobs: jobs.filter(j => j.late).map(j => j.workOrderId), unscheduledJobs: jobs.filter(j => j.unscheduled).map(j => j.workOrderId), loads, bottleneck, counts: { late: jobs.filter(j => j.late).length, unscheduled: jobs.filter(j => j.unscheduled).length }, semantics: 'Read-only finite projection; intervals are occupied minutes, queue is elapsed before occupation; CPM slack uses dependency effort and due slack uses projected finish. Drafts do not book or approve execution. Unreleased maintenance recovery is provisional.' }
 }

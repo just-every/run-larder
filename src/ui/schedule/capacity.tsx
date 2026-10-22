@@ -1,3 +1,4 @@
+import { ScheduleRecovery } from './recovery'
 import { FiniteReschedule } from './reschedule'
 import { useEffect, useState } from 'react'
 import { can, personName, rows } from '../api'
@@ -104,6 +105,7 @@ export function Capacity({ larder }: { larder: Larder }) {
       </>}
     </Card>
     {plan && <FiniteReschedule larder={larder} plan={plan} />}
+    {plan && <ScheduleRecovery larder={larder} plan={plan} />}
     <CalendarEditor larder={larder} kind="machine" />
     <CalendarEditor larder={larder} kind="labor" />
     {can(s, ['manager', 'planner']) && <Card title="Qualified tools and setup families"><Form submit="Save sequence constraints" busy={larder.busy} onSubmit={d => { const m = rows(s, 'machineCalendars').find(m => m.id === text(d, 'machine')); return m && larder.run('capacity.sequence', { id: m.id, version: m.version, tools: text(d, 'tools').split(';').map(t => t.trim()).filter(Boolean), initialFamily: text(d, 'family'), planningHourlyCost: text(d, 'tariff'), overtimeHourlyCost: text(d, 'overtime') || undefined, outsourceCost: text(d, 'external') || undefined, outsourceDays: Number(text(d, 'lead') || 0), changeovers: text(d, 'transitions').split('\n').filter(Boolean).map(line => { const [from,to,minutes,cleanupMinutes] = line.split(',').map(v => v.trim()); return { from,to,minutes:Number(minutes),cleanupMinutes:Number(cleanupMinutes) } }), reason: text(d, 'reason') }) }}>

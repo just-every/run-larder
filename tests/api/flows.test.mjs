@@ -688,3 +688,74 @@ test('Qualified alternate comparison keeps pinned instructions, setup transition
   assert.deepEqual(saved.records.machineCalendars,archive.records.machineCalendars)
   assert.match(await(await h.request('/api/larder/archive.csv')).text(),/sequenceHistory/)
 })
+
+test('Event recovery persists once after restart, preserves frozen and manual work, exposes displacement and refuses automatic or external authority', async t=>{
+  const h=await installation();t.after(()=>h.close());const w=await workshop(h), owner=(await h.state()).actor
+  const future='2026-11-25T00:00:00Z'
+  await h.command('capacity.machine',capacityCalendar('Bench'))
+  await h.command('capacity.labor',capacityCalendar('Recovery operator',{operatorIds:[owner.id],skills:[]}))
+  await h.command('bom.revise',{itemId:w.board.id,components:[{itemId:w.timber.id,quantity:'1'}],routing:[{name:'Recovery cut',workCentre:'Bench',minutes:120},{name:'Dependent finish',workCentre:'Bench',minutes:30,queueMinutes:15}]})
+  const jobs=[]
+  for(let i=0;i<3;i++){let j=await h.command('wo.draft',{itemId:w.board.id,quantity:'1',requiredBy:'2026-11-26',reason:'synthetic-larder-701 recovery job'});j=await h.command('wo.release',{workOrderId:j.id,version:j.version});jobs.push(j)}
+  const baseline=await finite(h,future,14), first=baseline.operations[0], locked=baseline.operations.find(o=>o.workOrderId===jobs[1].id&&o.sequence===1)
+  const policy=await h.command('schedule.protect',{asOf:future,days:14,freezeUntil:first.endsAt,manualLocks:[{workOrderId:locked.workOrderId,sequence:locked.sequence}],automatic:false,reason:'synthetic-larder-702 freeze and manual lock'})
+  assert.equal(policy.protectedOperations.length,2)
+  await h.command('schedule.protect',{version:policy.version,asOf:future,days:14,freezeUntil:first.endsAt,manualLocks:[],automatic:true,reason:'synthetic-larder-703 forbidden auto'},{error:'POLICY'})
+  let active=jobs[2]
+  active=await h.command('wo.operation.assign',{workOrderId:active.id,version:active.version,sequence:1,operatorId:owner.id})
+  active=await h.command('wo.operation.start',{workOrderId:active.id,version:active.version,sequence:1,workCentre:'Bench',station:'synthetic-larder-704 tablet',reason:'synthetic-larder-705 start'})
+  const paused=await h.send('wo.operation.pause',{workOrderId:active.id,version:active.version,sequence:1,reason:'breakdown',note:'synthetic-larder-706 stopped spindle',escalationOwnerId:owner.id,anticipatedResumeAt:'2026-11-26T12:00:00Z'})
+  assert.equal(paused.body.ok,true)
+  const once=(await h.state()).schedulePlans.filter(p=>p.event?.commandId===paused.commandId);assert.equal(once.length,1)
+  const reflow=once[0];assert.equal(reflow.kind,'reflow');assert.equal(reflow.changedPromiseCount,0);assert.equal(reflow.protectionConflicts.length,0)
+  for(const pin of policy.protectedOperations)assert.deepEqual(reflow.after.operations.find(o=>o.key===pin.key).intervals,pin.intervals)
+  assert.ok(reflow.effects.some(e=>e.workOrderId===active.id&&e.before!==e.after),'paused job and dependent finish are displaced')
+  assert.ok(reflow.after.operations.find(o=>o.workOrderId===active.id&&o.sequence===2).startsAt>=reflow.after.operations.find(o=>o.workOrderId===active.id&&o.sequence===1).endsAt)
+  await h.restart();assert.deepEqual((await h.state()).schedulePlans.filter(p=>p.event?.commandId===paused.commandId),once)
+  await h.command('wo.operation.pause',{workOrderId:active.id,version:active.version,sequence:1,reason:'breakdown',note:'synthetic-larder-706 stopped spindle',escalationOwnerId:owner.id,anticipatedResumeAt:'2026-11-26T12:00:00Z'},{commandId:paused.commandId})
+  assert.equal((await h.state()).schedulePlans.filter(p=>p.event?.commandId===paused.commandId).length,1)
+  const before=await h.state()
+  await h.command('schedule.adopt',{planId:reflow.id,version:reflow.version,promises:[{date:'2026-12-01'}],reason:'synthetic-larder-707 unapproved customer change'},{error:'AUTHORITY'})
+  const agent=await h.person('synthetic-larder-708@example.test','agent'),planner=await h.person('synthetic-larder-709@example.test','planner')
+  await agent.run('schedule.adopt',{planId:reflow.id,version:reflow.version,reason:'denied'},{error:'FORBIDDEN'})
+  await planner.run('schedule.adopt',{planId:reflow.id,version:reflow.version,reason:'denied'},{error:'FORBIDDEN'})
+  const after=await h.state();for(const k of ['salesOrders','movements','reservations','scheduleBookings'])assert.deepEqual(after[k],before[k])
+  const archive=await(await h.request('/api/larder/archive')).json(),target=await installation();t.after(()=>target.close())
+  assert.equal((await target.request('/api/larder/archive/restore',{method:'POST',body:archive})).status,200)
+  const saved=await(await target.request('/api/larder/archive')).json();assert.deepEqual(saved.records.schedulePlans,archive.records.schedulePlans);assert.deepEqual(saved.records.schedulePolicies,archive.records.schedulePolicies)
+})
+
+test('Isolated outage scenarios protect this week and manual locks, atomically book next week and reject an ETA-stale adoption without a partial schedule', async t=>{
+  const h=await installation();t.after(()=>h.close());const w=await workshop(h),owner=(await h.state()).actor
+  await h.command('capacity.machine',capacityCalendar('Bench'))
+  await h.command('capacity.machine',capacityCalendar('Finish'))
+  await h.command('capacity.labor',capacityCalendar('Scenario operator',{operatorIds:[owner.id],skills:[]}))
+  const machine=(await h.state()).machineCalendars.find(m=>m.name==='Bench')
+  const jobs=[]
+  for(const [i,center,start] of [[0,'Bench','2026-11-25'],[1,'Finish','2026-12-02'],[2,'Bench','2026-12-02']]) {
+    const item=await h.command('item.save',{sku:`synthetic-larder-801-${i}`,name:'Scenario part '+i,kind:'make',baseUnit:'each'})
+    await h.command('bom.revise',{itemId:item.id,components:[{itemId:w.timber.id,quantity:'1'}],routing:[{name:'Scenario cut',workCentre:center,minutes:60}]})
+    let j=await h.command('wo.draft',{itemId:item.id,quantity:'1',requiredBy:'2026-12-06',plannedStart:start,reason:'synthetic-larder-802 next week'});j=await h.command('wo.release',{workOrderId:j.id,version:j.version});jobs.push(j)
+  }
+  await h.command('schedule.protect',{asOf:'2026-11-25T00:00:00Z',days:14,freezeUntil:'2026-12-01T00:00:00Z',manualLocks:[{workOrderId:jobs[1].id,sequence:1}],reason:'synthetic-larder-803 protect this week and override'})
+  const before=await h.state(), args=(name,end)=>({asOf:'2026-11-25T00:00:00Z',days:14,name,reason:'synthetic-larder-804 isolated outage',outages:[{machineId:machine.id,startsAt:'2026-12-02T00:00:00Z',endsAt:end}]})
+  const a=await h.command('schedule.scenario',args('One day outage','2026-12-03T00:00:00Z')), b=await h.command('schedule.scenario',args('Two day outage','2026-12-04T00:00:00Z'))
+  const finish=(p,id)=>p.after.jobs.find(j=>j.workOrderId===id).endsAt
+  assert.ok(finish(a,jobs[2].id)<finish(b,jobs[2].id));assert.equal(a.protectionConflicts.length,0)
+  const compared=await h.state();for(const k of ['workOrders','machineCalendars','salesOrders','movements','reservations','scheduleBookings'])assert.deepEqual(compared[k],before[k],k)
+  for(const p of [a,b])for(const pin of before.schedulePolicies[0].protectedOperations)assert.deepEqual(p.after.operations.find(o=>o.key===pin.key),pin)
+  const adopted=await h.command('schedule.adopt',{planId:a.id,version:a.version,reason:'synthetic-larder-805 reviewed one day outage'},{commandId:'synthetic-larder-806-adopt'})
+  assert.equal(adopted.status,'adopted');assert.deepEqual(await h.command('schedule.adopt',{planId:a.id,version:a.version,reason:'synthetic-larder-805 reviewed one day outage'},{commandId:'synthetic-larder-806-adopt'}),adopted)
+  let s=await h.state();assert.equal(s.scheduleBookings.filter(b=>b.status==='active').length,1);assert.deepEqual((await finite(h,'2026-11-25T00:00:00Z',14)).operations,a.after.operations)
+  assert.ok([...minuteOccupancy(a.after.operations).values()].every(n=>n<=1))
+  const stale=await h.command('schedule.scenario',args('ETA stale','2026-12-04T00:00:00Z'))
+  let po=await h.command('po.draft',{supplierId:w.supplier.id,expectedDate:'2026-11-26',reason:'synthetic-larder-807 ETA input',lines:[{itemId:w.timber.id,quantity:'1',unitPrice:'9.5'}]})
+  po=await h.command('po.approve',{poId:po.id,version:po.version});await h.command('po.revise',{poId:po.id,version:po.version,expectedDate:'2026-11-27',note:'synthetic-larder-808 supplier ETA slip'})
+  const unchanged=await h.state();await h.command('schedule.adopt',{planId:stale.id,version:stale.version,reason:'synthetic-larder-809 stale refusal'},{error:'STALE'})
+  assert.deepEqual((await h.state()).scheduleBookings,unchanged.scheduleBookings);assert.deepEqual((await h.state()).workOrders,unchanged.workOrders)
+  const conflict=await h.command('schedule.scenario',{...args('Frozen conflict','2026-12-04T00:00:00Z'),outages:[{machineId:machine.id,startsAt:'2026-11-25T00:00:00Z',endsAt:'2026-11-26T00:00:00Z'}]})
+  assert.ok(conflict.protectionConflicts.length);await h.command('schedule.adopt',{planId:conflict.id,version:conflict.version,reason:'synthetic-larder-810 cannot displace frozen work'},{error:'CAPACITY'})
+  const archive=await(await h.request('/api/larder/archive')).json(),target=await installation();t.after(()=>target.close())
+  assert.equal((await target.request('/api/larder/archive/restore',{method:'POST',body:archive})).status,200)
+  const saved=await(await target.request('/api/larder/archive')).json();for(const k of ['schedulePlans','schedulePolicies','scheduleBookings'])assert.deepEqual(saved.records[k],archive.records[k]);assert.match(await(await h.request('/api/larder/archive.csv')).text(),/scheduleBookings/)
+})
