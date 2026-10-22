@@ -1,13 +1,16 @@
 // BUY-002: receiving against production demand. A delivery can carry supplier documents and damaged units
-// (quarantined with their reason, never allocated), a PO line can carry a percentage tolerance, and a person
-// with receiving authority can turn the accepted stock into hard reservations on the demand the dated plan
-// pegs it to. Nothing here approves supply, ships, issues or changes a promise.
+// (quarantined with their reason, never allocated), a PO line can carry a percentage tolerance (0 unless the
+// buyer sets up to 20; a delivery past it is refused, never accepted silently; above 10 percent on an order
+// at or above the owner's spend threshold the setting needs the GOV-002 signatures), and a person with
+// receiving authority can turn the accepted stock into hard reservations on the demand the dated plan pegs
+// it to. Nothing here approves supply, ships, issues or changes a promise.
 import { decimal, divide, format, max, min, times } from './decimal'
 import { materialPegging } from './material-pegging'
+import { gate } from './approval-policy'
 import { allow } from './roles'
 import { fail } from './problem'
 import { reserve } from './stock'
-import { get, row, text, type Context, type Row } from './model'
+import { bump, get, row, text, type Context, type Row } from './model'
 
 const hundred = decimal('100')
 
@@ -34,6 +37,7 @@ export function damaged(input: any, delivered: bigint): { quantity: bigint; reas
 // dated plan pegs it to (a sales line, or a released job's pinned component), in the plan's own date order. Demand reached
 // only through a make path (kind dependent) stays unallocated.
 export function receiving(c: Context, type: string, p: any): Row | undefined {
+  if (type === 'po.tolerance') return setTolerance(c, p)
   if (type !== 'receipt.allocate') return
   allow(c, ['manager', 'warehouse'])
   const receipt = get(c.s, 'receipts', p.receiptId, 'receipt'), reason = text(p.reason, 'reason', 400)
@@ -50,4 +54,23 @@ export function receiving(c: Context, type: string, p: any): Row | undefined {
     if (took < decimal(source.quantity)) skipped.push({ ...entry, quantity: format(decimal(source.quantity) - took), reason: 'stock at that bin is already reserved elsewhere' })
   }
   return row(c, 'approvals', { subjectKind: 'receipts', subjectId: receipt.id, subjectVersion: receipt.version, decision: 'allocated', category: 'receipt-allocation', role: c.actor.role, note: reason, allocated, skipped })
+}
+
+// A line's delivery tolerance is the buyer's (or a manager's) to set, audited with its reason. On an order at or
+// above the owner's spend threshold, a tolerance above this many percent needs the policy signatures on the exact setting.
+const signedAbove = decimal('10')
+function setTolerance(c: Context, p: any): Row {
+  allow(c, ['manager', 'buyer'])
+  const po = get(c.s, 'purchaseOrders', p.poId, 'purchase order'), line = po.lines.find((l: any) => l.id === p.lineId) ?? fail('NOT_FOUND', 'That purchase order line was not found.', { lineId: p.lineId })
+  if (po.version !== p.version) fail('STALE', 'This order changed since you opened it. Reload and review the current version.', { currentVersion: po.version })
+  if (!['draft', 'approved', 'confirmed', 'part received'].includes(po.status)) fail('STATE', 'Set a tolerance on a draft or open purchase order.')
+  const percent = tolerancePercent(p.tolerancePercent), reason = text(p.reason, 'reason', 400)
+  // A draft is approved later on its exact lines, tolerance included; an open order is signed for the change itself.
+  const signed = po.status !== 'draft' && decimal(percent) > signedAbove ? gate(c, { category: 'spend', subjectKind: 'purchaseOrders', subject: po, measure: () => decimal(po.exposure), permitted: ['manager', 'buyer'], terms: { decision: 'tolerance', lineId: line.id, tolerancePercent: percent }, p }) : null
+  if (signed && 'pending' in signed) return signed.pending
+  const was = line.tolerancePercent
+  line.tolerancePercent = percent
+  po.history.push({ at: c.now, by: c.actor.id, change: 'delivery tolerance set', line: line.id, from: was, to: percent, note: reason, ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
+  signed?.consume(po.id)
+  return bump(po, {})
 }

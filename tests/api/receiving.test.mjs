@@ -37,6 +37,8 @@ test('BUY-002 a short delivery for two pegged jobs quarantines the damaged units
   assert.deepEqual(receipt.lines.map(l => [l.quantity, l.inspection, l.damageReason ?? null]), [['5', 'accept', null], ['2', 'quarantine', 'Crushed pallet corner']])
   const [good, bad] = receipt.lines
   let state = await h.state()
+  // Receiving reserves nothing by itself: allocation is a separate act.
+  assert.deepEqual(state.reservations.filter(r => r.itemId === p.raw.id), [])
   assert.deepEqual([state.lots.find(l => l.id === good.lotId).status, state.lots.find(l => l.id === bad.lotId).status, state.lots.find(l => l.id === bad.lotId).code], ['released', 'quarantined', 'SYN-LOT-DAMAGED'])
   assert.deepEqual([state.purchaseOrders[0].status, state.purchaseOrders[0].lines[0].received], ['part received', '7'])
   await h.command('po.revise', { poId: po.id, version: state.purchaseOrders[0].version, expectedDate: date(12), note: 'Supplier ships the rest late' })
@@ -87,8 +89,15 @@ test('BUY-002 a line tolerance accepts a small over-delivery, refuses more, and 
   const strict = await p.buy('10', 3)
   await h.command('receipt.create', { poId: strict.id, supplierReference: 'S1', lines: [{ lineId: strict.lines[0].id, locationId: p.location.id, quantity: '11' }] }, { error: 'OVER_RECEIPT' })
   const loose = await p.buy('10', 3, '10')
+  // Over-delivery beyond the tolerance is refused, in one delivery, across deliveries and with damaged units counted, and records nothing.
+  const counted = async () => { const s = await h.state(); return [s.receipts.length, s.movements.length, s.purchaseOrders.find(x => x.id === loose.id).lines[0].received] }
+  const untouched = await counted()
   await h.command('receipt.create', { poId: loose.id, supplierReference: 'L1', lines: [{ lineId: loose.lines[0].id, locationId: p.location.id, quantity: '12' }] }, { error: 'OVER_RECEIPT' })
-  await h.command('receipt.create', { poId: loose.id, supplierReference: 'L2', lines: [{ lineId: loose.lines[0].id, locationId: p.location.id, quantity: '11' }] })
+  await h.command('receipt.create', { poId: loose.id, supplierReference: 'L1b', lines: [{ lineId: loose.lines[0].id, locationId: p.location.id, quantity: '12', damage: { quantity: '2', reason: 'Crushed' } }] }, { error: 'OVER_RECEIPT' })
+  assert.deepEqual(await counted(), untouched)
+  await h.command('receipt.create', { poId: loose.id, supplierReference: 'L2a', lines: [{ lineId: loose.lines[0].id, locationId: p.location.id, quantity: '6' }] })
+  await h.command('receipt.create', { poId: loose.id, supplierReference: 'L2b', lines: [{ lineId: loose.lines[0].id, locationId: p.location.id, quantity: '6' }] }, { error: 'OVER_RECEIPT' })
+  await h.command('receipt.create', { poId: loose.id, supplierReference: 'L2', lines: [{ lineId: loose.lines[0].id, locationId: p.location.id, quantity: '5' }] })
   assert.equal((await h.state()).purchaseOrders.find(x => x.id === loose.id).status, 'received')
   // A delivery inside the tolerance on the short side leaves a remainder nobody is waiting for: closing it is a manager's recorded decision.
   const short = await p.buy('10', 3, '10')
@@ -98,5 +107,62 @@ test('BUY-002 a line tolerance accepts a small over-delivery, refuses more, and 
   await manager.run('supply.change.approve', { key: close.key, version: view.version, asOf: view.asOf, reason: 'synthetic-larder-219 supplier will not send the last unit' })
   const closed = (await h.state()).purchaseOrders.find(x => x.id === short.id)
   assert.deepEqual([closed.status, closed.lines[0].quantity, closed.lines[0].received, closed.lines[0].cancelled], ['received', '9', '9', '1'])
+  await h.invariant()
+})
+
+test('BUY-002 the buyer sets a line tolerance up to 20 percent with the setting audited, above 10 percent on a PO at or above the spend threshold it needs the policy signatures, and damaged units never reopen a received PO', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const p = await plant(h), buyer = await h.person('mrp2-tol-buyer@example.test', 'buyer'), manager = await h.person('mrp2-tol-manager@example.test', 'manager'), agent = await h.person('mrp2-tol-agent@example.test', 'agent'), warehouse = await h.person('mrp2-tol-wh@example.test', 'warehouse')
+  const po = await p.buy('10', 3), line = po.lines[0], other = await p.buy('10', 3), exact = await p.buy('4', 3)
+  const tolerance = (who, order, percent, extra = {}, opts = {}) => who.run('po.tolerance', { poId: order.id, version: (order.version), lineId: order.lines[0].id, tolerancePercent: percent, reason: 'synthetic-larder-220 supplier ships in full cartons', ...extra }, opts)
+  const current = async order => (await h.state()).purchaseOrders.find(x => x.id === order.id)
+  assert.equal(line.tolerancePercent, '0')
+  // Only buyers and managers set it, never above 20 percent, and never on a closed order.
+  await tolerance(agent, po, '5', {}, { error: 'FORBIDDEN' }); await tolerance(warehouse, po, '5', {}, { error: 'FORBIDDEN' })
+  await tolerance(buyer, po, '25', {}, { error: 'INPUT' }); await tolerance(buyer, po, '5', { version: po.version - 1 }, { error: 'STALE' })
+  const five = await tolerance(buyer, po, '5')
+  assert.equal(five.lines[0].tolerancePercent, '5')
+  // The setting is in the audit with who, why and the exact before and after.
+  const trail = (await (await h.request('/api/larder/audit?type=po.tolerance&limit=100')).json()).entries
+  assert.ok(trail.some(e => e.actorId === buyer.id && e.subjectKind === 'purchaseOrders' && /full cartons/.test(e.reason) && e.after.history?.length > 0))
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'T5', lines: [{ lineId: line.id, locationId: p.location.id, quantity: '10.5' }] })
+  // A spend threshold of $5 makes the $20 order a signed decision: above 10 percent it needs two signatures on the exact setting; 10 percent or less does not.
+  await h.command('approval.policy', { category: 'spend', thresholdUsd: '5', signatures: 2, expiryMinutes: 60, reason: 'Two people above five dollars' })
+  const ten = await tolerance(buyer, other, '10')
+  assert.equal(ten.lines[0].tolerancePercent, '10')
+  let live = await current(other)
+  const first = await tolerance(buyer, live, '15')
+  assert.deepEqual([first.category, first.remainingAtSigning, (await current(other)).lines[0].tolerancePercent], ['spend', 1, '10'])
+  live = await current(other)
+  await tolerance(buyer, live, '15', {}, { error: 'DUPLICATE_SIGNATURE' })
+  await tolerance(manager, live, '18', {}, { error: 'DUPLICATE_SIGNATURE' }).catch(() => {})
+  const done = await tolerance(manager, live, '15')
+  assert.deepEqual([done.lines[0].tolerancePercent, done.history.at(-1).signatureIds.length], ['15', 2])
+  // An over-delivery inside the signed tolerance is accepted; one past it is still refused.
+  await h.command('receipt.create', { poId: other.id, supplierReference: 'T15', lines: [{ lineId: other.lines[0].id, locationId: p.location.id, quantity: '11.6' }] }, { error: 'OVER_RECEIPT' })
+  await h.command('receipt.create', { poId: other.id, supplierReference: 'T15b', lines: [{ lineId: other.lines[0].id, locationId: p.location.id, quantity: '11.5' }] })
+  // Damaged units count as delivered and never reopen the order, even when they are rejected afterwards.
+  const damaged = await h.command('receipt.create', { poId: exact.id, supplierReference: 'D1', lines: [{ lineId: exact.lines[0].id, locationId: p.location.id, quantity: '4', lot: 'synthetic-larder-221', damage: { quantity: '1', reason: 'Split in transit' } }] })
+  const bad = damaged.lines.find(l => l.inspection === 'quarantine')
+  assert.deepEqual([(await current(exact)).status, (await current(exact)).lines[0].received], ['received', '4'])
+  await h.command('quarantine.decide', { itemId: p.raw.id, locationId: p.location.id, lotId: bad.lotId, quantity: '1', decision: 'reject', reason: 'Split in transit, supplier credit to follow' })
+  assert.deepEqual([(await current(exact)).status, (await current(exact)).lines[0].received, (await p.get('/api/larder/planning/supply-changes')).recommendations.filter(r => r.poId === exact.id)], ['received', '4', []])
+  await h.invariant()
+})
+
+test('BUY-002 accepted stock needed only through a make path is listed as skipped and reserved for nobody, and allocation stays a person\'s act', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const p = await plant(h), warehouse = await h.person('mrp2-mp-wh@example.test', 'warehouse')
+  const customer = await h.command('party.save', { name: 'Make path customer', kind: 'customer' })
+  const quote = await h.command('so.quote', { customerId: customer.id, promiseDate: date(12), lines: [{ itemId: p.widget.id, quantity: '3', unitPrice: '30' }] })
+  await h.command('so.confirm', { orderId: quote.id, version: quote.version, reserve: false })
+  const po = await p.buy('3', 3)
+  const receipt = await warehouse.run('receipt.create', { poId: po.id, supplierReference: 'MP1', lines: [{ lineId: po.lines[0].id, locationId: p.location.id, quantity: '3', lot: 'synthetic-larder-223' }] })
+  assert.deepEqual((await h.state()).reservations.filter(r => r.itemId === p.raw.id), [])
+  const pegs = await p.get('/api/larder/planning/pegging?kind=receipt&id=' + receipt.id)
+  assert.deepEqual(pegs.pegs.map(x => [x.demand.kind, x.source.kind, x.source.quantity]), [['dependent', 'stock', '3']])
+  const done = await warehouse.run('receipt.allocate', { receiptId: receipt.id, version: pegs.version, asOf: pegs.asOf, reason: 'synthetic-larder-222 allocate what can be allocated' })
+  assert.deepEqual([done.allocated, done.skipped.map(x => [x.demandKind, x.quantity, /make path/.test(x.reason)])], [[], [['dependent', '3', true]]])
+  assert.deepEqual((await h.state()).reservations.filter(r => r.itemId === p.raw.id), [])
   await h.invariant()
 })

@@ -1,7 +1,11 @@
 // MRP-002: expedite, defer and cancel recommendations for open purchase lines, read from the shared dated
-// MRP-001 allocation, and the buyer's decision on one of them. Approval records the decision and, for an
-// excess cancellation, trims only the unallocated outstanding quantity; an expedite or deferral is a recorded
-// request (nothing is sent and the supplier's delivery date changes only through po.revise).
+// MRP-001 allocation, and the buyer's decision on one of them. Approval records the decision with the exact
+// recommendation inputs it was given for and, for an excess cancellation, trims only the unallocated
+// outstanding quantity; a cancel worth at least the owner's spend threshold needs the GOV-002 signatures. An
+// expedite or deferral is a recorded request (nothing is sent and the supplier's delivery date changes only
+// through po.revise). Updating the PO line's promise and telling the supplier is MRP-005.
+import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
+import { gate } from './approval-policy'
 import { decimal, format, max, min, times } from './decimal'
 import { materialDates } from './material-dates'
 import { allow } from './roles'
@@ -16,6 +20,9 @@ const openPurchase = ['approved', 'confirmed', 'part received']
 export const deferWhenEarlierThanDays = 7
 
 type Served = { kind: string; documentId: string; reference: string; itemId: string; requiredBy: string; quantity: string }
+
+// The exact inputs a decision is given for: the recommendation, the state version and the UTC day it was read on.
+const inputsDigest = (version: number, asOf: string, rec: unknown) => sha256(canonicalJson({ version, asOf, rec } as any))
 
 export function supplyChanges(s: State) {
   const plan = materialDates(s), today = plan.asOf
@@ -65,7 +72,7 @@ export function supplyChanges(s: State) {
     const asked = s.purchaseOrders.find(p => p.id === r.poId)?.lines.find((l: any) => l.id === r.lineId)?.supplyRequest
     return asked && asked.kind === r.kind && asked.requestedDate === r.requestedDate ? { by: asked.by, at: asked.at, reason: asked.reason } : null
   }
-  return { version: s.version, asOf: today, recommendations: recommendations.map(r => ({ ...r, requested: requested(r) })),
+  return { version: s.version, asOf: today, recommendations: recommendations.map(r => ({ ...r, requested: requested(r), inputsDigest: inputsDigest(s.version, today, r) })),
     scope: 'recommendations on open approved purchase lines from the dated material allocation; a decision records a request or trims excess and sends nothing',
     limitations: ['An expedite or deferral is a recorded request: the supplier’s date changes only through po.revise.', 'A cancellation trims only the unallocated outstanding quantity; received stock and reservations are untouched.', 'Late candidates and shared pools are recomputed on every read, so a recommendation expires when planning inputs or the UTC day change.'] }
 }
@@ -76,10 +83,17 @@ export function supplyChange(c: Context, type: string, p: any): Row | undefined 
   allow(c, ['manager', 'buyer'])
   if (p.version !== c.s.version || p.asOf !== c.now.slice(0, 10)) fail('STALE', 'Planning inputs or the UTC day changed. Read the recommendations again.')
   const rec: any = supplyChanges(c.s).recommendations.find((r: any) => r.key === p.key) ?? fail('NOT_FOUND', 'That recommendation is no longer in the projection.')
+  if (p.inputsDigest !== undefined && p.inputsDigest !== rec.inputsDigest) fail('STALE', 'The recommendation inputs changed since you read them. Read the recommendations again.')
   if (rec.requested && type === 'supply.change.approve') fail('STATE', 'That request is already recorded.')
   const reason = text(p.reason, 'decision reason', 400), decision = type === 'supply.change.approve' ? 'approved' : 'rejected'
-  if (rec.kind === 'cancel') allow(c, ['manager'])
   const po = c.s.purchaseOrders.find(x => x.id === rec.poId)!, line = po.lines.find((l: any) => l.id === rec.lineId)
+  // A cancel is a manager's (or the owner's) decision; at or above the owner's spend threshold it needs the policy signatures on the exact cancellation (GOV-002).
+  let signed: ReturnType<typeof gate> = null
+  if (rec.kind === 'cancel') {
+    if (decision === 'approved') signed = gate(c, { category: 'spend', subjectKind: 'purchaseOrders', subject: po, measure: () => times(decimal(rec.quantity), decimal(line.unitPrice)), permitted: ['manager'], terms: { decision: 'cancel', key: rec.key }, p })
+    if (!signed) allow(c, ['manager'])
+    if (signed && 'pending' in signed) return signed.pending
+  }
   let effect = 'recorded; no change'
   if (decision === 'approved') {
     if (rec.kind === 'cancel') {
@@ -92,7 +106,8 @@ export function supplyChange(c: Context, type: string, p: any): Row | undefined 
       effect = `${rec.kind} requested for ${rec.requestedDate}; the supplier's date is unchanged`
     }
   }
-  const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision, category: 'supply-change', recommendation: structuredClone(rec), role: c.actor.role, note: reason, effect })
+  const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision, category: 'supply-change', recommendation: structuredClone(rec), inputs: { stateVersion: p.version, asOf: p.asOf, digest: rec.inputsDigest }, role: c.actor.role, note: reason, effect, ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
+  signed?.consume(approval.id)
   po.history.push({ at: c.now, by: c.actor.id, change: `supply change ${decision}: ${rec.kind}`, from: rec.currentDate, ...(rec.requestedDate ? { to: rec.requestedDate } : {}), line: line.id, note: reason, effect, approvalId: approval.id })
   if (decision === 'approved' && rec.kind === 'cancel') bump(po, { status: status(po), expectedDate: purchaseNextDate(po) })
   else bump(po, {})

@@ -47,9 +47,13 @@ test('MRP-002 a delayed component PO recommends an expedite naming the orders it
   await decide(buyer, 'supply.change.approve', plan, expedite, { reason: '' }, { error: 'INPUT' })
   await decide(buyer, 'supply.change.approve', { ...plan, version: plan.version - 1 }, expedite, {}, { error: 'STALE' })
   await decide(buyer, 'supply.change.approve', plan, { key: 'unknown' }, {}, { error: 'NOT_FOUND' })
+  await decide(buyer, 'supply.change.approve', plan, expedite, { inputsDigest: 'synthetic-larder-208' }, { error: 'STALE' })
   const before = await h.state(), outbound = h.outboundCount()
   const approved = await decide(buyer, 'supply.change.approve', plan, expedite)
   assert.deepEqual([approved.decision, approved.category, approved.recommendation.affected.map(a => a.documentId)], ['approved', 'supply-change', [first.id, second.id]])
+  // The approval records the exact inputs it was given for; a view older than the change it caused is refused.
+  assert.deepEqual([approved.inputs.stateVersion, approved.inputs.asOf, approved.inputs.digest], [plan.version, plan.asOf, expedite.inputsDigest])
+  await decide(manager, 'supply.change.approve', plan, expedite, { inputsDigest: expedite.inputsDigest }, { error: 'STALE' })
   // An approved expedite is a recorded request: the supplier's date and every commitment stay as they were, and nothing is sent.
   const after = await h.state(), requested = after.purchaseOrders.find(p => p.id === sooner.id).lines[0]
   assert.deepEqual([requested.supplyRequest.kind, requested.supplyRequest.requestedDate, requested.expectedDate], ['expedite', date(10), date(20)])
@@ -108,5 +112,45 @@ test('MRP-002 supply that lands weeks before its demand recommends a deferral to
   assert.equal(done.recommendation.kind, 'defer')
   const line = (await h.state()).purchaseOrders.find(p => p.id === po.id).lines[0]
   assert.deepEqual([line.supplyRequest.kind, line.supplyRequest.requestedDate, line.expectedDate], ['defer', date(30), date(2)])
+  await h.invariant()
+})
+
+test('MRP-002 a cancel worth at least the PO spend threshold needs the policy signatures on the exact cancellation, a smaller one keeps the manager alone, and the owner decides too', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const person = (name, role) => h.person(`mrp2s-${name}@example.test`, role)
+  const buyer = await person('buyer', 'buyer'), first = await person('first', 'manager'), second = await person('second', 'manager'), agent = await person('agent', 'agent')
+  const raw = await h.command('item.save', { sku: 'synthetic-larder-209', name: 'Threshold raw', kind: 'buy', baseUnit: 'each' })
+  const supplier = await h.command('party.save', { name: 'Threshold supplier', kind: 'supplier' })
+  const surplus = async (quantity, days) => { const p = await h.command('po.draft', { supplierId: supplier.id, expectedDate: date(days), reason: 'synthetic-larder-210 surplus', lines: [{ itemId: raw.id, quantity, unitPrice: '2' }] }); return h.command('po.approve', { poId: p.id, version: p.version }) }
+  const read = async () => (await h.request('/api/larder/planning/supply-changes')).json()
+  const cancel = async po => { const plan = await read(); return { plan, rec: plan.recommendations.find(r => r.kind === 'cancel' && r.poId === po.id) } }
+  const decide = (who, { plan, rec }, extra = {}, opts = {}) => who.run('supply.change.approve', { key: rec.key, version: plan.version, asOf: plan.asOf, inputsDigest: rec.inputsDigest, reason: 'synthetic-larder-211 surplus', ...extra }, opts)
+  const line = async po => (await h.state()).purchaseOrders.find(p => p.id === po.id).lines[0]
+
+  // A cancel worth $8 is above the threshold: one signature trims nothing, the buyer and an agent cannot sign, and one person cannot sign twice.
+  const big = await surplus('4', 4)
+  await h.command('approval.policy', { category: 'spend', thresholdUsd: '5', signatures: 2, expiryMinutes: 60, reason: 'Two people above five dollars' })
+  let view = await cancel(big)
+  await decide(agent, view, {}, { error: 'FORBIDDEN' }); await decide(buyer, view, {}, { error: 'FORBIDDEN' })
+  const one = await decide(first, view)
+  assert.deepEqual([one.category, one.valueUsd, one.remainingAtSigning, (await line(big)).quantity], ['spend', '8', 1, '4'])
+  view = await cancel(big)
+  await decide(first, view, {}, { error: 'DUPLICATE_SIGNATURE' })
+  // A changed order voids the signature; the cancellation is then signed again from the new inputs.
+  await h.command('po.revise', { poId: big.id, version: (await h.state()).purchaseOrders.find(p => p.id === big.id).version, expectedDate: date(5), note: 'synthetic-larder-212 supplier moved the date' })
+  assert.equal((await h.state()).approvalSignatures.find(x => x.id === one.id).status, 'invalidated')
+  view = await cancel(big)
+  assert.equal((await decide(first, view)).remainingAtSigning, 1)
+  view = await cancel(big)
+  const done = await decide(second, view)
+  assert.deepEqual([done.decision, done.signatureIds.length, done.inputs.digest === view.rec.inputsDigest, (await line(big)).quantity, (await line(big)).cancelled], ['approved', 2, true, '0', '4'])
+
+  // Below the threshold the manager decides alone, and the owner may decide a cancel as well.
+  await h.command('approval.policy', { category: 'spend', thresholdUsd: '100', signatures: 2, expiryMinutes: 60, reason: 'Raise the limit' })
+  const small = await surplus('2', 4)
+  assert.equal((await decide(first, await cancel(small))).decision, 'approved')
+  const owned = await surplus('3', 4)
+  assert.equal((await h.command('supply.change.approve', { ...(({ plan, rec }) => ({ key: rec.key, version: plan.version, asOf: plan.asOf }))(await cancel(owned)), reason: 'synthetic-larder-213 owner trims' })).decision, 'approved')
+  assert.deepEqual([(await line(small)).quantity, (await line(owned)).quantity], ['0', '0'])
   await h.invariant()
 })

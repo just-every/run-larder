@@ -24,7 +24,7 @@ export function SupplyChanges({ larder, po }: { larder: Larder; po: Rec }) {
       <p className="muted">{r.reason}</p>
       {r.affected.length > 0 && <ul>{r.affected.map((a: any, i: number) => <li key={i}>{a.reference} needs {qty(a.shortage ?? a.quantity)} by {day(a.requiredBy)}</li>)}</ul>}
       {r.requested && <p className="muted">Requested: {r.requested.reason}</p>}
-      {decide && !r.requested && <Form submit="Record decision" quiet busy={larder.busy} onSubmit={d => larder.run(`supply.change.${text(d, 'decision')}`, { key: r.key, version: plan.version, asOf: plan.asOf, reason: text(d, 'reason') })}>
+      {decide && !r.requested && <Form submit="Record decision" quiet busy={larder.busy} onSubmit={d => larder.run(`supply.change.${text(d, 'decision')}`, { key: r.key, version: plan.version, asOf: plan.asOf, inputsDigest: r.inputsDigest, reason: text(d, 'reason') })}>
         <Choose label="Decision" name="decision" options={[{ value: 'approve', label: 'Approve' }, { value: 'reject', label: 'Reject' }]} /><Field label="Reason" name="reason" />
       </Form>}
     </div>)}
