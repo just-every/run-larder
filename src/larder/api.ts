@@ -31,6 +31,7 @@ import { catalogCsv } from './catalog-csv'
 import { catalogue } from './catalogue'
 import { configurations, resolveFor } from './configurations'
 import { kits } from './kits'
+import { timeEntries, timeCosts } from './time-entries'
 import { exportBatch, imports, publishImport } from './odoo/imports'
 import { handoff, handoffCsv } from './handoff'
 import { forecasts } from './forecast'
@@ -87,7 +88,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version, scope: effectiveScope(member, custom) }
 }
 
-const handlers = [kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -209,7 +210,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (scoped && (path.startsWith('/audit') || path.startsWith('/archive') || path.startsWith('/handoffs/') || path.startsWith('/imports/'))) forbidden('This download needs an unscoped owner or manager.')
     if (path === '/scheduling/labor-costs') {
       if (!rateReaders.includes(actor.role) || scope.costs) forbidden('Only accounts or authorized managers may read wage-based costing evidence.')
-      return json({ basis: 'Recorded operation time; not payroll or posted accounting cost.', rows: await read(s => laborCosts(s)) })
+      return json({ basis: 'Recorded operation time; not payroll or posted accounting cost.', rows: await read(s => laborCosts(s)), entries: await read(s => timeCosts(s)) })
     }
     if (path === '/scheduling/finite') {
       const named = await people(env, actor)

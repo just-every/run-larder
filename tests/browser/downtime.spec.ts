@@ -103,3 +103,42 @@ test('FLOOR-007 pause for broken tool, notify supervisor in app, revise effort, 
   await report.getByLabel('Lost-time work order', { exact: true }).selectOption(work.id)
   await expect(report).not.toContainText('Still open'); await shots(page, 'closed-report', report)
 })
+
+test('FLOOR-002 clock a setup and run, pause for a breakdown, correct a missed stop and approve it, then see a locked period refuse the change at 1440/390', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  const suffix = crypto.randomUUID().slice(0, 6), today = new Date().toISOString().slice(0, 10)
+  const raw = await command(page, 'item.save', { sku: `CLK-${suffix}`, name: `Clock blank ${suffix}`, kind: 'buy', baseUnit: 'each' })
+  const product = await command(page, 'item.save', { sku: `CLK-OUT-${suffix}`, name: `Clocked plate ${suffix}`, kind: 'make', baseUnit: 'each' })
+  await command(page, 'bom.revise', { itemId: product.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'Drill', workCentre: `Drill press ${suffix}`, minutes: 20 }] })
+  let work = await command(page, 'wo.draft', { itemId: product.id, quantity: '4', requiredBy: today, reason: 'Clocked job' })
+  work = await command(page, 'wo.release', { workOrderId: work.id, version: work.version })
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await page.goto(origin + `/app#make/wo/${work.id}`); await page.reload(); await settled(page)
+    const clock = page.getByRole('region', { name: 'Step 1 time clock' })
+    await clock.getByRole('button', { name: 'Clock setup on step 1', exact: true }).click(); await settled(page)
+    await clock.getByLabel('Step 1 pause reason', { exact: true }).selectOption('breakdown')
+    await clock.getByRole('button', { name: 'Pause step 1', exact: true }).click(); await settled(page)
+    await expect(clock).toContainText('Setup paused')
+    await clock.getByRole('button', { name: 'Resume step 1', exact: true }).click(); await settled(page)
+    await clock.getByRole('button', { name: 'Stop step 1', exact: true }).click(); await settled(page)
+    await clock.getByRole('button', { name: 'Clock run on step 1', exact: true }).click(); await settled(page)
+    // The stop was missed: a correction names the real span and, decided by a supervisor with a reason, closes the entry.
+    const entry = (await (await page.request.get(origin + '/api/larder/state')).json()).timeEntries.filter((e: any) => e.workOrderId === work.id && e.phase === 'run').at(-1)
+    const local = (offset: number) => { const d = new Date(Date.now() + offset * 3600000 - new Date().getTimezoneOffset() * 60000); return d.toISOString().slice(0, 16) }
+    const fix = clock.locator('form').filter({ has: page.getByRole('heading', { name: 'Step 1 correct clocked time', exact: true }) })
+    await fix.getByLabel('Step 1 entry to correct', { exact: true }).selectOption(entry.id)
+    await fix.getByLabel('Step 1 correct start', { exact: true }).fill(local(-(30 + (width === 390 ? 5 : 0))))
+    await fix.getByLabel('Step 1 correct stop', { exact: true }).fill(local(-(28 + (width === 390 ? 5 : 0))))
+    await fix.getByLabel('Step 1 correction reason', { exact: true }).fill('Forgot to stop at the end of the shift')
+    await fix.getByRole('button', { name: 'Ask for correction on step 1', exact: true }).click(); await settled(page)
+    await expect(clock).toContainText('Correction Pending')
+    const decide = clock.locator('form').filter({ has: page.getByRole('button', { name: /^Decide correction/ }) })
+    await decide.getByLabel(/^Decision reason/).fill('Checked against the shift sheet'); await decide.getByLabel(/^Decision [0-9a-f]{4}$/).selectOption('approve')
+    await decide.getByRole('button', { name: /^Decide correction/ }).click(); await settled(page)
+    await expect(clock).toContainText('corrected'); await expect(clock).toContainText('2.00 h')
+    await shots(page, 'clock', clock)
+  }
+})

@@ -1,3 +1,4 @@
+// Operations with clocked time entries (FLOOR-002) are costed from those entries instead, never twice.
 // Recorded operation time is costing evidence, never payroll or a financial
 // posting. Rates are selected from the retained definition in force at start;
 // absent historical rates stay unknown rather than using today's wage.
@@ -5,7 +6,7 @@ import { decimal, format, SCALE } from '../decimal'
 import type { State } from '../model'
 
 export function laborCosts(s: State) {
-  return s.workOrders.flatMap(w => (w.operationStates ?? []).filter((t: any) => t.startedAt && t.completedAt && !t.inheritedFrom?.length).map((t: any) => {
+  return s.workOrders.flatMap(w => (w.operationStates ?? []).filter((t: any) => t.startedAt && t.completedAt && !t.inheritedFrom?.length && !s.timeEntries.some(e => e.workOrderId === w.id && e.sequence === t.sequence)).map((t: any) => {
     const from = Date.parse(t.startedAt), to = Date.parse(t.completedAt)
     const stops = (t.downtime ?? []).map((d: any) => [Math.max(from, Date.parse(d.startedAt)), Math.min(to, Date.parse(d.stoppedAt ?? t.completedAt))]).filter(([a, b]: number[]) => b! > a!).sort((a: number[], b: number[]) => a[0]! - b[0]!)
     let paused = 0, previous = from

@@ -41,7 +41,7 @@ export function scrub(value: unknown, depth = 0): unknown {
 }
 
 const byKind: Record<string, string> = {
-  boms: 'revisions', configModels: 'revisions', kits: 'revisions', kitSales: 'commercial', bomChanges: 'revisions', engineeringChanges: 'revisions', catalogChanges: 'revisions', items: 'revisions', partyItems: 'revisions',
+  boms: 'revisions', configModels: 'revisions', kits: 'revisions', timeEntries: 'time', timeLocks: 'time', kitSales: 'commercial', bomChanges: 'revisions', engineeringChanges: 'revisions', catalogChanges: 'revisions', items: 'revisions', partyItems: 'revisions',
   roles: 'roles', customRoles: 'roles', approvalPolicies: 'roles', approvalDelegations: 'roles', approvalSignatures: 'roles', imports: 'integrations', cutovers: 'integrations', historyImports: 'integrations', sourceHistory: 'integrations', handoffs: 'integrations',
   qualityHolds: 'quality', inspections: 'quality', inspectionPlans: 'quality', nonconformances: 'quality', recalls: 'quality', certificates: 'quality', certificatePolicies: 'quality',
   scheduleGrants: 'schedules', schedulePolicies: 'schedules', schedulePlans: 'schedules', scheduleBookings: 'schedules', machineCalendars: 'schedules', laborCalendars: 'schedules', laborRates: 'schedules', productionPlans: 'schedules', forecasts: 'schedules',
@@ -49,7 +49,7 @@ const byKind: Record<string, string> = {
   salesOrders: 'commercial', purchaseOrders: 'commercial', parties: 'commercial',
 }
 const byCommand: [RegExp, string][] = [
-  [/^wo\.operation\./, 'time'], [/^(opening|count|transfer|receipt|shipment|return|movement|quarantine|customerStock)\.|^wo\.(issue|output|reserve|batch)|^so\.reserve/, 'stock'],
+  [/^(wo\.operation|time)\./, 'time'], [/^(opening|count|transfer|receipt|shipment|return|movement|quarantine|customerStock)\.|^wo\.(issue|output|reserve|batch)|^so\.reserve/, 'stock'],
   [/^(bom|catalog|engineering|item|config|kit\.save|kit\.approve)/, 'revisions'], [/^kit\.sell/, 'commercial'], [/^(quality|certificate|nonconformance|recall|lot|rework)\./, 'quality'], [/^(schedule|capacity|mps|forecast|order\.rank|work\.expected|plan|inventory)\.|^wo\.(release|split|merge)/, 'schedules'],
   [/^(role|member)\./, 'roles'], [/^(import|history|handoff)\./, 'integrations'], [/^(so|po|party|partyItem|supplier)\./, 'commercial'],
 ]

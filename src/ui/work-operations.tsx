@@ -5,6 +5,7 @@ import { transferredTo } from '../larder/operation-dependencies'
 import { operationStartGates } from '../larder/operations'
 import { WorkDowntime } from './work-downtime'
 import { WorkLedgerControls } from './work-ledger'
+import { TimeClock, TimeLocks } from './time-clock'
 import { can, personName, rows, unitOf, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
 import { Choose, Chip, Field, Form, text } from './controls'
@@ -34,6 +35,7 @@ export function WorkOperations({ larder, w, sequence: onlySequence }: { larder: 
   return <section aria-label="Pinned operation tasks">
     <h3>Operation tasks · BOM revision {w.bomRevision}</h3>
     <p className="muted">Instructions and drawings are pinned to this released job.</p>
+    {released && onlySequence === undefined && <TimeLocks larder={larder} />}
     {w.routing.filter((step: any) => onlySequence === undefined || step.sequence === onlySequence).map((step: any, index: number) => {
       const sequence = step.sequence ?? index + 1, task = states.find(task => task.sequence === sequence) ?? { sequence, status: 'pending', acknowledgments: [] }
       const status = task?.status ?? 'pending', skills: string[] = step.requiredSkills ?? []
@@ -109,6 +111,7 @@ export function WorkOperations({ larder, w, sequence: onlySequence }: { larder: 
         {task.events?.length > 0 && <details><summary>Step {sequence} execution history</summary><ul className="history">{task.events.map((event: any, i: number) => <li key={i}>{words(event.type)} · {personName(s, event.by)} · {when(event.at)} · station {event.station || 'not recorded'} · {event.reason}</li>)}</ul></details>}
         {released && <WorkDowntime larder={larder} w={w} task={task} sequence={sequence} />}
         {released && <WorkLedgerControls larder={larder} w={w} task={task} sequence={sequence} />}
+        {released && <TimeClock larder={larder} w={w} sequence={sequence} />}
       </fieldset>
     })}
   </section>
