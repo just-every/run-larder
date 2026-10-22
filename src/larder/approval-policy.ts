@@ -14,6 +14,9 @@ import { bump, get, oneOf, optionalText, row, text, type Context, type Row, type
 export const enforcedCategories = ['spend', 'inventoryAdjustment'] as const
 const nonApprovers = ['agent', 'viewer', 'operator']
 const maxDelegationMs = 30 * 86400000
+// Who holds each category's authority in their own role (the owner holds every one).
+const permittedFor: Record<string, string[]> = { spend: ['manager', 'buyer'], inventoryAdjustment: ['manager'] }
+type Person = { id: string; role: string }
 
 const inputsOf: Record<string, (s: State, r: Row) => unknown> = {
   purchaseOrders: (_s, po) => ({ supplierId: po.supplierId, currency: po.currency, expectedDate: po.expectedDate, exposure: po.exposure, lines: po.lines.map((l: any) => ({ id: l.id, itemId: l.itemId, quantity: l.quantity, unitPrice: l.unitPrice, expectedDate: l.expectedDate, quote: l.supplierQuote ?? null })) }),
@@ -21,24 +24,33 @@ const inputsOf: Record<string, (s: State, r: Row) => unknown> = {
 }
 const digestOf = (s: State, kind: string, r: Row) => sha256(canonicalJson(inputsOf[kind](s, r) as any))
 
-// valid: counts toward approval now; invalidated: the version or exact inputs changed; expired; used: spent by the approval it completed.
-export function signatureStatus(s: State, sig: Row, now: string) {
+// A delegation is live while it is active and in date and its principal still holds the authority.
+function liveDelegation(d: Row | undefined, people: Person[] | undefined, permitted: readonly string[], now: string) {
+  const principal = people?.find(x => x.id === d?.principalId)
+  return !!d && d.status === 'active' && d.validFrom <= now && now < d.validUntil && !!principal && (principal.role === 'owner' || permitted.includes(principal.role))
+}
+
+// valid: counts toward approval now; invalidated: the version or exact inputs changed; expired;
+// withdrawn: the signer, or the principal a deputy stood in for, no longer holds the authority
+// (judged when the active people are known); used: spent by the approval it completed.
+export function signatureStatus(s: State, sig: Row, now: string, people?: Person[]) {
   if (sig.consumedBy) return 'used'
   const subject = (s as any)[sig.subjectKind]?.find((r: Row) => r.id === sig.subjectId) as Row | undefined
   if (!subject || subject.version !== sig.subjectVersion || digestOf(s, sig.subjectKind, subject) !== sig.inputsDigest) return 'invalidated'
-  return now > sig.expiresAt ? 'expired' : 'valid'
-}
-
-function activeDelegation(c: Context, d: Row, permitted: Role[]) {
-  const principal = c.people?.find(x => x.id === d.principalId)
-  return d.status === 'active' && d.validFrom <= c.now && c.now < d.validUntil && !!principal && (principal.role === 'owner' || permitted.includes(principal.role as Role))
+  if (now > sig.expiresAt) return 'expired'
+  if (people) {
+    const signer = people.find(x => x.id === sig.signerId), permitted = permittedFor[sig.category] ?? []
+    const holds = !!signer && (sig.delegationId ? !nonApprovers.includes(signer.role) && liveDelegation(s.approvalDelegations.find(d => d.id === sig.delegationId), people, permitted, now) : signer.role === 'owner' || permitted.includes(signer.role))
+    if (!holds) return 'withdrawn'
+  }
+  return 'valid'
 }
 
 // Who is signing: the person in their own role, or a deputy for a principal's seat.
 export function authorize(c: Context, permitted: Role[], category: string, preparedBy?: string): { seat: string; deputy?: Row } {
   if (c.actor.role === 'agent' || c.actor.role === 'viewer') forbidden('Agents prepare; a person with authority approves.')
   const own = c.actor.role === 'owner' || permitted.includes(c.actor.role as Role)
-  const deputy = own ? undefined : c.s.approvalDelegations.find(d => d.deputyId === c.actor.id && d.categories.includes(category) && activeDelegation(c, d, permitted))
+  const deputy = own ? undefined : c.s.approvalDelegations.find(d => d.deputyId === c.actor.id && d.categories.includes(category) && liveDelegation(d, c.people, permitted, c.now))
   if (!deputy) { approver(c, permitted, preparedBy); return { seat: c.actor.id } }
   if (preparedBy && (preparedBy === c.actor.id || preparedBy === deputy.principalId)) forbidden('A different person must approve what you or your principal prepared.')
   return { seat: deputy.principalId, deputy }
@@ -51,8 +63,7 @@ export function gate(c: Context, o: { category: string; subjectKind: string; sub
   const policy = c.s.approvalPolicies.find(x => x.category === o.category && x.enabled)
   if (!policy || o.valueUsd < decimal(policy.threshold)) return null
   const who = authorize(c, o.permitted, o.category, o.preparedBy)
-  const live = c.s.approvalSignatures.filter(x => x.subjectKind === o.subjectKind && x.subjectId === o.subject.id && signatureStatus(c.s, x, c.now) === 'valid'
-    && !!c.people?.some(person => person.id === x.signerId) && (!x.delegationId || c.s.approvalDelegations.find(d => d.id === x.delegationId)?.status === 'active'))
+  const live = c.s.approvalSignatures.filter(x => x.subjectKind === o.subjectKind && x.subjectId === o.subject.id && signatureStatus(c.s, x, c.now, c.people ?? []) === 'valid')
   let override: Row['override'] = null
   if (o.p.override !== undefined) {
     if (c.actor.role !== 'owner') forbidden('Only the owner can override a dual approval.')

@@ -462,6 +462,13 @@ test('GOV-002 high-value PO and stock write-off need two signatures, a deputy si
   const overridden = (await h.state()).approvals.find(a => a.subjectId === po2.id && a.override)
   assert.deepEqual([overridden.override.accountableId, overridden.override.accountableName, overridden.override.reason, overridden.role], [mgrB.id, 'gov2-b', 'Supplier closing tomorrow; buy now', 'owner'])
   assert.equal((await h.state()).purchaseOrders.find(x => x.id === po2.id).status, 'approved')
+  // A signature stops counting once its signer loses the authority they signed with.
+  const po3 = await draft('30')
+  await mgrA.run('po.approve', { poId: po3.id, version: po3.version })
+  await h.command('role.set', { operatorId: mgrA.id, role: 'viewer' })
+  assert.equal((await signatures(po3.id))[0].status, 'withdrawn')
+  assert.equal((await mgrB.run('po.approve', { poId: po3.id, version: po3.version })).remainingAtSigning, 1)
+  await h.command('role.set', { operatorId: mgrA.id, role: 'manager' })
   // Stock write-off: a count whose adjustment is worth more than the limit needs two signatures on unchanged stock.
   await policy('inventoryAdjustment', '10')
   const counted = async quantity => warehouse.run('count.record', { itemId: w.timber.id, locationId: w.loc.id, counted: quantity, note: 'Shelf count' })

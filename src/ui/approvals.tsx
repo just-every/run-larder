@@ -4,7 +4,7 @@ import { Card, Chip, Choose, Empty, Field, Form, Table, text } from './controls'
 import { money, when, words } from './format'
 
 const categories = [{ value: 'spend', label: 'Purchase orders (spend)' }, { value: 'inventoryAdjustment', label: 'Stock adjustments (counts)' }]
-const tone: Record<string, 'good' | 'warn' | 'bad' | 'neutral'> = { valid: 'good', used: 'neutral', invalidated: 'bad', expired: 'warn' }
+const tone: Record<string, 'good' | 'warn' | 'bad' | 'neutral'> = { valid: 'good', used: 'neutral', invalidated: 'bad', expired: 'warn', withdrawn: 'warn' }
 
 // GOV-002: who must sign what, the signatures given and what became of them, and who stands in for whom.
 export function Approvals({ larder }: { larder: Larder }) {
