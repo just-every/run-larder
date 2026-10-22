@@ -18,7 +18,7 @@ export type Reservation = { id: string; demandKind: 'sales' | 'work'; demandId: 
 export type Attachment = { id: string; name: string; contentType: string; size: number; sha256: string; bytes: Uint8Array; createdBy: string; createdAt: string }
 export type State = Record<Collection, Row[]> & { version: number; movements: Movement[]; reservations: Reservation[] }
 export type Actor = { id: string; name: string; role: string; sessionId: string; operatorVersion: number }
-export type Context = { s: State; actor: Actor; commandId: string; now: string; attachments: Attachment[]; people?: { id: string; name: string; role: string }[]; erasure?: { kind: string; id: string; entries: number } }
+export type Context = { s: State; actor: Actor; commandId: string; now: string; attachments: Attachment[]; people?: { id: string; name: string; role: string }[]; erasure?: { kind: string; id: string; entries: number; values: string[] } }
 
 export const newId = () => crypto.randomUUID()
 

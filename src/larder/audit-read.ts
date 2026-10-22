@@ -38,8 +38,9 @@ export async function auditQuery(db: D1Database, actor: Actor, params: URLSearch
   const limit = Math.min(maxLimit, Math.max(1, Number(params.get('limit') ?? defaultLimit) || defaultLimit)), afterSeq = Number(params.get('after') ?? 0) || 0
   const total = (await db.prepare(`SELECT COUNT(*) AS n FROM larder_audit${filter}`).bind(...bind).first<{ n: number }>())!.n
   const rows = (await db.prepare(`SELECT ${columns} FROM larder_audit${filter}${where.length ? ' AND' : ' WHERE'} seq>? ORDER BY seq LIMIT ?`).bind(...bind, afterSeq, limit).all()).results.map(parse)
-  const erasures = (await db.prepare('SELECT COUNT(*) AS n FROM larder_audit_erasures').first<{ n: number }>())!.n
-  return { total, entries: rows, next: rows.length === limit ? (rows.at(-1) as any).seq : null, retention: { ...auditRetention, erasureRequests: erasures } }
+  // GOV-013: each erasure request stays on record (never the erased values), so the export shows who erased whom, when and over what.
+  const requests = (await db.prepare('SELECT id,at,actor_id AS ranBy,subject_kind AS subjectKind,subject_id AS subjectId,scope,entries FROM larder_audit_erasures ORDER BY at,id').all()).results
+  return { total, entries: rows, next: rows.length === limit ? (rows.at(-1) as any).seq : null, retention: { ...auditRetention, erasureRequests: requests.length, requests } }
 }
 
 const cell = (v: unknown) => { const t = typeof v === 'string' ? v : JSON.stringify(v ?? ''); return `"${(/^[=+\-@\t\r]/.test(t) ? "'" + t : t).replaceAll('"', '""')}"` }

@@ -55,6 +55,14 @@ test('GOV-013 the export states the life-of-installation period and no purge aut
   const replacement = after.entries.find(e => e.commandType === 'erasure.audit' && e.subjectKind === 'auditErasures')
   assert.deepEqual([replacement.op, replacement.actorId, replacement.after.subjectId, replacement.after.entries, replacement.reason], ['create', (await h.state()).actor.id, leaver.id, request.entries, 'Erasure request from [erased]'])
   assert.equal(after.retention.erasureRequests, 1)
+  // The request stays on record (id, date, subject id, scope, the owner who ran it) without the erased values, in the state, the audit read and the export.
+  const ownerId = (await h.state()).actor.id
+  const record = (await h.state()).auditErasures.find(r => r.id === request.id)
+  assert.deepEqual([record.subjectKind, record.subjectId, record.scope, record.requestedBy, record.createdBy, typeof record.createdAt, record.request, record.reason], ['operator', leaver.id, 'audit', ownerId, ownerId, 'string', 'Letter of 20 October', 'Erasure request from [erased]'])
+  const listed = after.retention.requests.find(r => r.id === request.id)
+  assert.deepEqual([listed.subjectKind, listed.subjectId, listed.scope, listed.ranBy, listed.entries, typeof listed.at], ['operator', leaver.id, 'audit', ownerId, request.entries, 'string'])
+  assert.deepEqual((await (await h.request('/api/larder/audit.json')).json()).retention.requests.map(r => r.id), [request.id])
+  assert.equal(replacement.commandType, 'erasure.audit'); assert.equal(/former\.worker/i.test(JSON.stringify(replacement)), false)
   const stored = JSON.stringify((await h.db.prepare('SELECT * FROM larder_audit').all()).results) + JSON.stringify((await h.db.prepare('SELECT * FROM larder_audit_erasures').all()).results)
   const exported = JSON.stringify(await (await h.request('/api/larder/audit.json')).json()) + await (await h.request('/api/larder/audit.csv')).text() + JSON.stringify(after)
   for (const [name, body] of [['stored', stored], ['exported', exported]]) {
@@ -76,5 +84,28 @@ test('GOV-013 the export states the life-of-installation period and no purge aut
   assert.equal((await audit('?limit=500')).retention.erasureRequests, 2)
   // The erased person's own later work names them again only if they act again; nothing else reverts.
   assert.equal((await audit(`?actor=${leaver.id}&limit=500`)).entries.every(e => e.actorName === '[erased]'), true)
+  await h.invariant()
+})
+
+test('GOV-013 a sole owner who is the data subject still runs the erasure, it is audited, and they are addressable only by id afterwards', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const me = (await h.state()).actor
+  await h.command('location.save', { name: 'Goods in', note: 'Counted by Olive Owner on Monday' })
+  const audit = async (query = '') => (await h.request('/api/larder/audit' + query)).json()
+  const mine = (await audit(`?actor=${me.id}&limit=500`)).entries
+  assert.ok(mine.length >= 1 && mine.every(e => e.actorName === me.name))
+
+  const request = await h.command('erasure.audit', { operatorId: me.id, request: 'Own request', reason: `Erase ${me.name} from the audit` })
+  assert.deepEqual([request.subjectId, request.requestedBy, request.scope, request.reason], [me.id, me.id, 'audit', 'Erase [erased] from the audit'])
+  const after = await audit(`?actor=${me.id}&limit=500`)
+  assert.ok(after.entries.length > mine.length, 'the erasure itself is audited under the person\'s id')
+  assert.ok(after.entries.every(e => e.actorId === me.id && e.actorName === '[erased]'))
+  const entry = after.entries.find(e => e.commandType === 'erasure.audit')
+  assert.deepEqual([entry.subjectKind, entry.subjectId, entry.erasureId, entry.reason], ['auditErasures', request.id, request.id, 'Erase [erased] from the audit'])
+  assert.equal(after.entries.filter(e => mine.some(m => m.id === e.id)).length, mine.length)
+  assert.deepEqual(after.retention.requests.map(r => [r.subjectId, r.ranBy, r.scope]), [[me.id, me.id, 'audit']])
+  const everything = JSON.stringify((await h.db.prepare('SELECT * FROM larder_audit').all()).results) + JSON.stringify(await (await h.request('/api/larder/audit.json')).json())
+  assert.equal(everything.includes(me.name), false)
+  assert.match(everything, /Goods in/)
   await h.invariant()
 })
