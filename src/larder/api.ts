@@ -68,7 +68,7 @@ import { orderChanges } from './order-changes'
 import { warehouse } from './warehouse'
 import { Problem, fail, forbidden } from './problem'
 import { roleCommand } from './roles'
-import { effectiveScope, enforcePayload, enforceScope, isScoped, names, scopeOf } from './scope'
+import { effectiveScope, enforcePayload, enforceScope, hiddenLocations, isScoped, names, scopeOf } from './scope'
 import { gateCommand } from './scope-gate'
 import { redactCosts } from './scope-cost'
 import { refuseHidden, scopedRead, scopedState, stubHidden, visibleState } from './scope-view'
@@ -133,7 +133,11 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   }
   const digest = sha256(canonicalJson({ type, payload }))
   const previous = await saved(env.DB, commandId, digest, actor)
-  if (previous) return respond(previous)
+  if (previous) {
+    // A recorded outcome that names a location the member has since lost stays closed to them.
+    if (scopeOf(actor).locations !== null && names(previous.result, hiddenLocations(await load(env.DB), scopeOf(actor)))) forbidden('This outcome involves a location outside your location scope.')
+    return respond(previous)
+  }
   const erasure = type === 'erasure.audit' ? await erasurePlan(env.DB, await load(env.DB), actor, payload) : undefined
   if (type === 'exception.assign' || type === 'exception.escalate') {
     if (!['owner', 'manager'].includes(actor.role)) forbidden('Only an owner or manager assigns or escalates cases.')

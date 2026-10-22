@@ -613,7 +613,8 @@ test('GOV-001 location scope: a scoped member sees, changes and downloads nothin
   await lead.run('receipt.create', { poId: po.id, supplierReference: 'ANNEX', lines: [{ lineId: po.lines[0].id, quantity: '1', locationId: annex.id }] }, { error: 'FORBIDDEN' })
   let own = await lead.run('po.draft', { supplierId: w.supplier.id, expectedDate: day(-1), reason: 'Timber for the workshop', lines: [{ itemId: w.timber.id, quantity: '2', unitPrice: '9.5' }] })
   own = await lead.run('po.approve', { poId: own.id, version: own.version })
-  await lead.run('receipt.create', { poId: own.id, supplierReference: 'TIM-1', lines: [{ lineId: own.lines[0].id, quantity: '2', locationId: w.loc.id }] })
+  const tim1 = { poId: own.id, supplierReference: 'TIM-1', lines: [{ lineId: own.lines[0].id, quantity: '2', locationId: w.loc.id }] }, tim1Id = 'synthetic-larder-scope-1'
+  await lead.run('receipt.create', tim1, { commandId: tim1Id })
   // Downloads: archive, audit, handoff and import doors need an unscoped person; trace and catalog redact.
   for (const path of ['/archive', '/archive.csv', '/audit', '/audit.json', '/audit.csv', '/handoffs/00000000-0000-0000-0000-000000000000.csv', '/imports/00000000-0000-0000-0000-000000000000.json', `/lots/${hiddenLot.id}/trace`, `/lots/${hiddenLot.id}/trace.csv`, `/recalls/${recall.id}.json`])
     assert.equal((await h.request('/api/larder' + path, { as: lead.cookie })).status, 403, path)
@@ -654,6 +655,8 @@ test('GOV-001 location scope: a scoped member sees, changes and downloads nothin
   // Narrowing takes effect on the very next request; deactivation revokes mid-task.
   await h.command('member.scope', { operatorId: lead.id, locations: [w.store.id], costsRestricted: false })
   await lead.run('receipt.create', { poId: own.id, supplierReference: 'TIM-2', lines: [{ lineId: own.lines[0].id, quantity: '1', locationId: w.loc.id }] }, { error: 'FORBIDDEN' })
+  // A recorded outcome that names a location the member lost stays closed to them, replay included.
+  await lead.run('receipt.create', tim1, { commandId: tim1Id, error: 'FORBIDDEN' })
   const narrowed = JSON.stringify(await h.state(lead.cookie))
   assert.ok(narrowed.includes('Dispatch shelf')); assert.ok(!narrowed.includes('Workshop'))
   await deactivate(h, lead)
