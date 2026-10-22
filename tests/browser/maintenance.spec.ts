@@ -337,6 +337,12 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   await planningEnter(page)
   const call=async(type:string,payload:any)=>{const r=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}});const b=await r.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result}
   const day=(n:number)=>new Date(Date.now()+n*86400000).toISOString().slice(0,10),suffix=crypto.randomUUID().slice(0,6)
+  const runWindow=async()=>{
+    await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00')
+    const projection=page.waitForResponse(r=>r.url().includes('/api/larder/scheduling/finite?')&&new URL(r.url()).searchParams.get('asOf')===new Date(day(1)+'T00:00').toISOString())
+    await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click();expect((await projection).ok()).toBe(true)
+    await expect(page.getByText('Calculating finite capacity…',{exact:true})).toHaveCount(0)
+  }
   const raw=await call('item.save',{sku:`synthetic-larder-811-${suffix}`,name:'Recovery blank',kind:'buy',baseUnit:'each'})
   const calendar=(name:string)=>({name,timeZone:'UTC',effectiveFrom:day(0),effectiveTo:day(60),shifts:[{weekdays:[0,1,2,3,4,5,6],start:0,end:1440,breaks:[]}],closedDates:[],exceptions:[],usHolidays:false,capacity:1,efficiency:100,reason:'synthetic-larder-812 calendar'})
   const s=await(await page.request.get(origin+'/api/larder/state')).json(),old=s.laborCalendars.find((l:any)=>l.operatorIds.includes(s.actor.id))
@@ -349,7 +355,7 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
     let j=await call('wo.draft',{itemId:item.id,quantity:'1',requiredBy:day(13),plannedStart:day(i===0?1:8),reason:'synthetic-larder-814 customer work'});j=await call('wo.release',{workOrderId:j.id,version:j.version});jobs.push(j)
   }
   await page.goto(origin+'/app#schedule');await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
-  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00');await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click()
+  await runWindow()
   await page.getByLabel('Freeze schedule through (local time)',{exact:true}).fill(day(7)+'T00:00')
   await page.getByLabel('Manual operation lock',{exact:true}).selectOption(jobs[1].id+':1')
   await page.getByLabel('Protection reason',{exact:true}).fill('synthetic-larder-815 freeze this week and keep manual override')
@@ -363,7 +369,7 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-007-reflow');if(process.env.LARDER_SCREENSHOTS)await recovery.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-CAP-007-detail.png`)})}
   // A reload restarts the scheduler projection; it must not duplicate the event.
   await page.reload();await expect(page.getByLabel('Schedule review wo.operation.pause recovery',{exact:true})).toHaveCount(1)
-  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00');await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click()
+  await runWindow()
   for(const [name,end] of [['Short outage',day(9)],['Long outage',day(11)]]){
     await page.getByLabel('Scenario name',{exact:true}).fill(name)
     await page.getByLabel('Scenario unavailable machine',{exact:true}).selectOption(machines[2].id)
@@ -387,7 +393,7 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   const denied=await(await reply).json();expect(denied.error.code).toBe('STALE');await expect(page.getByRole('alert')).toContainText('Planning inputs, live people or planning window changed. Prepare a fresh scenario.')
   expect((await planningState(page)).scheduleBookings).toEqual(before.scheduleBookings)
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'MRP-004-stale')}
-  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00');await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click()
+  await runWindow()
   await page.getByText('Additional scenario assumptions',{exact:true}).click()
   await page.getByLabel('Scenario name',{exact:true}).fill('Demand and overtime assumptions')
   await page.getByLabel('Scenario additional demand item',{exact:true}).selectOption(jobs[2].itemId)
