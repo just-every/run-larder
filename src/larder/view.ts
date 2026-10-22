@@ -20,6 +20,7 @@ import { shortages } from './planning'
 import { positions } from './stock'
 import { fefoPlans, lotStatuses } from './lot-dates'
 import { pendingHandoffCount } from './handoff'
+import { signatureStatus } from './approval-policy'
 import { collections, type Actor, type State } from './model'
 
 export const movementView = (m: State['movements'][number]) => ({ ...m, quantity: format(m.quantity), unitCost: format(m.unitCost) })
@@ -29,6 +30,7 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
   if (blind) return blind
   const today = new Date().toISOString().slice(0, 10), followUpCases = followUpView(s, today)
   const records = Object.fromEntries(collections.map(k => [k, k === 'laborRates' && !rateReaders.includes(actor.role) ? [] : s[k]]))
+  records.approvalSignatures = s.approvalSignatures.map(x => ({ ...x, status: signatureStatus(s, x, new Date().toISOString()) }))
   if (![...rateReaders, 'production'].includes(actor.role)) records.reworkOrders = s.reworkOrders.map(r => ({ ...r, labor: (r.labor ?? []).map(({ rate, ...line }: any) => line) }))
   return {
     version: s.version, actor, ...records, supplierPerformance: supplierPerformance(s),

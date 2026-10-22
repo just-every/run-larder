@@ -4,11 +4,13 @@ import { Setup } from './setup'
 import { People } from './people'
 import { Archive } from './archive'
 import { Activity } from './activity'
+import { Approvals } from './approvals'
 
 const sections = [
   { id: 'move-in', title: 'Move in from Odoo', blurb: 'Preview, commit and undo a staged Odoo export.' },
   { id: 'setup', title: 'Items, contacts and locations', blurb: 'Units, variants, customer and supplier codes.' },
   { id: 'people', title: 'People and roles', blurb: 'Invite your team and set what each person can do.' },
+  { id: 'approvals', title: 'Approvals', blurb: 'Thresholds, signatures and deputies for approvals.' },
   { id: 'archive', title: 'Business archive', blurb: 'Export everything; restore into an empty installation.' },
   { id: 'activity', title: 'Activity', blurb: 'Every recorded action, who did it and when.' },
 ]
@@ -21,6 +23,7 @@ export function More({ larder, section }: { larder: Larder; section?: string }) 
     {section === 'move-in' && <MoveIn larder={larder} />}
     {section === 'setup' && <Setup larder={larder} />}
     {section === 'people' && <People larder={larder} />}
+    {section === 'approvals' && <Approvals larder={larder} />}
     {section === 'archive' && <Archive larder={larder} />}
     {section === 'activity' && <Activity larder={larder} />}
   </div>

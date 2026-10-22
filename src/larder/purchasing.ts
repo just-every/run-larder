@@ -9,7 +9,8 @@ import { attach } from './attachments'
 import { toBase } from './catalogue'
 import { decimal, format, times } from './decimal'
 import { fail } from './problem'
-import { allow, approver } from './roles'
+import { allow } from './roles'
+import { authorize, gate } from './approval-policy'
 import { balance, move } from './stock'
 import { lotDates } from './lot-dates'
 import { bump, date, fresh, get, list, newId, nextReference, oneOf, optionalText, row, text, type Context, type Row } from './model'
@@ -45,16 +46,32 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'buyer', 'agent'])
       return draftPurchase(c, p)
     case 'po.approve': {
-      approver(c, ['manager', 'buyer'])
+      authorize(c, ['manager', 'buyer'], 'spend')
       const po = get(c.s, 'purchaseOrders', p.poId, 'purchase order'); fresh(po, p.version)
-      approver(c, ['manager', 'buyer'])
       if (po.status !== 'draft') fail('STATE', 'Only a draft purchase order can be approved.')
       for (const l of po.lines) if (l.supplierQuote) {
         const ref = get(c.s, 'partyItems', l.supplierQuote.partyItemId, 'supplier terms')
         if (ref.version !== l.supplierQuote.version) fail('STALE', 'Supplier terms changed. Select the quote again before approval.')
       }
-      const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision: 'approved', role: c.actor.role, note: optionalText(p.note, 'note', 400), terms: structuredClone({ supplierId: po.supplierId, lines: po.lines, expectedDate: po.expectedDate, exposure: po.exposure, currency: po.currency, supplier: po.supplierSnapshot }) })
+      const signed = gate(c, { category: 'spend', subjectKind: 'purchaseOrders', subject: po, valueUsd: decimal(po.exposure), permitted: ['manager', 'buyer'], preparedBy: po.preparedBy, p })
+      if (signed && 'pending' in signed) return signed.pending
+      const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision: 'approved', role: c.actor.role, note: optionalText(p.note, 'note', 400), terms: structuredClone({ supplierId: po.supplierId, lines: po.lines, expectedDate: po.expectedDate, exposure: po.exposure, currency: po.currency, supplier: po.supplierSnapshot }), ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
+      signed?.consume(approval.id)
       return bump(po, { status: 'approved', approvalId: approval.id, approvedBy: c.actor.id })
+    }
+    case 'po.amend': {
+      allow(c, ['manager', 'buyer', 'agent'])
+      const po = get(c.s, 'purchaseOrders', p.poId, 'purchase order'); fresh(po, p.version)
+      if (po.status !== 'draft') fail('STATE', 'Only a draft purchase order can be amended; revise an approved order\'s delivery instead.')
+      const changes = list(p.lines, 'lines', 200).map((x: any) => ({ line: po.lines.find((l: any) => l.id === x.lineId) ?? fail('NOT_FOUND', 'That purchase order line was not found.', { lineId: x.lineId }), x }))
+      const note = text(p.reason, 'reason', 400)
+      for (const { line, x } of changes) {
+        if (line.supplierQuote) fail('QUOTE_LINE', 'This line was priced from supplier terms. Select the quote again instead of amending it.')
+        if (x.quantity !== undefined) line.quantity = format(toBase(get(c.s, 'items', line.itemId, 'item'), x.quantity, x.unit))
+        if (x.unitPrice !== undefined) line.unitPrice = format(decimal(x.unitPrice, 'unit price'))
+      }
+      po.history.push({ at: c.now, by: c.actor.id, change: 'draft amended', note })
+      return bump(po, { exposure: format(po.lines.reduce((n: bigint, l: any) => n + times(decimal(l.quantity), decimal(l.unitPrice)), 0n)) })
     }
     case 'po.confirm': {
       allow(c, ['manager', 'buyer'])

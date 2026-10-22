@@ -2,10 +2,13 @@
 import { approvedCertificates } from './certificate-policy'
 import { decimal, format, times } from './decimal'
 import { fail } from './problem'
-import { allow, approver } from './roles'
+import { allow } from './roles'
+import { authorize, gate } from './approval-policy'
 import { averageCost, balance, withdraw } from './stock'
 import { bump, fresh, get, nextReference, optionalText, row, type Context, type Row } from './model'
 import { countSessions, decideSessionCount } from './count-sessions'
+
+const abs = (n: bigint) => (n < 0n ? -n : n)
 
 export function counts(c: Context, type: string, p: any): Row | undefined {
   const session = countSessions(c, type, p)
@@ -21,14 +24,17 @@ export function counts(c: Context, type: string, p: any): Row | undefined {
     }
     case 'count.approve':
     case 'count.reject': {
-      approver(c, ['manager'])
+      authorize(c, ['manager'], 'inventoryAdjustment')
       const count = get(c.s, 'counts', p.countId, 'count'); fresh(count, p.version)
-      approver(c, ['manager'], count.createdBy)
+      authorize(c, ['manager'], 'inventoryAdjustment', count.createdBy)
       decideSessionCount(c, count, type)
       if (count.status !== 'awaiting approval') fail('STATE', 'Only a count awaiting approval can be decided.')
       const later = c.s.movements.some(m => m.sequence > count.frontier && m.itemId === count.itemId && m.locationId === count.locationId && (!count.sessionId || m.lotId === count.lotId))
       if (type === 'count.approve' && later) fail('STALE_COUNT', 'Stock moved at this location after the count. Count again before adjusting.', { countId: count.id })
-      const approval = row(c, 'approvals', { subjectKind: 'counts', subjectId: count.id, subjectVersion: count.version, decision: type === 'count.approve' ? 'approved' : 'rejected', role: c.actor.role, note: optionalText(p.note, 'note', 400) })
+      const signed = type === 'count.approve' ? gate(c, { category: 'inventoryAdjustment', subjectKind: 'counts', subject: count, valueUsd: times(abs(decimal(count.variance, 'variance', { signed: true })), decimal(count.unitCost || '0')), permitted: ['manager'], preparedBy: count.createdBy, p }) : null
+      if (signed && 'pending' in signed) return signed.pending
+      const approval = row(c, 'approvals', { subjectKind: 'counts', subjectId: count.id, subjectVersion: count.version, decision: type === 'count.approve' ? 'approved' : 'rejected', role: c.actor.role, note: optionalText(p.note, 'note', 400), ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
+      signed?.consume(approval.id)
       if (type === 'count.reject') return bump(count, { status: 'rejected', approvalId: approval.id })
       const variance = decimal(count.variance, 'variance', { signed: true })
       if (variance > 0n) approvedCertificates(c.s, count.itemId, count.lotId, c.now.slice(0, 10))
