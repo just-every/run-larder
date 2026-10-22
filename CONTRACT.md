@@ -299,7 +299,7 @@ The sixteen published clauses keep their IDs and useful operational guarantees. 
 
 - **GOV-007 — Backup restore and recovery.** Owner schedules encrypted backups with retention and restore drills for domain data, files, revision/audit/trace and configuration. Restore to an isolated installation reconciles stock/WIP and marks remote actions for readback, never replaying physical shipments, payments or journals. **Acceptance evidence:** Back up during a partial production/shipment, restore into an empty installation and reconcile balances/files; connect in recovery mode and confirm no second provider effect.
 
-- **GOV-008 — Quality-release approval journeys.** (Split from GOV-002.) Quality-hold release, nonconformance release and approved-deviation release honour the owner's quality threshold: at or above it, the policy signatures from the door's approving roles, never the preparer, failure recorder or an agent, bind the exact lot, quantity and decision terms; changed holds, quantities or results invalidate; owner override names its accountable human. **Acceptance evidence:** With a two-signature quality threshold, release a high-value quality hold, a nonconformance and a deviation; change the held quantity after one signature and inspect invalidation; deny agent and preparer signatures; log an owner override.
+- **GOV-008 — Quality-release approval journeys.** (Split from GOV-002.) Quality-hold release, nonconformance release and approved-deviation release honour the owner's quality threshold: at or above it, the policy signatures from the door's approving roles, never the preparer, failure recorder or an agent, bind the exact lot, quantity and decision terms; changed holds, quantities or results invalidate; owner override names its accountable human. *As built:* the quality-hold release is signed by a manager or quality-role holder other than the person who recorded the failure; the nonconformance release by a manager or quality-role holder other than the case opener and the latest failing inspector, on the exact quantity and passing inspection; the deviation approval by a quality-role holder other than the proposer, the case opener and the latest failing inspector, on the exact deviation. **Acceptance evidence:** With a two-signature quality threshold, release a high-value quality hold, a nonconformance and a deviation; change the held quantity after one signature and inspect invalidation; deny agent and preparer signatures; log an owner override.
 
 - **GOV-009 — Schedule approval thresholds.** (Split from GOV-002.) The owner sets a schedule threshold in minutes of per-job delay; adopting a reschedule or plan, or switching on a CAP-007 grant, whose largest per-job delay is at or above it needs the policy signatures on its exact changes; the owner's schedule threshold, signature count and signature lifetime cap every CAP-007 grant's delay/displacement limits and expiry. **Acceptance evidence:** Set a two-signature schedule threshold; route an above-threshold reschedule adoption and a grant through dual approval with a deputy; change the plan after one signature and inspect invalidation; refuse a grant exceeding the cap; deny agent approval; log an owner override.
 
@@ -470,8 +470,8 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 37 | 28 | 53 | 118 |
-| All | 53 | 28 | 53 | 134 |
+| Target and push further | 38 | 27 | 53 | 118 |
+| All | 54 | 27 | 53 | 134 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -588,7 +588,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `GOV-005` | Erasure and retention | target | missing |  | Erasure and retention workflow and its acceptance journey are not implemented. |
 | `GOV-006` | Provider and model secret custody | target | missing |  | Provider and model secret custody workflow and its acceptance journey are not implemented. |
 | `GOV-007` | Backup restore and recovery | target | partial | `src/larder/archive.ts`; `scripts/installer/portability-policy.mjs`; `tests/api/backup.test.mjs` | Manual checked domain/installation archive restore ships; scheduled encryption/retention drills and remote-effect recovery controls are absent. |
-| `GOV-008` | Quality-release approval journeys | target | partial | `src/larder/quality.ts`; `src/larder/nonconformance.ts`; `src/larder/approval-policy.ts` | The doors call the quality threshold check; no journey exercises them. |
+| `GOV-008` | Quality-release approval journeys | target | done | `src/larder/quality.ts`; `src/larder/nonconformance.ts`; `src/larder/approval-policy.ts`; `tests/api/quality-approval.test.mjs` (GOV-008); `tests/browser/approvals.spec.ts` (GOV-008) | Conforms: a quality-hold release, a nonconformance release and a deviation approval each need two signatures above the quality threshold, the first signature is invalidated by a changed held quantity and an owner override names its accountable manager. |
 | `GOV-009` | Schedule approval thresholds | target | missing |  | The schedule category is refused; no threshold caps adoptions or CAP-007 grants. |
 | `GOV-010` | Ledger approval threshold | target | missing |  | No Larder door posts to a ledger. |
 | `GOV-011` | Inventory-adjustment threshold on every write-off | target | missing |  | Only count adjustments are gated; expiry-disposition scrap is not. |
