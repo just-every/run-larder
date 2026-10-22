@@ -543,11 +543,11 @@ A finite `reschedule` proposal change can include `scheduleChoices: {"1": "Quali
 
 Scenario assumptions also accept:
 - `extraWork: [{itemId,quantity,requiredBy,plannedStart,reason}]`: compares added internal draft demand; explicit adoption creates only those exact drafts, never release or customer demand.
-- `inventoryUnavailable: [{itemId,locationId,lotId?,quantity,reason}]`: withholds free physical stock only in the clone; hard reservations are protected. Adoption is denied under the recorded authority until the physical assumption is realized through an existing approved door.
+- `inventoryUnavailable: [{itemId,locationId,lotId?,quantity,reason}]`: withholds free physical stock only in the clone; hard reservations are protected. This door never adopts speculative stock; record the physical change through its existing approved door, then compare a fresh scenario.
 - `alternateSuppliers: [{partyItemId,quantity,requiredBy}]`: compares structured quote/calendar/uncertain-bound quantity and cash with hypothetical supply, without creating a live PO. Adoption is denied until the spending/supply assumption is realized through existing buyer-approved doors.
-- `overtime: [{kind:machine|labor,id,startsAt,endsAt,reason}]`: bounded inside the reviewed horizon. Explicit owner/manager adoption records those exact calendar windows with history. Holidays/closures/time-off/outages and live people still constrain capacity; no payroll or financial action occurs.
+- `overtime: [{kind:machine|labor,id,startsAt,endsAt,reason}]`: bounded inside the reviewed horizon. Independent schedule adoption also requires owner/manager for labor overtime or owner/manager/planner for machine overtime and records those exact calendar windows with history. Holidays/closures/time-off/outages and live people still constrain capacity; no payroll or financial action occurs.
 
-Relevant supplier ETA events expose named supply references, new material-not-before dates and dependent buffer displacement. Missing shared allocation remains an explicit conflict, never invented material. New assumptions/history remain in the complete archive. These defaults and disabled automatic sequencing await ct approval; CAP-007 and MRP-004 remain partial.
+Relevant supplier ETA events expose named supply references, new material-not-before dates and dependent buffer displacement. Missing shared allocation remains an explicit conflict, never invented material. New assumptions/history remain in the complete archive. The 22 October ct ruling makes the speculative-stock/supplier refusal permanent. Protection is owner/manager/planner; adoption and decline use CAP-005 independent approvers, with the owner exception and per-piece authority. Automatic sequencing remains disabled until CAP-007’s approved bounded grants ship.
 
 ## Audit of production decisions (GOV-004, partial)
 

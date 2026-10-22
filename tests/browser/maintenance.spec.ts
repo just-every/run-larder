@@ -399,6 +399,10 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   await expect(page.getByLabel('Schedule review Demand and overtime assumptions',{exact:true})).toContainText('Additional draft jobs: 1; inventory assumptions: 0; supplier assumptions: 0; bounded overtime windows: 1.')
   const scenarioAfter=await planningState(page);expect(scenarioAfter.workOrders).toEqual(scenarioBefore.workOrders);expect(scenarioAfter.machineCalendars).toEqual(scenarioBefore.machineCalendars)
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'MRP-004-extra-assumptions')}
+  await page.getByLabel('Decline reason for Demand and overtime assumptions',{exact:true}).fill('synthetic-larder-850 retain reviewed baseline')
+  await planningAct(page,()=>page.getByRole('button',{name:'Decline Demand and overtime assumptions',exact:true}).click())
+  await expect(page.getByLabel('Schedule review Demand and overtime assumptions',{exact:true})).toContainText('rejected')
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'MRP-004-declined')}
 })
 
 test('Replenishment reviews revised MOQ and uncertain coverage/cash, selectively approves and retains rejected reasons at 1440/390',async({page})=>{
