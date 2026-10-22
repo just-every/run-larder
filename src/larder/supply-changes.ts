@@ -93,7 +93,7 @@ export function supplyChange(c: Context, type: string, p: any): Row | undefined 
     }
   }
   const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision, category: 'supply-change', recommendation: structuredClone(rec), role: c.actor.role, note: reason, effect })
-  po.history.push({ at: c.now, by: c.actor.id, change: `supply change ${decision}: ${rec.kind}`, line: line.id, note: reason, effect, approvalId: approval.id })
+  po.history.push({ at: c.now, by: c.actor.id, change: `supply change ${decision}: ${rec.kind}`, from: rec.currentDate, ...(rec.requestedDate ? { to: rec.requestedDate } : {}), line: line.id, note: reason, effect, approvalId: approval.id })
   if (decision === 'approved' && rec.kind === 'cancel') bump(po, { status: status(po), expectedDate: purchaseNextDate(po) })
   else bump(po, {})
   return approval
