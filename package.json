@@ -30,7 +30,8 @@
     "rer": "rer",
     "test:larder": "node --test --test-concurrency=1 tests/api/*.test.mjs",
     "test:site": "node --test tests/site/*.test.mjs",
-    "test:browser": "rer queue test:browser -- sh -c \"node tests/browser/run.mjs\""
+    "test:browser": "rer queue test:browser -- sh -c \"node tests/browser/run.mjs\"",
+    "verify:foundation": "rer queue verify:foundation -- sh -c \"pnpm run build && pnpm run typecheck && pnpm run test:typecheck && pnpm run test:site && pnpm run test:runtime\""
   },
   "dependencies": {
     "@tanstack/react-router": "1.170.41",

@@ -10,8 +10,21 @@ permissions:
 
 jobs:
   verify:
+    name: ${{ matrix.part }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - part: foundation
+            shard: 0
+          - part: api
+            shard: 0
+          - part: browser-1
+            shard: 1
+          - part: browser-2
+            shard: 2
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 15
     env:
       CI: 'true'
       WRANGLER_SEND_METRICS: 'false'
@@ -49,6 +62,18 @@ jobs:
       - run: npm install --global pnpm@10.12.4
       - run: pnpm install --frozen-lockfile
       - run: pnpm run deps
-      - run: pnpm exec playwright install --with-deps chromium
+      - if: matrix.part != 'api'
+        run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec rer check --profile first-party
-      - run: pnpm run verify
+      # The foundation partition still uses Base verify, including its hosted
+      # production-output and hydration checks after the application target.
+      - if: matrix.part == 'foundation'
+        run: pnpm run verify
+        env:
+          LARDER_VERIFY_PART: foundation
+      - if: matrix.part == 'api'
+        run: pnpm run test:larder
+      # Each partition starts its own real installation. No shared database or
+      # parallel UI workers; together these partitions run every browser test.
+      - if: startsWith(matrix.part, 'browser-')
+        run: node tests/browser/run.mjs --shard=${{ matrix.shard }}/2

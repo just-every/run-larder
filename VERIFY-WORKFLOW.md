@@ -29,3 +29,17 @@ The action pins were checked against the official
 [checkout v7.0.1 release](https://github.com/actions/checkout/releases/tag/v7.0.1)
 and [setup-node v7.1.0 release](https://github.com/actions/setup-node/releases/tag/v7.1.0).
 Their pinned `action.yml` files declare `runs.using: node24`.
+
+## Parallel push wall
+
+The Verify workflow runs four required jobs in parallel: foundation, authenticated
+HTTP/API tests, and two Playwright partitions. Each browser partition creates its
+own real installation with one worker; Playwright distributes the complete suite
+between them. No test is removed from push verification. The foundation job still
+runs Base's `rer verify`, including production hosted-output and hydration checks,
+with the build, typecheck, incremental-typecheck, site and emitted-Worker tests.
+
+Only that GitHub job sets `LARDER_VERIFY_PART=foundation`. Outside GitHub Actions,
+or with an unknown partition, the adapter refuses the partition. Ordinary local
+`rer verify` retains the complete sequential application target. Every push job
+has a 15-minute bound; workflow success requires all four jobs to pass.

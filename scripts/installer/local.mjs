@@ -7,6 +7,7 @@ import { ownerDeploy } from '@runeditrun/rer/deploy';
 import { localPortability } from '@runeditrun/rer/portability';
 import * as model from './ui/seed.mjs';
 import { portabilityPolicy } from './portability-policy.mjs';
+import { verificationTarget } from './verification.mjs';
 
 export { selectLocalState };
 const lifecycle = operatorInstaller({
@@ -21,7 +22,7 @@ const lifecycle = operatorInstaller({
 export const adapter = lifecycle;
 export const { install } = lifecycle;
 export const commandAdapter = createCommandAdapter(lifecycle, {
- dev: developmentTarget, preview: previewTarget, verify: ['pnpm', ['run', 'verify:app']], deploy: ownerDeploy('deploy.json', lifecycle),
+ dev: developmentTarget, preview: previewTarget, verify: verificationTarget(), deploy: ownerDeploy('deploy.json', lifecycle),
  portability: localPortability({ database: 'foundation', policy: portabilityPolicy, transient: ['local runtime caches and logs'] }),
  setup: { manifestFile: 'rer-setup.json' }, browserModule: 'scripts/installer/ui/seed.mjs',
  // The run site (rer build --site, rer deploy --site, RER_SITE): the landing, /run and the docs
