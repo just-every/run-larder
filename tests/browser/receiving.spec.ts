@@ -41,6 +41,7 @@ test('Receiving a short delivery quarantines damaged units, allocates the accept
   const form = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Receive delivery', exact: true }) })
   await form.getByLabel('Packing slip', { exact: true }).fill('DN-7')
   await form.getByLabel('Into location', { exact: true }).selectOption(dock.id)
+  await form.getByLabel('Inspection', { exact: true }).selectOption('accept')
   await form.getByLabel('Delivery note file (optional)', { exact: true }).setInputFiles({ name: 'dn-7.txt', mimeType: 'text/plain', buffer: Buffer.from('Delivery note DN-7, one pallet corner crushed') })
   await form.getByLabel(/outstanding 10/).fill('7')
   await form.getByLabel('Supplier lot', { exact: true }).fill('SYN-LOT')
