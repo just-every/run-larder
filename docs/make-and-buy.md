@@ -33,3 +33,9 @@ An approved order past its expected date appears on **Today** as late.
 4. **Close work order** releases leftover reservations and records the material cost and the variance against standard.
 
 Finished goods count as on hand the moment they are recorded, and the orders waiting for them can reserve them.
+
+## Configured items and kits
+
+**Configurable items.** An engineer saves configuration rules for a made item under **Make & buy → Bills of materials → Save configuration rules**: choices (such as Size and Finish), dimensions with a range, yes/no options, formulas that derive component quantities, routing minutes and added cost, and combinations to refuse with their reason. Each save is the next revision. On **Orders → Configured quote**, sales choose a configuration for each line, check what it makes and costs (every figure shows its rule and arithmetic), compare lines and save the quote; the resolved configuration is pinned on each line. After the order is confirmed, **Draft work to this configuration** drafts a work order carrying that configuration, and releasing it pins exactly those components, routing and cost. A later rule edit never moves a quote or released work.
+
+**Kits.** Under **Make & buy → Kits**, one person prepares a kit (its components per kit and its policy: assemble the kit when it sells, or pick the components) and a different person approves the policy. **Record a channel sale** names the channel and the channel's own event id: the first sight of an event takes exactly the kit's components from one location (and, for an assembling kit, assembles and sells the kit at their cost), a repeat of the same event returns the first outcome and moves nothing, and a sale larger than the stock behind it is refused before anything posts.

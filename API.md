@@ -10,6 +10,9 @@ The app and agents use the same door. Every request needs a native session cooki
 - `GET /api/larder/handoffs/<id>.csv` — a handoff batch as CSV (owner, manager, accounts).
 - `GET /api/larder/attachments/<id>` — an evidence file.
 - `GET /api/larder/imports/<id>.json` — a move-in preview: counts, rejected rows, skips, unread columns.
+- `GET /api/larder/configurations/resolve?itemId=<made item>&selection=<json>` — ENG-003 the components, routing and cost a configuration makes, each with its rule and arithmetic; `409 INVALID_CONFIGURATION` carries the refusal reason. Save rules with `config.save`; pin a choice on a quote line with `configuration: { selection }` in `so.quote` lines and on work with `wo.draft` (`orderId` + `lineId`, or `configuration`).
+- ENG-006 kits: `kit.save` and `kit.approve` (two people), `kit.sell` with `channel` and the channel's own `eventId` (a repeat returns the first outcome).
+- GOV-001 scopes: `member.scope`, `role.custom` and `role.assign` (owner). A scoped member's reads and downloads follow their scope; the archive, audit, handoff and import downloads answer `403` to them.
 - `GET /api/larder/boms.csv` — current effective BOMs and routings as editable CSV (owner, manager, production, engineer).
 - `GET /api/larder/archive` — the complete business archive with its checksum (owner, manager).
 - `POST /api/larder/archive/restore` — restore an archive into an empty installation (owner).

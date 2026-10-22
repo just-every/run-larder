@@ -635,6 +635,22 @@ test('GOV-001 location scope: a scoped member sees, changes and downloads nothin
   await h.command('member.scope', { operatorId: p1.id, locations: [w.loc.id, annex.id] })
   const fresh = await p1.run('inventory.preview', { policyId: policy.id, orderIds: [], reason: 'Replenish boards again' })
   await p2.run('inventory.approve', { planId: fresh.id, version: fresh.version })
+  // The preparer's reach is judged live too: a hold released by a person who covers it is refused once the person who failed the lot no longer does.
+  const q1 = await h.person('quin@example.test', 'quality'), q2 = await h.person('quade@example.test', 'quality'), file = text => ({ name: 'qa.txt', contentType: 'text/plain', base64: Buffer.from(text).toString('base64') })
+  await h.command('member.scope', { operatorId: q1.id, locations: [annex.id] }); await h.command('member.scope', { operatorId: q2.id, locations: [w.loc.id, annex.id] })
+  let qpo = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: day(-1), reason: 'Timber for the annex', lines: [{ itemId: w.timber.id, quantity: '3', unitPrice: '9.5' }] })
+  qpo = await h.command('po.approve', { poId: qpo.id, version: qpo.version })
+  await h.command('receipt.create', { poId: qpo.id, supplierReference: 'Q-1', lines: [{ lineId: qpo.lines[0].id, quantity: '3', locationId: annex.id, lot: 'Q-ANNEX' }] })
+  const qlot = (await h.state()).lots.find(l => l.code === 'Q-ANNEX')
+  let qplan = await q1.run('quality.plan.save', { itemId: w.timber.id, stage: 'receipt', name: 'Moisture', sampleSize: 1, measurements: [{ name: 'Moisture', unit: '%', target: '8', lower: '6', upper: '10' }] })
+  qplan = await q2.run('quality.plan.approve', { planId: qplan.id, version: qplan.version })
+  const failed = await q1.run('quality.inspect', { planId: qplan.id, planVersion: qplan.version, lotId: qlot.id, samples: { Moisture: ['14'] }, evidence: [file('Wet')] })
+  await q2.run('quality.inspect', { planId: qplan.id, planVersion: qplan.version, lotId: qlot.id, samples: { Moisture: ['8'] }, evidence: [file('Dried')] })
+  const hold = (await h.state()).qualityHolds.find(x => x.id === failed.holdId), release = { holdId: hold.id, version: hold.version, reason: 'Retest passed', evidence: [file('Release')] }
+  await h.command('member.scope', { operatorId: q1.id, locations: [w.loc.id] })
+  await q2.run('quality.release', release, { error: 'FORBIDDEN' })
+  await h.command('member.scope', { operatorId: q1.id, locations: [annex.id] })
+  assert.equal((await q2.run('quality.release', release)).status, 'released')
   // Narrowing takes effect on the very next request; deactivation revokes mid-task.
   await h.command('member.scope', { operatorId: lead.id, locations: [w.store.id], costsRestricted: false })
   await lead.run('receipt.create', { poId: own.id, supplierReference: 'TIM-2', lines: [{ lineId: own.lines[0].id, quantity: '1', locationId: w.loc.id }] }, { error: 'FORBIDDEN' })

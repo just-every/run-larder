@@ -26,6 +26,15 @@ Only the owner manages people. On **More → People and roles**, fill in **Invit
 
 Every action checks the person's current role at the moment it is written, so a role you change takes effect on their next action.
 
+## Limit what a person sees and does
+
+On **More → People and roles**, **Limit a person** narrows one person (the owner is never limited, and agents only prepare):
+
+- **Locations**: choose the locations they work in. They then see only records whose every location is theirs; a figure that also counts another location reads "restricted (includes other locations)", never a partial total. A command that touches any other location is refused. Trace and recall packs show other locations' records only as "restricted record", and the archive, audit, handoff and import downloads need an unrestricted owner or manager.
+- **Costs and wages restricted**: unit costs, prices, values, margins, cash exposure and hourly rates read "restricted" in every screen and download, and the actions that need them (quoting, purchase pricing and approval, rework with a rate, handoffs, imports) are refused. By default managers, accounts and the owner read costs and wages, and a production person reads the rework rate only on the order they entered it.
+
+A **custom role** is a named copy of one role (not owner or agent) that can only be narrowed: by locations, by the costs-and-wages restriction, or by removing approvals such as approving a purchase order. Give it to a person with **Give a person a custom role**; a person holds one role, and choosing a built-in role replaces it. Limits and custom roles are read on every request and again inside the write, so narrowing takes effect on the next action.
+
 ## Agents prepare, people approve
 
 An agent signs in like any team member, with the agent role, and works through the same commands. It can prepare:
