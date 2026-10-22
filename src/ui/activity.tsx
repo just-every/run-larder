@@ -1,6 +1,7 @@
 import { personName, rows } from './api'
 import type { Larder } from './app'
 import { Card, Empty, Table } from './controls'
+import { AuditTrail } from './audit-trail'
 import { when, words } from './format'
 
 // Each recorded command, as the person who did it would say it.
@@ -23,6 +24,9 @@ export const actions: Record<string, string> = {
 
 export function Activity({ larder }: { larder: Larder }) {
   const s = larder.state!, list = rows(s, 'commands')
-  return <Card title="Recorded actions">{list.length === 0 ? <Empty>No actions recorded yet.</Empty> :
-    <Table head={['When', 'Who', 'What']}>{list.map(c => <tr key={c.id}><td>{when(c.createdAt)}</td><td>{personName(s, c.actorId)}</td><td>{actions[c.type] ?? words(String(c.type).replace('.', ' '))}</td></tr>)}</Table>}</Card>
+  return <>
+    {['owner', 'manager'].includes(s.actor.role) && <AuditTrail />}
+    <Card title="Recorded actions">{list.length === 0 ? <Empty>No actions recorded yet.</Empty> :
+      <Table head={['When', 'Who', 'What']}>{list.map(c => <tr key={c.id}><td>{when(c.createdAt)}</td><td>{personName(s, c.actorId)}</td><td>{actions[c.type] ?? words(String(c.type).replace('.', ' '))}</td></tr>)}</Table>}</Card>
+  </>
 }

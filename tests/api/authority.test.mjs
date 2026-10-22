@@ -303,3 +303,89 @@ test('GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007
   await other.run('wo.operation.start', at(2, { workCentre: 'Finishing', station: 'Tablet 2', reason: 'Oil the boards' }), { error: 'AUTH' })
   assert.equal((await h.state()).workOrders.find(x => x.id === work.id).operationStates.find(t => t.sequence === 2).status, 'pending')
 })
+
+// GOV-004: one thread through revision, scheduling, operator correction, quality release and a stock adjustment, then query, export, refused deletion and planted secrets.
+test('GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h), file = text => ({ name: 'qa.txt', contentType: 'text/plain', base64: Buffer.from(text).toString('base64') })
+  const manager = await h.person('audit-manager@example.test', 'manager'), operator = await h.person('audit-operator@example.test', 'operator')
+  const q1 = await h.person('audit-q1@example.test', 'quality'), q2 = await h.person('audit-q2@example.test', 'quality')
+  const agent = await h.person('audit-agent@example.test', 'agent'), sales = await h.person('audit-sales@example.test', 'sales')
+  // Revision: a second timber blank per board, with a planted password in the change note and an API key in an item attribute.
+  const revised = await manager.run('bom.revise', { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '2' }, { itemId: w.oil.id, quantity: '50', unit: 'ml' }], routing: [{ name: 'Plane and cut', workCentre: 'Bench', minutes: 20 }], note: 'Second blank per board; supplier portal password: synthetic-larder-1' })
+  await manager.run('item.save', { sku: 'PORTAL-FEE', name: 'Portal fee', kind: 'buy', baseUnit: 'each', attributes: { 'API key': 'synthetic-larder-2', Colour: 'grey' } })
+  // Scheduling: a work order is drafted and released against the new revision.
+  let work = await manager.run('wo.draft', { itemId: w.board.id, quantity: '2', requiredBy: day(9), reason: 'Two boards on the revised BOM' })
+  work = await manager.run('wo.release', { workOrderId: work.id, version: work.version })
+  await manager.run('wo.reserve', { workOrderId: work.id })
+  work = await manager.run('wo.issue', { workOrderId: work.id, lines: [{ itemId: w.timber.id, locationId: w.loc.id, quantity: '4' }] })
+  // Operator correction: the assigned operator reports measured quantities.
+  work = await manager.run('wo.operation.assign', { workOrderId: work.id, version: work.version, sequence: 1, operatorId: operator.id })
+  work = await operator.run('wo.operation.start', { workOrderId: work.id, version: work.version, sequence: 1, workCentre: 'Bench', station: 'Tablet 1', reason: 'Bench ready' })
+  work = await operator.run('wo.operation.report', { workOrderId: work.id, version: work.version, sequence: 1, good: '1', scrap: '1', scrapReason: 'Split timber', reason: 'One good, one split; token synthetic-larder-3' })
+  // Quality release of a received walnut lot and a stock adjustment by a compensating movement.
+  let po = await manager.run('po.draft', { supplierId: w.supplier.id, expectedDate: day(1), reason: 'Walnut for the revised BOM', lines: [{ itemId: w.timber.id, quantity: '6', unitPrice: '9.5' }] })
+  po = await manager.run('po.approve', { poId: po.id, version: po.version })
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'AUD-1', lines: [{ lineId: po.lines[0].id, quantity: '6', locationId: w.loc.id, lot: 'AUD-WAL' }] })
+  const lotId = (await h.state()).lots.find(l => l.code === 'AUD-WAL').id
+  let plan = await q1.run('quality.plan.save', { itemId: w.timber.id, stage: 'receipt', name: 'Moisture', sampleSize: 1, measurements: [{ name: 'Moisture', unit: '%', target: '8', lower: '6', upper: '10' }] })
+  plan = await q2.run('quality.plan.approve', { planId: plan.id, version: plan.version })
+  const failed = await q1.run('quality.inspect', { planId: plan.id, planVersion: plan.version, lotId, samples: { Moisture: ['14'] }, evidence: [file('Wet timber')] })
+  await q2.run('quality.inspect', { planId: plan.id, planVersion: plan.version, lotId, samples: { Moisture: ['8'] }, evidence: [file('Dried and retested')] })
+  const hold = (await h.state()).qualityHolds.find(x => x.id === failed.holdId)
+  await q2.run('quality.release', { holdId: hold.id, version: hold.version, reason: 'Retest passed; Bearer synthetic-larder-4', evidence: [file('Signed release')] })
+  const moved = await h.command('transfer.create', { itemId: w.board.id, fromLocationId: w.loc.id, toLocationId: w.store.id, quantity: '1', reason: 'To the dispatch shelf' })
+  await h.command('movement.reverse', { documentKind: 'transfers', documentId: moved.id, reason: 'Wrong shelf' })
+  const prepared = await agent.run('proposal.prepare', { kind: 'reschedule', summary: 'Start the revised-BOM boards earlier', evidence: ['bench free; API key: synthetic-larder-5'], plan: { changes: [{ workOrderId: work.id, priority: 1, plannedStart: day(2) }], conflicts: [] } })
+  const audit = async (query = '', as = h.owner()) => (await h.request('/api/larder/audit' + query, { as })).json()
+
+  // Query: the thread of the walnut component, by domain, with exact before/after of the revision and the reasons.
+  const thread = await audit(`?ref=${w.timber.id}`)
+  assert.deepEqual(['revisions', 'schedules', 'time', 'quality', 'stock'].filter(d => !thread.entries.some(e => e.domain === d)), [])
+  const rev = thread.entries.find(e => e.subjectKind === 'boms' && e.op === 'create' && e.subjectId === revised.id)
+  assert.deepEqual([rev.actorId, rev.actorRole, rev.commandType, rev.source], [manager.id, 'manager', 'bom.revise', 'person']); assert.ok(Date.parse(rev.at) > 0)
+  assert.equal(rev.after.components[0].quantity, '2'); assert.match(rev.reason, /Second blank per board/)
+  const superseded = thread.entries.find(e => e.subjectKind === 'boms' && e.op === 'update' && e.after.status === 'superseded')
+  assert.equal(superseded.before.status, 'active')
+  const approved = (await audit(`?ref=${po.id}`)).entries.find(e => e.subjectKind === 'approvals' && e.op === 'create')
+  assert.deepEqual([approved.actorId, approved.after.decision, approved.after.terms.supplierId, approved.after.subjectId], [manager.id, 'approved', w.supplier.id, po.id])
+  const report = thread.entries.find(e => e.commandType === 'wo.operation.report')
+  assert.deepEqual([report.domain, report.actorId, report.subjectKind], ['time', operator.id, 'workOrders']); assert.match(report.reason, /One good, one split/)
+  const released = thread.entries.find(e => e.commandType === 'quality.release' && e.subjectKind === 'qualityHolds')
+  assert.deepEqual([released.domain, released.actorId, released.before.status === released.after.status], ['quality', q2.id, false]); assert.ok(released.evidence.length >= 1 && released.evidence[0].sha256)
+  const adjustment = (await audit(`?ref=${moved.id}`)).entries.filter(e => e.commandType === 'movement.reverse')
+  assert.deepEqual(adjustment.map(e => e.subjectKind), ['transfers', 'reversals'])
+  assert.deepEqual([adjustment[0].before.status, adjustment[0].after.status, adjustment[1].reason, adjustment[1].domain], ['done', 'reversed', 'Wrong shelf', 'stock'])
+  const posted = (await audit('?type=movement.reverse&kind=movements')).entries
+  assert.deepEqual([posted.length, posted.every(e => e.op === 'post' && e.after.reversesId)], [2, true])
+  assert.deepEqual((await audit('?domain=roles')).entries.map(e => e.commandType).filter((v, i, a) => a.indexOf(v) === i), ['role.set'])
+  const agentWork = (await audit('?domain=agent')).entries
+  assert.deepEqual([agentWork.length > 0, agentWork.every(e => e.source === 'agent' && e.actorId === agent.id), agentWork.some(e => e.subjectId === prepared.id)], [true, true, true])
+  assert.equal((await audit(`?actor=${q2.id}&domain=quality`)).entries.every(e => e.actorId === q2.id && e.domain === 'quality'), true)
+  assert.ok((await audit('?q=wrong%20shelf')).total >= 2)
+  const page = await audit('?limit=3'), next = await audit(`?limit=3&after=${page.next}`)
+  assert.deepEqual([page.entries.length, next.entries[0].seq > page.entries.at(-1).seq], [3, true])
+  assert.equal((await audit(`?commandId=${rev.commandId}`)).entries.every(e => e.commandId === rev.commandId), true)
+  // Export: complete JSON and CSV in the same order, retention stated.
+  const json = await (await h.request('/api/larder/audit.json')).json(), csv = await (await h.request('/api/larder/audit.csv')).text()
+  assert.deepEqual([json.complete, json.total === json.entries.length, json.retention.removableBy], [true, true, 'nobody'])
+  assert.equal(csv.trim().split(/\r?\n/).length > json.total, true); assert.ok(csv.startsWith('seq,at,actorName'))
+  // Append-only: no role deletes or edits, not even the owner; the database refuses direct writes.
+  for (const who of [manager, sales, agent]) await who.run('audit.purge', { before: day(1), reason: 'Tidy up' }, { error: 'FORBIDDEN' })
+  await h.command('audit.purge', { before: day(1), reason: 'Tidy up' }, { error: 'FORBIDDEN' })
+  await h.command('audit.delete', { id: rev.id }, { error: 'FORBIDDEN' })
+  assert.equal((await h.request('/api/larder/audit', { method: 'DELETE' })).status, 405)
+  await assert.rejects(h.db.prepare('DELETE FROM larder_audit').run(), /append_only_audit/)
+  await assert.rejects(h.db.prepare("UPDATE larder_audit SET reason='x' WHERE seq=1").run(), /append_only_audit/)
+  // Reads are for the owner and managers only.
+  for (const who of [sales, agent, operator]) assert.equal((await h.request('/api/larder/audit', { as: who.cookie })).status, 403)
+  assert.equal((await h.request('/api/larder/audit.csv', { as: '' })).status, 401)
+  assert.equal((await audit('', manager.cookie)).total, json.total)
+  // Planted secrets are absent from the query, both exports and the stored rows; their labels and ordinary text remain.
+  const stored = JSON.stringify((await h.db.prepare('SELECT * FROM larder_audit').all()).results)
+  for (const [name, body] of [['query', JSON.stringify(await audit('?limit=500'))], ['json', JSON.stringify(json)], ['csv', csv], ['stored', stored]]) {
+    assert.equal(/synthetic-larder-\d/.test(body), false, `${name} leaks a planted secret`)
+    assert.match(body, /Second blank per board/); assert.match(body, /Colour/)
+  }
+  assert.ok(!stored.includes('Wet timber') && !stored.includes('base64'), 'attachment bodies are not logged')
+})

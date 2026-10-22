@@ -2,6 +2,7 @@
 // atomic D1 batch, guarded by the session, the role and the state version.
 import { fail } from './problem'
 import { caseHumanRoleSql } from './follow-up'
+import { auditInsertSql, auditParams, type AuditEntry } from './audit'
 import { collections, type Actor, type Context, type State } from './model'
 
 export const roleSql = `CASE WHEN EXISTS(SELECT 1 FROM larder_records WHERE kind='roles' AND id=o.id) THEN (SELECT json_extract(data,'$.role') FROM larder_records WHERE kind='roles' AND id=o.id) WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END`
@@ -62,7 +63,7 @@ export function changes(db: D1Database, c: Context, before: State): D1PreparedSt
   return out
 }
 
-export async function commit(db: D1Database, c: Context, before: State, type: string, digest: string, result: unknown) {
+export async function commit(db: D1Database, c: Context, before: State, type: string, digest: string, result: unknown, audit: AuditEntry[]) {
   const a = authority(c.actor)
   const response = { ok: true, result, version: before.version + 1 }
   await db.batch([
@@ -83,6 +84,7 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
     ...(type === 'proposal.approve' && (result as any).context?.capacity ? [...new Set<string>((result as any).context.capacity.after.operations.map((o: any) => o.operatorId))].map(id => db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager','production','operator')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), id)) : []),
     ...(type === 'schedule.adopt' ? [...new Set<string>((result as any).after.operations.map((o: any) => o.operatorId))].map(id => db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager','production','operator')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), id)) : []),
     ...changes(db, c, before),
+    ...audit.map(e => db.prepare(auditInsertSql).bind(...auditParams(e))),
     db.prepare('UPDATE larder_meta SET version=version+1 WHERE id=1'),
     db.prepare('INSERT INTO larder_commands VALUES(?,?,?,?,?,?)').bind(c.commandId, c.actor.id, type, digest, JSON.stringify(response), c.now),
     db.prepare('DELETE FROM larder_guard'),

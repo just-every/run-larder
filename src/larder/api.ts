@@ -10,6 +10,8 @@ import { supplierQuotes } from './supplier-terms'
 import { operatorAuth, runtimeBindings, type Bindings } from '../auth.server'
 import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
 import { archive, restore } from './archive'
+import { auditEntries } from './audit'
+import { auditCsv, auditExport, auditQuery } from './audit-read'
 import { archiveCsv } from './archive-csv'
 import { history, historyMatches } from './history'
 import { bom } from './bom'
@@ -92,6 +94,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   if (typeof commandId !== 'string' || !/^[-a-zA-Z0-9_]{8,100}$/.test(commandId) || typeof type !== 'string') throw new Problem('COMMAND', 'Send a unique commandId and a command type.', null, 400)
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Problem('INPUT', 'The payload must be an object.', null, 400)
   if (actor.role === 'viewer') forbidden('Viewers can read but not change records.')
+  if (type.startsWith('audit.')) forbidden('The audit is append-only: no role, including the owner, edits or deletes an entry.')
   if (type === 'role.set' && actor.role === 'owner') {
     const target = await env.DB.prepare('SELECT role FROM oa_operators WHERE id=?').bind(payload.operatorId).first<{ role: string }>()
     if (!target) fail('NOT_FOUND', 'Choose an invited person.')
@@ -143,11 +146,12 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
     observeRecovery(c, before, type, payload)
     observeFollowUps(c)
+    const audit = auditEntries(c, before, type, payload, type.startsWith('import.'))
     if (type === 'import.commit' || type === 'import.undo') {
-      await publishImport(env, c, before, type, digest, result!)
+      await publishImport(env, c, before, type, digest, result!, audit)
       return respond((await saved(env.DB, commandId, digest, actor)) ?? fail('IMPORT_PUBLICATION', 'The import did not finish. Send the same command again to resume it.'))
     }
-    try { return respond(await commit(env.DB, c, before, type, digest, result)) }
+    try { return respond(await commit(env.DB, c, before, type, digest, result, audit)) }
     catch (error) {
       const replay = await saved(env.DB, commandId, digest, actor)
       if (replay) return respond(replay)
@@ -192,6 +196,9 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     }
     const recallDownload = /^\/recalls\/([-0-9a-f]{36})\.json$/.exec(path)
     if (recallDownload) return json(recallPack(await load(env.DB), recallDownload[1]))
+    if (path === '/audit') return json(await auditQuery(env.DB, actor, url.searchParams))
+    if (path === '/audit.json') return new Response(JSON.stringify(await auditExport(env.DB, actor, url.searchParams)), { headers: { ...headers, 'content-type': 'application/json', 'content-disposition': 'attachment; filename="larder-audit.json"' } })
+    if (path === '/audit.csv') return new Response(auditCsv((await auditExport(env.DB, actor, url.searchParams)).entries), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-audit.csv"' } })
     if (path === '/archive') return json(await archive(env, actor))
     if (path === '/archive.csv') return new Response(archiveCsv(await archive(env, actor)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-archive.csv"' } })
     if (path === '/history') return json((await load(env.DB)).sourceHistory.filter(r => historyMatches(r, url.searchParams.get('q') ?? '')))

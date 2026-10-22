@@ -54,6 +54,9 @@ test('LARDER-016 Odoo move-in: preview rejects with source IDs, commit journals 
   await h.command('import.undo', { importId: preview.id, version: committed.version, reason: 'Wrong count date' })
   s = await h.invariant()
   assert.equal(s.items.length, 0); assert.equal(s.movements.length, 0); assert.equal(s.imports.find(i => i.id === preview.id).status, 'undone')
+  // The audit keeps the committed batch and its undo as import-sourced integration entries; undo removes records, never audit.
+  const trail = await (await h.request('/api/larder/audit?domain=integrations&limit=500')).json()
+  assert.deepEqual(['import.preview', 'import.commit', 'import.undo'].map(type => trail.entries.some(e => e.commandType === type && e.source === 'import')), [true, true, true])
   // Malformed files fail before anything is staged.
   await h.command('import.preview', { label: 'Bad', files: [{ name: 'product.product.csv', content: 'id,name\nx,"unclosed\n' }] }, { error: 'CSV' })
   await h.command('import.preview', { label: 'Bad', files: [{ name: 'product.product.csv', content: 'id,name\nx,y\n' }] }, { error: 'KIT_SHAPE' })

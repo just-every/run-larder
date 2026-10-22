@@ -4,6 +4,7 @@
 // depends on what was moved in).
 import type { Bindings } from '../../auth.server'
 import { applyD1ImportBatches, canonicalJson, createD1ImportJob, planD1Import, sha256, undoD1Import, type D1ImportContext, type D1Sql, type D1TargetAdapter, type SourceBundle, type TargetRow } from '../../modules/import-kit/src/d1/index'
+import { auditInsertSql, auditParams, type AuditEntry } from '../audit'
 import { fail } from '../problem'
 import { allow, approver } from '../roles'
 import { authority, load } from '../storage'
@@ -109,10 +110,11 @@ function writeSql(before: State, after: State): D1Sql[] {
   ]
 }
 
-export async function publishImport(env: Bindings, c: Context, before: State, type: string, digest: string, batch: Row) {
+export async function publishImport(env: Bindings, c: Context, before: State, type: string, digest: string, batch: Row, audit: AuditEntry[]) {
   const db = env.DB, undo = type === 'import.undo', a = authority(c.actor)
   const response = { ok: true, result: batch, version: before.version + 1 }
   const bookkeeping = () => [
+    ...audit.map(e => sql(auditInsertSql, ...auditParams(e))),
     sql('UPDATE larder_meta SET version=version+1 WHERE id=1'),
     sql('INSERT INTO larder_commands VALUES(?,?,?,?,?,?)', c.commandId, c.actor.id, type, digest, JSON.stringify(response), c.now),
   ]
