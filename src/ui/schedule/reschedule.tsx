@@ -8,7 +8,7 @@ export function FiniteReschedule({ larder, plan }: { larder: Larder; plan: any }
   const jobs = rows(s, 'workOrders').filter(w => ['draft', 'released'].includes(w.status) && !w.operationStates?.some((t: any) => ['running', 'paused'].includes(t.status)))
   const pending = [...rows(s, 'proposals')].reverse().find(p => p.status === 'awaiting approval' && p.context?.capacity && p.snapshotVersion + 1 === s.version)
   const approved = [...rows(s, 'proposals')].reverse().find(p => p.status === 'approved' && p.context?.capacity)
-  const prepare = (id: string, priority: number, plannedStart: string, reason: string) => larder.run('proposal.prepare', { kind: 'reschedule', summary: reason, evidence: [reason], plan: { changes: [{ workOrderId: id, plannedStart, priority }], capacity: { asOf: plan.asOf, days: plan.horizonDays, reason } } })
+  const prepare = (id: string, priority: number, plannedStart: string, reason: string, scheduleChoices?: any) => larder.run('proposal.prepare', { kind: 'reschedule', summary: reason, evidence: [reason], plan: { changes: [{ workOrderId: id, plannedStart, priority, ...(scheduleChoices ? { scheduleChoices } : {}) }], capacity: { asOf: plan.asOf, days: plan.horizonDays, reason } } })
   const allowed = can(s, ['manager', 'production', 'planner', 'agent'])
   return <Card title="Move work in finite capacity">
     <p>Drag a pending job onto another to preview it first, or use the date and priority controls with mouse or keyboard. Preview includes downstream jobs and promise risk. Running work keeps its place. Customer promises stay unchanged.</p>
@@ -17,10 +17,11 @@ export function FiniteReschedule({ larder, plan }: { larder: Larder; plan: any }
         e.preventDefault(); const id = e.dataTransfer.getData('text/plain')
         if (id !== w.id && jobs.some(j => j.id === id)) void prepare(id, Math.min(1000000, (w.priority ?? 0) + 1), w.plannedStart || plan.asOf.slice(0, 10), `Move ${jobs.find(j => j.id === id)!.reference} before ${w.reference}`)
       }}>{w.reference}</button>)}</div>
-      <Form submit="Preview finite move" busy={larder.busy} onSubmit={d => prepare(text(d, 'job'), Number(text(d, 'priority')), text(d, 'start'), text(d, 'reason'))}>
+      <Form submit="Preview finite move" busy={larder.busy} onSubmit={d => prepare(text(d, 'job'), Number(text(d, 'priority')), text(d, 'start'), text(d, 'reason'), text(d, 'alternate') ? { [text(d, 'operation')]: text(d, 'alternate') } : undefined)}>
         <Choose label="Move work order" name="job" options={jobs.map(w => ({ value: w.id, label: w.reference }))} value={picked} onChange={(e: any) => setPicked(e.target.value)} />
         <Field label="Move not before date" name="start" type="date" defaultValue={plan.asOf.slice(0, 10)} />
         <Field label="Move priority" name="priority" type="number" min="-1000000" max="1000000" defaultValue="1" />
+        <Field label="Alternate operation sequence" name="operation" type="number" min="1" defaultValue="1" required={false} /><Field label="Qualified alternate center" name="alternate" required={false} hint="Exact center name from this job’s pinned routing; blank keeps the current choices." />
         <Area label="Finite move reason" name="reason" />
       </Form>
     </>}
@@ -29,6 +30,9 @@ export function FiniteReschedule({ larder, plan }: { larder: Larder; plan: any }
       <Table head={['Job', 'Before finish', 'After finish', 'Due and risk']}>
         {pending.context.capacity.effects.map((e: any) => <tr key={e.workOrderId}><td>{e.reference}</td><td>{e.before ?? 'Unscheduled'}</td><td>{e.after ?? 'Unscheduled'}</td><td>Due {e.dueAt.slice(0, 10)} · {e.unscheduledAfter ? 'Unscheduled' : e.lateAfter ? 'Late' : 'On time'}</td></tr>)}
       </Table>
+      <details open><summary>Alternate setup, labor and cost consequences</summary><Table head={['Operation', 'Machine / person', 'Setup and tools', 'Cost and delivery']}>
+        {pending.context.capacity.after.operations.map((o: any) => <tr key={o.key}><td>{o.reference} · {o.name}</td><td>{o.machine} · {o.person}</td><td>Family {o.priorFamily || 'unconfigured'} → {o.setupFamily || 'unconfigured'}; base setup {o.setupMinutes}; changeover {o.changeoverMinutes}; cleanup {o.cleanupMinutes} minutes. Tools: {o.requiredTools?.join(', ') || 'none required'}</td><td>{o.endsAt} · {o.occupiedMinutes} labor minutes · {o.planningCost ?? 'unknown'} USD estimate{o.comparisons?.filter((c: any) => c.kind !== 'internal').map((c: any) => <p key={c.kind}>{c.kind}: {c.cost ?? 'not authorized / not quoted'} USD. {c.leadDays !== undefined && `${c.leadDays} days. `}{c.basis}</p>)}</td></tr>)}
+      </Table></details>
       <p>Capacity conflicts: {pending.context.capacity.conflicts.length}. New unscheduled jobs: {pending.context.capacity.newUnscheduled.length}.</p>
       {pending.context.capacity.conflicts.map((c: any, i: number) => <p key={i}>{c.reference}: {c.reason}</p>)}
       <details><summary>Customer promise consequences</summary>{pending.context.capacity.promiseEffects.map((p: any, i: number) => <p key={i}>{p.reference} · retained promise {p.promiseDate} · {p.after.map((j: any) => `${j.reference}: ${j.endsAt ?? 'unscheduled'}${j.late ? ' (late)' : ''}`).join('; ') || 'No recorded finite work link'}</p>)}</details>

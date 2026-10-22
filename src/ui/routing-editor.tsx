@@ -11,7 +11,7 @@ export async function routingFromForm(data: FormData) {
   return Promise.all(stepsFrom(text(data, 'routing')).map(async (step, index) => {
     const prefix = `routing.${index + 1}.`, file = data.get(prefix + 'drawing')
     return {
-      ...step, runMinutes: step.minutes,
+      ...step, runMinutes: step.minutes, setupFamily: text(data, prefix + 'setupFamily'), requiredTools: separated(text(data, prefix + 'requiredTools')),
       setupMinutes: Number(text(data, prefix + 'setupMinutes') || '0'),
       queueMinutes: Number(text(data, prefix + 'queueMinutes') || '0'),
       dependsOn: text(data, prefix + 'dependsOn').toLowerCase() === 'none' ? [] : text(data, prefix + 'dependsOn') ? text(data, prefix + 'dependsOn').split(',').map(Number) : index ? [index] : [],
@@ -55,6 +55,7 @@ export function RoutingEditor() {
         <Field label={`${label} setup minutes`} name={prefix + 'setupMinutes'} type="number" min="0" max="100000" step="any" defaultValue="0" required={false} />
         <Field label={`${label} queue minutes`} name={prefix + 'queueMinutes'} type="number" min="0" max="100000" step="any" defaultValue="0" required={false} />
         <Field label={`${label} eligible centers`} name={prefix + 'eligibleCentres'} required={false} hint="Semicolon separated; blank uses the routing work center." />
+        <Field label={`${label} setup family`} name={prefix + 'setupFamily'} required={false} /><Field label={`${label} required tools`} name={prefix + 'requiredTools'} required={false} hint="Semicolon separated qualified tool names." />
         <Field label={`${label} required skills`} name={prefix + 'requiredSkills'} required={false} hint="Semicolon separated." />
         <Field label={`${label} predecessors`} name={prefix + 'dependsOn'} value={gate.predecessors ?? ''} onChange={(event: ChangeEvent<HTMLInputElement>) => updateGate({ predecessors: event.target.value })} required={false} hint="Earlier step numbers, comma separated; blank uses the previous step; “none” starts an independent step." />
         <Field label={`${label} transfer batch`} name={prefix + 'transferBatch'} value={batch} onChange={(event: ChangeEvent<HTMLInputElement>) => updateGate({ batch: event.target.value })} inputMode="decimal" pattern="[0-9]{1,10}([.][0-9]{1,6})?" required={false} hint="Finished-item base units physically transferred from each predecessor before start; blank or 0 uses full predecessor completion without a separate batch gate." />

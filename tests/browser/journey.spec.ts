@@ -325,3 +325,52 @@ test('BUY-001 buyers maintain two suppliers, select feasible scheduled terms and
     await shot(page, 'BUY-001-performance')
   }
 })
+
+test('Qualified alternates compare setup, tools, labor, delivery and cost before human approval at 1440/390', async ({ page }) => {
+  await enter(page)
+  const call = async (type: string, payload: any) => { const r=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}}); const b=await r.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result }
+  const suffix=crypto.randomUUID().slice(0,6), day=(n:number)=>new Date(Date.now()+n*86400000).toISOString().slice(0,10)
+  const raw=await call('item.save',{sku:`synthetic-larder-611-${suffix}`,name:'Fixture blank',kind:'buy',baseUnit:'each'})
+  const made=await call('item.save',{sku:`synthetic-larder-612-${suffix}`,name:'Fixture bracket',kind:'make',baseUnit:'each'})
+  const names=['Primary','Alternate A','Alternate B'].map(n=>`${n} ${suffix}`)
+  const calendar=(name:string)=>({name,timeZone:'UTC',effectiveFrom:day(0),effectiveTo:day(60),shifts:[{weekdays:[0,1,2,3,4,5,6],start:0,end:1440,breaks:[]}],closedDates:[],exceptions:[],usHolidays:false,capacity:1,efficiency:100,reason:'synthetic-larder-613 calendar'})
+  for (const name of names) await call('capacity.machine',calendar(name))
+  const s=await (await page.request.get(origin+'/api/larder/state')).json(), old=s.laborCalendars.find((l:any)=>l.operatorIds.includes(s.actor.id))
+  await call('capacity.labor',{...calendar(old?.name??`Fixture team ${suffix}`),...(old?{id:old.id,version:old.version}:{}),operatorIds:[s.actor.id],skills:[]})
+  await call('bom.revise',{itemId:made.id,components:[{itemId:raw.id,quantity:'1'}],routing:[{name:'Fixture cutting',workCentre:names[0],eligibleCentres:names,requiredTools:['Fixture'],setupFamily:'wood',setupMinutes:5,runMinutes:20,instructions:'Keep the approved fixture and inspection.'}]})
+  let w=await call('wo.draft',{itemId:made.id,quantity:'1',requiredBy:day(3),reason:'synthetic-larder-614 order'});w=await call('wo.release',{workOrderId:w.id,version:w.version})
+  await call('maintenance.create',{workCentre:names[0],kind:'breakdown',expectedReturnAt:day(5)+'T00:00:00Z',repairOwner:'Owner',note:'synthetic-larder-615 spindle unavailable'})
+  await page.goto(origin+'/app#schedule');await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  for(const [index,name] of names.entries()) {
+    await page.getByLabel('Sequence machine',{exact:true}).selectOption({label:name})
+    await page.getByLabel('Qualified machine tools',{exact:true}).fill('Fixture')
+    await page.getByLabel('Initial setup family',{exact:true}).fill('steel')
+    await page.getByLabel('Public planning tariff USD/hour',{exact:true}).fill('60')
+    await page.getByLabel('Overtime estimate USD/hour',{exact:true}).fill('90')
+    await page.getByLabel('External service quote USD',{exact:true}).fill('150')
+    await page.getByLabel('External service lead days',{exact:true}).fill('3')
+    await page.getByLabel('Family transitions',{exact:true}).fill(`steel,wood,${index===2?40:10},${index===2?10:5}`)
+    await page.getByLabel('Sequence constraint reason',{exact:true}).fill('synthetic-larder-616 qualified transition')
+    await act(page,()=>page.getByRole('button',{name:'Save sequence constraints',exact:true}).click())
+  }
+  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00')
+  await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click()
+  await expect(page.getByLabel('Move work order',{exact:true})).toBeVisible()
+  for(const alternate of [names[1],names[2]]) {
+    await page.getByLabel('Move work order',{exact:true}).selectOption(w.id)
+    await page.getByLabel('Move not before date',{exact:true}).fill(day(1))
+    await page.getByLabel('Move priority',{exact:true}).fill('500')
+    await page.getByLabel('Qualified alternate center',{exact:true}).fill(alternate)
+    await page.getByLabel('Finite move reason',{exact:true}).fill('synthetic-larder-617 review '+alternate)
+    await act(page,()=>page.getByRole('button',{name:'Preview finite move',exact:true}).click())
+    const review=page.getByRole('region',{name:'Finite reschedule review'})
+    await expect(review).toContainText(alternate);await expect(review).toContainText('Fixture');await expect(review).toContainText('overtime');await expect(review).toContainText('outsource')
+    const row=review.getByRole('row').filter({hasText:'Fixture cutting'})
+    await expect(row).toContainText(alternate===names[1]?'40 labor minutes':'75 labor minutes')
+    for(const width of [1440,390]) { await page.setViewportSize({width,height:1000});await shot(page,`CAP-006-${alternate===names[1]?'a':'b'}-review`);if(shots)await review.screenshot({path:join(shots,`${width}-CAP-006-${alternate===names[1]?'a':'b'}-detail.png`)}) }
+  }
+  await act(page,()=>page.getByRole('button',{name:'Approve finite schedule',exact:true}).click())
+  await expect(page.getByText('Approved finite schedule',{exact:true})).toBeVisible()
+  const current=await state(page);expect(current.workOrders.find((j:any)=>j.id===w.id).scheduleChoices[1]).toBe(names[2]);expect(current.workOrders.find((j:any)=>j.id===w.id).routing).toEqual(w.routing)
+  for(const width of [1440,390]) {await page.setViewportSize({width,height:1000});await shot(page,'CAP-006-approved')}
+})

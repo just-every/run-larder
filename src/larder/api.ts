@@ -101,7 +101,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (counter?.role !== 'warehouse') fail('INPUT', 'Assign an active warehouse person.')
   }
   if (type.startsWith('capacity.')) {
-    const permitted = type === 'capacity.machine' ? ['owner', 'manager', 'planner'] : type === 'capacity.rate' ? rateReaders : ['owner', 'manager']
+    const permitted = ['capacity.machine', 'capacity.sequence'].includes(type) ? ['owner', 'manager', 'planner'] : type === 'capacity.rate' ? rateReaders : ['owner', 'manager']
     if (!permitted.includes(actor.role)) forbidden('Your role cannot change these capacity settings.')
     if (type === 'capacity.labor') for (const id of Array.isArray(payload.operatorIds) ? payload.operatorIds : []) {
       const target = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(id).first<{ role: string }>()

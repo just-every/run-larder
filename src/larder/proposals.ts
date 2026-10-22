@@ -100,7 +100,7 @@ function execute(c: Context, proposal: Row): unknown {
     return plan.changes.map((ch: any) => {
       const w = get(c.s, 'workOrders', ch.workOrderId), before = proposal.context.before.find((b: any) => b.workOrderId === w.id)
       if (w.version !== before.version) fail('STALE', `${w.reference} changed since this was prepared. Ask for a fresh proposal.`)
-      return bump(w, { priority: Number.isSafeInteger(ch.priority) ? ch.priority : w.priority, plannedStart: ch.plannedStart }).id
+      return bump(w, { priority: Number.isSafeInteger(ch.priority) ? ch.priority : w.priority, plannedStart: ch.plannedStart, ...(ch.scheduleChoices ? { scheduleChoices: ch.scheduleChoices } : {}) }).id
     })
   }
   if (proposal.kind === 'reconciliation') {

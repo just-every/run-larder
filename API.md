@@ -518,3 +518,9 @@ changed content is refused. Prepared and approved snapshots/decisions inherit
 MOVE-008 JSON/CSV business export and empty restore. CAP-006–CAP-008, MRP-004 and
 AGENT-001 inherit the same preview, finite-capacity, authority, stale-input and
 archive obligations when they add adoption doors.
+
+## Qualified alternate sequencing (CAP-006)
+
+Routing accepts `setupFamily` and semicolon-editor `requiredTools` (API: name array).
+`capacity.sequence` takes `{id, version, tools, initialFamily, changeovers: [{from,to,minutes,cleanupMinutes}], planningHourlyCost, overtimeHourlyCost?, outsourceCost?, outsourceDays?, reason}` for a saved machine calendar (owner/manager/planner). Tariffs are public combined planning estimates, never wages or automatic postings.
+A finite `reschedule` proposal change can include `scheduleChoices: {"1": "Qualified center name"}`. The finite snapshot includes per-slot setup transitions, tools, named machine/person minutes, USD estimate and optional overtime/service comparisons. Missing tools/transition/capacity prevents approval. Selection changes no pinned instruction/quality requirement, execution assignment, customer promise, stock or spend. Optional comparisons grant no overtime or outsourcing authority. All definitions/history, job choices and proposal snapshots survive the business archive.

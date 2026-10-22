@@ -9,7 +9,7 @@ const names = (value: unknown, name: string): string[] => {
   if (!Array.isArray(value) || value.length > 20) fail('INPUT', `${name} must be a list of at most 20 names.`)
   return [...new Set((value as unknown[]).map(v => text(v, name, 120)))]
 }
-const fields = ['sequence', 'name', 'workCentre', 'minutes', 'runMinutes', 'setupMinutes', 'queueMinutes', 'dependsOn', 'eligibleCentres', 'requiredSkills', 'instructions', 'drawings', 'transferBatch', 'allowOverlap', 'requireMaterials']
+const fields = ['sequence', 'name', 'workCentre', 'minutes', 'runMinutes', 'setupMinutes', 'queueMinutes', 'dependsOn', 'eligibleCentres', 'requiredSkills', 'instructions', 'drawings', 'transferBatch', 'allowOverlap', 'requireMaterials', 'setupFamily', 'requiredTools']
 
 // Drawing references are resolved against retained revisions, never trusted from
 // an uploaded CSV. New bytes are attached atomically by bom.revise only.
@@ -42,6 +42,7 @@ export function normalizeRouting(value: unknown, boms: Row[] = [], c?: Context):
     return { sequence, name: text(step.name, 'step name', 120), workCentre, minutes: runMinutes, runMinutes,
       setupMinutes: minutes(step.setupMinutes ?? 0, 'Setup time'), queueMinutes: minutes(step.queueMinutes ?? 0, 'Queue time'),
       dependsOn, transferBatch, allowOverlap: step.allowOverlap ?? false, requireMaterials: step.requireMaterials ?? false, eligibleCentres, requiredSkills: names(step.requiredSkills ?? [], 'required skills'),
+      setupFamily: optionalText(step.setupFamily, 'setup family', 120), requiredTools: names(step.requiredTools ?? [], 'required tools'),
       instructions: optionalText(step.instructions, 'step instructions', 8000), drawings }
   })
 }

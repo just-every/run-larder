@@ -12,7 +12,14 @@ export function capacityPreview(c: Context, plan: any) {
     if (w.operationStates?.some((t: any) => ['running', 'paused'].includes(t.status))) fail('STATE', 'A running or paused job keeps its active work; choose a pending job.')
     const plannedStart = date(ch.plannedStart, 'planned start')
     if (new Date(plannedStart + 'T00:00Z').toISOString().slice(0, 10) !== plannedStart) fail('INPUT', 'Use a real planned-start date.')
-    return { workOrderId: w.id, plannedStart, priority: integer(ch.priority ?? w.priority ?? 0, 'priority', -1000000, 1000000) }
+    const scheduleChoices = ch.scheduleChoices === undefined ? undefined : structuredClone(w.scheduleChoices ?? {})
+    if (scheduleChoices) for (const [seq, center] of Object.entries(ch.scheduleChoices)) {
+      const routing = w.status === 'released' ? w.routing : c.s.boms.filter(b => b.itemId === w.itemId && b.status === 'active').sort((a,b) => b.revision-a.revision)[0]?.routing
+      const step = routing?.find((r: any) => String(r.sequence) === seq)
+      if (!step || !(step.eligibleCentres?.length ? step.eligibleCentres : [step.workCentre]).includes(center)) fail('WORK_CENTER', 'Choose an alternate qualified by the pinned routing.')
+      scheduleChoices[seq] = center
+    }
+    return { workOrderId: w.id, ...(scheduleChoices ? { scheduleChoices } : {}), plannedStart, priority: integer(ch.priority ?? w.priority ?? 0, 'priority', -1000000, 1000000) }
   })
   if (new Set(changes.map(ch => ch.workOrderId)).size !== changes.length) fail('INPUT', 'Move each job only once.')
   const asOf = instant(plan.capacity?.asOf ?? c.now, 'preview start'), days = integer(plan.capacity?.days ?? 14, 'preview horizon', 1, 60)

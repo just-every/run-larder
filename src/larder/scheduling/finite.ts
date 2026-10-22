@@ -1,6 +1,7 @@
 // Read-only finite projection. Every occupied minute belongs to one named
 // machine slot and one named live person; unconfigured work is never fabricated.
 import { type Row, type State } from '../model'
+import { decimal, format } from '../decimal'
 import { activeBom } from '../bom'
 import { deliveries } from '../sales-schedules'
 import { operationEffort, operationReady } from '../operation-effort'
@@ -10,7 +11,7 @@ import { calendarMask, instant, integer, localGrid } from './calendars'
 type Person = { id: string; name: string; role: string }
 type Resource = { id: string; name: string; calendar: Row; available: Uint8Array; used: Uint8Array; capacity: number }
 type Segment = { startsAt: string; endsAt: string }
-export type ScheduledOperation = { key: string; workOrderId: string; reference: string; sequence: number; name: string; machineId: string; machine: string; machineSlot: number; operatorId: string; person: string; laborId: string; setupMinutes: number; runMinutes: number; queueMinutes: number; occupiedMinutes: number; startsAt: string; endsAt: string; intervals: Segment[]; predecessors: number[]; slackMinutes: number; critical: boolean; maintenanceIds: string[]; provisional: boolean }
+export type ScheduledOperation = { key: string; workOrderId: string; reference: string; sequence: number; name: string; machineId: string; machine: string; machineSlot: number; operatorId: string; person: string; laborId: string; setupMinutes: number; runMinutes: number; queueMinutes: number; occupiedMinutes: number; startsAt: string; endsAt: string; intervals: Segment[]; predecessors: number[]; slackMinutes: number; critical: boolean; maintenanceIds: string[]; provisional: boolean; setupFamily: string; priorFamily: string; changeoverMinutes: number; cleanupMinutes: number; requiredTools: string[]; planningCost: string | null; comparisons: any[] }
 const iso = (n: number) => new Date(n).toISOString()
 const activeRoles = ['owner', 'manager', 'production', 'operator']
 export function finitePlan(s: State, people: Person[], at = new Date().toISOString(), days = 14) {
@@ -35,6 +36,7 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
       return person ? [{ id, name: person.name, calendar: r, available, used: new Uint8Array(length), capacity: r.capacity }] : []
     })
   })
+  const families = new Map(machines.map(m => [m.id, m.calendar.sequencing?.initialFamily ?? '']))
   const operations: ScheduledOperation[] = [], unscheduled: any[] = [], jobs: any[] = []
   const work = s.workOrders.filter(w => ['draft', 'released'].includes(w.status)).sort((a, b) => Number(Boolean(b.operationStates?.some((t: any) => ['running','paused'].includes(t.status)))) - Number(Boolean(a.operationStates?.some((t: any) => ['running','paused'].includes(t.status)))) || (b.priority ?? 0) - (a.priority ?? 0) || a.requiredBy.localeCompare(b.requiredBy) || a.reference.localeCompare(b.reference))
   for (const w of work) {
@@ -46,25 +48,30 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
       if (complete.has(step.sequence)) continue
       const key = `${w.id}:${step.sequence}`, previous = predecessors(step), task = w.operationStates?.find((t: any) => t.sequence === step.sequence)
       const eligible = step.eligibleCentres?.length ? step.eligibleCentres : [step.workCentre]
-      const centers = machines.filter(m => eligible.includes(m.name) && (!task?.workCentre || task.workCentre === m.name))
+      const choice = w.scheduleChoices?.[step.sequence]
+      const centers = machines.filter(m => eligible.includes(m.name) && (!task?.workCentre || task.workCentre === m.name) && (!choice || choice === m.name) && (step.requiredTools ?? []).every((tool: string) => m.calendar.sequencing?.tools.includes(tool)))
       const peopleFor = labor.filter(l => (step.requiredSkills ?? []).every((skill: string) => l.calendar.skills.includes(skill)) && (!task?.assignment || task.assignment.operatorId === l.id))
       let reason = previous.some(n => blocked.has(n)) ? 'Predecessor is unscheduled.' : !centers.length ? 'No configured eligible machine.' : !peopleFor.length ? 'No live qualified person with a calendar.' : ''
       const ready = Math.max(readyDate, operationReady(w, step, new Date(asOf))?.getTime() ?? from, ...previous.map(n => Date.parse(placed.get(n)?.endsAt ?? asOf))) + (step.queueMinutes ?? 0) * 60000
-      let best: { m: Resource; l: Resource; slots: number[]; duration: number } | undefined
+      let best: { m: Resource; l: Resource; slots: number[]; duration: number; transition: any; priorFamily: string } | undefined
       if (!reason) for (const m of centers) for (const l of peopleFor) {
         // Queue time is elapsed waiting before resource occupation; efficiency
         // scales remaining setup/run effort, conservatively rounded to minutes.
         const effort = Math.max(0, operationEffort(w, step) - (task?.progress ? 0 : (step.queueMinutes ?? 0)))
-        const duration = Math.max(1, Math.ceil(effort * 100 / m.calendar.efficiency)), slots: number[] = []
+        const priorFamily = families.get(m.id) ?? '', family = step.setupFamily ?? ''
+        const transition = family && family !== priorFamily ? m.calendar.sequencing?.changeovers.find((t: any) => t.from === priorFamily && t.to === family) : { minutes: 0, cleanupMinutes: 0 }
+        // A configured sequence family needs an explicit qualified transition.
+        if (family && !transition) continue
+        const duration = Math.max(1, Math.ceil((effort + (transition?.minutes ?? 0) + (transition?.cleanupMinutes ?? 0)) * 100 / m.calendar.efficiency)), slots: number[] = []
         for (let i = Math.max(0, Math.ceil((ready - from) / 60000)); i < length; i++) {
           if (best && i > best.slots[best.slots.length - 1]!) break
           if (m.available[i] && !m.used[i] && l.available[i] && l.used[i]! < l.capacity) slots.push(i)
           if (slots.length === duration) break
         }
-        if (slots.length === duration && (!best || slots[slots.length - 1]! < best.slots[best.slots.length - 1]!)) best = { m, l, slots, duration }
+        if (slots.length === duration && (!best || slots[slots.length - 1]! < best.slots[best.slots.length - 1]!)) best = { m, l, slots, duration, transition, priorFamily }
       }
       if (!best) { reason ||= 'No joint machine/person capacity within the planning horizon.'; blocked.add(step.sequence); unscheduled.push({ key, workOrderId: w.id, reference: w.reference, sequence: step.sequence, name: step.name, reason }); continue }
-      const { m, l, slots, duration } = best, intervals: Segment[] = []
+      const { m, l, slots, duration, transition, priorFamily } = best, intervals: Segment[] = []
       for (const i of slots) {
         m.used[i] = 1; l.used[i] = l.used[i]! + 1
         const startsAt = iso(from + i * 60000), endsAt = iso(from + (i + 1) * 60000), last = intervals[intervals.length - 1]
@@ -72,7 +79,10 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
       }
       const startsAt = intervals[0]!.startsAt, endsAt = intervals[intervals.length - 1]!.endsAt
       const maintenanceIds = [...new Set([...previous.flatMap(n => placed.get(n)?.maintenanceIds ?? []), ...s.maintenance.filter(x => x.status === 'unreleased' && x.workCentre === m.name && x.startsAt < endsAt).map(x => x.id)])]
-      const op: ScheduledOperation = { key, workOrderId: w.id, reference: w.reference, sequence: step.sequence, name: step.name, machineId: m.calendar.id, machine: m.name, machineSlot: Number(m.id.split(':').at(-1)), operatorId: l.id, person: l.name, laborId: l.calendar.id, setupMinutes: step.setupMinutes ?? 0, runMinutes: step.runMinutes ?? step.minutes ?? 0, queueMinutes: step.queueMinutes ?? 0, occupiedMinutes: duration, startsAt, endsAt, intervals, predecessors: previous, slackMinutes: 0, critical: false, maintenanceIds, provisional: maintenanceIds.length > 0 }
+      families.set(m.id, step.setupFamily ?? priorFamily)
+      const planningCost = m.calendar.sequencing ? format((BigInt(duration) * decimal(m.calendar.sequencing.planningHourlyCost) + 30n) / 60n) : null
+      const comparisons = m.calendar.sequencing ? [{ kind: 'internal', occupiedMinutes: duration, cost: planningCost }, { kind: 'overtime', cost: m.calendar.sequencing.overtimeHourlyCost ? format((BigInt(duration) * decimal(m.calendar.sequencing.overtimeHourlyCost) + 30n) / 60n) : null, basis: 'Planning tariff only; no overtime authorization or added capacity.' }, { kind: 'outsource', cost: m.calendar.sequencing.outsourceCost, leadDays: m.calendar.sequencing.outsourceDays, basis: 'Recorded service quote only; separate BUY-004 authority and custody required.' }] : []
+      const op: ScheduledOperation = { setupFamily: step.setupFamily ?? '', priorFamily, changeoverMinutes: transition?.minutes ?? 0, cleanupMinutes: transition?.cleanupMinutes ?? 0, requiredTools: step.requiredTools ?? [], planningCost, comparisons, key, workOrderId: w.id, reference: w.reference, sequence: step.sequence, name: step.name, machineId: m.calendar.id, machine: m.name, machineSlot: Number(m.id.split(':').at(-1)), operatorId: l.id, person: l.name, laborId: l.calendar.id, setupMinutes: step.setupMinutes ?? 0, runMinutes: step.runMinutes ?? step.minutes ?? 0, queueMinutes: step.queueMinutes ?? 0, occupiedMinutes: duration, startsAt, endsAt, intervals, predecessors: previous, slackMinutes: 0, critical: false, maintenanceIds, provisional: maintenanceIds.length > 0 }
       placed.set(step.sequence, op); operations.push(op)
     }
     const jobOps = [...placed.values()]

@@ -51,6 +51,18 @@ export function calendars(c: Context, type: string, p: any): Row | undefined {
     if (old) { fresh(old, p.version); return bump(old, { ...data, history: [...(old.history ?? []), { ...old, history: undefined }] }) }
     return row(c, 'laborRates', data)
   }
+  if (type === 'capacity.sequence') {
+    allow(c, ['manager', 'planner'])
+    const machine = get(c.s, 'machineCalendars', p.id); fresh(machine, p.version)
+    const changes = (Array.isArray(p.changeovers) && p.changeovers.length <= 100 ? p.changeovers : fail('INPUT', 'List at most 100 family transitions.')).map((x: any) => ({ from: text(x.from, 'from family', 120), to: text(x.to, 'to family', 120), minutes: integer(x.minutes, 'changeover minutes', 0, 100000), cleanupMinutes: integer(x.cleanupMinutes, 'cleanup minutes', 0, 100000) }))
+    if (new Set(changes.map((x: any) => x.from + '|' + x.to)).size !== changes.length) fail('INPUT', 'Each family transition must be unique.')
+    const planningHourlyCost = format(decimal(p.planningHourlyCost, 'public machine and labor planning tariff'))
+    const options = { tools: strings(p.tools ?? [], 'qualified tools'), initialFamily: text(p.initialFamily, 'initial family', 120), changeovers: changes, planningHourlyCost,
+      overtimeHourlyCost: p.overtimeHourlyCost ? format(decimal(p.overtimeHourlyCost, 'overtime planning tariff')) : null,
+      outsourceCost: p.outsourceCost ? format(decimal(p.outsourceCost, 'quoted external service total')) : null,
+      outsourceDays: integer(p.outsourceDays ?? 0, 'quoted external lead days', 0, 365), reason: text(p.reason, 'sequence reason'), by: c.actor.id, at: c.now }
+    return bump(machine, { sequencing: options, sequenceHistory: [...(machine.sequenceHistory ?? []), options] })
+  }
   if (!['capacity.machine', 'capacity.labor'].includes(type)) return
   allow(c, type === 'capacity.machine' ? ['manager', 'planner'] : ['manager'])
   const collection = type === 'capacity.machine' ? 'machineCalendars' : 'laborCalendars'
