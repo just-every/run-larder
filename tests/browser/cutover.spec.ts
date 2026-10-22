@@ -39,7 +39,8 @@ test('MOVE-007 preview shows the stock valuation to the cent and the cutover is 
   await expect(valuation).toContainText('Difference blocks cutover'); await expect(valuation).not.toContainText('Matched to the cent')
   await expect(valuation).toContainText('446.00'); await expect(valuation).toContainText('430.00'); await expect(valuation).toContainText('−$16.00')
   await expect(valuation.getByText('Rows to review', { exact: true })).toBeVisible()
-  await expect(valuation.getByRole('cell', { name: 'Not moved', exact: true })).toBeVisible(); await expect(valuation.getByRole('cell', { name: 'Unvalued', exact: true })).toBeVisible()
+  // Row exceptions name their kind at either width (narrow screens stack the table).
+  await expect(valuation.getByText('Not moved', { exact: true })).toBeVisible(); await expect(valuation.getByText('Unvalued', { exact: true })).toBeVisible()
   await shots('valuation')
   await page.goto(origin + '/app#more/cutover'); await settled()
   const plan = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Plan a cutover', exact: true }) })
