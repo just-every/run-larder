@@ -4,12 +4,12 @@ import { Area, Card, Choose, Field, Form, Table, text } from '../controls'
 
 export function ScheduleRecovery({larder,plan}:{larder:Larder;plan:any}) {
   const s=larder.state!, policy=rows(s,'schedulePolicies')[0], plans=[...rows(s,'schedulePlans')].reverse()
-  const managers=can(s,['manager']), preparers=can(s,['manager','planner','agent'])
+  const protectors=can(s,['manager','planner']), approvers=can(s,['manager','production','planner']), preparers=can(s,['manager','planner','agent'])
   return <>
     <Card title="Frozen work and manual locks">
-      <p>Frozen and manually locked intervals keep their named machine and person. An outage on a protected interval stays an explicit conflict. Automatic sequencing is disabled; every internal adoption needs an owner or manager and a recorded reason. Customer promises and spending keep their separate approvals.</p>
+      <p>Frozen and manually locked intervals keep their named machine and person. An outage on a protected interval stays an explicit conflict. Automatic sequencing is disabled; protection changes need an owner, manager or planner and a recorded reason. Adoption needs an independent schedule approver; overtime and draft work keep their own authority. Customer promises and spending keep their separate approvals.</p>
       {policy&&<p>Frozen through {policy.freezeUntil}; {policy.manualLocks.length} manual locks; {policy.protectedOperations.length} protected operations. {policy.reason}</p>}
-      {managers&&<Form submit="Save schedule protections" busy={larder.busy} onSubmit={d=>larder.run('schedule.protect',{...(policy?{version:policy.version}:{}),asOf:plan.asOf,days:plan.horizonDays,freezeUntil:new Date(text(d,'fence')).toISOString(),manualLocks:text(d,'lock')?[{workOrderId:text(d,'lock').split(':')[0],sequence:Number(text(d,'lock').split(':')[1])}]:[],automatic:false,reason:text(d,'reason')})}>
+      {protectors&&<Form submit="Save schedule protections" busy={larder.busy} onSubmit={d=>larder.run('schedule.protect',{...(policy?{version:policy.version}:{}),asOf:plan.asOf,days:plan.horizonDays,freezeUntil:new Date(text(d,'fence')).toISOString(),manualLocks:text(d,'lock')?[{workOrderId:text(d,'lock').split(':')[0],sequence:Number(text(d,'lock').split(':')[1])}]:[],automatic:false,reason:text(d,'reason')})}>
         <Field label="Freeze schedule through (local time)" name="fence" type="datetime-local" /><Choose label="Manual operation lock" name="lock" required={false} options={plan.operations.map((o:any)=>({value:o.key,label:`${o.reference} · ${o.name} · ${o.machine}`}))}/><Area label="Protection reason" name="reason" />
       </Form>}
     </Card>
@@ -36,7 +36,9 @@ export function ScheduleRecovery({larder,plan}:{larder:Larder;plan:any}) {
         {p.event&&<p>Event: {p.event.type} at {p.event.at}; one durable proposal per recorded event.</p>}
         <Table head={['Displaced job','Before finish','After finish','Risk']}>{p.effects.map((e:any)=><tr key={e.workOrderId}><td>{e.reference}</td><td>{e.before??'Unscheduled'}</td><td>{e.after??'Unscheduled'}</td><td>{e.unscheduled?'Unscheduled':e.lateAfter?'Late':'On time'}</td></tr>)}</Table>
         {p.after.unscheduled.map((u:any,i:number)=><p key={i}>{u.reference}: {u.reason}</p>)}
-        {p.status==='review'&&managers&&<Form submit={`Adopt ${p.name}`} busy={larder.busy} onSubmit={d=>larder.run('schedule.adopt',{planId:p.id,version:p.version,reason:text(d,'reason')})}><Area label={`Decision reason for ${p.name}`} name="reason" /></Form>}
+        {p.status==='review'&&approvers&&(s.actor.role==='owner'||s.actor.id!==p.preparedBy)&&<Form submit={`Adopt ${p.name}`} busy={larder.busy} onSubmit={d=>larder.run('schedule.adopt',{planId:p.id,version:p.version,reason:text(d,'reason')})}><Area label={`Decision reason for ${p.name}`} name="reason" /></Form>}
+        {p.status==='review'&&approvers&&s.actor.role!=='owner'&&s.actor.id===p.preparedBy&&<p>A different person must approve or decline what you prepared.</p>}
+        {p.status==='review'&&approvers&&(s.actor.role==='owner'||s.actor.id!==p.preparedBy)&&<Form submit={`Decline ${p.name}`} busy={larder.busy} onSubmit={d=>larder.run('schedule.reject',{planId:p.id,version:p.version,reason:text(d,'reason')})}><Area label={`Decline reason for ${p.name}`} name="reason" /></Form>}
         {p.status==='adopted'&&<p>{p.after.operations.length} named resource bookings retained. Customer dates, spend and stock unchanged.</p>}
       </details>)}
     </Card>

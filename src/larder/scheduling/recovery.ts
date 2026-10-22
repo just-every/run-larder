@@ -8,7 +8,7 @@ import { move, balance } from '../stock'
 // approve work, change a customer date, buy, or perform an external action.
 import { canonicalJson, sha256 } from '../../modules/import-kit/src/d1/index'
 import { collections, bump, fresh, get, list, row, text, type Context, type State, type Row } from '../model'
-import { allow } from '../roles'
+import { allow, approver } from '../roles'
 import { fail } from '../problem'
 import { finitePlan } from './finite'
 import { instant, integer } from './calendars'
@@ -106,7 +106,7 @@ function scenario(c:Context,p:any,kind='scenario',event?:any) {
 
 export function recovery(c:Context,type:string,p:any):Row|undefined {
   if(type==='schedule.protect') {
-    allow(c,['manager'])
+    allow(c,['manager','planner'])
     const window=currentWindow(c,p),freezeUntil=instant(p.freezeUntil,'freeze until')
     if(freezeUntil<window.asOf||Date.parse(freezeUntil)>Date.parse(window.asOf)+window.days*86400000)fail('INPUT','The frozen fence must be inside the planning window.')
     if(p.automatic!==undefined&&p.automatic!==false)fail('POLICY','Automatic sequencing is disabled pending policy approval.')
@@ -127,10 +127,8 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
     return scenario(c,p)
   }
   if(type!=='schedule.adopt'&&type!=='schedule.reject')return
-  // Conservative new-policy default: only owner/manager and an explicit audit
-  // reason; no automatic internal changes. Existing planner preparation remains.
-  allow(c,['manager'])
   const plan=get(c.s,'schedulePlans',p.planId);fresh(plan,p.version)
+  approver(c,['manager','production','planner'],plan.preparedBy)
   if(plan.status!=='review')fail('STATE','This plan was already decided.')
   if(['promises','spend','automatic'].some(k=>p[k]!==undefined))fail('AUTHORITY','Customer dates and spending require their separate recorded authority.')
   const note=text(p.reason,'decision reason')
@@ -138,6 +136,9 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
   if(plan.inputDigest!==planningDigest(c.s,c.people)||plan.day!==c.now.slice(0,10)||Date.parse(plan.after.startsAt)<Date.parse(c.now))fail('STALE','Planning inputs, live people or planning window changed. Prepare a fresh scenario.')
   if(plan.after.unscheduled.some((u:any)=>!plan.before.unscheduled.some((b:any)=>b.workOrderId===u.workOrderId&&b.sequence===u.sequence&&b.reason===u.reason)||plan.changes.some((ch:any)=>ch.workOrderId===u.workOrderId))||plan.after.protectionConflicts?.length||plan.protectionConflicts.length)fail('CAPACITY','An infeasible or protected operation prevents adoption; nothing was booked.')
   if(plan.inventoryUnavailable?.length||plan.alternateSuppliers?.length)fail('POLICY','Speculative inventory and supplier assumptions cannot authorize stock or spending. Realize them through their existing approved doors, then compare again.')
+  // A schedule approval carries no authority to bypass each adopted piece's door.
+  if(plan.extraWork?.length)allow(c,['manager','production','planner'])
+  for(const change of plan.overtime??[])allow(c,change.kind==='labor'?['manager']:['manager','planner'])
   for(const work of plan.extraWork??[])row(c,'workOrders',{...work,adoptedBy:c.actor.id,adoptedAt:c.now})
   for(const change of plan.overtime??[]){
     const calendar=get(c.s,change.kind==='machine'?'machineCalendars':'laborCalendars',change.id)
