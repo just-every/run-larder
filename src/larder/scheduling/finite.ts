@@ -59,15 +59,16 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
     const id = `${op.machineId}:${op.machineSlot}`
     machineCursor.set(id,Date.parse(op.endsAt)); families.set(id,op.setupFamily || op.priorFamily)
   }
-  const work = s.workOrders.filter(w => ['draft', 'released'].includes(w.status)).sort((a, b) => Number(Boolean(b.operationStates?.some((t: any) => ['running','paused'].includes(t.status)))) - Number(Boolean(a.operationStates?.some((t: any) => ['running','paused'].includes(t.status)))) || (b.priority ?? 0) - (a.priority ?? 0) || a.requiredBy.localeCompare(b.requiredBy) || a.reference.localeCompare(b.reference))
+  const work = s.workOrders.filter(w => ['draft', 'released'].includes(w.status)).sort((a, b) => Number(Boolean(b.operationStates?.some((t: any) => ['running','paused'].includes(t.status)))) - Number(Boolean(a.operationStates?.some((t: any) => ['running','paused'].includes(t.status)))) || (a.rank ?? 1000001) - (b.rank ?? 1000001) || (b.priority ?? 0) - (a.priority ?? 0) || a.requiredBy.localeCompare(b.requiredBy) || a.reference.localeCompare(b.reference))
   for (const w of work) {
     const routing: any[] = w.status === 'released' ? w.routing ?? [] : (w.engineeringBomId ? s.boms.find(b => b.id === w.engineeringBomId) : activeBom(s, w.itemId))?.routing ?? []
     const placed = new Map<number, ScheduledOperation>(), blocked = new Set<number>(), complete = new Set<number>((w.operationStates ?? []).filter((t: any) => t.status === 'done').map((t: any) => t.sequence))
-    const readyDate = Math.max(from, Date.parse((w.plannedStart || asOf.slice(0, 10)) + 'T00:00Z'), ...s.boms.filter(b => Object.values(w.engineeringBomIds ?? {}).includes(b.id)).map(b => Date.parse((b.effectiveOn ?? asOf.slice(0, 10)) + 'T00:00Z')))
+    const readyDate = Math.max(from, w.planningMaterialReadyAt ? Date.parse(w.planningMaterialReadyAt) : from, Date.parse((w.plannedStart || asOf.slice(0, 10)) + 'T00:00Z'), ...s.boms.filter(b => Object.values(w.engineeringBomIds ?? {}).includes(b.id)).map(b => Date.parse((b.effectiveOn ?? asOf.slice(0, 10)) + 'T00:00Z')))
     if (!routing.length) unscheduled.push({ workOrderId: w.id, reference: w.reference, sequence: null, reason: 'No routing on this job.' })
     for (const step of [...routing].sort((a, b) => a.sequence - b.sequence)) {
       if (complete.has(step.sequence)) continue
       const key = `${w.id}:${step.sequence}`, previous = predecessors(step), task = w.operationStates?.find((t: any) => t.sequence === step.sequence)
+      if (w.planningMaterialBlock) {blocked.add(step.sequence);unscheduled.push({key,workOrderId:w.id,reference:w.reference,sequence:step.sequence,reason:w.planningMaterialBlock});continue}
       if (pins.has(key)) {
         const pinned=fixed.get(key)
         const machine=pinned&&machines.find(m=>m.calendar.id===pinned.machineId), person=pinned&&labor.find(l=>l.id===pinned.operatorId)

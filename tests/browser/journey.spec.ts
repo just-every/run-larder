@@ -442,6 +442,18 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   const denied=await(await reply).json();expect(denied.error.code).toBe('STALE');await expect(page.getByRole('alert')).toContainText('Planning inputs, live people or planning window changed. Prepare a fresh scenario.')
   expect((await state(page)).scheduleBookings).toEqual(before.scheduleBookings)
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'MRP-004-stale')}
+  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00');await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click()
+  await page.getByText('Additional scenario assumptions',{exact:true}).click()
+  await page.getByLabel('Scenario name',{exact:true}).fill('Demand and overtime assumptions')
+  await page.getByLabel('Scenario additional demand item',{exact:true}).selectOption(jobs[2].itemId)
+  await page.getByLabel('Scenario additional demand quantity',{exact:true}).fill('1');await page.getByLabel('Scenario demand due',{exact:true}).fill(day(13));await page.getByLabel('Scenario demand not before',{exact:true}).fill(day(11))
+  await page.getByLabel('Scenario overtime resource',{exact:true}).selectOption('machine:'+machines[2].id)
+  await page.getByLabel('Scenario overtime starts (local time)',{exact:true}).fill(day(11)+'T00:00');await page.getByLabel('Scenario overtime ends (local time)',{exact:true}).fill(day(11)+'T01:00');await page.getByLabel('Scenario reason',{exact:true}).fill('synthetic-larder-839 compare draft demand and bounded overtime')
+  const scenarioBefore=await state(page)
+  await act(page,()=>page.getByRole('button',{name:'Compare outage scenario',exact:true}).click())
+  await expect(page.getByLabel('Schedule review Demand and overtime assumptions',{exact:true})).toContainText('Additional draft jobs: 1; inventory assumptions: 0; supplier assumptions: 0; bounded overtime windows: 1.')
+  const scenarioAfter=await state(page);expect(scenarioAfter.workOrders).toEqual(scenarioBefore.workOrders);expect(scenarioAfter.machineCalendars).toEqual(scenarioBefore.machineCalendars)
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'MRP-004-extra-assumptions')}
 })
 
 test('Replenishment reviews revised MOQ and uncertain coverage/cash, selectively approves and retains rejected reasons at 1440/390',async({page})=>{

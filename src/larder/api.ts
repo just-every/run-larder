@@ -141,7 +141,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
-    observeRecovery(c, before, type)
+    observeRecovery(c, before, type, payload)
     observeFollowUps(c)
     if (type === 'import.commit' || type === 'import.undo') {
       await publishImport(env, c, before, type, digest, result!)

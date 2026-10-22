@@ -110,9 +110,10 @@ export function calendarMask(r: Row, grid: LocalMinute[], from: number): Uint8Ar
   return Uint8Array.from(grid, (g, i) => {
     const at = from + i * 60000
     if (r.exceptions.some((e: any) => Date.parse(e.startsAt) < at + 60000 && Date.parse(e.endsAt) > at)) return 0
-    return r.shifts.some((shift: any) => [0, 1].some(back => {
+    const overtime = (r.overtimeWindows??[]).some((w:any)=>Date.parse(w.startsAt)<=at&&Date.parse(w.endsAt)>=at+60000) && g.day>=r.effectiveFrom&&g.day<=r.effectiveTo&&!closed.has(g.day)
+    return (overtime || r.shifts.some((shift: any) => [0, 1].some(back => {
       const day = back ? g.previous : g.day, minute = g.minute + back * 1440
       return day >= r.effectiveFrom && day <= r.effectiveTo && !closed.has(day) && !closed.has(g.day) && shift.weekdays.includes((g.weekday - back + 7) % 7) && minute >= shift.start && minute < shift.end && !shift.breaks.some((b: any) => minute >= b.start && minute < b.end)
-    })) ? 1 : 0
+    }))) ? 1 : 0
   })
 }
