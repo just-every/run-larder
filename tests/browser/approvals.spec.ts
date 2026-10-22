@@ -57,7 +57,7 @@ test('GOV-008 a quality-hold release under a two-signature quality threshold is 
   const item = await send('item.save', { sku: 'QLT-1', name: 'Quality plate', kind: 'buy', baseUnit: 'each' })
   const po = await send('po.draft', { supplierId: supplier.id, expectedDate: today, reason: 'Held plates', lines: [{ itemId: item.id, quantity: '10', unitPrice: '10' }] })
   await send('po.approve', { poId: po.id, version: po.version })
-  await send('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-32', lines: [{ lineId: po.lines[0].id, locationId: location.id, quantity: '10', lot: 'QLT-LOT' }] })
+  await send('receipt.create', { poId: po.id, supplierReference: 'QLT-RECEIPT', lines: [{ lineId: po.lines[0].id, locationId: location.id, quantity: '10', lot: 'QLT-LOT' }] })
   const lot = (await (await page.request.get(origin + '/api/larder/state')).json()).lots.find((l: any) => l.code === 'QLT-LOT')
   const plan = await send('quality.plan.save', { itemId: item.id, stage: 'receipt', name: 'Plate finish', sampleSize: 1, measurements: [{ name: 'Roughness', unit: 'um', target: '1', lower: '0', upper: '2' }] })
   const live = await send('quality.plan.approve', { planId: plan.id, version: plan.version })
@@ -98,7 +98,7 @@ test('GOV-011 an expired-lot write-off under a two-signature inventory-adjustmen
   const item = await send('item.save', { sku: 'WOF-1', name: 'Write-off extract', kind: 'buy', baseUnit: 'each' })
   const po = await send('po.draft', { supplierId: supplier.id, expectedDate: day(0), reason: 'Expired extract', lines: [{ itemId: item.id, quantity: '10', unitPrice: '10' }] })
   await send('po.approve', { poId: po.id, version: po.version })
-  await send('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-42', lines: [{ lineId: po.lines[0].id, locationId: location.id, quantity: '10', lot: 'WOF-LOT', dates: { expiresOn: day(-1) } }] })
+  await send('receipt.create', { poId: po.id, supplierReference: 'WOF-RECEIPT', lines: [{ lineId: po.lines[0].id, locationId: location.id, quantity: '10', lot: 'WOF-LOT', dates: { expiresOn: day(-1) } }] })
   const lot = (await (await page.request.get(origin + '/api/larder/state')).json()).lots.find((l: any) => l.code === 'WOF-LOT')
   try {
     await page.goto(origin + '/app#more/approvals'); await settled()
