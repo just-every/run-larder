@@ -4,6 +4,7 @@ The app and agents use the same door. Every request needs a native session cooki
 
 - `GET /api/larder/state` — every record, the formatted movement ledger, reservations, positions, availability per item, shortages, weekly forecasts/MPS, the exception queue and owned `followUpCases` (including closed-case history), recent recorded actions and (for the owner) the team.
 - `GET /api/larder/planning/pegging` — current dated forward/reverse material allocations; see MRP-002 below.
+- `GET /api/larder/planning/supply-changes` — MRP-002 expedite, defer and cancel recommendations on open purchase lines, each with its affected orders and a stable `key`; decide them with `supply.change.approve` / `supply.change.reject` (see MRP-002 below).
 - `GET /api/larder/planning/materials` — MRP-001 read-only dated physical/purchase projection, its exact input version, source quantities/dates, unavailable and provisional supply, and remaining limitations (see below).
 - `POST /api/larder/commands` — `{ "commandId": "<8–100 of A-Z a-z 0-9 _ ->", "type": "...", "payload": { ... } }` with `content-type: application/json` and the installation's own `Origin`. Repeating a `commandId` returns its recorded outcome; reusing it with other content or by someone else is refused (`IDEMPOTENCY`). Replies are `{ ok: true, result, version }` or `{ ok: false, error: { code, message, details } }`.
 - `GET /api/larder/handoffs/<id>.csv` — a handoff batch as CSV (owner, manager, accounts).
@@ -45,10 +46,36 @@ next read, with physical reservations unchanged.
 
 Work lookup exposes pinned component requirements (and their descendant paths)
 and `blockedExplosions`. Output whose material feasibility is unproved never
-creates a work-to-customer peg. Approved expedite/defer/cancellation and complete
-work-output/customer links remain missing. No new stored records are introduced;
-the MOVE-008 archive preserves the inputs and restore reproduces the pegs without
-executing any command or external effect.
+creates a work-to-customer peg; output of a material-feasible released job (MRP-001)
+is a `work` source on the demand it supplies, and `kind=work` follows it forward to
+that demand. The archive preserves the inputs and restore reproduces the pegs
+without executing any command or external effect.
+
+### Supply-change recommendations and decisions
+
+`GET /api/larder/planning/supply-changes` reads the same shared allocation and
+returns, for each open approved purchase line: an `expedite` when it arrives after
+requirements that are short (`requestedDate` is the earliest such day, `quantity`
+the shortage it could cover); a `cancel` for outstanding quantity no demand or
+floor allocates; a `defer` when everything it supplies is first needed seven or
+more days after it arrives. Each carries `affected`, the orders (and other demand)
+it serves or would hurt, with exact quantities. Recommendations are recomputed on
+every read and carry no state.
+
+| Command | Payload | Who |
+| --- | --- | --- |
+| `supply.change.approve` | `{key, version, asOf, reason}` from a current read | manager, buyer; a `cancel` manager only; never an agent |
+| `supply.change.reject` | `{key, version, asOf, reason}` | manager, buyer; never an agent |
+
+A stale `version` or `asOf` (the UTC day) answers `STALE`, an unknown `key`
+`NOT_FOUND`. An approved expedite or deferral records a `supplyRequest` on the
+line and in the order history; the supplier's date changes only through
+`po.revise`, nothing is sent and no stock or reservation changes. An approved
+cancel trims only the outstanding unallocated quantity from the line (recorded as
+`cancelled`; the order becomes `cancelled` when every line is zero) and updates its
+exposure; received stock and reservations are untouched. Every decision writes an
+approval record (`category: supply-change`) with the recommendation and reason,
+and the usual audit entries.
 
 ## Commands
 

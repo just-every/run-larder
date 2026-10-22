@@ -34,7 +34,7 @@ export function draftPurchase(c: Context, p: any, preparedBy?: string): Row {
   })
 }
 
-const status = (po: Row) => po.lines.every((l: any) => decimal(l.received) >= decimal(l.quantity)) ? 'received' : po.lines.some((l: any) => decimal(l.received) > 0n) ? 'part received' : po.supplierReference ? 'confirmed' : 'approved'
+const status = (po: Row) => po.lines.every((l: any) => decimal(l.quantity) === 0n) ? 'cancelled' : po.lines.every((l: any) => decimal(l.received) >= decimal(l.quantity)) ? 'received' : po.lines.some((l: any) => decimal(l.received) > 0n) ? 'part received' : po.supplierReference ? 'confirmed' : 'approved'
 
 export function purchasing(c: Context, type: string, p: any): Row | undefined {
   switch (type) {

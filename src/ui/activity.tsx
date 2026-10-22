@@ -12,7 +12,7 @@ export const actions: Record<string, string> = {
   'movement.reverse': 'Reversed a recorded movement', 'so.quote': 'Saved a quote', 'so.confirm': 'Confirmed an order', 'so.reserve': 'Reserved stock for an order',
   'so.cancelLine': 'Canceled open quantity', 'shipment.pick': 'Picked an order', 'shipment.pack': 'Packed a shipment', 'shipment.ship': 'Shipped', 'return.receive': 'Received a return',
   'plan.draft': 'Drafted from a shortage', 'po.draft': 'Drafted a purchase order', 'po.approve': 'Approved a purchase order', 'po.confirm': 'Recorded a supplier confirmation',
-  'po.revise': 'Revised an expected delivery', 'receipt.create': 'Received a delivery', 'wo.draft': 'Drafted a work order', 'wo.release': 'Released a work order',
+  'po.revise': 'Revised an expected delivery', 'supply.change.approve': 'Approved a purchase supply change', 'supply.change.reject': 'Rejected a purchase supply change', 'receipt.create': 'Received a delivery', 'wo.draft': 'Drafted a work order', 'wo.release': 'Released a work order',
   'wo.operation.pause': 'Paused an operation for lost time', 'wo.operation.resume': 'Resumed an operation',
   'wo.operation.report': 'Reported actual operation quantities', 'wo.operation.hold': 'Held completed operation units', 'wo.operation.holdRelease': 'Released an operation hold', 'wo.operation.backorder': 'Backordered uncompleted operation units', 'wo.operation.backorderResume': 'Resumed a manufacturing backorder',
   'wo.operation.progress': 'Reported operation progress and remaining effort', 'wo.operation.escalationAck': 'Acknowledged an in-app downtime escalation',

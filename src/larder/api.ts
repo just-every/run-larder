@@ -43,6 +43,7 @@ import { engineering } from './engineering'
 import { planning } from './planning'
 import { materialDates } from './material-dates'
 import { materialPegging } from './material-pegging'
+import { supplyChange, supplyChanges } from './supply-changes'
 import { workTransfers } from './work-transfers'
 import { lotTrace, traceCsv } from './trace'
 import { subcontract } from './subcontract'
@@ -75,7 +76,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [approvalCommand, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [approvalCommand, supplyChange, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -197,6 +198,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (path === '/purchasing/quotes') return json(supplierQuotes(await load(env.DB), url.searchParams.get('itemId') ?? '', url.searchParams.get('quantity') ?? '', url.searchParams.get('requiredBy') ?? '', new Date().toISOString().slice(0, 10)))
     if (path === '/planning/materials') return json(materialDates(await load(env.DB)))
     if (path === '/planning/pegging') return json(materialPegging(await load(env.DB), url.searchParams))
+    if (path === '/planning/supply-changes') return json(supplyChanges(await load(env.DB)))
     const trace = /^\/lots\/([-0-9a-f]{36})\/trace(\.csv)?$/.exec(path)
     if (trace) {
       const result = lotTrace(await load(env.DB), trace[1], url.searchParams.get('direction') ?? 'upstream')
