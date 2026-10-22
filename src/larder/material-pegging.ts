@@ -46,6 +46,6 @@ export function materialPegging(s: State, query: URLSearchParams) {
     limitations: [...plan.limitations,
       'Pegs are recomputed shared-pool allocations, not an approval or a promise change. Late candidates are unallocated alternatives, not quantities to sum.',
       'Received supply is followed through recorded lots only; unlotted receipts have no exact current-demand peg.',
-      'Released work exposes pinned component inputs; customer demand is not linked through provisional work output. Expedite, defer and cancel approval are not implemented.'],
+      'Released work exposes pinned component inputs; customer demand is linked through work output only once its pinned inputs are proved coverable (MRP-001). Expedite, defer and cancel are decided through the supply-changes door.'],
   }
 }

@@ -7,7 +7,9 @@ import { materialDates } from './material-dates'
 import { allow } from './roles'
 import { fail } from './problem'
 import { addDays } from './forecast-plan'
-import { purchaseDate } from './supplier-terms'
+import { purchaseDate, purchaseNextDate } from './supplier-terms'
+import { completeWithinTolerance } from './receiving'
+import { status } from './purchasing'
 import { bump, row, text, type Context, type Row, type State } from './model'
 
 const openPurchase = ['approved', 'confirmed', 'part received']
@@ -38,7 +40,10 @@ export function supplyChanges(s: State) {
     if (outstanding <= 0n || date < today) continue
     const k = key(po.id, line.id), use = served.get(k) ?? [], used = use.reduce((n, x) => n + decimal(x.quantity), 0n), late = needing.get(k) ?? []
     const base = { poId: po.id, lineId: line.id, reference: po.reference, itemId: line.itemId, currentDate: date }
-    if (late.length) {
+    if (completeWithinTolerance(line)) {
+      recommendations.push({ key: JSON.stringify(['cancel', po.id, line.id, format(outstanding)]), kind: 'cancel', ...base, requestedDate: null, quantity: format(outstanding),
+        reason: `${format(decimal(line.received))} of ${format(decimal(line.quantity))} delivered, within the line's ${line.tolerancePercent}% tolerance; closing the remainder completes it.`, affected: use })
+    } else if (late.length) {
       const requestedDate = late.map(r => r.requiredBy).sort()[0]! > today ? late.map(r => r.requiredBy).sort()[0]! : today
       const quantity = min(outstanding, late.reduce((n, r) => n + decimal(r.shortage), 0n))
       recommendations.push({ key: JSON.stringify(['expedite', po.id, line.id, requestedDate]), kind: 'expedite', ...base, requestedDate, quantity: format(quantity),
@@ -83,7 +88,7 @@ export function supplyChange(c: Context, type: string, p: any): Row | undefined 
   }
   const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision, category: 'supply-change', recommendation: structuredClone(rec), role: c.actor.role, note: reason, effect })
   po.history.push({ at: c.now, by: c.actor.id, change: `supply change ${decision}: ${rec.kind}`, line: line.id, note: reason, effect, approvalId: approval.id })
-  if (decision === 'approved' && rec.kind === 'cancel' && po.lines.every((l: any) => decimal(l.quantity) === 0n)) bump(po, { status: 'cancelled' })
+  if (decision === 'approved' && rec.kind === 'cancel') bump(po, { status: status(po), expectedDate: purchaseNextDate(po) })
   else bump(po, {})
   return approval
 }

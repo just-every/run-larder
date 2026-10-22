@@ -13,6 +13,7 @@ import { allow } from './roles'
 import { authorize, gate } from './approval-policy'
 import { averageCost, balance, move } from './stock'
 import { lotDates } from './lot-dates'
+import { damaged, overAllowance, tolerancePercent } from './receiving'
 import { bump, date, fresh, get, list, newId, nextReference, oneOf, optionalText, row, text, type Context, type Row } from './model'
 
 export function draftPurchase(c: Context, p: any, preparedBy?: string): Row {
@@ -23,7 +24,7 @@ export function draftPurchase(c: Context, p: any, preparedBy?: string): Row {
     const item = get(c.s, 'items', l.itemId, 'item')
     if (item.archived) fail('ARCHIVED', `${item.name} is archived and cannot be bought.`)
     const quantity = toBase(item, l.quantity, l.unit), unitPrice = decimal(l.unitPrice, 'unit price')
-    return { id: newId(), itemId: item.id, quantity: format(quantity), unitPrice: format(unitPrice), received: '0', rejected: '0', expectedDate: l.expectedDate ? date(l.expectedDate, 'line delivery date') : expectedDate }
+    return { id: newId(), itemId: item.id, quantity: format(quantity), unitPrice: format(unitPrice), received: '0', rejected: '0', tolerancePercent: tolerancePercent(l.tolerancePercent), expectedDate: l.expectedDate ? date(l.expectedDate, 'line delivery date') : expectedDate }
   })
   validateQuoteLines(c, supplier.id, lines, p.requiredBy)
   const exposure = lines.reduce((n, l) => n + times(decimal(l.quantity), decimal(l.unitPrice)), 0n)
@@ -34,7 +35,7 @@ export function draftPurchase(c: Context, p: any, preparedBy?: string): Row {
   })
 }
 
-const status = (po: Row) => po.lines.every((l: any) => decimal(l.quantity) === 0n) ? 'cancelled' : po.lines.every((l: any) => decimal(l.received) >= decimal(l.quantity)) ? 'received' : po.lines.some((l: any) => decimal(l.received) > 0n) ? 'part received' : po.supplierReference ? 'confirmed' : 'approved'
+export const status = (po: Row) => po.lines.every((l: any) => decimal(l.quantity) === 0n) ? 'cancelled' : po.lines.every((l: any) => decimal(l.received) >= decimal(l.quantity)) ? 'received' : po.lines.some((l: any) => decimal(l.received) > 0n) ? 'part received' : po.supplierReference ? 'confirmed' : 'approved'
 
 export function purchasing(c: Context, type: string, p: any): Row | undefined {
   switch (type) {
@@ -100,23 +101,29 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'warehouse'])
       const po = get(c.s, 'purchaseOrders', p.poId, 'purchase order')
       if (!['approved', 'confirmed', 'part received'].includes(po.status)) fail('STATE', 'Receive only against an approved purchase order.')
-      const receipt = row(c, 'receipts', { reference: nextReference(c.s.receipts, 'GR'), poId: po.id, supplierReference: text(p.supplierReference, 'delivery reference', 120), lines: [], status: 'received' })
+      const documents = p.documents === undefined ? [] : list(p.documents, 'documents', 10).map((d: any) => attach(c, d))
+      const receipt = row(c, 'receipts', { reference: nextReference(c.s.receipts, 'GR'), poId: po.id, supplierReference: text(p.supplierReference, 'delivery reference', 120), documents, lines: [], status: 'received' })
       for (const l of list(p.lines)) {
         const line = po.lines.find((x: any) => x.id === l.lineId) ?? fail('NOT_FOUND', 'That purchase order line was not found.')
         const item = get(c.s, 'items', line.itemId, 'item'), location = get(c.s, 'locations', l.locationId, 'location'), q = toBase(item, l.quantity, l.unit)
         const outstanding = decimal(line.quantity) - decimal(line.received)
-        if (q > outstanding) fail('OVER_RECEIPT', `Only ${format(outstanding)} ${item.baseUnit} of ${item.name} is still expected on ${po.reference}.`, { lineId: line.id })
+        if (q > overAllowance(line)) fail('OVER_RECEIPT', `Only ${format(outstanding)} ${item.baseUnit} of ${item.name} is still expected on ${po.reference}${decimal(line.tolerancePercent ?? '0') > 0n ? `, plus its ${line.tolerancePercent}% tolerance` : ''}.`, { lineId: line.id })
         let inspection = oneOf(l.inspection ?? 'accept', ['accept', 'quarantine'] as const, 'inspection')
         requireCatalogLot(item, l.lot)
         if (requiredTypes(c.s, item.id).length) {
           text(l.lot, 'lot required for controlled certificates', 80)
           inspection = 'quarantine'
         }
-        const code = optionalText(l.lot, 'supplier lot', 80), dates = lotDates(l.dates, code, c.now.slice(0, 10))
-        const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: po.supplierId, source: 'receipt', documentId: receipt.id, status: inspection === 'quarantine' ? 'quarantined' : 'released', ...dates }) : null
-        const movement = move(c, { itemId: item.id, locationId: location.id, status: inspection === 'quarantine' ? 'quarantine' : 'available', lotId: lot?.id, quantity: q, unitCost: decimal(line.unitPrice), kind: 'receipt', documentKind: 'receipts', documentId: receipt.id, reason: `Received on ${po.reference}` })
+        const code = optionalText(l.lot, 'supplier lot', 80), dates = lotDates(l.dates, code, c.now.slice(0, 10)), damage = damaged(l.damage, q)
+        // Damaged units arrive in quarantine under their own lot, so they can never be allocated or issued as accepted stock.
+        for (const part of [{ quantity: q - (damage?.quantity ?? 0n), inspection, damage: null }, ...(damage ? [{ quantity: damage.quantity, inspection: 'quarantine' as const, damage }] : [])]) {
+          if (part.quantity <= 0n) continue
+          const partCode = part.damage && code ? `${code}-DAMAGED` : code
+          const lot = partCode ? row(c, 'lots', { itemId: item.id, code: partCode, supplierId: po.supplierId, source: 'receipt', documentId: receipt.id, status: part.inspection === 'quarantine' ? 'quarantined' : 'released', ...dates }) : null
+          const movement = move(c, { itemId: item.id, locationId: location.id, status: part.inspection === 'quarantine' ? 'quarantine' : 'available', lotId: lot?.id, quantity: part.quantity, unitCost: decimal(line.unitPrice), kind: 'receipt', documentKind: 'receipts', documentId: receipt.id, reason: part.damage ? `Received damaged on ${po.reference}: ${part.damage.reason}` : `Received on ${po.reference}` })
+          receipt.lines.push({ lineId: line.id, itemId: item.id, locationId: location.id, quantity: format(part.quantity), lotId: lot?.id ?? '', inspection: part.inspection, ...(part.damage ? { damageReason: part.damage.reason } : {}), movementId: movement.id, expectedDate: purchaseDate(po, line), approvedDate: c.s.approvals.find(a => a.id === po.approvalId)?.terms?.lines.find((l: any) => l.id === line.id)?.expectedDate ?? po.expectedDate })
+        }
         line.received = format(decimal(line.received) + q)
-        receipt.lines.push({ lineId: line.id, itemId: item.id, locationId: location.id, quantity: format(q), lotId: lot?.id ?? '', inspection, movementId: movement.id, expectedDate: purchaseDate(po, line), approvedDate: c.s.approvals.find(a => a.id === po.approvalId)?.terms?.lines.find((l: any) => l.id === line.id)?.expectedDate ?? po.expectedDate })
       }
       bump(po, { status: status(po), expectedDate: purchaseNextDate(po) })
       return receipt
