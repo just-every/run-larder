@@ -16,6 +16,7 @@ import { cutover } from './cutover'
 import { cutoverGuard } from './cutover-guard'
 import { auditEntries } from './audit'
 import { erasureCommand, erasurePlan } from './audit-erasure'
+import { receiptJobAllocation } from './receipt-job-allocation'
 import { auditCsv, auditExport, auditQuery, retentionLine } from './audit-read'
 import { archiveCsv } from './archive-csv'
 import { history, historyMatches } from './history'
@@ -78,7 +79,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [approvalCommand, erasureCommand, supplyChange, receiving, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results

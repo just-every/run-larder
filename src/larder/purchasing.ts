@@ -35,6 +35,9 @@ export function draftPurchase(c: Context, p: any, preparedBy?: string): Row {
   })
 }
 
+// How a supplier's confirmation reached the buyer when it was not received by Larder's own mail (BUY-007 fills the same field later).
+export const confirmationSources = ['phone', 'email', 'portal', 'in person', 'other'] as const
+
 export const status = (po: Row) => po.lines.every((l: any) => decimal(l.quantity) === 0n) ? 'cancelled' : po.lines.every((l: any) => decimal(l.received) >= decimal(l.quantity)) ? 'received' : po.lines.some((l: any) => decimal(l.received) > 0n) ? 'part received' : po.supplierReference ? 'confirmed' : 'approved'
 
 export function purchasing(c: Context, type: string, p: any): Row | undefined {
@@ -78,13 +81,14 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'buyer'])
       const po = get(c.s, 'purchaseOrders', p.poId, 'purchase order'); fresh(po, p.version)
       if (!['approved', 'confirmed'].includes(po.status)) fail('STATE', 'Record supplier confirmation on an approved purchase order.')
-      const confirmedDate = date(p.confirmedDate, 'confirmed delivery date')
+      const confirmedDate = date(p.confirmedDate, 'confirmed delivery date'), source = oneOf(p.source, confirmationSources, 'source'), reference = text(p.supplierReference, 'supplier reference', 120)
       const targets = deliveryTargets(po, p.lineId)
       const schedulesBefore = structuredClone(po.lines)
-      for (const l of targets) l.expectedDate = confirmedDate
+      // BUY-009: the line keeps what we asked for (requestedDate, set by an approved supply change) apart from what the supplier confirmed.
+      for (const l of targets) { l.expectedDate = confirmedDate; l.confirmedDate = confirmedDate; l.confirmation = { date: confirmedDate, source, reference, by: c.actor.id, at: c.now } }
       const nextDate = purchaseNextDate(po)
       const evidence = p.evidence ? attach(c, p.evidence) : null
-      po.history.push({ at: c.now, by: c.actor.id, change: 'supplier confirmed', from: po.expectedDate, to: confirmedDate, note: text(p.supplierReference, 'supplier reference', 120), evidence, schedulesBefore, schedulesAfter: structuredClone(po.lines) })
+      po.history.push({ at: c.now, by: c.actor.id, change: 'supplier confirmed', from: po.expectedDate, to: confirmedDate, source, note: reference, evidence, schedulesBefore, schedulesAfter: structuredClone(po.lines) })
       return bump(po, { supplierReference: text(p.supplierReference, 'supplier reference', 120), confirmedDate, expectedDate: nextDate, status: 'confirmed' })
     }
     case 'po.revise': {

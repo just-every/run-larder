@@ -166,3 +166,69 @@ test('BUY-002 accepted stock needed only through a make path is listed as skippe
   assert.deepEqual((await h.state()).reservations.filter(r => r.itemId === p.raw.id), [])
   await h.invariant()
 })
+
+test('BUY-008 accepted receipt stock is allocated by hand to a released job that makes the product, never to draft, held or closed jobs, never quarantined stock, and reserved stock only by a manager or the owner with a reason', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const p = await plant(h), warehouse = await h.person('buy8-wh@example.test', 'warehouse'), manager = await h.person('buy8-mgr@example.test', 'manager'), agent = await h.person('buy8-agent@example.test', 'agent'), sales = await h.person('buy8-sales@example.test', 'sales')
+  // The component is used only by the made product: jobs for it are drafted and released, and the stock arrives after they were released.
+  const draft = await h.command('wo.draft', { itemId: p.widget.id, quantity: '4', requiredBy: date(8), reason: 'synthetic-larder-231 draft job' })
+  const early = await p.job('8', 6), late = await p.job('6', 9)
+  // A job whose in-process inspection failed is held.
+  const bracket = await h.command('item.save', { sku: 'synthetic-larder-235', name: 'Held bracket', kind: 'make', baseUnit: 'each' })
+  await h.command('bom.revise', { itemId: bracket.id, components: [{ itemId: p.raw.id, quantity: '1' }], routing: [{ name: 'Bore', workCentre: 'Mill', minutes: 3 }] })
+  let plan = await h.command('quality.plan.save', { itemId: bracket.id, revision: 1, stage: 'in-process', operationSequence: 1, name: 'Bore check', sampleSize: 1, measurements: [{ name: 'Bore', unit: 'mm', target: '10', lower: '9.98', upper: '10.02' }], attachments: [evidence('Drawing rev A')] })
+  plan = await h.command('quality.plan.approve', { planId: plan.id, version: plan.version })
+  const heldDraft = await h.command('wo.draft', { itemId: bracket.id, quantity: '2', requiredBy: date(7), reason: 'synthetic-larder-236 held job' })
+  const held = await h.command('wo.release', { workOrderId: heldDraft.id, version: heldDraft.version })
+  const operator = await h.person('buy8-op@example.test', 'operator')
+  const assigned = await h.command('wo.operation.assign', { workOrderId: held.id, version: held.version, sequence: 1, operatorId: operator.id })
+  await operator.run('wo.operation.start', { workOrderId: held.id, version: assigned.version, sequence: 1, workCentre: 'Mill', station: 'Mill 1', reason: 'Bore the batch' })
+  assert.equal((await h.command('quality.inspect', { planId: plan.id, planVersion: plan.version, workOrderId: held.id, samples: { Bore: ['10.5'] } })).passed, false)
+  const po = await p.buy('9', 3)
+  const receipt = await warehouse.run('receipt.create', { poId: po.id, supplierReference: 'JB1', lines: [{ lineId: po.lines[0].id, locationId: p.location.id, quantity: '9', lot: 'synthetic-larder-232', damage: { quantity: '2', reason: 'Crushed' } }] })
+  const [good, bad] = receipt.lines
+  assert.deepEqual([good.quantity, bad.inspection], ['7', 'quarantine'])
+  const reserved = async job => (await h.state()).reservations.filter(r => r.demandId === job.id && r.itemId === p.raw.id).map(r => [r.locationId, r.quantity])
+  const send = (who, body, opts) => who.run('receipt.allocate.job', { receiptId: receipt.id, itemId: p.raw.id, reason: 'synthetic-larder-233 job needs it', ...body }, opts)
+  const as = (job, quantity, extra = {}) => ({ workOrderId: job.id, version: job.version, quantity, ...extra })
+  assert.deepEqual(await reserved(early), []) // released before the stock arrived: nothing reserved yet
+
+  // Who may: agents and other roles never; a missing reason is refused; stale jobs are refused.
+  await send(agent, as(early, '1'), { error: 'FORBIDDEN' }); await send(sales, as(early, '1'), { error: 'FORBIDDEN' })
+  await send(warehouse, { ...as(early, '1'), reason: '' }, { error: 'INPUT' })
+  await send(warehouse, as({ ...early, version: early.version - 1 }, '1'), { error: 'STALE' })
+  // Which jobs: only released jobs. A draft refuses.
+  await send(warehouse, as(draft, '1'), { error: 'STATE' })
+  // A job under a failed in-process inspection is held and refuses too.
+  await send(warehouse, as((await h.state()).workOrders.find(w => w.id === held.id), '1'), { error: 'QUALITY_HOLD' })
+  // Which stock: the quarantined damaged units are never allocated, even when asked for.
+  await send(warehouse, as(early, '8'), { error: 'INSUFFICIENT_STOCK' }).then(e => assert.match(e.error.message, /accepted, unreserved stock/))
+  assert.deepEqual(await reserved(early), [])
+  // A person allocates part of the accepted stock to the job that makes the product; the reservation, its receipt and the allocator are on record.
+  const first = await send(warehouse, as(early, '3'))
+  assert.deepEqual([first.category, first.subjectId, first.workOrderId, first.mode, first.createdBy === warehouse.id, first.role, first.allocated.map(x => [x.quantity, x.reference, x.locationId]), first.takenFrom], ['receipt-allocation', receipt.id, early.id, 'job', true, 'warehouse', [['3', early.reference, p.location.id]], []])
+  assert.deepEqual(await reserved(early), [[p.location.id, '3']])
+  assert.equal(first.allocated[0].reservationId, (await h.state()).reservations.find(r => r.demandId === early.id).id)
+  // More than the job still needs is refused; so is more than the accepted unreserved stock that is left.
+  await send(warehouse, as(early, '6'), { error: 'INPUT' })
+  const second = await h.state().then(s => s.workOrders.find(w => w.id === late.id))
+  await send(warehouse, as(second, '5'), { error: 'INSUFFICIENT_STOCK' })
+  const rest = await send(warehouse, as(second, '4'))
+  assert.deepEqual([await reserved(late), rest.allocated[0].quantity], [[[p.location.id, '4']], '4'])
+  // Everything accepted is now reserved; taking reserved stock is a manager's or owner's act, named and reasoned, never a warehouse person's.
+  const early2 = (await h.state()).workOrders.find(w => w.id === early.id)
+  await send(warehouse, as(early2, '1', { takeFrom: [{ demandId: late.id, lineId: late.components[0].id, locationId: p.location.id, quantity: '1' }] }), { error: 'FORBIDDEN' })
+  await send(manager, as(early2, '1'), { error: 'INSUFFICIENT_STOCK' })
+  await send(manager, { ...as(early2, '1', { takeFrom: [{ demandId: late.id, lineId: late.components[0].id, locationId: p.location.id, quantity: '1' }] }), reason: '' }, { error: 'INPUT' })
+  const taken = await send(manager, as(early2, '1', { takeFrom: [{ demandId: late.id, lineId: late.components[0].id, locationId: p.location.id, quantity: '1' }], reason: 'synthetic-larder-234 the earlier job starts first' }))
+  assert.deepEqual([taken.takenFrom.map(x => [x.demandId, x.reference, x.quantity]), await reserved(early), await reserved(late)], [[[late.id, late.reference, '1']], [[p.location.id, '4']], [[p.location.id, '3']]])
+  // Both allocations are audited with their actor and reason, and no signature was asked for.
+  const audit = await (await h.request('/api/larder/audit?type=receipt.allocate.job&limit=50')).json()
+  assert.deepEqual(audit.entries.map(e => [e.actorId, (e.after.takenFrom?.length ?? 0) > 0, e.reason.slice(0, 20)]), [[warehouse.id, false, 'synthetic-larder-233'], [warehouse.id, false, 'synthetic-larder-233'], [manager.id, true, 'synthetic-larder-234']])
+  assert.equal((await h.state()).approvalSignatures.length, 0)
+  // Closing a job returns its reservation; a closed job refuses further allocation.
+  const done = await h.command('wo.close', { workOrderId: early.id, version: (await h.state()).workOrders.find(w => w.id === early.id).version })
+  assert.equal(done.status, 'closed'); assert.deepEqual(await reserved(early), [])
+  await send(manager, as(done, '1'), { error: 'STATE' })
+  await h.invariant()
+})

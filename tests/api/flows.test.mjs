@@ -128,10 +128,10 @@ test('LARDER-007 purchase approval, supplier confirmation and revised delivery a
   const w = await workshop(h)
   const po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-10-20', reason: 'Restock', lines: [{ itemId: w.timber.id, quantity: '2', unit: 'bundle', unitPrice: '9.5' }] })
   assert.equal(po.exposure, '190')
-  await h.command('po.confirm', { poId: po.id, version: po.version, supplierReference: 'TT-889', confirmedDate: '2026-10-22' }, { error: 'STATE' })
+  await h.command('po.confirm', { poId: po.id, version: po.version, supplierReference: 'TT-889', source: 'phone', confirmedDate: '2026-10-22' }, { error: 'STATE' })
   const approved = await h.command('po.approve', { poId: po.id, version: po.version })
   assert.equal(approved.status, 'approved')
-  const confirmed = await h.command('po.confirm', { poId: po.id, version: approved.version, supplierReference: 'TT-889', confirmedDate: '2026-10-22', evidence: evidence('Order acknowledgement TT-889') })
+  const confirmed = await h.command('po.confirm', { poId: po.id, version: approved.version, supplierReference: 'TT-889', source: 'email', confirmedDate: '2026-10-22', evidence: evidence('Order acknowledgement TT-889') })
   assert.equal(confirmed.expectedDate, '2026-10-22')
   const revised = await h.command('po.revise', { poId: po.id, version: confirmed.version, expectedDate: '2026-10-29', note: 'Kiln delay' })
   assert.deepEqual(revised.history.map(x => [x.change, x.from, x.to]), [['supplier confirmed', '2026-10-20', '2026-10-22'], ['delivery revised', '2026-10-22', '2026-10-29']])
@@ -339,7 +339,7 @@ test('BUY-001 supplier constraints, feasible quote and scheduled approval surviv
   let approved = await buyer.run('po.approve', { poId: po.id, version: po.version })
   const frozen = structuredClone((await h.state()).approvals.find(x => x.id === approved.approvalId).terms)
   // Supplier acknowledgments revise one delivery, without collapsing the other.
-  approved = await buyer.run('po.confirm', { poId: po.id, version: approved.version, lineId: po.lines[0].id, supplierReference: 'synthetic-larder-306', confirmedDate: day(3), evidence: evidence('Supplier acknowledgment revision') })
+  approved = await buyer.run('po.confirm', { poId: po.id, version: approved.version, lineId: po.lines[0].id, supplierReference: 'synthetic-larder-306', source: 'phone', confirmedDate: day(3), evidence: evidence('Supplier acknowledgment revision') })
   const revision = { poId: po.id, version: approved.version, lineId: po.lines[1].id, expectedDate: day(8), note: 'Supplier mill delay' }
   const revised = await h.send('po.revise', revision, { as: buyer.cookie }); assert.equal(revised.body.ok, true)
   assert.deepEqual((await h.send('po.revise', revision, { as: buyer.cookie, commandId: revised.commandId })).body, revised.body)

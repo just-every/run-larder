@@ -97,8 +97,9 @@ test('MRP-002 a delayed component PO recommends an expedite naming the orders it
   await h.invariant()
 })
 
-test('MRP-002 supply that lands weeks before its demand recommends a deferral to the day it is first needed and an approved deferral is only a recorded request', async t => {
+test('MRP-002 supply that lands weeks before its demand recommends a deferral to the day it is first needed and an approved deferral is only a recorded request, and the supplier\'s confirmation lands beside it as its own date, audited', async t => {
   const h = await installation(); t.after(() => h.close())
+  const buyer = await h.person('mrp2-defer-buyer@example.test', 'buyer'), agent = await h.person('mrp2-defer-agent@example.test', 'agent')
   const raw = await h.command('item.save', { sku: 'synthetic-larder-205', name: 'Deferral raw', kind: 'buy', baseUnit: 'each' })
   const customer = await h.command('party.save', { name: 'Deferral customer', kind: 'customer' }), supplier = await h.command('party.save', { name: 'Deferral supplier', kind: 'supplier' })
   const draft = await h.command('po.draft', { supplierId: supplier.id, expectedDate: date(2), reason: 'synthetic-larder-206 early supply', lines: [{ itemId: raw.id, quantity: '5', unitPrice: '2' }] })
@@ -112,6 +113,18 @@ test('MRP-002 supply that lands weeks before its demand recommends a deferral to
   assert.equal(done.recommendation.kind, 'defer')
   const line = (await h.state()).purchaseOrders.find(p => p.id === po.id).lines[0]
   assert.deepEqual([line.supplyRequest.kind, line.supplyRequest.requestedDate, line.expectedDate], ['defer', date(30), date(2)])
+  // BUY-009: the line keeps the date we asked for (requestedDate) apart from the supplier's own, which only a recorded confirmation sets.
+  assert.deepEqual([line.requestedDate, line.confirmedDate ?? null, line.confirmation ?? null], [date(30), null, null])
+  const current = async () => (await h.state()).purchaseOrders.find(p => p.id === po.id)
+  const send = async (who, extra = {}, opts) => who.run('po.confirm', { poId: po.id, version: (await current()).version, lineId: line.id, supplierReference: 'synthetic-larder-241', source: 'phone', confirmedDate: date(28), ...extra }, opts)
+  await send(agent, {}, { error: 'FORBIDDEN' })
+  await send(buyer, { source: undefined }, { error: 'INPUT' }); await send(buyer, { source: 'smoke signal' }, { error: 'INPUT' }); await send(buyer, { supplierReference: '' }, { error: 'INPUT' })
+  assert.deepEqual((await current()).lines[0].confirmation ?? null, null)
+  await send(buyer)
+  const kept = (await current()).lines[0]
+  assert.deepEqual([kept.requestedDate, kept.confirmedDate, kept.expectedDate, kept.confirmation.source, kept.confirmation.reference, kept.confirmation.by === buyer.id, kept.supplyRequest.requestedDate], [date(30), date(28), date(28), 'phone', 'synthetic-larder-241', true, date(30)])
+  const audit = (await (await h.request('/api/larder/audit?type=po.confirm&limit=20')).json()).entries
+  assert.deepEqual(audit.map(e => [e.actorId, e.subjectId, e.after.lines[0].confirmation.source, e.after.lines[0].confirmation.reference, e.after.lines[0].requestedDate]), [[buyer.id, po.id, 'phone', 'synthetic-larder-241', date(30)]])
   await h.invariant()
 })
 

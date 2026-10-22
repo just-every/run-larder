@@ -103,6 +103,8 @@ export function supplyChange(c: Context, type: string, p: any): Row | undefined 
       po.exposure = format(po.lines.reduce((n: bigint, l: any) => n + times(decimal(l.quantity), decimal(l.unitPrice)), 0n))
     } else {
       line.supplyRequest = { kind: rec.kind, requestedDate: rec.requestedDate, by: c.actor.id, at: c.now, reason }
+      // BUY-009: the line's requested date is what we asked for; the supplier's own date (expectedDate) moves only when the supplier confirms.
+      line.requestedDate = rec.requestedDate
       effect = `${rec.kind} requested for ${rec.requestedDate}; the supplier's date is unchanged`
     }
   }

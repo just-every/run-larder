@@ -99,7 +99,7 @@ export function workshop(ownerId: string, now: Date) {
   const initials = (name: string) => name.split(/\s+/).map(w => w[0]).join('').toUpperCase()
   const purchase = (supplier: Row, part: Row, quantity: string, price: string, due: number, approved = true) => {
     const po = run('po.draft', { supplierId: supplier.id, expectedDate: day(due), requiredBy: day(due + 1), reason: 'Replenish stock for confirmed orders', lines: [{ itemId: part.id, quantity, unitPrice: price }] }, -3)
-    if (approved) { run('po.approve', { poId: po.id, version: po.version, note: 'Within the weekly materials budget' }, -3); run('po.confirm', { poId: po.id, version: po.version, supplierReference: `${initials(supplier.name)}-${po.reference.slice(3)}`, confirmedDate: day(due) }, -3) }
+    if (approved) { run('po.approve', { poId: po.id, version: po.version, note: 'Within the weekly materials budget' }, -3); run('po.confirm', { poId: po.id, version: po.version, supplierReference: `${initials(supplier.name)}-${po.reference.slice(3)}`, source: 'email', confirmedDate: day(due) }, -3) }
     return po
   }
   const walnutPo = purchase(hardwoods, walnut, '200', '11.6', -1)

@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-// BUY-002 and MRP-002 through the built app: a short delivery with damaged units and a delivery note, allocation of the
+// BUY-002, BUY-008 and MRP-002 through the built app: a short delivery with damaged units and a delivery note, allocation of the
 // accepted stock to two jobs, and the late remainder's expedite recorded as a request, at desktop and phone widths.
 const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787'
 const day = (n: number) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
@@ -12,13 +12,13 @@ async function command(page: Page, type: string, payload: object) {
   const b = await r.json(); expect(b.ok, JSON.stringify(b.error)).toBe(true); return b.result
 }
 async function settled(page: Page) { await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false'); await expect(page.getByRole('alert')).toHaveCount(0) }
-async function shot(page: Page, stage: string) {
+async function shot(page: Page, stage: string, clause = 'BUY-002') {
   if (!process.env.LARDER_SCREENSHOTS) return
   await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true })
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
     expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
-    await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-BUY-002-${stage}.png`), fullPage: true })
+    await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-${clause}-${stage}.png`), fullPage: true })
   }
 }
 
@@ -74,4 +74,35 @@ test('Receiving a short delivery quarantines damaged units, allocates the accept
   await expect(changes).toContainText('Requested: Ask the supplier for the last three sooner')
   await expect(changes.getByRole('button', { name: 'Record decision', exact: true })).toHaveCount(0)
   await shot(page, 'requested')
+})
+
+test('A person allocates a receipt\'s accepted stock to a released job by hand and the allocation is read back at 1440/390', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  const tag = crypto.randomUUID().slice(0, 6)
+  const raw = await command(page, 'item.save', { sku: `synthetic-larder-${tag}`, name: `Job steel ${tag}`, kind: 'buy', baseUnit: 'each' })
+  const part = await command(page, 'item.save', { sku: `synthetic-larder-${tag}-p`, name: `Job part ${tag}`, kind: 'make', baseUnit: 'each' })
+  await command(page, 'bom.revise', { itemId: part.id, components: [{ itemId: raw.id, quantity: '1' }] })
+  const dock = await command(page, 'location.save', { name: `Job dock ${tag}` }), supplier = await command(page, 'party.save', { name: `Job supplier ${tag}`, kind: 'supplier' })
+  const drafted = await command(page, 'wo.draft', { itemId: part.id, quantity: '3', requiredBy: day(6), reason: 'Job allocation journey' })
+  const job = await command(page, 'wo.release', { workOrderId: drafted.id, version: drafted.version })
+  const draft = await command(page, 'po.draft', { supplierId: supplier.id, expectedDate: day(3), reason: 'Job allocation supply', lines: [{ itemId: raw.id, quantity: '5', unitPrice: '2' }] })
+  const po = await command(page, 'po.approve', { poId: draft.id, version: draft.version })
+  await command(page, 'receipt.create', { poId: po.id, supplierReference: 'JA-1', lines: [{ lineId: po.lines[0].id, locationId: dock.id, quantity: '5', lot: `synthetic-larder-${tag}-lot`, damage: { quantity: '1', reason: 'Crushed' } }] })
+  await page.goto(origin + '/app'); await settled(page)
+  await page.goto(origin + `/app#make/po/${po.id}`)
+  const form = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Allocate to a job', exact: true }) })
+  await expect(form).toBeVisible()
+  await form.getByLabel('Job', { exact: true }).selectOption({ index: 1 })
+  await form.getByLabel('Quantity', { exact: true }).fill('3')
+  await form.getByLabel('Reason', { exact: true }).fill('The job starts first')
+  await shot(page, 'job-allocation-form', 'BUY-008')
+  const reply = page.waitForResponse(r => r.url() === `${origin}/api/larder/commands` && r.request().method() === 'POST')
+  await form.getByRole('button', { name: 'Allocate to job', exact: true }).click()
+  expect((await (await reply).json()).ok).toBe(true); await settled(page)
+  await expect(page.locator('p.muted').filter({ hasText: 'JA-1' })).toContainText(`Allocated 3 to ${job.reference}`)
+  const live = await (await page.request.get(origin + '/api/larder/state')).json()
+  expect(live.reservations.filter((r: any) => r.demandId === job.id).map((r: any) => r.quantity)).toEqual(['3'])
+  await shot(page, 'job-allocated', 'BUY-008')
 })

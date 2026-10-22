@@ -41,5 +41,5 @@ export function ReceiptAllocation({ larder, receipt }: { larder: Larder; receipt
     return larder.run('receipt.allocate', { receiptId: receipt.id, version: pegs.version, asOf: pegs.asOf, reason: 'Allocate the accepted stock to the demand it is pegged to' })
   }
   return <span>{can(s, ['manager', 'warehouse']) && <button type="button" className="button" disabled={larder.busy} onClick={() => void allocate()}>Allocate accepted stock</button>}
-    {allocations.map(a => <small key={a.id}> Allocated {a.allocated.map((x: any) => `${qty(x.quantity)} to ${x.reference}`).join(', ') || 'nothing new'}{a.skipped.length > 0 && `; ${a.skipped.length} not allocated`}.</small>)}</span>
+    {allocations.map(a => <small key={a.id}> Allocated {a.allocated.map((x: any) => `${qty(x.quantity)} to ${x.reference}`).join(', ') || 'nothing new'}{(a.takenFrom ?? []).length > 0 && `, taking ${a.takenFrom.map((x: any) => `${qty(x.quantity)} from ${x.reference}`).join(', ')}`}{a.skipped.length > 0 && `; ${a.skipped.length} not allocated`}.</small>)}</span>
 }
