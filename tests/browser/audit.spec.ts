@@ -14,6 +14,7 @@ test('GOV-004 the owner reads, filters and exports the append-only audit at 1440
   const trail = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Audit trail', exact: true }) })
   await expect(trail).toContainText('Audit bay'); await expect(trail).toContainText('Audit blank')
   await expect(trail).not.toContainText('synthetic-larder')
+  await expect(trail).toContainText('Retained for the life of the installation; purge authority: none.')
   await trail.getByLabel('Area', { exact: true }).selectOption('revisions')
   await expect(trail).toContainText('Audit blank'); await expect(trail).not.toContainText('Audit bay')
   await trail.getByLabel('Area', { exact: true }).selectOption('')

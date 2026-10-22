@@ -4,6 +4,7 @@ import { bookingGuards } from './scheduling/booking-guards'
 import { fail } from './problem'
 import { caseHumanRoleSql } from './follow-up'
 import { auditInsertSql, auditParams, type AuditEntry } from './audit'
+import { erasureStatements, type ErasurePlan } from './audit-erasure'
 import { collections, type Actor, type Context, type State } from './model'
 
 export const roleSql = `CASE WHEN EXISTS(SELECT 1 FROM larder_records WHERE kind='roles' AND id=o.id) THEN (SELECT json_extract(data,'$.role') FROM larder_records WHERE kind='roles' AND id=o.id) WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END`
@@ -64,7 +65,7 @@ export function changes(db: D1Database, c: Context, before: State): D1PreparedSt
   return out
 }
 
-export async function commit(db: D1Database, c: Context, before: State, type: string, digest: string, result: unknown, audit: AuditEntry[]) {
+export async function commit(db: D1Database, c: Context, before: State, type: string, digest: string, result: unknown, audit: AuditEntry[], erasure?: ErasurePlan) {
   const a = authority(c.actor)
   const response = { ok: true, result, version: before.version + 1 }
   await db.batch([
@@ -86,6 +87,8 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
     ...bookingGuards(db, c, before),
     ...changes(db, c, before),
     ...audit.map(e => db.prepare(auditInsertSql).bind(...auditParams(e))),
+    // GOV-013: the erasure door records its request, then replaces the subject's personal values, in this same batch.
+    ...(erasure ? erasureStatements(db, c, erasure) : []),
     db.prepare('UPDATE larder_meta SET version=version+1 WHERE id=1'),
     db.prepare('INSERT INTO larder_commands VALUES(?,?,?,?,?,?)').bind(c.commandId, c.actor.id, type, digest, JSON.stringify(response), c.now),
     db.prepare('DELETE FROM larder_guard'),

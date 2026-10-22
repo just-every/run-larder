@@ -15,7 +15,8 @@ import { approvalCommand } from './approval-policy'
 import { cutover } from './cutover'
 import { cutoverGuard } from './cutover-guard'
 import { auditEntries } from './audit'
-import { auditCsv, auditExport, auditQuery } from './audit-read'
+import { erasureCommand, erasurePlan } from './audit-erasure'
+import { auditCsv, auditExport, auditQuery, retentionLine } from './audit-read'
 import { archiveCsv } from './archive-csv'
 import { history, historyMatches } from './history'
 import { bom } from './bom'
@@ -77,7 +78,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [approvalCommand, supplyChange, receiving, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [approvalCommand, erasureCommand, supplyChange, receiving, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -122,6 +123,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   const digest = sha256(canonicalJson({ type, payload }))
   const previous = await saved(env.DB, commandId, digest, actor)
   if (previous) return respond(previous)
+  const erasure = type === 'erasure.audit' ? await erasurePlan(env.DB, await load(env.DB), actor, payload) : undefined
   if (type === 'exception.assign' || type === 'exception.escalate') {
     if (!['owner', 'manager'].includes(actor.role)) forbidden('Only an owner or manager assigns or escalates cases.')
     const existing = type === 'exception.escalate' ? (await load(env.DB)).followUps.find(f => f.key === payload.key) : undefined
@@ -147,6 +149,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     const before = await load(env.DB), s = structuredClone(before)
     if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
     const c: Context = { s, actor, commandId, now: new Date().toISOString(), attachments: [], ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve'].includes(type) || type.startsWith('schedule.') || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
+    if (erasure) c.erasure = erasure
     let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
@@ -158,7 +161,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
       await publishImport(env, c, before, type, digest, result!, audit)
       return respond((await saved(env.DB, commandId, digest, actor)) ?? fail('IMPORT_PUBLICATION', 'The import did not finish. Send the same command again to resume it.'))
     }
-    try { return respond(await commit(env.DB, c, before, type, digest, result, audit)) }
+    try { return respond(await commit(env.DB, c, before, type, digest, result, audit, erasure)) }
     catch (error) {
       const replay = await saved(env.DB, commandId, digest, actor)
       if (replay) return respond(replay)
@@ -209,7 +212,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (recallDownload) return json(recallPack(await load(env.DB), recallDownload[1]))
     if (path === '/audit') return json(await auditQuery(env.DB, actor, url.searchParams))
     if (path === '/audit.json') return new Response(JSON.stringify(await auditExport(env.DB, actor, url.searchParams)), { headers: { ...headers, 'content-type': 'application/json', 'content-disposition': 'attachment; filename="larder-audit.json"' } })
-    if (path === '/audit.csv') return new Response(auditCsv((await auditExport(env.DB, actor, url.searchParams)).entries), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-audit.csv"' } })
+    if (path === '/audit.csv') return new Response(auditCsv((await auditExport(env.DB, actor, url.searchParams)).entries), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-audit.csv"', 'x-audit-retention': retentionLine } })
     if (path === '/archive') return json(await archive(env, actor))
     if (path === '/archive.csv') return new Response(archiveCsv(await archive(env, actor)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-archive.csv"' } })
     if (path === '/history') return json((await load(env.DB)).sourceHistory.filter(r => historyMatches(r, url.searchParams.get('q') ?? '')))

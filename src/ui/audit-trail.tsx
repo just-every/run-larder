@@ -7,7 +7,7 @@ type Entry = { seq: number; at: string; actorName: string; source: string; domai
 
 // GOV-004: the append-only audit as the owner or a manager reads it, with the exact before and after of each change.
 export function AuditTrail() {
-  const [domain, setDomain] = useState(''), [q, setQ] = useState(''), [data, setData] = useState<{ total: number; entries: Entry[] } | null>(null), [error, setError] = useState('')
+  const [domain, setDomain] = useState(''), [q, setQ] = useState(''), [data, setData] = useState<{ total: number; entries: Entry[]; retention?: { period: string; purgeAuthority: string; erasureRequests: number } } | null>(null), [error, setError] = useState('')
   const query = new URLSearchParams({ ...(domain ? { domain } : {}), ...(q.trim() ? { q: q.trim() } : {}) }).toString()
   useEffect(() => {
     let live = true
@@ -26,7 +26,7 @@ export function AuditTrail() {
     </div>
     {error ? <p role="alert" className="notice">{error}</p> : !data ? <Empty>Loading the audit…</Empty> : data.entries.length === 0 ? <Empty>No audit entries match.</Empty> :
       <Table head={['When', 'Who', 'Area', 'What changed', 'Reason']}>{data.entries.map(e => <tr key={e.seq}><td>{when(e.at)}</td><td>{e.actorName}{e.source === 'agent' && <> <Chip tone="info">Agent</Chip></>}</td><td>{words(e.domain)}</td><td><strong>{words(e.subjectKind)}</strong> {words(e.op)}<small>{detail(e)}</small></td><td>{e.reason || '—'}</td></tr>)}</Table>}
-    {data && <p className="muted">{data.total} matching {data.total === 1 ? 'entry' : 'entries'}{data.total > data.entries.length ? `; showing the first ${data.entries.length}` : ''}. Retained for the life of the installation.</p>}
+    {data && <p className="muted">{data.total} matching {data.total === 1 ? 'entry' : 'entries'}{data.total > data.entries.length ? `; showing the first ${data.entries.length}` : ''}. Retained for {data.retention?.period ?? 'the life of the installation'}; purge authority: {data.retention?.purgeAuthority ?? 'none'}. An erasure request replaces a person's personal values with a tombstone and keeps the entry{data.retention?.erasureRequests ? ` (${data.retention.erasureRequests} request${data.retention.erasureRequests === 1 ? '' : 's'} so far)` : ''}.</p>}
   </Card>
 }
 const empty = (v: unknown) => v === '' || v === null || v === undefined || (Array.isArray(v) && v.length === 0) || (typeof v === 'object' && v !== null && !Array.isArray(v) && Object.keys(v).length === 0)

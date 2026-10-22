@@ -5,10 +5,18 @@ import { auditDomains } from './audit'
 import type { Actor } from './model'
 
 export const auditReaders = ['owner', 'manager']
-const columns = 'seq,id,at,actor_id AS actorId,actor_name AS actorName,actor_role AS actorRole,source,command_id AS commandId,command_type AS commandType,domain,subject_kind AS subjectKind,subject_id AS subjectId,subject_version AS subjectVersion,op,before,after,reason,evidence,refs'
+const columns = 'seq,id,at,actor_id AS actorId,actor_name AS actorName,actor_role AS actorRole,source,command_id AS commandId,command_type AS commandType,domain,subject_kind AS subjectKind,subject_id AS subjectId,subject_version AS subjectVersion,op,before,after,reason,evidence,refs,erasure_id AS erasureId'
 const parse = (r: any) => ({ ...r, before: JSON.parse(r.before), after: JSON.parse(r.after), evidence: JSON.parse(r.evidence), refs: r.refs ? String(r.refs).split(' ') : [] })
 
-export const auditRetention = { policy: 'indefinite', removableBy: 'nobody', note: 'Entries are kept for the life of the installation; no command, role or database statement updates or deletes one.' }
+// GOV-013 (ct, 22 October 2026): kept for the life of the installation, no purge door for any role (the owner
+// included). The one exception is an erasure request, which replaces a data subject's personal values inside
+// entries with a tombstone through the erasure door only; entry, actor id, time, command and record link stay.
+export const retentionLine = 'Kept for the life of the installation. Purge authority: none. Erasure replaces personal values with a tombstone and keeps the entry.'
+export const auditRetention = {
+  period: 'the life of the installation', purgeAuthority: 'none', policy: 'indefinite', removableBy: 'nobody',
+  erasure: { door: 'erasure.audit', authority: 'owner', replaces: 'personal values of the data subject', keeps: ['entry', 'actor id', 'time', 'command', 'record link', 'fact of replacement'], tombstone: '[erased]' },
+  note: 'Entries are kept for the life of the installation; no command, role or database statement purges one. An erasure request replaces a data subject\'s personal values with a tombstone through the erasure door only.',
+}
 
 export async function auditQuery(db: D1Database, actor: Actor, params: URLSearchParams, defaultLimit = 100, maxLimit = 500) {
   if (!auditReaders.includes(actor.role)) forbidden('Only the owner or a manager reads the audit.')
@@ -30,21 +38,22 @@ export async function auditQuery(db: D1Database, actor: Actor, params: URLSearch
   const limit = Math.min(maxLimit, Math.max(1, Number(params.get('limit') ?? defaultLimit) || defaultLimit)), afterSeq = Number(params.get('after') ?? 0) || 0
   const total = (await db.prepare(`SELECT COUNT(*) AS n FROM larder_audit${filter}`).bind(...bind).first<{ n: number }>())!.n
   const rows = (await db.prepare(`SELECT ${columns} FROM larder_audit${filter}${where.length ? ' AND' : ' WHERE'} seq>? ORDER BY seq LIMIT ?`).bind(...bind, afterSeq, limit).all()).results.map(parse)
-  return { total, entries: rows, next: rows.length === limit ? (rows.at(-1) as any).seq : null, retention: auditRetention }
+  const erasures = (await db.prepare('SELECT COUNT(*) AS n FROM larder_audit_erasures').first<{ n: number }>())!.n
+  return { total, entries: rows, next: rows.length === limit ? (rows.at(-1) as any).seq : null, retention: { ...auditRetention, erasureRequests: erasures } }
 }
 
 const cell = (v: unknown) => { const t = typeof v === 'string' ? v : JSON.stringify(v ?? ''); return `"${(/^[=+\-@\t\r]/.test(t) ? "'" + t : t).replaceAll('"', '""')}"` }
-export const auditCsvColumns = ['seq', 'at', 'actorName', 'actorRole', 'source', 'domain', 'commandType', 'commandId', 'subjectKind', 'subjectId', 'subjectVersion', 'op', 'reason', 'before', 'after', 'evidence']
+export const auditCsvColumns = ['seq', 'at', 'actorName', 'actorRole', 'source', 'domain', 'commandType', 'commandId', 'subjectKind', 'subjectId', 'subjectVersion', 'op', 'reason', 'before', 'after', 'evidence', 'erasureId']
 export const auditCsv = (entries: Record<string, any>[]) => [auditCsvColumns.join(','), ...entries.map(e => auditCsvColumns.map(k => cell(e[k])).join(','))].join('\r\n') + '\r\n'
 
 export async function auditExport(db: D1Database, actor: Actor, params: URLSearchParams) {
   const pages: any[] = []
-  let after = 0, total = 0
+  let after = 0, total = 0, retention: Record<string, unknown> = auditRetention
   for (let i = 0; i < 40; i++) {
     const page = new URLSearchParams(params); page.set('after', String(after)); page.set('limit', '500')
-    const r = await auditQuery(db, actor, page, 500, 500); total = r.total; pages.push(...r.entries)
+    const r = await auditQuery(db, actor, page, 500, 500); total = r.total; retention = r.retention; pages.push(...r.entries)
     if (r.next === null) break
     after = r.next
   }
-  return { exportedAt: new Date().toISOString(), exportedBy: actor.id, filters: Object.fromEntries([...params].filter(([k]) => !['after', 'limit'].includes(k))), total, complete: pages.length === total, retention: auditRetention, entries: pages }
+  return { exportedAt: new Date().toISOString(), exportedBy: actor.id, filters: Object.fromEntries([...params].filter(([k]) => !['after', 'limit'].includes(k))), total, complete: pages.length === total, retention, entries: pages }
 }
