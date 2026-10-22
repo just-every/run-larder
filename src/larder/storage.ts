@@ -10,10 +10,10 @@ import { collections, type Actor, type Context, type State } from './model'
 export const roleSql = `CASE WHEN EXISTS(SELECT 1 FROM larder_records WHERE kind='roles' AND id=o.id) THEN (SELECT json_extract(data,'$.role') FROM larder_records WHERE kind='roles' AND id=o.id) WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END`
 
 // True only while this exact session is live, its operator active and unchanged,
-// and the operator still holds the role the command was checked against.
+// and the operator still holds the role, scope and custom role the command was checked against (GOV-001).
 export const authority = (a: Actor) => ({
-  sql: `EXISTS(SELECT 1 FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.id=? AND o.version=? AND s.operator_version=o.version AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>? AND ${roleSql}=?)`,
-  params: [a.sessionId, a.id, a.operatorVersion, Date.now(), a.role] as unknown[],
+  sql: `EXISTS(SELECT 1 FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.id=? AND o.version=? AND s.operator_version=o.version AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>? AND ${roleSql}=? AND COALESCE((SELECT version FROM larder_records WHERE kind='roles' AND id=o.id),0)=? AND COALESCE((SELECT version FROM larder_records WHERE kind='customRoles' AND id=?),0)=?)`,
+  params: [a.sessionId, a.id, a.operatorVersion, Date.now(), a.role, a.scope?.version ?? 0, a.scope?.customId ?? '', a.scope?.customVersion ?? 0] as unknown[],
 })
 
 export async function load(db: D1Database): Promise<State> {

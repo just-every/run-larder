@@ -65,6 +65,10 @@ import { orderChanges } from './order-changes'
 import { warehouse } from './warehouse'
 import { Problem, fail, forbidden } from './problem'
 import { roleCommand } from './roles'
+import { effectiveScope, enforcePayload, enforceScope, isScoped, names, scopeOf } from './scope'
+import { gateCommand } from './scope-gate'
+import { redactCosts } from './scope-cost'
+import { refuseHidden, scopedRead, scopedState, stubHidden, visibleState } from './scope-view'
 import { commit, load, roleSql, saved, authority } from './storage'
 import { stateView } from './view'
 import { get, type Actor, type Context, type Row } from './model'
@@ -76,7 +80,9 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   const session = await operatorAuth(env).getSession(request)
   if (!session) throw new Problem('AUTH', 'Sign in with a current session.', null, 401)
   const r = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=?`).bind(session.operator.id).first<{ role: string }>()
-  return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
+  const held = async (kind: string, id: string) => { const d = id ? await env.DB.prepare('SELECT data FROM larder_records WHERE kind=? AND id=?').bind(kind, id).first<{ data: string }>() : null; return d ? JSON.parse(d.data) : undefined }
+  const member = await held('roles', session.operator.id), custom = await held('customRoles', member?.customRoleId ?? '')
+  return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version, scope: effectiveScope(member, custom) }
 }
 
 const handlers = [approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
@@ -91,7 +97,7 @@ async function people(env: Bindings, actor: Actor) {
 async function command(env: Bindings, actor: Actor, request: Request): Promise<Response> {
   // FLOOR-004 retains its explicit production authoring authority. Operators
   // and other readers never recover a rework rate from a prior command replay.
-  const respond = (body: any) => json(![...rateReaders, 'production'].includes(actor.role) && Array.isArray(body?.result?.labor) ? { ...body, result: { ...body.result, labor: body.result.labor.map(({ rate, ...line }: any) => line) } } : body)
+  const respond = (body: any) => json(scopeOf(actor).costs && body?.result ? { ...body, result: redactCosts(body.result) } : !rateReaders.includes(actor.role) && !(actor.role === 'production' && body?.result?.preparedBy === actor.id) && Array.isArray(body?.result?.labor) ? { ...body, result: { ...body.result, labor: body.result.labor.map(({ rate, ...line }: any) => line) } } : body)
   if (request.headers.get('origin') !== new URL(env.AUTH_ORIGIN).origin) throw new Problem('ORIGIN', 'Send commands from this installation.', null, 403)
   if (!request.headers.get('content-type')?.includes('application/json')) throw new Problem('CONTENT_TYPE', 'Use application/json.', null, 400)
   const raw = await request.text()
@@ -103,11 +109,12 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Problem('INPUT', 'The payload must be an object.', null, 400)
   if (actor.role === 'viewer') forbidden('Viewers can read but not change records.')
   if (type.startsWith('audit.')) forbidden('The audit is append-only: no role, including the owner, edits or deletes an entry.')
-  if (type === 'role.set' && actor.role === 'owner') {
+  if (['role.set', 'role.assign', 'member.scope'].includes(type) && actor.role === 'owner') {
     const target = await env.DB.prepare('SELECT role FROM oa_operators WHERE id=?').bind(payload.operatorId).first<{ role: string }>()
     if (!target) fail('NOT_FOUND', 'Choose an invited person.')
     if (target!.role === 'owner') fail('OWNER_ROLE', 'The owner keeps owner authority.')
   }
+  gateCommand(actor, type, payload)
   if (blindSessions(await load(env.DB), actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
   if (type === 'count.schedule') {
     const counter = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(payload.counterId).first<{ role: string }>()
@@ -151,9 +158,11 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
     const c: Context = { s, actor, commandId, now: new Date().toISOString(), attachments: [], ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
     if (erasure) c.erasure = erasure
+    enforcePayload(c, payload)
     let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
+    enforceScope(c, before)
     observeRecovery(c, before, type, payload)
     observeFollowUps(c)
     cutoverGuard(before, s, c.now)
@@ -192,41 +201,59 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const ok = await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>()
     if (ok?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
     if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, await people(env, actor))) }
+    // GOV-001: a scoped member reads these through their scope (see scope-view.ts); the audit, archive, handoff,
+    // imports and attachment doors need an unscoped person.
+    const scope = scopeOf(actor), scoped = isScoped(actor), read = async <T>(compute: (s: any) => T | Promise<T>) => scopedRead(await load(env.DB), scope, compute)
+    if (scoped && (path.startsWith('/audit') || path.startsWith('/archive') || path.startsWith('/handoffs/') || path.startsWith('/imports/'))) forbidden('This download needs an unscoped owner or manager.')
     if (path === '/scheduling/labor-costs') {
-      if (!rateReaders.includes(actor.role)) forbidden('Only accounts or authorized managers may read wage-based costing evidence.')
-      return json({ basis: 'Recorded operation time; not payroll or posted accounting cost.', rows: laborCosts(await load(env.DB)) })
+      if (!rateReaders.includes(actor.role) || scope.costs) forbidden('Only accounts or authorized managers may read wage-based costing evidence.')
+      return json({ basis: 'Recorded operation time; not payroll or posted accounting cost.', rows: await read(s => laborCosts(s)) })
     }
     if (path === '/scheduling/finite') {
       const named = await people(env, actor)
-      return json(finitePlan(await load(env.DB), named.people as any, url.searchParams.get('asOf') ?? new Date().toISOString(), Number(url.searchParams.get('days') ?? 14)))
+      return json(await read(s => finitePlan(s, named.people as any, url.searchParams.get('asOf') ?? new Date().toISOString(), Number(url.searchParams.get('days') ?? 14))))
     }
-    if (path === '/purchasing/quotes') return json(supplierQuotes(await load(env.DB), url.searchParams.get('itemId') ?? '', url.searchParams.get('quantity') ?? '', url.searchParams.get('requiredBy') ?? '', new Date().toISOString().slice(0, 10)))
-    if (path === '/planning/materials') return json(materialDates(await load(env.DB)))
-    if (path === '/planning/pegging') return json(materialPegging(await load(env.DB), url.searchParams))
-    if (path === '/planning/supply-changes') return json(supplyChanges(await load(env.DB)))
+    if (path === '/purchasing/quotes') return json(await read(s => supplierQuotes(s, url.searchParams.get('itemId') ?? '', url.searchParams.get('quantity') ?? '', url.searchParams.get('requiredBy') ?? '', new Date().toISOString().slice(0, 10))))
+    if (path === '/planning/materials') return json(await read(s => materialDates(s)))
+    if (path === '/planning/pegging') return json(await read(s => materialPegging(s, url.searchParams)))
+    if (path === '/planning/supply-changes') return json(await read(s => supplyChanges(s)))
     const trace = /^\/lots\/([-0-9a-f]{36})\/trace(\.csv)?$/.exec(path)
     if (trace) {
-      const result = lotTrace(await load(env.DB), trace[1], url.searchParams.get('direction') ?? 'upstream')
+      const all = await load(env.DB), seen = scope.locations === null ? undefined : visibleState(all, scope)
+      if (seen) refuseHidden(trace[1], seen.hidden)
+      let result: any = lotTrace(all, trace[1], url.searchParams.get('direction') ?? 'upstream')
+      if (seen) result = stubHidden(result, seen.hidden)
+      if (scope.costs) result = redactCosts(result)
       return trace[2] ? new Response(traceCsv(result), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-lot-trace.csv"' } }) : json(result)
     }
     const recallDownload = /^\/recalls\/([-0-9a-f]{36})\.json$/.exec(path)
-    if (recallDownload) return json(recallPack(await load(env.DB), recallDownload[1]))
+    if (recallDownload) {
+      // Recall or containment touching an out-of-scope lot or customer is refused to a scoped member.
+      const all = await load(env.DB), pack = recallPack(all, recallDownload[1])
+      if (scope.locations !== null) refuseHidden(pack, visibleState(all, scope).hidden)
+      return json(scope.costs ? redactCosts(pack) : pack)
+    }
     if (path === '/audit') return json(await auditQuery(env.DB, actor, url.searchParams))
     if (path === '/audit.json') return new Response(JSON.stringify(await auditExport(env.DB, actor, url.searchParams)), { headers: { ...headers, 'content-type': 'application/json', 'content-disposition': 'attachment; filename="larder-audit.json"' } })
     if (path === '/audit.csv') return new Response(auditCsv((await auditExport(env.DB, actor, url.searchParams)).entries), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-audit.csv"', 'x-audit-retention': retentionLine } })
     if (path === '/archive') return json(await archive(env, actor))
     if (path === '/archive.csv') return new Response(archiveCsv(await archive(env, actor)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-archive.csv"' } })
-    if (path === '/history') return json((await load(env.DB)).sourceHistory.filter(r => historyMatches(r, url.searchParams.get('q') ?? '')))
+    if (path === '/history') return json(await read(s => s.sourceHistory.filter((r: any) => historyMatches(r, url.searchParams.get('q') ?? ''))))
     if (path === '/catalog.csv') {
       if (!['owner', 'manager', 'buyer', 'production', 'engineer'].includes(actor.role)) forbidden('Only catalog managers, buyers or engineers export the catalog.')
-      return new Response(catalogCsv(await load(env.DB)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-catalog.csv"' } })
+      return new Response(catalogCsv(await scopedState(await load(env.DB), scope)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-catalog.csv"' } })
     }
     if (path === '/boms.csv') {
       if (!['owner', 'manager', 'production', 'engineer'].includes(actor.role)) forbidden('Only manufacturing engineers or managers export BOMs.')
-      return new Response(bomCsv(await load(env.DB)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-boms.csv"' } })
+      return new Response(bomCsv(await scopedState(await load(env.DB), scope)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-boms.csv"' } })
     }
     const certificateDownload = /^\/shipments\/([-0-9a-f]{36})\/certificates\.json$/.exec(path)
-    if (certificateDownload) return json(await certificatePack(env.DB, await load(env.DB), certificateDownload[1]))
+    if (certificateDownload) {
+      const all = await load(env.DB), seen = scope.locations === null ? undefined : visibleState(all, scope)
+      if (seen) refuseHidden(certificateDownload[1], seen.hidden)
+      const pack = await certificatePack(env.DB, all, certificateDownload[1]), shown = seen ? stubHidden(pack, seen.hidden) : pack
+      return json(scope.costs ? redactCosts(shown) : shown)
+    }
     const csv = /^\/handoffs\/([-0-9a-f]{36})\.csv$/.exec(path)
     if (csv) {
       if (!['owner', 'manager', 'accounts'].includes(actor.role)) forbidden()
@@ -238,6 +265,8 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const file = /^\/attachments\/([-0-9a-f]{36})$/.exec(path)
     if (file) {
       const a = await env.DB.prepare('SELECT name,content_type,bytes FROM larder_attachments WHERE id=?').bind(file[1]).first<any>()
+      // A scoped member opens only evidence a record they can see names.
+      if (a && scoped && !names(visibleState(await load(env.DB), scope).state, new Set([file[1]]))) forbidden('This evidence belongs to records outside your scope.')
       if (!a) throw new Problem('NOT_FOUND', 'No such attachment.', null, 404)
       return new Response(new Uint8Array(a.bytes), { headers: { ...headers, 'content-type': a.content_type, 'content-disposition': `attachment; filename="${String(a.name).replace(/[^\w.\- ]/g, '_')}"` } })
     }

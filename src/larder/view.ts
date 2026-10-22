@@ -22,16 +22,37 @@ import { fefoPlans, lotStatuses } from './lot-dates'
 import { pendingHandoffCount } from './handoff'
 import { signatureStatus } from './approval-policy'
 import { collections, type Actor, type State } from './model'
+import { isScoped, scopeOf } from './scope'
+import { redactCosts } from './scope-cost'
+import { reconcile, visibleState } from './scope-view'
 
 export const movementView = (m: State['movements'][number]) => ({ ...m, quantity: format(m.quantity), unitCost: format(m.unitCost) })
 
+// A scoped member reads only what their scope covers (GOV-001): see scope-view.ts.
 export function stateView(s: State, actor: Actor, extra: Record<string, unknown>) {
+  const scope = scopeOf(actor)
+  if (!isScoped(actor)) return fullView(s, actor, extra)
+  let out: Record<string, any>
+  if (scope.locations === null) out = fullView(s, actor, extra) as Record<string, any>
+  else {
+    const full = fullView(s, actor, extra) as Record<string, any>, seen = fullView(visibleState(s, scope).state, actor, extra) as Record<string, any>
+    const records = new Set<string>([...collections, 'actor', 'version', 'movements', 'reservations'])
+    out = Object.fromEntries(Object.entries(seen).map(([k, v]) => [k, records.has(k) || k in extra ? v : reconcile(full[k], v)]))
+  }
+  if (scope.costs) { const { actor: me, version, ...rest } = out; out = { version, actor: me, ...redactCosts(rest) } }
+  return out
+}
+
+function fullView(s: State, actor: Actor, extra: Record<string, unknown>) {
   const blind = blindView(s, actor, extra)
   if (blind) return blind
   const today = new Date().toISOString().slice(0, 10), followUpCases = followUpView(s, today)
   const records = Object.fromEntries(collections.map(k => [k, (k === 'laborRates' && !rateReaders.includes(actor.role)) || (k === 'auditErasures' && actor.role !== 'owner') ? [] : s[k]]))
+  // Scopes and custom roles are the owner's to read; everyone else sees only who holds which role.
+  if (actor.role !== 'owner') { records.roles = s.roles.map(({ id, version, role }) => ({ id, version, role })); records.customRoles = [] }
   records.approvalSignatures = s.approvalSignatures.map(x => ({ ...x, status: signatureStatus(s, x, new Date().toISOString(), extra.people as { id: string; role: string }[] | undefined) }))
-  if (![...rateReaders, 'production'].includes(actor.role)) records.reworkOrders = s.reworkOrders.map(r => ({ ...r, labor: (r.labor ?? []).map(({ rate, ...line }: any) => line) }))
+  // GOV-001: a rework wage rate is read by the owner, managers and accounts, and by the production person who entered it.
+  records.reworkOrders = s.reworkOrders.map(r => rateReaders.includes(actor.role) || (actor.role === 'production' && r.preparedBy === actor.id) ? r : { ...r, labor: (r.labor ?? []).map(({ rate, ...line }: any) => line) })
   return {
     version: s.version, actor, ...records, supplierPerformance: supplierPerformance(s),
     workMaterialPools: Object.fromEntries(s.workOrders.filter(w => w.status === 'released' || (w.outputs ?? []).some((b: any) => !b.allocations)).map(w => [w.id, materialPoolView(s, w)])),

@@ -99,6 +99,10 @@ test('TRACE-001 / FLOOR-004 return defective assemblies, unbuild recovered parts
   assert.equal((await h.request(`/api/larder/lots/${crypto.randomUUID()}/trace`)).status, 409)
   const operator = await h.person('synthetic-larder-32@example.test', 'operator')
   assert.equal((await h.state(operator.cookie)).reworkOrders.find(w => w.id === repaired.id).labor[0].rate, undefined)
+  // GOV-001 wage default: the production person who entered the rate reads it; another production person does not.
+  const colleague = await h.person('synthetic-larder-33@example.test', 'production')
+  assert.equal((await h.state(production.cookie)).reworkOrders.find(w => w.id === repaired.id).labor[0].rate, '20')
+  assert.equal((await h.state(colleague.cookie)).reworkOrders.find(w => w.id === repaired.id).labor[0].rate, undefined)
   await h.command('role.set', { operatorId: production.id, role: 'operator' })
   const replayWithoutRate = await production.run('rework.execute', repairExecution, { commandId: repairIdentity })
   assert.equal(replayWithoutRate.labor[0].rate, undefined, 'demotion cannot recover an hourly rate through command replay')

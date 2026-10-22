@@ -38,7 +38,7 @@ export const perUnit = (unit: unknown) => unitLabel(unit) === 'each' ? 'each' : 
 // Saved status words read in US spelling (a saved "cancelled" shows as Canceled).
 export const words = (value: unknown) => { const t = String(value ?? '').replace(/[-_.]/g, ' ').replace(/cancelled/g, 'canceled'); return t.charAt(0).toUpperCase() + t.slice(1) }
 // Decimal arithmetic for display only (six places), never for posting.
-const big = (v: unknown) => { const t = String(v ?? '0'), neg = t.startsWith('-'), [w, f = ''] = t.replace('-', '').split('.'); const n = BigInt(w || '0') * 1000000n + BigInt((f + '000000').slice(0, 6)); return neg ? -n : n }
+const big = (v: unknown) => { const t = /^-?\d+(\.\d+)?$/.test(String(v ?? '0')) ? String(v ?? '0') : '0', neg = t.startsWith('-'), [w, f = ''] = t.replace('-', '').split('.'); const n = BigInt(w || '0') * 1000000n + BigInt((f + '000000').slice(0, 6)); return neg ? -n : n }
 const out = (n: bigint) => { const neg = n < 0n, a = neg ? -n : n, f = (a % 1000000n).toString().padStart(6, '0').replace(/0+$/, ''); return (neg ? '-' : '') + (a / 1000000n).toString() + (f ? '.' + f : '') }
 export const minus = (a: unknown, b: unknown) => out(big(a) - big(b))
 export const plus = (...v: unknown[]) => out(v.reduce<bigint>((n, x) => n + big(x), 0n))

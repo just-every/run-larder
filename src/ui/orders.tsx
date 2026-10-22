@@ -44,7 +44,7 @@ function Availability({ s, itemId, larder, order }: { s: LarderState; itemId: st
   const open = ['confirmed', 'part shipped'].includes(order.status)
   return <Card title="Selected line availability" className="availability">
     <p className="item-title"><span><strong>{itemName(s, itemId)}</strong><span className="muted">{item?.sku} · {unitLabel(item?.baseUnit)}</span></span></p>
-    <dl className="facts">
+    {a?.restricted ? <p className="muted">{a.restricted}</p> : <dl className="facts">
       <div><dt>On hand</dt><dd>{qty(a?.onHand)}</dd></div>
       <div><dt>Reserved for this order</dt><dd>{qty(reservedHere)}</dd></div>
       <div><dt>Reserved for others</dt><dd>{qty(minus(a?.reserved, reservedHere))}</dd></div>
@@ -52,7 +52,7 @@ function Availability({ s, itemId, larder, order }: { s: LarderState; itemId: st
       <div><dt>Expected from purchase<small>{pos.map(p => `${p.reference} · due ${day(p.expectedDate)}`).join(', ') || 'None open'}</small></dt><dd>{qty(a?.expectedPurchase)}</dd></div>
       <div><dt>Expected from work orders<small>{wos.map(w => `${w.reference} · BOM rev ${w.bomRevision}`).join(', ') || 'None released'}</small></dt><dd>{qty(a?.expectedProduction)}</dd></div>
       <div className="atp"><dt>Available to promise</dt><dd className={negative(a?.availableToPromise) ? 'red' : ''}>{qty(a?.availableToPromise)}</dd></div>
-    </dl>
+    </dl>}
     {open && <div className="stack">
       {can(s, ['manager', 'sales', 'warehouse']) && <button className="button primary" disabled={larder.busy} onClick={() => larder.run('so.reserve', { orderId: order.id })}>Reserve stock</button>}
       {short && can(s, ['manager', 'buyer', 'production', 'planner', 'agent']) && <button className="button" disabled={larder.busy} onClick={async () => { const r = await larder.run('plan.draft', { itemId }); if (r) window.location.hash = `make/${item?.kind === 'make' ? 'wo' : 'po'}/${r.id}` }}>{item?.kind === 'make' ? 'Draft work order' : 'Draft purchase order'} for {qty(short.shortage)} short</button>}

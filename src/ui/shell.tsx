@@ -16,6 +16,9 @@ export async function signOut() {
 const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]!.toUpperCase()).join('')
 const shortName = (name: string) => { const [first, ...rest] = name.split(/\s+/).filter(Boolean); return rest.length ? `${first} ${rest[rest.length - 1]![0]}.` : first ?? '' }
 
+// What the owner narrowed for this person (GOV-001), in words.
+const scopeNote = (state: any) => [state.actor.scope?.locations ? `Limited to ${(state.locations ?? []).map((l: any) => l.name).join(', ') || 'no location'}` : '', state.actor.scope?.costs ? 'Costs and wages restricted' : ''].filter(Boolean).join('. ')
+
 export function TopBar({ larder, view, mode, setMode }: { larder: Larder; view: string; mode: Mode; setMode: (m: Mode) => void }) {
   const { state, busy, error, loadedAt } = larder
   // The day is read in the browser after hydration, so the server's clock and time zone never show.
@@ -29,7 +32,7 @@ export function TopBar({ larder, view, mode, setMode }: { larder: Larder; view: 
     <p className={`sync ${error ? 'bad' : busy ? 'busy' : ''}`} role="status"><span className="dot" aria-hidden="true" /><span className="sync-text">{error ? 'Last change not saved' : busy ? 'Saving…' : loadedAt ? <>All changes saved<span className="since"> · loaded {clock(loadedAt)}</span></> : 'Loading…'}</span></p>
     {state && <details className="account">
       <summary><span className="avatar" aria-hidden="true">{initials(state.actor.name)}</span><span className="who">{shortName(state.actor.name)}</span><Icon name="down" /></summary>
-      <div className="account-menu"><p><strong>{state.actor.name}</strong><small>{words(state.actor.role)}</small></p><button className="signout" type="button" onClick={() => void signOut()}><Icon name="signout" />Sign out</button></div>
+      <div className="account-menu"><p><strong>{state.actor.name}</strong><small>{words(state.actor.role)}</small>{scopeNote(state) && <small>{scopeNote(state)}</small>}</p><button className="signout" type="button" onClick={() => void signOut()}><Icon name="signout" />Sign out</button></div>
     </details>}
   </header>
 }

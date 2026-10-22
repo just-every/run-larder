@@ -3,6 +3,7 @@ import { rows } from './api'
 import type { Larder } from './app'
 import { Card, Chip, Choose, Empty, Field, Form, Table, text } from './controls'
 import { words } from './format'
+import { Scopes } from './scopes'
 
 const roleHelp: [string, string][] = [['manager', 'Everything day to day, approvals and move-in'], ['sales', 'Quotes, orders and reservations'], ['planner', 'Forecasts and MPS, inventory policies, shortage and work drafts, ranks, reschedules and split/merge; never releases work or buys'], ['buyer', 'Purchase orders and supplier terms'], ['engineer', 'BOM and routing revisions, BOM and catalog CSV edits and engineering change proposals; a manager approves changes'], ['production', 'BOMs and work orders'], ['operator', 'Runs only operations assigned to them: acknowledge, start, pause, report progress and complete'], ['warehouse', 'Receiving, shipping, transfers and counts'], ['quality', 'Inspections, holds, nonconformances, deviations, certificates, expiry and recalls'], ['accounts', 'Handoff batches and ledger acknowledgements'], ['agent', 'Prepares drafts and proposals; never approves or posts'], ['viewer', 'Reads everything, changes nothing']]
 
@@ -24,5 +25,6 @@ export function People({ larder }: { larder: Larder }) {
         <Choose label="Person" name="operatorId" options={rows(s, 'operators').filter(o => o.role !== 'owner').map(o => ({ value: o.id, label: o.name }))} />
         <Choose label="Role" name="role" options={roleHelp.map(([v, help]) => ({ value: v, label: `${words(v)}: ${help}` }))} /></Form></Card>
     </div>
+    <Scopes larder={larder} />
   </>
 }
