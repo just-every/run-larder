@@ -268,6 +268,7 @@ const planningState=(page:Page)=>page.evaluate(async()=>(await fetch('/api/larde
 async function planningShot(page:Page,name:string){
   if(!process.env.LARDER_SCREENSHOTS)return
   await mkdir(process.env.LARDER_SCREENSHOTS,{recursive:true})
+  await expect(page.getByText('Calculating finite capacity…',{exact:true})).toHaveCount(0)
   await page.screenshot({path:join(process.env.LARDER_SCREENSHOTS,`${page.viewportSize()!.width}-${name}.png`),fullPage:true})
 }
 
@@ -409,6 +410,38 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   await planningAct(page,()=>page.getByRole('button',{name:'Decline Demand and overtime assumptions',exact:true}).click())
   await expect(page.getByLabel('Schedule review Demand and overtime assumptions',{exact:true})).toContainText('rejected')
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'MRP-004-declined')}
+  await page.getByText('Prepare an automation grant',{exact:true}).click()
+  const prepare=page.getByRole('button',{name:'Prepare automation grant',exact:true}).locator('..').locator('..')
+  await prepare.locator('input[name="eventTypes"][value="progress"]').check()
+  for(const input of await prepare.locator('input[name="machineIds"]').all())await input.check()
+  await prepare.getByLabel('Maximum per-job delay (minutes)',{exact:true}).fill('1440')
+  await prepare.getByLabel('Maximum per-job displacement (minutes)',{exact:true}).fill('1440')
+  await prepare.getByLabel('Grant expires (local time)',{exact:true}).fill(day(2)+'T00:00')
+  await prepare.getByLabel('Grant preparation reason',{exact:true}).fill('synthetic-larder-975 bounded internal recovery')
+  await planningAct(page,()=>prepare.getByRole('button',{name:'Prepare automation grant',exact:true}).click())
+  let grant=(await planningState(page)).scheduleGrants.find((g:any)=>g.reason==='synthetic-larder-975 bounded internal recovery')
+  let grantPanel=page.getByLabel(`Automation grant: ${grant.reason}, version ${grant.version}`,{exact:true})
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-007-grant-draft');if(process.env.LARDER_SCREENSHOTS)await grantPanel.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-CAP-007-grant-draft-detail.png`)})}
+  await grantPanel.getByLabel('Automation grant approval reason',{exact:true}).fill('synthetic-larder-976 owner authorizes explicit bounded booking')
+  await planningAct(page,()=>grantPanel.getByRole('button',{name:'Approve automation grant',exact:true}).click())
+  grant=(await planningState(page)).scheduleGrants.find((g:any)=>g.id===grant.id)
+  grantPanel=page.getByLabel(`Automation grant: ${grant.reason}, version ${grant.version}`,{exact:true})
+  await expect(grantPanel).toContainText('active')
+  const current=(await planningState(page)).workOrders.find((w:any)=>w.id===jobs[2].id)
+  await call('wo.operation.resume',{workOrderId:current.id,version:current.version,sequence:1,reason:'synthetic-larder-977 repaired spindle'})
+  await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  const applied=page.getByLabel('Schedule review wo.operation.resume recovery',{exact:true})
+  await expect(applied).toContainText('Automatic booking: applied under approved grant')
+  await applied.locator('summary').click()
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-007-automatic');if(process.env.LARDER_SCREENSHOTS)await applied.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-CAP-007-automatic-detail.png`)})}
+  await grantPanel.getByLabel('Automation grant revocation reason',{exact:true}).fill('synthetic-larder-978 stop delegated booking')
+  await planningAct(page,()=>grantPanel.getByRole('button',{name:'Revoke automation grant',exact:true}).click())
+  const bookingBefore=(await planningState(page)).scheduleBookings,latest=(await planningState(page)).workOrders.find((w:any)=>w.id===jobs[2].id)
+  await call('wo.operation.progress',{workOrderId:latest.id,version:latest.version,sequence:1,completedQuantity:'0.5',remainingMinutes:30,note:'synthetic-larder-979 progress after revocation',reason:'synthetic-larder-980 supervisor report'})
+  await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  await expect(page.getByLabel('Schedule review wo.operation.progress recovery',{exact:true})).toContainText('No active automatic booking grant')
+  expect((await planningState(page)).scheduleBookings).toEqual(bookingBefore)
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-007-revoked')}
 })
 
 test('Replenishment reviews revised MOQ and uncertain coverage/cash, selectively approves and retains rejected reasons at 1440/390',async({page})=>{

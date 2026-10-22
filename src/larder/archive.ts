@@ -54,8 +54,8 @@ export async function restore(env: Bindings, actor: Actor, request: Request) {
   const unmappedRoles = [...(content.unmappedRoles ?? [])]
   for (const kind of collections) for (const r of content.records[kind] ?? []) {
     if (kind === 'roles' && !operators.has(r.id)) { skippedRoles++; unmappedRoles.push(r); continue }
-    const data = kind === 'imports' ? { ...r, status: r.status === 'committed' ? 'restored' : r.status } : r
-    statements.push(db.prepare('INSERT INTO larder_records(kind,id,version,data) VALUES(?,?,?,?)').bind(kind, r.id, r.version, JSON.stringify(data)))
+    const data = kind === 'imports' ? { ...r, status: r.status === 'committed' ? 'restored' : r.status } : kind === 'scheduleGrants' ? { ...r, version: r.version + 1, status: 'draft', approvedBy: null, approvedAt: null, restoredAt: new Date().toISOString(), history: [...(r.history ?? []), (({ history, ...original }) => original)(r)] } : r
+    statements.push(db.prepare('INSERT INTO larder_records(kind,id,version,data) VALUES(?,?,?,?)').bind(kind, r.id, data.version, JSON.stringify(data)))
   }
   for (const m of content.movements) statements.push(db.prepare('INSERT INTO larder_movements VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(m.id, m.sequence, m.itemId, m.locationId, m.status, m.lotId, Number(m.quantity), Number(m.unitCost), m.kind, m.documentKind, m.documentId, m.reversesId, m.actorId, m.commandId, m.importId, m.reason, m.createdAt))
   for (const r of content.reservations) statements.push(db.prepare('INSERT INTO larder_reservations VALUES(?,?,?,?,?,?,?)').bind(r.id, r.demandKind, r.demandId, r.lineId, r.itemId, r.locationId, Number(r.quantity)))

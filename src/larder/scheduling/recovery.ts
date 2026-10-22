@@ -1,3 +1,7 @@
+import { scheduleGrant, grantRefusal } from './grants'
+import { adoptionProblem, bookIntervals } from './booking'
+import { planningDigest } from './fingerprint'
+export { planningDigest } from './fingerprint'
 import { orderStatuses } from '../order-status'
 import { draftWork } from '../production'
 import { supplierQuote } from '../supplier-terms'
@@ -6,19 +10,14 @@ import { decimal, format } from '../decimal'
 import { move, balance } from '../stock'
 // Durable event proposals and isolated schedule scenarios. No observer may
 // approve work, change a customer date, buy, or perform an external action.
-import { canonicalJson, sha256 } from '../../modules/import-kit/src/d1/index'
-import { collections, bump, fresh, get, list, row, text, type Context, type State, type Row } from '../model'
+import { canonicalJson } from '../../modules/import-kit/src/d1/index'
+import { bump, fresh, get, list, row, text, type Context, type State, type Row } from '../model'
 import { allow, approver } from '../roles'
 import { fail } from '../problem'
 import { finitePlan } from './finite'
 import { instant, integer } from './calendars'
 import { capacityPreview } from './reschedule'
 
-export function planningDigest(s: State, people: Context['people']) {
-  return sha256(canonicalJson({ records: Object.fromEntries(collections.filter(k => !['schedulePlans','replenishmentPlans'].includes(k)).map(k => [k,s[k]])),
-    movements: s.movements.map(m=>({...m,quantity:String(m.quantity),unitCost:String(m.unitCost)})),
-    reservations:s.reservations.map(r=>({...r,quantity:String(r.quantity)})), people }))
-}
 const policy = (s:State) => s.schedulePolicies[0]
 const currentWindow = (c:Context,p:any) => {
   const asOf=instant(p.asOf ?? c.now,'planning start'),days=integer(p.days ?? 14,'planning horizon',1,60)
@@ -105,6 +104,7 @@ function scenario(c:Context,p:any,kind='scenario',event?:any) {
 }
 
 export function recovery(c:Context,type:string,p:any):Row|undefined {
+  if(type.startsWith('schedule.grant.'))return scheduleGrant(c,type,p)
   if(type==='schedule.protect') {
     allow(c,['manager','planner'])
     const window=currentWindow(c,p),freezeUntil=instant(p.freezeUntil,'freeze until')
@@ -133,9 +133,8 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
   if(['promises','spend','automatic'].some(k=>p[k]!==undefined))fail('AUTHORITY','Customer dates and spending require their separate recorded authority.')
   const note=text(p.reason,'decision reason')
   if(type==='schedule.reject')return bump(plan,{status:'rejected',decidedBy:c.actor.id,decidedAt:c.now,note})
-  if(plan.inputDigest!==planningDigest(c.s,c.people)||plan.day!==c.now.slice(0,10)||Date.parse(plan.after.startsAt)<Date.parse(c.now))fail('STALE','Planning inputs, live people or planning window changed. Prepare a fresh scenario.')
-  if(plan.after.unscheduled.some((u:any)=>!plan.before.unscheduled.some((b:any)=>b.workOrderId===u.workOrderId&&b.sequence===u.sequence&&b.reason===u.reason)||plan.changes.some((ch:any)=>ch.workOrderId===u.workOrderId))||plan.after.protectionConflicts?.length||plan.protectionConflicts.length)fail('CAPACITY','An infeasible or protected operation prevents adoption; nothing was booked.')
-  if(plan.inventoryUnavailable?.length||plan.alternateSuppliers?.length)fail('POLICY','Speculative inventory and supplier assumptions cannot authorize stock or spending. Realize them through their existing approved doors, then compare again.')
+  const problem=adoptionProblem(c,plan)
+  if(problem)fail(problem.code,problem.message)
   // A schedule approval carries no authority to bypass each adopted piece's door.
   if(plan.extraWork?.length)allow(c,['manager','production','planner'])
   for(const change of plan.overtime??[])allow(c,change.kind==='labor'?['manager']:['manager','planner'])
@@ -147,13 +146,18 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
   // An outage is hypothetical: adoption books around it, never clears a real
   // hold or edits the underlying maintenance/calendar record.
   for(const ch of plan.changes)bump(get(c.s,'workOrders',ch.workOrderId),ch)
-  for(const old of c.s.scheduleBookings.filter(b=>b.status==='active'))bump(old,{status:'superseded',supersededBy:plan.id})
-  const booking=row(c,'scheduleBookings',{status:'active',planId:plan.id,asOf:plan.asOf,days:plan.days,operations:plan.after.operations,approvedBy:c.actor.id,approvedAt:c.now,reason:note})
-  return bump(plan,{status:'adopted',bookingId:booking.id,decidedBy:c.actor.id,decidedAt:c.now,note})
+  return bookIntervals(c,plan,note,c.actor.id)
 }
 
 const events=['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected']
 export function observeRecovery(c:Context,before:State,type:string,payload:any) {
   if(!events.includes(type)||!policy(c.s)||c.s.schedulePlans.some(p=>p.event?.commandId===c.commandId))return
-  scenario(c,{name:`${type} recovery`,reason:'Recorded event; preserve frozen/manual intervals and review displacement.'},'reflow',{type,before,payload})
+  const plan=scenario(c,{name:`${type} recovery`,reason:'Recorded event; preserve frozen/manual intervals and review displacement.'},'reflow',{type,before,payload})
+  const grants=c.s.scheduleGrants.filter(g=>g.status==='active')
+  const grant=grants.at(-1)
+  if(!grant){plan.automation={status:'review',reason:'No active automatic booking grant.'};return}
+  const refusal=adoptionProblem(c,plan)?.message??grantRefusal(c,grant,plan)
+  if(refusal){plan.automation={status:'review',grantId:grant.id,grantVersion:grant.version,reason:refusal};return}
+  plan.automation={status:'applied',grantId:grant.id,grantVersion:grant.version}
+  bookIntervals(c,plan,'Bounded internal event booking under independently approved grant.',grant.approvedBy,{grantId:grant.id,grantVersion:grant.version})
 }

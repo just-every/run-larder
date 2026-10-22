@@ -872,3 +872,73 @@ test('Replenishment revises MOQ and uncertain lead bounds, explains dated covera
   const a1=await(await h.request('/api/larder/archive')).json(),target=await installation();t.after(()=>target.close());assert.equal((await target.request('/api/larder/archive/restore',{method:'POST',body:a1})).status,200)
   const a2=await(await target.request('/api/larder/archive')).json();assert.deepEqual(a2.records.replenishmentPlans,a1.records.replenishmentPlans);assert.deepEqual(a2.records.purchaseOrders,a1.records.purchaseOrders);assert.match(await(await h.request('/api/larder/archive.csv')).text(),/replenishmentPlans/)
 })
+
+test('Bounded grants independently authorize one internal reflow, stop at limits or lost authority, and restore inactive without replay',async t=>{
+  const h=await installation();t.after(()=>h.close());const w=await workshop(h),owner=(await h.state()).actor
+  const planner=await h.person('synthetic-larder-951@example.test','planner'),reviewer=await h.person('synthetic-larder-952@example.test','manager'),agent=await h.person('synthetic-larder-953@example.test','agent')
+  const start='2026-11-25T00:00:00Z'
+  const machine=await h.command('capacity.machine',capacityCalendar('Grant bench'))
+  await h.command('capacity.labor',capacityCalendar('Grant operator',{operatorIds:[owner.id],skills:[]}))
+  await h.command('bom.revise',{itemId:w.board.id,components:[{itemId:w.timber.id,quantity:'1'}],routing:[{name:'Grant cut',workCentre:'Grant bench',minutes:120},{name:'Buffered finish',workCentre:'Grant bench',minutes:30,queueMinutes:15}]})
+  const jobs=[]
+  for(let i=0;i<3;i++){let job=await h.command('wo.draft',{itemId:w.board.id,quantity:'1',requiredBy:'2026-12-05',reason:'synthetic-larder-954 internal work'});job=await h.command('wo.release',{workOrderId:job.id,version:job.version});jobs.push(job)}
+  let job=await h.command('wo.operation.assign',{workOrderId:jobs[0].id,version:jobs[0].version,sequence:1,operatorId:owner.id})
+  job=await h.command('wo.operation.start',{workOrderId:job.id,version:job.version,sequence:1,workCentre:'Grant bench',station:'synthetic-larder-955 tablet',reason:'synthetic-larder-956 started work'})
+  await h.command('order.rank',{kind:'work',orderId:jobs[2].id,version:jobs[2].version,rank:1})
+  let protection=await planner.run('schedule.protect',{asOf:start,days:14,freezeUntil:start,manualLocks:[],reason:'synthetic-larder-957 explicit unfrozen window'})
+  const args={eventTypes:['progress','breakdown','priority','ETA'],machineIds:[machine.id],workOrderIds:[],maxDelayMinutes:1440,maxDisplacementMinutes:1440,expiresAt:new Date(Date.now()+86400000).toISOString(),reason:'synthetic-larder-958 bounded grant'}
+  for(const missing of ['eventTypes','machineIds','maxDelayMinutes','maxDisplacementMinutes','expiresAt']){const bad={...args};delete bad[missing];await planner.run('schedule.grant.prepare',bad,{error:'INPUT'})}
+  let agentGrant=await agent.run('schedule.grant.prepare',args)
+  await agent.run('schedule.grant.approve',{grantId:agentGrant.id,version:agentGrant.version,reason:'synthetic-larder-968 agent cannot authorize'},{error:'FORBIDDEN'})
+  agentGrant=await h.command('schedule.grant.approve',{grantId:agentGrant.id,version:agentGrant.version,reason:'synthetic-larder-969 human approves agent preparation'})
+  await agent.run('schedule.grant.revoke',{grantId:agentGrant.id,version:agentGrant.version,reason:'synthetic-larder-970 preparer withdraws own delegation'})
+  let own=await h.command('schedule.grant.prepare',args)
+  own=await h.command('schedule.grant.approve',{grantId:own.id,version:own.version,reason:'synthetic-larder-971 explicit owner exception'})
+  await h.command('schedule.grant.revoke',{grantId:own.id,version:own.version,reason:'synthetic-larder-972 replace owner delegation'})
+  let grant=await planner.run('schedule.grant.prepare',args)
+  for(const actor of [planner,agent])await actor.run('schedule.grant.approve',{grantId:grant.id,version:grant.version,reason:'synthetic-larder-959 no self or agent approval'},{error:'FORBIDDEN'})
+  grant=await reviewer.run('schedule.grant.approve',{grantId:grant.id,version:grant.version,reason:'synthetic-larder-960 independently bounded'})
+  const before=await h.state(),pause={workOrderId:job.id,version:job.version,sequence:1,reason:'breakdown',note:'synthetic-larder-961 stop mid-job',escalationOwnerId:reviewer.id,anticipatedResumeAt:'2026-11-25T04:00:00Z'}
+  const stopped=await h.send('wo.operation.pause',pause);assert.equal(stopped.body.ok,true)
+  let s=await h.state(),plan=s.schedulePlans.find(p=>p.event?.commandId===stopped.commandId)
+  assert.equal(plan.status,'adopted',plan.automation?.reason);assert.equal(plan.autoApplication.grantVersion,grant.version);assert.equal(plan.autoApplication.approverId,reviewer.id)
+  assert.ok(plan.effects.some(e=>e.before!==e.after));assert.deepEqual(plan.autoApplication.before,plan.before.operations)
+  assert.equal(plan.autoApplication.commandId,stopped.commandId);assert.deepEqual(plan.autoApplication.after,plan.after.operations)
+  const old=plan.before.operations.find(o=>o.workOrderId===job.id&&o.sequence===1),active=plan.after.operations.find(o=>o.key===old.key)
+  assert.equal(active.machineId,old.machineId);assert.equal(active.operatorId,old.operatorId)
+  const successor=plan.after.operations.find(o=>o.workOrderId===job.id&&o.sequence===2);assert.ok(Date.parse(successor.startsAt)>=Date.parse(active.endsAt)+15*60000)
+  for(const key of ['salesOrders','purchaseOrders','movements','reservations','machineCalendars','laborCalendars'])assert.deepEqual(s[key],before[key],key)
+  assert.ok([...minuteOccupancy(plan.after.operations).values()].every(n=>n<=1))
+  const bookings=s.scheduleBookings;await h.restart();await h.command('wo.operation.pause',pause,{commandId:stopped.commandId})
+  s=await h.state();assert.deepEqual(s.scheduleBookings,bookings);assert.equal(s.schedulePlans.filter(p=>p.event?.commandId===stopped.commandId).length,1)
+  const rank=async(force)=>{const current=(await h.state()).workOrders.find(w=>w.id===jobs[1].id);const sent=await h.send('order.rank',{kind:'work',orderId:current.id,version:current.version,rank:force??((current.rank??2)===1?2:1)});assert.equal(sent.body.ok,true);return (await h.state()).schedulePlans.find(p=>p.event?.commandId===sent.commandId)}
+  const replace=async(overrides={})=>{grant=await planner.run('schedule.grant.prepare',{...args,id:grant.id,version:grant.version,...overrides});return grant}
+  const approve=async()=>grant=await reviewer.run('schedule.grant.approve',{grantId:grant.id,version:grant.version,reason:'synthetic-larder-962 review exact revision'})
+  await replace({maxDelayMinutes:0,maxDisplacementMinutes:0});const revisedBookings=(await h.state()).scheduleBookings
+  plan=await rank();assert.equal(plan.status,'review');assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
+  await approve();plan=await rank(1);assert.equal(plan.status,'review');assert.match(plan.automation.reason,/limit/);assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
+  await replace({machineIds:[],workOrderIds:[job.id]});await approve();plan=await rank(1);assert.equal(plan.status,'review');assert.match(plan.automation.reason,/scope/);assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
+  await replace();await approve();grant=await planner.run('schedule.grant.revoke',{grantId:grant.id,version:grant.version,reason:'synthetic-larder-963 preparer withdraws delegation'})
+  plan=await rank();assert.equal(plan.status,'review');assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
+  await replace();await approve()
+  protection=await planner.run('schedule.protect',{version:protection.version,asOf:start,days:14,freezeUntil:start,manualLocks:[],reason:'synthetic-larder-964 protection revision suspends grant'})
+  plan=await rank();assert.equal(plan.status,'review');assert.match(plan.automation.reason,/Protection/);assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
+  await replace();await approve()
+  assert.equal((await h.request('/auth/operator/status',{method:'POST',body:{operatorId:reviewer.id,status:'inactive'}})).status,200)
+  plan=await rank();assert.equal(plan.status,'review');assert.match(plan.automation.reason,/approver/);assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
+  // A fresh live approval after expiry uses the owner exception; a recorded
+  // expiry stops the next event, without an invented background clock.
+  await replace({expiresAt:new Date(Date.now()+4000).toISOString()})
+  grant=await h.command('schedule.grant.approve',{grantId:grant.id,version:grant.version,reason:'synthetic-larder-965 owner approval'})
+  await new Promise(r=>setTimeout(r,Math.max(0,Date.parse(grant.expiresAt)-Date.now()+50)))
+  plan=await rank();assert.equal(plan.status,'review');assert.match(plan.automation.reason,/expired/);assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
+  await replace();grant=await h.command('schedule.grant.approve',{grantId:grant.id,version:grant.version,reason:'synthetic-larder-966 current owner approval'})
+  const scenario=await h.command('schedule.scenario',{asOf:start,days:14,name:'Never automatic',reason:'synthetic-larder-967 isolated scenario'})
+  assert.equal(scenario.status,'review');assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
+  const archive=await(await h.request('/api/larder/archive')).json(),target=await installation();t.after(()=>target.close())
+  assert.equal((await target.request('/api/larder/archive/restore',{method:'POST',body:archive})).status,200)
+  const saved=await(await target.request('/api/larder/archive')).json(),restored=saved.records.scheduleGrants.find(g=>g.id===grant.id)
+  assert.equal(restored.status,'draft');assert.equal(restored.approvedBy,null);assert.ok(restored.history.some(g=>g.status==='active'))
+  assert.deepEqual(saved.records.schedulePlans,archive.records.schedulePlans);assert.deepEqual(saved.records.scheduleBookings,archive.records.scheduleBookings)
+  assert.match(await(await h.request('/api/larder/archive.csv')).text(),/scheduleGrants/)
+})

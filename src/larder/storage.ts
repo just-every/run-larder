@@ -1,3 +1,4 @@
+import { bookingGuards } from './scheduling/booking-guards'
 // Load the whole operational state and commit a command's changes as one
 // atomic D1 batch, guarded by the session, the role and the state version.
 import { fail } from './problem'
@@ -82,7 +83,7 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
     ].map(([id, permitted]) => db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN (${permitted})) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), id)) : []),
     ...(type === 'capacity.labor' ? (result as any).operatorIds.map((id: string) => db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager','production','operator')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), id)) : []),
     ...(type === 'proposal.approve' && (result as any).context?.capacity ? [...new Set<string>((result as any).context.capacity.after.operations.map((o: any) => o.operatorId))].map(id => db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager','production','operator')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), id)) : []),
-    ...(type === 'schedule.adopt' ? [...new Set<string>((result as any).after.operations.map((o: any) => o.operatorId))].map(id => db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager','production','operator')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), id)) : []),
+    ...bookingGuards(db, c, before),
     ...changes(db, c, before),
     ...audit.map(e => db.prepare(auditInsertSql).bind(...auditParams(e))),
     db.prepare('UPDATE larder_meta SET version=version+1 WHERE id=1'),

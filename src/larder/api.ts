@@ -1,3 +1,4 @@
+import { newBookings } from './scheduling/booking-guards'
 import { replenishment } from './replenishment'
 import { recovery, observeRecovery } from './scheduling/recovery'
 import { laborCosts } from './scheduling/labor-costs'
@@ -160,6 +161,9 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
       const replay = await saved(env.DB, commandId, digest, actor)
       if (replay) return respond(replay)
       if ((await load(env.DB)).version !== before.version && attempt < 7) continue
+      // Native membership changes do not bump the domain version. Recompute
+      // the event as a review proposal if its delegated authorizer was revoked.
+      if (/CHECK constraint failed/.test(String((error as Error)?.message ?? '')) && newBookings(c,before).some(b=>b.automatic) && attempt < 7) continue
       const message = String((error as Error)?.message ?? '')
       if (/oversold|reserved_stock|negative_stock/.test(message)) fail('DEPENDENCY', 'Stock changed underneath this action. Reload and try again.')
       if (/CHECK constraint failed/.test(message) && (await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>())?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)

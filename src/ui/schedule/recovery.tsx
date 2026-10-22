@@ -1,3 +1,4 @@
+import { ScheduleGrants } from './grants'
 import { can, rows } from '../api'
 import type { Larder } from '../app'
 import { Area, Card, Choose, Field, Form, Table, text } from '../controls'
@@ -7,12 +8,13 @@ export function ScheduleRecovery({larder,plan}:{larder:Larder;plan:any}) {
   const protectors=can(s,['manager','planner']), approvers=can(s,['manager','production','planner']), preparers=can(s,['manager','planner','agent'])
   return <>
     <Card title="Frozen work and manual locks">
-      <p>Frozen and manually locked intervals keep their named machine and person. An outage on a protected interval stays an explicit conflict. Automatic sequencing is disabled; protection changes need an owner, manager or planner and a recorded reason. Adoption needs an independent schedule approver; overtime and draft work keep their own authority. Customer promises and spending keep their separate approvals.</p>
+      <p>Frozen and manually locked intervals keep their named machine and person. An outage on a protected interval stays an explicit conflict. Automatic sequencing needs a separately approved bounded grant; protection changes need an owner, manager or planner and a recorded reason. Adoption needs an independent schedule approver; overtime and draft work keep their own authority. Customer promises and spending keep their separate approvals.</p>
       {policy&&<p>Frozen through {policy.freezeUntil}; {policy.manualLocks.length} manual locks; {policy.protectedOperations.length} protected operations. {policy.reason}</p>}
       {protectors&&<Form submit="Save schedule protections" busy={larder.busy} onSubmit={d=>larder.run('schedule.protect',{...(policy?{version:policy.version}:{}),asOf:plan.asOf,days:plan.horizonDays,freezeUntil:new Date(text(d,'fence')).toISOString(),manualLocks:text(d,'lock')?[{workOrderId:text(d,'lock').split(':')[0],sequence:Number(text(d,'lock').split(':')[1])}]:[],automatic:false,reason:text(d,'reason')})}>
         <Field label="Freeze schedule through (local time)" name="fence" type="datetime-local" /><Choose label="Manual operation lock" name="lock" required={false} options={plan.operations.map((o:any)=>({value:o.key,label:`${o.reference} · ${o.name} · ${o.machine}`}))}/><Area label="Protection reason" name="reason" />
       </Form>}
     </Card>
+    <ScheduleGrants larder={larder} plan={plan}/>
     <Card title="Planning scenarios and event recovery">
       <p>Compare isolated outages against the current plan. Preparation books nothing. Adoption rechecks the entire business input and live people, then books all reviewed intervals in one transaction. Compare additional draft demand, unavailable free inventory, alternate supplier quotes and bounded overtime. Material ETA effects use the shared allocation; uncovered inputs stay explicit. Speculative inventory or supplier assumptions need their existing physical/spend approvals before adoption; every execution gate still applies.</p>
       {preparers&&<Form submit="Compare outage scenario" busy={larder.busy} onSubmit={d=>larder.run('schedule.scenario',{asOf:plan.asOf,days:plan.horizonDays,name:text(d,'name'),reason:text(d,'reason'),outages:text(d,'machine')?[{machineId:text(d,'machine'),startsAt:new Date(text(d,'start')).toISOString(),endsAt:new Date(text(d,'end')).toISOString()}]:undefined,
@@ -33,6 +35,7 @@ export function ScheduleRecovery({larder,plan}:{larder:Larder;plan:any}) {
         <p>Additional draft jobs: {p.extraWork?.length??0}; inventory assumptions: {p.inventoryUnavailable?.length??0}; supplier assumptions: {p.alternateSuppliers?.length??0}; bounded overtime windows: {p.overtime?.length??0}.</p>
         {p.alternateSuppliers?.map((q:any,i:number)=><p key={i}>Supplier estimate: {q.quantity} base units · {q.exposure} USD · latest {q.latestDate} · {q.robustFeasible?'within bound':'late at bound'} · speculative; no order sent.</p>)}
         {p.materialEffects?.map((m:any)=><p key={m.workOrderId}>{m.reference} · material not before {m.notBefore??'current stock / unknown'} · {m.missing.length} uncovered input lines. {m.basis}</p>)}
+        {p.automation&&<p>Automatic booking: {p.automation.status==='applied'?'applied under approved grant':p.automation.reason}. {p.autoApplication&&`Grant version ${p.autoApplication.grantVersion}; accountable approver ${rows(s,'people').find(x=>x.id===p.autoApplication.approverId)?.name??p.autoApplication.approverId}.`}</p>}
         {p.event&&<p>Event: {p.event.type} at {p.event.at}; one durable proposal per recorded event.</p>}
         <Table head={['Displaced job','Before finish','After finish','Risk']}>{p.effects.map((e:any)=><tr key={e.workOrderId}><td>{e.reference}</td><td>{e.before??'Unscheduled'}</td><td>{e.after??'Unscheduled'}</td><td>{e.unscheduled?'Unscheduled':e.lateAfter?'Late':'On time'}</td></tr>)}</Table>
         {p.after.unscheduled.map((u:any,i:number)=><p key={i}>{u.reference}: {u.reason}</p>)}
