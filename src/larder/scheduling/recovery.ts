@@ -85,7 +85,7 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
   const note=text(p.reason,'decision reason')
   if(type==='schedule.reject')return bump(plan,{status:'rejected',decidedBy:c.actor.id,decidedAt:c.now,note})
   if(plan.inputDigest!==planningDigest(c.s,c.people)||plan.day!==c.now.slice(0,10)||Date.parse(plan.after.startsAt)<Date.parse(c.now))fail('STALE','Planning inputs, live people or planning window changed. Prepare a fresh scenario.')
-  if(plan.after.unscheduled.length||plan.after.protectionConflicts?.length||plan.protectionConflicts.length)fail('CAPACITY','An infeasible or protected operation prevents adoption; nothing was booked.')
+  if(plan.after.unscheduled.some((u:any)=>!plan.before.unscheduled.some((b:any)=>b.workOrderId===u.workOrderId&&b.sequence===u.sequence&&b.reason===u.reason)||plan.changes.some((ch:any)=>ch.workOrderId===u.workOrderId))||plan.after.protectionConflicts?.length||plan.protectionConflicts.length)fail('CAPACITY','An infeasible or protected operation prevents adoption; nothing was booked.')
   // An outage is hypothetical: adoption books around it, never clears a real
   // hold or edits the underlying maintenance/calendar record.
   for(const ch of plan.changes)bump(get(c.s,'workOrders',ch.workOrderId),ch)

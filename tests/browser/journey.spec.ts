@@ -373,6 +373,19 @@ test('Qualified alternates compare setup, tools, labor, delivery and cost before
   await expect(page.getByText('Approved finite schedule',{exact:true})).toBeVisible()
   const current=await state(page);expect(current.workOrders.find((j:any)=>j.id===w.id).scheduleChoices[1]).toBe(names[2]);expect(current.workOrders.find((j:any)=>j.id===w.id).routing).toEqual(w.routing)
   for(const width of [1440,390]) {await page.setViewportSize({width,height:1000});await shot(page,'CAP-006-approved')}
+  await page.goto(origin+'/app#make/wo/'+w.id);await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  const actor=(await state(page)).actor
+  await page.getByLabel('Step 1 authorized operator',{exact:true}).selectOption(actor.id)
+  await act(page,()=>page.getByRole('button',{name:'Authorize step 1 operator',exact:true}).click())
+  await act(page,()=>page.getByRole('button',{name:'Acknowledge step 1 instructions and drawings',exact:true}).click())
+  await page.getByLabel('Step 1 work center',{exact:true}).selectOption(names[1]);await page.getByLabel('Step 1 station',{exact:true}).fill('synthetic-larder-618 alternate station');await page.getByLabel('Step 1 start reason',{exact:true}).fill('synthetic-larder-619 reviewed alternate')
+  const deniedReply=page.waitForResponse(r=>r.url().endsWith('/api/larder/commands')&&r.request().postDataJSON()?.type==='wo.operation.start');await page.getByRole('button',{name:'Start step 1',exact:true}).click();expect((await(await deniedReply).json()).error.code).toBe('WORK_CENTER')
+  await expect(page.getByRole('alert')).toContainText('Use the exact reviewed alternate center')
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'CAP-006-wrong-center')}
+  await page.getByLabel('Step 1 work center',{exact:true}).selectOption(names[2])
+  await act(page,()=>page.getByRole('button',{name:'Start step 1',exact:true}).click())
+  await expect(page.getByRole('region',{name:'Pinned operation tasks',exact:true})).toContainText(names[2])
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'CAP-006-execution')}
 })
 
 test('Frozen recovery and isolated outage scenarios retain locks, show displacement and reject stale adoption at 1440/390',async({page})=>{

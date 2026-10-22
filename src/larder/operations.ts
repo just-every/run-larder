@@ -13,7 +13,8 @@ type Gate = OperationGate
 
 // The read projection and the command share actual start gates. Form inputs
 // (station, chosen center and reason) are validated only when submitted.
-export function operationStartGates(s: Pick<State, 'maintenance' | 'qualityHolds' | 'recalls' | 'inspectionPlans' | 'inspections' | 'items'>, actor: Pick<Actor, 'id' | 'role'>, w: Row, step: any, now: string, workCentre?: string): Gate[] {
+export function operationStartGates(s: Pick<State, 'machineCalendars' | 'maintenance' | 'qualityHolds' | 'recalls' | 'inspectionPlans' | 'inspections' | 'items'>, actor: Pick<Actor, 'id' | 'role'>, w: Row, step: any, now: string, workCentre?: string): Gate[] {
+  const chosen = workCentre ?? w.scheduleChoices?.[step.sequence]
   const states: any[] = w.operationStates ?? []
   const task = states.find(t => t.sequence === step.sequence)
   const centres: string[] = step.eligibleCentres?.length ? step.eligibleCentres : step.workCentre ? [step.workCentre] : []
@@ -29,6 +30,8 @@ export function operationStartGates(s: Pick<State, 'maintenance' | 'qualityHolds
     ...(step.requiredSkills?.length && !task?.assignment ? [{ code: 'SKILLS', message: 'A manager must authorize a named person for these skill requirements before starting.' }] : []),
     ...(!step.requiredSkills?.length && !task?.assignment ? [{ code: 'ASSIGNMENT', message: 'A manager must assign a named operator before starting.' }] : []),
     ...(workCentre && centres.length && !centres.includes(workCentre) ? [{ code: 'WORK_CENTER', message: 'Choose an eligible work center from the pinned routing.' }] : []),
+    ...(workCentre && w.scheduleChoices?.[step.sequence] && w.scheduleChoices[step.sequence] !== workCentre ? [{ code: 'WORK_CENTER', message: 'Use the exact reviewed alternate center, or obtain a fresh schedule approval.' }] : []),
+    ...(chosen && step.requiredTools?.some((tool: string) => !s.machineCalendars.find(m => m.name === chosen)?.sequencing?.tools.includes(tool)) ? [{ code: 'TOOLING', message: 'The chosen center no longer has every qualified tool required by the pinned routing.' }] : []),
     ...((workCentre ? activeMaintenance(s, workCentre, now).length > 0 : centres.length > 0 && centres.every(center => activeMaintenance(s, center, now).length > 0)) ? [{ code: 'MAINTENANCE', message: 'Eligible equipment is unavailable until maintenance release.' }] : []),
   ]
   return gates.map(g => ({ ...g, ownerId: g.ownerId ?? (['ACKNOWLEDGMENT', 'STATE'].includes(g.code) ? actor.id : task?.assignment?.operatorId ?? w.releasedBy) }))

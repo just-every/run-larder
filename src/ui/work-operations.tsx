@@ -23,7 +23,7 @@ export function operationReadiness(s: LarderState, w: Rec, step: any) {
   const acknowledged = task.acknowledgments?.some((ack: any) => ack.by === s.actor.id && ack.bomId === w.bomId)
   const wrongOperator = task.assignment && task.assignment.operatorId !== s.actor.id
   const now = new Date().toISOString()
-  const gates = operationStartGates({ maintenance: rows(s, 'maintenance'), qualityHolds: rows(s, 'qualityHolds'), recalls: rows(s, 'recalls'), items: rows(s, 'items'), inspectionPlans: rows(s, 'inspectionPlans'), inspections: rows(s, 'inspections') }, s.actor, w, step, now)
+  const gates = operationStartGates({ machineCalendars: rows(s, 'machineCalendars'), maintenance: rows(s, 'maintenance'), qualityHolds: rows(s, 'qualityHolds'), recalls: rows(s, 'recalls'), items: rows(s, 'items'), inspectionPlans: rows(s, 'inspectionPlans'), inspections: rows(s, 'inspections') }, s.actor, w, step, now)
   return { task, centres, predecessors, needsAck, acknowledged, wrongOperator, gates, reasons: gates.map(gate => gate.message) }
 }
 

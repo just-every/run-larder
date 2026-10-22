@@ -36,7 +36,7 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
       return person ? [{ id, name: person.name, calendar: r, available, used: new Uint8Array(length), capacity: r.capacity }] : []
     })
   })
-  const families = new Map(machines.map(m => [m.id, m.calendar.sequencing?.initialFamily ?? '']))
+  const families = new Map(machines.map(m => [m.id, m.calendar.sequencing?.initialFamily ?? ''])), machineCursor = new Map<string, number>()
   const operations: ScheduledOperation[] = [], unscheduled: any[] = [], jobs: any[] = [], protectionConflicts: string[] = []
   const pins = new Map<string, ScheduledOperation>()
   const booking = options.releaseBookings ? [] : s.scheduleBookings.filter(b => b.status === 'active').flatMap(b => b.operations)
@@ -52,6 +52,12 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
     if (!valid) { protectionConflicts.push(op.key); continue }
     for(const i of slots){m.used[i]=1;l.used[i]=l.used[i]!+1}
     fixed.set(op.key,op)
+  }
+  // Sequence-configured slots advance in temporal order. Never backfill a
+  // different family before a later operation whose changeover was reviewed.
+  for (const op of [...fixed.values()].sort((a,b)=>a.endsAt.localeCompare(b.endsAt))) {
+    const id = `${op.machineId}:${op.machineSlot}`
+    machineCursor.set(id,Date.parse(op.endsAt)); families.set(id,op.setupFamily || op.priorFamily)
   }
   const work = s.workOrders.filter(w => ['draft', 'released'].includes(w.status)).sort((a, b) => Number(Boolean(b.operationStates?.some((t: any) => ['running','paused'].includes(t.status)))) - Number(Boolean(a.operationStates?.some((t: any) => ['running','paused'].includes(t.status)))) || (b.priority ?? 0) - (a.priority ?? 0) || a.requiredBy.localeCompare(b.requiredBy) || a.reference.localeCompare(b.reference))
   for (const w of work) {
@@ -82,12 +88,13 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
         // Queue time is elapsed waiting before resource occupation; efficiency
         // scales remaining setup/run effort, conservatively rounded to minutes.
         const effort = Math.max(0, operationEffort(w, step) - (task?.progress ? 0 : (step.queueMinutes ?? 0)))
+        if (m.calendar.sequencing && !step.setupFamily) continue
         const priorFamily = families.get(m.id) ?? '', family = step.setupFamily ?? ''
         const transition = family && family !== priorFamily ? m.calendar.sequencing?.changeovers.find((t: any) => t.from === priorFamily && t.to === family) : { minutes: 0, cleanupMinutes: 0 }
         // A configured sequence family needs an explicit qualified transition.
         if (family && !transition) continue
         const duration = Math.max(1, Math.ceil((effort + (transition?.minutes ?? 0) + (transition?.cleanupMinutes ?? 0)) * 100 / m.calendar.efficiency)), slots: number[] = []
-        for (let i = Math.max(0, Math.ceil((ready - from) / 60000)); i < length; i++) {
+        for (let i = Math.max(0, Math.ceil((Math.max(ready, m.calendar.sequencing ? machineCursor.get(m.id) ?? from : from) - from) / 60000)); i < length; i++) {
           if (best && i > best.slots[best.slots.length - 1]!) break
           if (m.available[i] && !m.used[i] && l.available[i] && l.used[i]! < l.capacity) slots.push(i)
           if (slots.length === duration) break
@@ -103,7 +110,7 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
       }
       const startsAt = intervals[0]!.startsAt, endsAt = intervals[intervals.length - 1]!.endsAt
       const maintenanceIds = [...new Set([...previous.flatMap(n => placed.get(n)?.maintenanceIds ?? []), ...s.maintenance.filter(x => x.status === 'unreleased' && x.workCentre === m.name && x.startsAt < endsAt).map(x => x.id)])]
-      families.set(m.id, step.setupFamily ?? priorFamily)
+      families.set(m.id, step.setupFamily ?? priorFamily); machineCursor.set(m.id,Date.parse(endsAt))
       const planningCost = m.calendar.sequencing ? format((BigInt(duration) * decimal(m.calendar.sequencing.planningHourlyCost) + 30n) / 60n) : null
       const comparisons = m.calendar.sequencing ? [{ kind: 'internal', occupiedMinutes: duration, cost: planningCost }, { kind: 'overtime', cost: m.calendar.sequencing.overtimeHourlyCost ? format((BigInt(duration) * decimal(m.calendar.sequencing.overtimeHourlyCost) + 30n) / 60n) : null, basis: 'Planning tariff only; no overtime authorization or added capacity.' }, { kind: 'outsource', cost: m.calendar.sequencing.outsourceCost, leadDays: m.calendar.sequencing.outsourceDays, basis: 'Recorded service quote only; separate BUY-004 authority and custody required.' }] : []
       const op: ScheduledOperation = { setupFamily: step.setupFamily ?? '', priorFamily, changeoverMinutes: transition?.minutes ?? 0, cleanupMinutes: transition?.cleanupMinutes ?? 0, requiredTools: step.requiredTools ?? [], planningCost, comparisons, key, workOrderId: w.id, reference: w.reference, sequence: step.sequence, name: step.name, machineId: m.calendar.id, machine: m.name, machineSlot: Number(m.id.split(':').at(-1)), operatorId: l.id, person: l.name, laborId: l.calendar.id, setupMinutes: step.setupMinutes ?? 0, runMinutes: step.runMinutes ?? step.minutes ?? 0, queueMinutes: step.queueMinutes ?? 0, occupiedMinutes: duration, startsAt, endsAt, intervals, predecessors: previous, slackMinutes: 0, critical: false, maintenanceIds, provisional: maintenanceIds.length > 0 }

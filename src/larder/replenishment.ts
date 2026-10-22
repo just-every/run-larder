@@ -34,8 +34,8 @@ export function replenishment(c:Context,type:string,p:any):Row|undefined {
         return {...q,latestDate:worst.earliestDate,leadDaysMax:upper,robustFeasible:worst.feasible,covered:format(shortage-atRisk),atRisk:format(atRisk),surplus:format(max(0n,decimal(q.quantity)-shortage)),coverageBasis:'Declared lead-time bounds, not a service probability. Shared dated shortages are counted once; no stock reservation or supplier acceptance.'}
       })
       const history=c.s.shipments.filter(s=>s.status==='shipped'&&s.shippedAt?.slice(0,10)>=since).flatMap(s=>s.lines.filter((l:any)=>l.itemId===itemId).map((l:any)=>{
-        const shipped=c.s.movements.filter(m=>m.documentKind==='shipments'&&m.documentId===s.id&&m.itemId===itemId&&m.quantity<0n&&!m.reversesId).reduce((n,m)=>n-m.quantity,0n)
-        return {shipmentId:s.id,reference:s.reference,on:s.shippedAt.slice(0,10),quantity:l.quantity,ledgerShippedQuantity:format(shipped)}
+        const ids=new Set(l.movementIds??[]), original=c.s.movements.filter(m=>ids.has(m.id)).reduce((n,m)=>n-m.quantity,0n), reversed=c.s.movements.filter(m=>m.reversesId&&ids.has(m.reversesId)).reduce((n,m)=>n+m.quantity,0n)
+        return {shipmentId:s.id,reference:s.reference,on:s.shippedAt.slice(0,10),quantity:l.quantity,netShippedQuantity:format(max(0n,original-reversed)),movementIds:l.movementIds??[]}
       }))
       return [{itemId,shortage:format(shortage),requiredBy,requirements,history,forecasts:c.s.forecasts.filter(f=>f.itemId===itemId),safetyRequirements:requirements.filter(r=>r.kind==='safety'),quotes}]
     })
