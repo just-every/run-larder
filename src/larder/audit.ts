@@ -2,7 +2,7 @@
 // entry per changed record (actor, time, source, before/after, reason, linked
 // evidence) in the same atomic batch. Values are minimised on the way in: no
 // credentials, no document bodies, only digests of long text.
-import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
+import { sha256 } from '../modules/import-kit/src/d1/index'
 import { format } from './decimal'
 import { collections, type Context, type State } from './model'
 
@@ -19,7 +19,7 @@ const credentialShape = /\b(?:(?:sk|pk|rk|ghp|gho|ghs|xox[abprs])[-_][A-Za-z0-9_
 const labelled = /(\b(?:secret|token|passw(?:or)?d|passcode|api[\s_-]?key|access[\s_-]?key|private[\s_-]?key|authorization|credential|bearer)s?\b\s*(?:is|was|[:=])?\s*)(\S+)/gi
 const withheld = '[withheld]'
 const uuid = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/g
-const digest = (v: unknown) => { const t = typeof v === 'string' ? v : canonicalJson(v as any); return { sha256: sha256(t), length: t.length } }
+const digest = (v: unknown) => { const t = typeof v === 'string' ? v : JSON.stringify(v) ?? ''; return { sha256: sha256(t), length: t.length } }
 
 export function scrubText(t: string) {
   return t.replace(labelled, (_m, label) => `${label}${withheld}`).replace(credentialShape, withheld)
