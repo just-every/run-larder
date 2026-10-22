@@ -11,6 +11,8 @@ import { operatorAuth, runtimeBindings, type Bindings } from '../auth.server'
 import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
 import { archive, restore } from './archive'
 import { approvalCommand } from './approval-policy'
+import { cutover } from './cutover'
+import { cutoverGuard } from './cutover-guard'
 import { auditEntries } from './audit'
 import { auditCsv, auditExport, auditQuery } from './audit-read'
 import { archiveCsv } from './archive-csv'
@@ -72,7 +74,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version }
 }
 
-const handlers = [approvalCommand, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [approvalCommand, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -147,6 +149,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
     observeRecovery(c, before, type, payload)
     observeFollowUps(c)
+    cutoverGuard(before, s, c.now)
     const audit = auditEntries(c, before, type, payload, type.startsWith('import.'))
     if (type === 'import.commit' || type === 'import.undo') {
       await publishImport(env, c, before, type, digest, result!, audit)

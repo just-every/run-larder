@@ -3,7 +3,7 @@ import { fail } from './problem'
 export const collections = [
   'replenishmentPlans', 'schedulePolicies', 'schedulePlans', 'scheduleBookings', 'machineCalendars', 'laborCalendars', 'laborRates', 'sourceHistory', 'historyImports', 'items', 'locations', 'parties', 'partyItems', 'boms', 'salesOrders', 'purchaseOrders', 'workOrders',
   'receipts', 'lots', 'shipments', 'returns', 'transfers', 'counts', 'openings', 'reversals', 'handoffs',
-  'inventoryPolicies', 'inventoryPlans', 'certificates', 'certificatePolicies', 'maintenance', 'forecasts', 'productionPlans', 'proposals', 'approvals', 'orderChanges', 'bomChanges', 'catalogChanges', 'engineeringChanges', 'countSessions', 'followUps', 'resolutions', 'imports', 'roles', 'workTransfers', 'reworkOrders', 'subcontractOrders', 'subcontractCustody', 'inspectionPlans', 'inspections', 'qualityHolds', 'nonconformances', 'recalls', 'approvalPolicies', 'approvalDelegations', 'approvalSignatures',
+  'inventoryPolicies', 'inventoryPlans', 'certificates', 'certificatePolicies', 'maintenance', 'forecasts', 'productionPlans', 'proposals', 'approvals', 'orderChanges', 'bomChanges', 'catalogChanges', 'engineeringChanges', 'countSessions', 'followUps', 'resolutions', 'imports', 'roles', 'workTransfers', 'reworkOrders', 'subcontractOrders', 'subcontractCustody', 'inspectionPlans', 'inspections', 'qualityHolds', 'nonconformances', 'recalls', 'approvalPolicies', 'approvalDelegations', 'approvalSignatures', 'cutovers',
 ] as const
 export type Collection = (typeof collections)[number]
 export type Row = { id: string; version: number; [key: string]: any }

@@ -1,7 +1,7 @@
 // Map Odoo export rows to a Larder plan. Nothing is guessed: a row that cannot
 // be mapped exactly is rejected with its file, line, External ID and reason,
 // and rows that depend on it are rejected too.
-import { decimal, exactDivide, format, SCALE } from '../decimal'
+import { decimal, exactDivide, format, SCALE, times } from '../decimal'
 import { Problem } from '../problem'
 import { parseCsv } from './csv'
 import { modelOf, shapes, type Model } from './shape'
@@ -10,8 +10,11 @@ import type { State } from '../model'
 export type Rejection = { file: string; line: number; sourceId: string; reason: string }
 type Rows = { file: string; model: Model; header: string[]; records: { line: number; cells: Record<string, string>; lines: { line: number; cells: Record<string, string> }[] }[] }
 export type OdooFile = { name: string; model?: string; content: string }
+// The source currency and the recorded rate to USD; Larder's own amounts are USD.
+export type Currency = { code: string; rateToUsd: string; recordedOn: string; source: string }
+export const usdCurrency: Currency = { code: 'USD', rateToUsd: '1', recordedOn: '', source: '' }
 
-const odooNumber = (v: string, name: string) => {
+export const odooNumber = (v: string, name: string) => {
   const t = v.trim()
   if (!/^-?\d{1,10}(\.\d+)?$/.test(t)) throw new Problem('ROW', `${name} “${v}” is not a plain number`)
   const [w, f = ''] = t.replace('-', '').split('.')
@@ -60,8 +63,9 @@ export function readFiles(files: OdooFile[]): { tables: Rows[]; unsupported: { f
 
 export type Plan = ReturnType<typeof mapOdoo>
 
-export function mapOdoo(s: State, files: OdooFile[], previousUnits: Record<string, { name: string; category: string; ref: string }>) {
+export function mapOdoo(s: State, files: OdooFile[], previousUnits: Record<string, { name: string; category: string; ref: string }>, currency: Currency = usdCurrency) {
   const { tables, unsupported } = readFiles(files)
+  const rate = decimal(currency.rateToUsd, 'conversion rate', { positive: true }), usd = (n: bigint) => currency.code === 'USD' ? n : times(n, rate)
   const rejected: Rejection[] = [], skipped: Rejection[] = []
   const table = (m: Model) => tables.find(t => t.model === m)
   const reject = (t: Rows, line: number, sourceId: string, reason: string) => rejected.push({ file: t.file, line, sourceId, reason })
@@ -116,7 +120,7 @@ export function mapOdoo(s: State, files: OdooFile[], previousUnits: Record<strin
   const partyKnown = (id: string) => parties.some(p => p.sourceId === id) || s.parties.some(p => p.sourceId === id)
 
   // Products.
-  type Item = { sourceId: string; sku: string; name: string; kind: string; baseUnit: string; unitSource: string; template: string; attributes: Record<string, string>; conversions: { unit: string; factor: string }[]; standardCost: string; salePrice: string; templateSource: string }
+  type Item = { sourceId: string; sku: string; name: string; kind: string; baseUnit: string; unitSource: string; template: string; attributes: Record<string, string>; conversions: { unit: string; factor: string }[]; standardCost: string; salePrice: string; templateSource: string; source?: { currency: string; standardCost: string; salePrice: string } }
   const items: Item[] = []
   const prt = table('product.product')
   if (prt) {
@@ -144,7 +148,7 @@ export function mapOdoo(s: State, files: OdooFile[], previousUnits: Record<strin
           attributes[part.slice(0, at).trim()] = part.slice(at + 1).trim()
         }
         const routes = (r.cells['route_ids/id'] ?? '').toLowerCase()
-        items.push({ sourceId: id, sku, name, kind: routes.includes('manufacture') ? 'make' : 'buy', baseUnit: base.name, unitSource: r.cells['uom_id/id'].trim(), template: Object.keys(attributes).length ? name : '', attributes, conversions, standardCost: format(r.cells.standard_price ? odooNumber(r.cells.standard_price, 'standard_price') : 0n), salePrice: format(r.cells.list_price ? odooNumber(r.cells.list_price, 'list_price') : 0n), templateSource: r.cells['product_tmpl_id/id']?.trim() ?? '' })
+        items.push({ sourceId: id, sku, name, kind: routes.includes('manufacture') ? 'make' : 'buy', baseUnit: base.name, unitSource: r.cells['uom_id/id'].trim(), template: Object.keys(attributes).length ? name : '', attributes, conversions, standardCost: format(usd(r.cells.standard_price ? odooNumber(r.cells.standard_price, 'standard_price') : 0n)), salePrice: format(usd(r.cells.list_price ? odooNumber(r.cells.list_price, 'list_price') : 0n)), source: { currency: currency.code, standardCost: r.cells.standard_price ? format(odooNumber(r.cells.standard_price, 'standard_price')) : '0', salePrice: r.cells.list_price ? format(odooNumber(r.cells.list_price, 'list_price')) : '0' }, templateSource: r.cells['product_tmpl_id/id']?.trim() ?? '' })
       })
     }
   }
@@ -215,7 +219,7 @@ export function mapOdoo(s: State, files: OdooFile[], previousUnits: Record<strin
   }
 
   // Opening counts from on-hand quantities, grouped by location.
-  const openings: { locationSource: string; lines: { itemSource: string; quantity: string; unitCost: string; lot: string; line: number }[] }[] = []
+  const openings: { locationSource: string; lines: { itemSource: string; quantity: string; unitCost: string; sourceUnitCost: string; lot: string; line: number }[] }[] = []
   const qt = table('stock.quant')
   if (qt) for (const r of qt.records) {
     const id = r.cells.id?.trim() || `${r.cells['product_id/id']}@${r.cells['location_id/id']}`
@@ -231,12 +235,12 @@ export function mapOdoo(s: State, files: OdooFile[], previousUnits: Record<strin
       let group = openings.find(o => o.locationSource === loc)
       if (!group) openings.push(group = { locationSource: loc, lines: [] })
       if (group.lines.some(l => l.itemSource === item.sourceId && l.lot === lot)) throw new Problem('ROW', 'The same product and lot appear twice at this location')
-      group.lines.push({ itemSource: item.sourceId, quantity: format(quantity), unitCost: item.standardCost, lot, line: r.line })
+      group.lines.push({ itemSource: item.sourceId, quantity: format(quantity), unitCost: item.standardCost, sourceUnitCost: item.source?.standardCost ?? item.standardCost, lot, line: r.line })
     })
   }
 
   // Open orders.
-  type Doc = { sourceId: string; reference: string; partySource: string; date: string; partyReference: string; status: string; lines: { itemSource: string; quantity: string; unitPrice: string; ordered: string; done: string }[] }
+  type Doc = { sourceId: string; reference: string; partySource: string; date: string; partyReference: string; status: string; lines: { itemSource: string; quantity: string; unitPrice: string; ordered: string; done: string; sourceUnitPrice: string }[] }
   const orders = (model: 'sale.order' | 'purchase.order') => {
     const t = table(model), out: Doc[] = []
     if (!t) return out
@@ -263,7 +267,7 @@ export function mapOdoo(s: State, files: OdooFile[], previousUnits: Record<strin
           // Odoo prices the line's own unit; Larder prices the base unit.
           const perBase = exactDivide(price, toBase(item, SCALE, unit))
           if (perBase === null) throw new Problem('ROW', `Line ${l.line}'s price ${format(price)} per ${unitOf(unit).name} does not divide exactly into ${item.baseUnit}`)
-          return { itemSource: item.sourceId, quantity: format(ordered - done), unitPrice: format(perBase), ordered: format(ordered), done: format(done) }
+          return { itemSource: item.sourceId, quantity: format(ordered - done), unitPrice: format(usd(perBase)), sourceUnitPrice: format(perBase), ordered: format(ordered), done: format(done) }
         }).filter(l => l.quantity !== '0')
         if (!lines.length) { skipped.push({ file: t.file, line: r.line, sourceId: id, reason: 'Nothing left open on this order' }); return }
         out.push({ sourceId: id, reference: r.cells.name.trim(), partySource: party, date, partyReference: (sale ? r.cells.client_order_ref : r.cells.partner_ref)?.trim() ?? '', status, lines })
@@ -273,5 +277,5 @@ export function mapOdoo(s: State, files: OdooFile[], previousUnits: Record<strin
   }
   const salesOrders = orders('sale.order'), purchaseOrders = orders('purchase.order')
   const ownUnits = Object.fromEntries(Object.entries(units).filter(([k]) => !previousUnits[k]))
-  return { units: ownUnits, parties, items, locations, boms, openings, salesOrders, purchaseOrders, rejected, skipped, unsupported, files: tables.map(t => ({ name: t.file, model: t.model, rows: t.records.reduce((n, r) => n + r.lines.length, 0) })) }
+  return { currency, units: ownUnits, parties, items, locations, boms, openings, salesOrders, purchaseOrders, rejected, skipped, unsupported, files: tables.map(t => ({ name: t.file, model: t.model, rows: t.records.reduce((n, r) => n + r.lines.length, 0) })) }
 }

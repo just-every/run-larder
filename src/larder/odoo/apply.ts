@@ -10,11 +10,13 @@ import type { Plan } from './map'
 
 export function applyPlan(c: Context, batch: Row, plan: Plan) {
   const importId = batch.id
+  // Non-USD amounts keep their source currency, original amount and the recorded rate to USD.
+  const src = plan.currency.code === 'USD' ? {} : { sourceCurrency: plan.currency.code, conversionRate: plan.currency.rateToUsd }
   const party = (id: string) => c.s.parties.find(p => p.sourceId === id)!.id
   const item = (id: string) => c.s.items.find(i => i.sourceId === id)!
   const location = (id: string) => c.s.locations.find(l => l.sourceId === id)!.id
   for (const p of plan.parties) row(c, 'parties', { name: p.name, kind: p.kind, email: p.email, abn: p.abn, terms: '', sourceId: p.sourceId, importId })
-  for (const i of plan.items) saveItem(c, { sku: i.sku, name: i.name, kind: i.kind, baseUnit: i.baseUnit, template: i.template, attributes: i.attributes, conversions: i.conversions, standardCost: i.standardCost, salePrice: i.salePrice, sourceId: i.sourceId }, importId)
+  for (const i of plan.items) Object.assign(saveItem(c, { sku: i.sku, name: i.name, kind: i.kind, baseUnit: i.baseUnit, template: i.template, attributes: i.attributes, conversions: i.conversions, standardCost: i.standardCost, salePrice: i.salePrice, sourceId: i.sourceId }, importId), plan.currency.code === 'USD' ? {} : { sourceCurrency: plan.currency.code, sourceStandardCost: i.source!.standardCost, sourceSalePrice: i.source!.salePrice, conversionRate: plan.currency.rateToUsd })
   for (const l of plan.locations) row(c, 'locations', { name: l.name, note: '', archived: false, sourceId: l.sourceId, importId })
   for (const b of plan.boms) {
     const made = item(b.itemSource), previous = activeBom(c.s, made.id)
@@ -28,18 +30,18 @@ export function applyPlan(c: Context, batch: Row, plan: Plan) {
       const it = item(l.itemSource)
       const lot = l.lot ? row(c, 'lots', { itemId: it.id, code: l.lot, supplierId: null, source: 'opening', documentId: opening.id, status: 'released', importId }) : null
       move(c, { itemId: it.id, locationId: opening.locationId, status: 'available', lotId: lot?.id, quantity: decimal(l.quantity), unitCost: decimal(l.unitCost), kind: 'opening', documentKind: 'openings', documentId: opening.id, reason: `Opening count ${batch.opening.countedOn} moved in from Odoo`, importId })
-      opening.lines.push({ itemId: it.id, quantity: l.quantity, unitCost: l.unitCost, lotId: lot?.id ?? '' })
+      opening.lines.push({ itemId: it.id, quantity: l.quantity, unitCost: l.unitCost, lotId: lot?.id ?? '', ...(plan.currency.code === 'USD' ? {} : { sourceUnitCost: l.sourceUnitCost, ...src }) })
     }
   }
   for (const o of plan.salesOrders) row(c, 'salesOrders', {
     reference: nextReference(c.s.salesOrders, 'SO'), customerId: party(o.partySource), customerReference: o.partyReference, promiseDate: o.date, note: `Moved in from Odoo ${o.reference}`,
-    lines: o.lines.map(l => ({ id: newId(), itemId: item(l.itemSource).id, quantity: l.quantity, unitPrice: l.unitPrice, shipped: '0', returned: '0', cancelled: '0', odooOrdered: l.ordered, odooDelivered: l.done })),
+    lines: o.lines.map(l => ({ id: newId(), itemId: item(l.itemSource).id, quantity: l.quantity, unitPrice: l.unitPrice, shipped: '0', returned: '0', cancelled: '0', odooOrdered: l.ordered, odooDelivered: l.done, ...(src.sourceCurrency ? { sourceUnitPrice: l.sourceUnitPrice, ...src } : {}) })),
     status: o.status, preparedBy: c.actor.id, ...(o.status === 'confirmed' ? { confirmedBy: c.actor.id, confirmedAt: c.now } : {}), sourceId: o.sourceId, sourceReference: o.reference, importId,
   })
   for (const o of plan.purchaseOrders) {
-    const lines = o.lines.map(l => ({ id: newId(), itemId: item(l.itemSource).id, quantity: l.quantity, unitPrice: l.unitPrice, received: '0', rejected: '0', odooOrdered: l.ordered, odooReceived: l.done }))
+    const lines = o.lines.map(l => ({ id: newId(), itemId: item(l.itemSource).id, quantity: l.quantity, unitPrice: l.unitPrice, received: '0', rejected: '0', odooOrdered: l.ordered, odooReceived: l.done, ...(src.sourceCurrency ? { sourceUnitPrice: l.sourceUnitPrice, ...src } : {}) }))
     const po = row(c, 'purchaseOrders', {
-      reference: nextReference(c.s.purchaseOrders, 'PO'), supplierId: party(o.partySource), lines, expectedDate: o.date, requiredBy: '', reason: `Moved in from Odoo ${o.reference}`,
+      reference: nextReference(c.s.purchaseOrders, 'PO'), supplierId: party(o.partySource), lines, expectedDate: o.date, requiredBy: '', reason: `Moved in from Odoo ${o.reference}`, currency: 'USD', ...src,
       exposure: format(lines.reduce((n, l) => n + times(decimal(l.quantity), decimal(l.unitPrice)), 0n)), status: o.status, preparedBy: c.actor.id, history: [], supplierReference: o.partyReference, confirmedDate: '', sourceId: o.sourceId, sourceReference: o.reference, importId,
     })
     if (o.status === 'approved') {

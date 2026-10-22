@@ -27,6 +27,14 @@ Opening stock comes from `stock.quant.csv` at the product's Odoo standard cost; 
 
 The files in `fixtures/odoo/` were written from Odoo's published import/export guide, not exported from a live database. Acceptance against a real owner's export is still open.
 
+## Valuation, rehearsal and cutover (MOVE-007)
+
+Every preview with a `stock.quant.csv` shows two stock-value totals and their exact USD difference. The **source total** values every on-hand row at an internal location at the product's Odoo `standard_price`; the **Larder total** is what the proposed opening would post. Rows that did not move across (rejected products, unreadable quantities) or that round differently are listed as exceptions with a **review count**; locations that hold no company stock are listed as excluded. The preview says **Matched to the cent** only when the difference is zero.
+
+A source that is not in USD names its currency code and the rate to USD with the date and where it came from. Larder converts item costs, sale prices and order prices at that rate and keeps the original amount, the currency and the rate on each moved-in record.
+
+**Cutover** (More → Cutover): plan one cutover from your move-ins; rehearse it twice (each rehearsal maps the staged files again and writes nothing live; the last two must be identical, and the committed move-in must be what was rehearsed); commit; then compare a day's source totals with Larder's: stock units and value as of the day, and on the day itself reservations, active BOMs, open work, WIP value, capacity minutes and open sales and purchase order counts and values. A nonzero valuation difference blocks the cutover until an owner, manager or accounts person accepts that exact difference with a reason, or the source is corrected and previewed again; a day metric that differs must be accepted by name. The owner approves the exact opening total and one cutover time, and routes each channel (sales orders with their reservations, shipments and returns; purchase orders and receipts; the stock ledger; the accounting handoff) to Larder or to the source system. From the cutover time Larder refuses any command that would write a channel routed to the source. Undo stays refused once a shipment or other work depends on the move-in.
+
 ## Source history (MOVE-008)
 
 In More → Move in from Odoo, **Import source history** accepts a source-history

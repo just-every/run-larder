@@ -5,13 +5,15 @@
 import type { Bindings } from '../../auth.server'
 import { applyD1ImportBatches, canonicalJson, createD1ImportJob, planD1Import, sha256, undoD1Import, type D1ImportContext, type D1Sql, type D1TargetAdapter, type SourceBundle, type TargetRow } from '../../modules/import-kit/src/d1/index'
 import { auditInsertSql, auditParams, type AuditEntry } from '../audit'
+import { decimal, format } from '../decimal'
 import { fail } from '../problem'
 import { allow, approver } from '../roles'
 import { authority, load } from '../storage'
 import { valuationBases } from '../warehouse'
 import { collections, bump, date, fresh, get, list, oneOf, row, text, type Context, type Row, type State } from '../model'
 import { applyPlan } from './apply'
-import { mapOdoo, type OdooFile } from './map'
+import { mapOdoo, usdCurrency, type Currency, type OdooFile } from './map'
+import { valuate } from './valuation'
 
 export const MAPPING = 'odoo-import-compatible-1'
 const LIMIT = 1536 * 1024
@@ -19,14 +21,30 @@ const LIMIT = 1536 * 1024
 const unitsBefore = (s: State) => Object.assign({}, ...s.imports.filter(i => i.status === 'committed').map(i => i.plan.units))
 const counts = (plan: any) => ({ contacts: plan.parties.length, products: plan.items.length, locations: plan.locations.length, boms: plan.boms.length, openingLines: plan.openings.reduce((n: number, o: any) => n + o.lines.length, 0), salesOrders: plan.salesOrders.length, purchaseOrders: plan.purchaseOrders.length })
 
+// A non-USD source records its currency and the rate to USD it was converted at, with when and from where.
+function sourceCurrency(input: any): Currency {
+  if (input === undefined || input === null || input.code === undefined || input.code === 'USD') return usdCurrency
+  const code = typeof input.code === 'string' && /^[A-Z]{3}$/.test(input.code) ? input.code : fail('INPUT', 'Name the source currency as a three-letter code such as AUD.', { field: 'currency.code' })
+  return { code, rateToUsd: format(decimal(input.rateToUsd, 'conversion rate to USD', { positive: true })), recordedOn: date(input.recordedOn, 'rate date'), source: text(input.source, 'rate source', 200) }
+}
+
 function preview(c: Context, p: any) {
   const files: OdooFile[] = list(p.files, 'files', 8).map((f: any) => ({ name: text(f.name, 'file name', 200), model: f.model, content: typeof f.content === 'string' ? f.content : fail('INPUT', 'Each file needs its CSV text.') }))
   const size = files.reduce((n, f) => n + new TextEncoder().encode(f.content).length, 0)
   if (size > LIMIT) fail('KIT_SIZE', 'A move-in batch is limited to 1.5 MiB of CSV. Move in master data and open orders in separate batches.')
-  const plan = mapOdoo(c.s, files, unitsBefore(c.s))
+  const currency = sourceCurrency(p.currency)
+  const plan = mapOdoo(c.s, files, unitsBefore(c.s), currency)
   const opening = plan.openings.length ? { countedOn: date(p.opening?.countedOn, 'count date'), valuationBasis: oneOf(p.opening?.valuationBasis, valuationBases, 'valuation basis'), countedBy: text(p.opening?.countedBy, 'counted by', 120) } : null
   const described = files.map(f => { const bytes = new TextEncoder().encode(f.content); const meta = plan.files.find(x => x.name === f.name)!; return { name: f.name, model: meta.model, rows: meta.rows, sha256: sha256(bytes), size: bytes.length, content: f.content } })
-  return row(c, 'imports', { label: text(p.label, 'label', 200), kit: 'odoo', mappingVersion: MAPPING, files: described, opening, plan, fingerprint: sha256(canonicalJson(plan)), counts: counts(plan), rejected: plan.rejected, skipped: plan.skipped, unsupported: plan.unsupported, status: 'previewed', preparedBy: c.actor.id })
+  const valuation = opening ? valuate(c.s, files, plan, currency, opening.countedOn) : null
+  return row(c, 'imports', { label: text(p.label, 'label', 200), kit: 'odoo', mappingVersion: MAPPING, files: described, opening, currency, valuation, plan, fingerprint: sha256(canonicalJson({ plan, valuation })), counts: counts(plan), rejected: plan.rejected, skipped: plan.skipped, unsupported: plan.unsupported, status: 'previewed', preparedBy: c.actor.id })
+}
+
+// A staged batch mapped again against the records as they stand: nothing is written, so a rehearsal or a commit check can repeat it.
+export function stagePlan(s: State, batch: Row) {
+  const currency: Currency = batch.currency ?? usdCurrency, plan = mapOdoo(s, batch.files.map((f: any) => ({ name: f.name, model: f.model, content: f.content })), unitsBefore(s), currency)
+  const valuation = batch.opening ? valuate(s, batch.files, plan, currency, batch.opening.countedOn) : null
+  return { plan, valuation, fingerprint: sha256(canonicalJson({ plan, valuation })) }
 }
 
 function snapshot(before: State, after: State, importId: string) {
@@ -63,8 +81,8 @@ export function imports(c: Context, type: string, p: any): Row | undefined {
       approver(c, ['manager'])
       if (batch.status !== 'previewed') fail('STATE', 'Only a previewed move-in can be committed.')
       if (batch.rejected.length && p.acceptRejected !== batch.rejected.length) fail('REVIEW_REJECTED', `${batch.rejected.length} rows were rejected. Review them and confirm they stay out of this move-in.`, { rejected: batch.rejected.length })
-      const plan = mapOdoo(c.s, batch.files.map((f: any) => ({ name: f.name, model: f.model, content: f.content })), unitsBefore(c.s))
-      if (sha256(canonicalJson(plan)) !== batch.fingerprint) fail('STALE', 'Records changed since this preview. Preview the files again before committing.')
+      const { plan, fingerprint } = stagePlan(c.s, batch)
+      if (fingerprint !== batch.fingerprint) fail('STALE', 'Records changed since this preview. Preview the files again before committing.')
       const before = structuredClone(c.s)
       applyPlan(c, batch, plan)
       const approval = row(c, 'approvals', { subjectKind: 'imports', subjectId: batch.id, subjectVersion: batch.version, decision: 'approved', role: c.actor.role, note: `Committed move-in; ${batch.rejected.length} rejected rows kept out` })
@@ -85,7 +103,7 @@ export function imports(c: Context, type: string, p: any): Row | undefined {
 
 export function exportBatch(s: State, id: string) {
   const b = get(s, 'imports', id, 'move-in')
-  return { label: b.label, kit: b.kit, mappingVersion: b.mappingVersion, status: b.status, files: b.files.map((f: any) => ({ name: f.name, model: f.model, sha256: f.sha256, size: f.size, rows: f.rows })), counts: b.counts, rejected: b.rejected, skipped: b.skipped, unsupported: b.unsupported }
+  return { label: b.label, kit: b.kit, mappingVersion: b.mappingVersion, status: b.status, files: b.files.map((f: any) => ({ name: f.name, model: f.model, sha256: f.sha256, size: f.size, rows: f.rows })), counts: b.counts, currency: b.currency ?? usdCurrency, valuation: b.valuation ?? null, reconciliation: b.reconciliation ?? null, rejected: b.rejected, skipped: b.skipped, unsupported: b.unsupported }
 }
 
 // ---- Publication through Base's import kit -------------------------------------
