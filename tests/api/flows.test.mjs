@@ -819,6 +819,10 @@ test('Isolated outage scenarios protect this week and manual locks, atomically b
   assert.equal((await h.state()).laborCalendars[0].overtimeWindows[0].planId,laborPlan.id)
   const decline=await manager.run('schedule.scenario',args('Independent decline','2026-12-04T00:00:00Z'))
   assert.equal((await planner.run('schedule.reject',{planId:decline.id,version:decline.version,reason:'synthetic-larder-848 retain baseline'})).status,'rejected')
+  const live=await manager.run('schedule.scenario',args('Live people changed','2026-12-04T00:00:00Z')),liveBefore=(await h.state()).scheduleBookings
+  assert.equal((await h.request('/auth/operator/status',{method:'POST',body:{operatorId:production.id,status:'inactive'}})).status,200)
+  await h.command('schedule.adopt',{planId:live.id,version:live.version,reason:'synthetic-larder-849 people changed'},{error:'STALE'})
+  assert.deepEqual((await h.state()).scheduleBookings,liveBefore)
   const archive=await(await h.request('/api/larder/archive')).json(),target=await installation();t.after(()=>target.close())
   assert.equal((await target.request('/api/larder/archive/restore',{method:'POST',body:archive})).status,200)
   const saved=await(await target.request('/api/larder/archive')).json();for(const k of ['schedulePlans','schedulePolicies','scheduleBookings'])assert.deepEqual(saved.records[k],archive.records[k]);assert.match(await(await h.request('/api/larder/archive.csv')).text(),/scheduleBookings/)
