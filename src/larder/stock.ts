@@ -1,3 +1,4 @@
+import { checkBin } from './bin-rules'
 import { valuedRate, valuedAmount } from './costing/valuation'
 // Stock truth: positions are sums of append-only movements; available stock is
 // on-hand available status minus reservations. Every write goes through move().
@@ -62,7 +63,7 @@ function recoveryCost(s: State, lotId: string) {
 }
 
 export function move(c: Context, x: MoveInput): Movement {
-  get(c.s, 'locations', x.locationId, 'location')
+  const location = get(c.s, 'locations', x.locationId, 'location')
   const item = get(c.s, 'items', x.itemId, 'item')
   if (x.quantity === 0n) fail('INPUT', 'A movement needs a non-zero quantity.')
   const lotId = x.lotId ?? ''
@@ -73,6 +74,7 @@ export function move(c: Context, x: MoveInput): Movement {
   const work = x.documentKind === 'workOrders' ? c.s.workOrders.find(w => w.id === x.documentId) : undefined
   const workRecall = work && workRecalls(c.s, work)[0]
   if (workRecall && x.quantity > 0n && x.kind === 'output') fail('RECALL_HOLD', recallReason(workRecall))
+  if (x.quantity > 0n && x.status !== 'transit') checkBin(c.s, location, item.id, lotId, x.quantity)
   if (x.quantity > 0n) requireCatalogLot(item, c.s.lots.find(l => l.id === lotId && l.itemId === item.id)?.code)
   if (x.quantity < 0n) {
     if (x.status === 'quarantine') {

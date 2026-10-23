@@ -58,6 +58,7 @@ export function reversal(c: Context, type: string, p: any): Row | undefined {
   if (type !== 'movement.reverse') return
   allow(c, ['manager', 'warehouse', 'production'])
   const kind = oneOf(p.documentKind, kinds, 'document kind'), doc = get(c.s, kind, p.documentId, 'document')
+  if (kind === 'transfers' && doc.mode === 'transit' && p.movementIds !== undefined) fail('INPUT', 'Reverse the complete transit transfer so both ends remain balanced.')
   const reversed = new Set(c.s.movements.filter(m => m.reversesId).map(m => m.reversesId))
   let targets = c.s.movements.filter(m => m.documentKind === kind && m.documentId === doc.id && !reversed.has(m.id))
   if (p.movementIds !== undefined) { const ids = new Set(list<string>(p.movementIds, 'movements')); targets = targets.filter(m => ids.has(m.id)) }

@@ -1,7 +1,7 @@
 import { fail } from './problem'
 
 export const collections = [
-  'workGroups', 'costPolicies', 'jobCharges', 'costLinks', 'marginCharges', 'costValuations', 'reportSchedules', 'scheduleGrants', 'replenishmentPlans', 'schedulePolicies', 'schedulePlans', 'scheduleBookings', 'machineCalendars', 'laborCalendars', 'laborRates', 'sourceHistory', 'historyImports', 'items', 'locations', 'parties', 'partyItems', 'boms', 'salesOrders', 'purchaseOrders', 'workOrders',
+  'sites', 'workGroups', 'costPolicies', 'jobCharges', 'costLinks', 'marginCharges', 'costValuations', 'reportSchedules', 'scheduleGrants', 'replenishmentPlans', 'schedulePolicies', 'schedulePlans', 'scheduleBookings', 'machineCalendars', 'laborCalendars', 'laborRates', 'sourceHistory', 'historyImports', 'items', 'locations', 'parties', 'partyItems', 'boms', 'salesOrders', 'purchaseOrders', 'workOrders',
   'receipts', 'lots', 'shipments', 'returns', 'transfers', 'counts', 'openings', 'reversals', 'handoffs',
   'inventoryPolicies', 'inventoryPlans', 'certificates', 'certificatePolicies', 'maintenance', 'forecasts', 'productionPlans', 'proposals', 'approvals', 'orderChanges', 'bomChanges', 'catalogChanges', 'engineeringChanges', 'countSessions', 'followUps', 'resolutions', 'imports', 'roles', 'workTransfers', 'reworkOrders', 'subcontractOrders', 'subcontractCustody', 'inspectionPlans', 'inspections', 'qualityHolds', 'nonconformances', 'recalls', 'approvalPolicies', 'approvalDelegations', 'approvalSignatures', 'cutovers', 'auditErasures', 'customRoles', 'configModels', 'kits', 'kitSales', 'timeEntries', 'timeLocks',
 ] as const
@@ -10,7 +10,7 @@ export type Row = { id: string; version: number; [key: string]: any }
 
 // Quantities and unit costs on a movement are scaled integers (see decimal.ts).
 export type Movement = {
-  id: string; sequence: number; itemId: string; locationId: string; status: 'available' | 'quarantine'; lotId: string
+  id: string; sequence: number; itemId: string; locationId: string; status: 'available' | 'quarantine' | 'transit'; lotId: string
   quantity: bigint; unitCost: bigint; kind: string; documentKind: string; documentId: string; reversesId: string | null
   actorId: string; commandId: string; importId: string | null; reason: string; createdAt: string
 }

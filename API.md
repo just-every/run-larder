@@ -685,3 +685,44 @@ Location scope and cost restrictions apply to preparation, results and replay.
 Grouping and import page controls, combined finite setup booking, broader batch
 stages and ct approval of the default remain CAP-008 gaps. CONN-012 will supply
 vendor-specific nesting imports and inherits these review and posting guards.
+
+
+## Sites, bin rules and transit stock (STOCK-001, partial)
+
+The owner maintains a named site with `site.save {id?,version?,name}` and assigns
+locations with `location.save {id?,version?,name,siteId}`. Existing locations
+retain membership when `siteId` is omitted; an explicit empty value clears it.
+Only the owner changes membership. `member.scope` and `role.custom` accept
+`sites`, a nonempty list of site IDs, or null for no site limit. Omitting the
+field preserves an existing site limit when other scope settings change. Site limits
+include bins added later and intersect any explicit location limits and custom
+role limits. Existing location-only scopes retain their behavior. Every location
+named by a transfer must be in scope; results and replay follow the current scope.
+
+`bin.rule {locationId,version,itemId,capacity,singleLot,reason}` is an owner
+setting. Capacity is in the assigned item's base unit; singleLot is an explicit
+boolean. A rule cannot contradict existing physical stock. The shared movement
+door enforces the rule on every positive physical posting, including receipt,
+putaway, replenishment and corrections. Transit stock is outside bin occupancy.
+Use `bin.rule {locationId,version,clear:true,reason}` to remove a rule; history
+retains the former rule, reason, actor and time.
+
+`transfer.dispatch` takes the existing `transfer.create` payload:
+`{itemId,fromLocationId,toLocationId,quantity,unit?,lotId?,reason}`. It preserves
+each withdrawn lot and cost in unavailable transit stock. The existing immediate
+transfer remains for local moves; two locations assigned to different sites
+require dispatch. `transfer.receive {transferId,version,disposition?,reason}`
+receives the whole transfer once. Disposition defaults to available; quarantine
+is explicit. Expiry, quality, recall and certificate guards still apply.
+`availability.inTransit` is separate from available stock and promises. Transit
+positions retain the source location and the transfer's destination reference.
+Stock provides the timing choice and receipt form. A repeated command ID replays
+the saved result; a new receipt attempt on a received transfer is refused.
+`movement.reverse` compensates a whole transit transfer; selecting only part of
+its movements is refused. No original movement is changed.
+
+Sites, membership, bin rules and history, transfers, lot links and outcomes are
+included in the complete JSON and CSV archives. Restore does not receive a
+transfer or replay any command. Owned versus consigned reconciliation,
+rule-driven replenishment, wave picking and sorting, and configuration screens
+remain open in STOCK-001.

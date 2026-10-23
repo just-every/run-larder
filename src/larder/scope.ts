@@ -1,7 +1,4 @@
-// GOV-001 location scope (ct scope-review-50 a) and the member's effective authority. Until STOCK-001 ships a site
-// record, a "site" is an explicit list of existing locations the owner sets for a member. The owner is never scoped.
-// A record is in scope only if every location it names is in scope; a command naming any other location is refused
-// inside the atomic write; an independent approval needs the preparer and the approver both to cover the record.
+// Site groups resolve to their current locations on every request and atomic command.
 import { forbidden } from './problem'
 import type { Actor, Collection, Context, Row, State } from './model'
 import { collections } from './model'
@@ -13,8 +10,9 @@ export const isScoped = (a: Pick<Actor, 'scope'>) => scopeOf(a).locations !== nu
 
 // What a member holds: the role row, narrowed by an owner-named custom role. Narrowing only: lists intersect, a
 // restriction on either side applies, and removed doors are a deny list so they stay removed when the base role changes.
-export function effectiveScope(member: Row | undefined, custom: Row | undefined): Scope {
+export function effectiveScope(member: Row | undefined, custom: Row | undefined, places: Row[] = []): Scope {
   const lists = [member?.locations, custom?.locations].filter(Array.isArray) as string[][]
+  for (const r of [member, custom]) if (Array.isArray(r?.sites)) lists.push(places.filter(l => r!.sites.includes(l.siteId)).map(l => l.id))
   const locations = lists.length ? lists.reduce((a, b) => a.filter(id => b.includes(id))) : null
   return { locations, costs: Boolean(member?.costsRestricted || custom?.costsRestricted), removed: [...(custom?.removedDoors ?? [])], version: member?.version ?? 0, customId: custom?.id ?? '', customVersion: custom?.version ?? 0 }
 }
@@ -30,7 +28,10 @@ function leaves(value: unknown, visit: (s: string) => void) {
 export const names = (value: unknown, ids: Set<string>) => { let hit = false; leaves(value, x => { if (ids.has(x)) hit = true }); return hit }
 
 // Out-of-scope locations by id and by name, so neither reaches a scoped member.
-export const hiddenLocations = (s: State, scope: Scope) => new Set(scope.locations === null ? [] : s.locations.filter(l => !scope.locations!.includes(l.id)).flatMap(l => [l.id, l.name]))
+export const hiddenLocations = (s: State, scope: Scope) => new Set(scope.locations === null ? [] : [
+  ...s.locations.filter(l => !scope.locations!.includes(l.id)).flatMap(l => [l.id, l.name]),
+  ...s.sites.filter(site => !s.locations.some(l => l.siteId === site.id && scope.locations!.includes(l.id))).flatMap(site => [site.id, site.name]),
+])
 
 const deny = () => forbidden('This touches a location outside your location scope.')
 
@@ -60,7 +61,7 @@ export function enforceScope(c: Context, before: State) {
   if (c.preparedBy && c.preparedBy !== c.actor.id) {
     const prepared = c.s.roles.find(r => r.id === c.preparedBy)
     if (prepared) {
-      const theirs = effectiveScope(prepared, c.s.customRoles.find(r => r.id === prepared.customRoleId))
+      const theirs = effectiveScope(prepared, c.s.customRoles.find(r => r.id === prepared.customRoleId), c.s.locations)
       if (theirs.locations !== null) {
         const theirHidden = hiddenLocations(c.s, theirs)
         if (touched.some(r => names(r, theirHidden))) forbidden('The person who prepared this is outside the location scope it needs.')

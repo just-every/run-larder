@@ -1,3 +1,4 @@
+import { binRules } from './bin-rules'
 import { performanceReport, reportScheduling } from './costing/performance'
 import { costing, costingReaders } from './costing/commands'
 import { marginReport, varianceReport, reportCsv } from './costing/margins'
@@ -89,10 +90,11 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   const r = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=?`).bind(session.operator.id).first<{ role: string }>()
   const held = async (kind: string, id: string) => { const d = id ? await env.DB.prepare('SELECT data FROM larder_records WHERE kind=? AND id=?').bind(kind, id).first<{ data: string }>() : null; return d ? JSON.parse(d.data) : undefined }
   const member = await held('roles', session.operator.id), custom = await held('customRoles', member?.customRoleId ?? '')
-  return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version, scope: effectiveScope(member, custom) }
+  const places = (await env.DB.prepare("SELECT data FROM larder_records WHERE kind='locations'").all<{ data: string }>()).results.map(r => JSON.parse(r.data))
+  return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version, scope: effectiveScope(member, custom, places) }
 }
 
-const handlers = [nesting, reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [binRules, nesting, reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -167,10 +169,17 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   // A command that loses a concurrent write is recomputed against the new state.
   for (let attempt = 0; attempt < 8; attempt++) {
     const before = await load(env.DB), s = structuredClone(before)
+    const member = s.roles.find(r => r.id === actor.id)
+    actor.scope = effectiveScope(member, s.customRoles.find(r => r.id === member?.customRoleId), s.locations)
+    gateCommand(actor, type, payload)
     if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
     const c: Context = { s, actor, commandId, now: new Date().toISOString(), attachments: [], ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
     if (erasure) c.erasure = erasure
     enforcePayload(c, payload)
+    if (scopeOf(actor).locations !== null && (type === 'transfer.receive' || (type === 'movement.reverse' && payload.documentKind === 'transfers'))) {
+      const id = type === 'transfer.receive' ? payload.transferId : payload.documentId
+      if (!visibleState(s, scopeOf(actor)).state.transfers.some(t => t.id === id)) forbidden('This transfer is outside your location scope.')
+    }
     let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')

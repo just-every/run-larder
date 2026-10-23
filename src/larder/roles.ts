@@ -48,7 +48,8 @@ export function roleCommand(c: Context, type: string, p: any): Row | undefined {
   }
   const places = p.locations === null || p.locations === undefined ? null : [...new Set<string>(list<string>(p.locations, 'locations'))]
   for (const id of places ?? []) get(c.s, 'locations', id, 'location')
-  const next = { locations: places, costsRestricted: p.costsRestricted === true }
+  const sites = p.sites === undefined ? existing?.sites ?? null : siteLimits(c, p.sites)
+  const next = { locations: places, sites, costsRestricted: p.costsRestricted === true }
   if (existing) return bump(existing, next)
   return row(c, 'roles', { id: p.operatorId, role: 'viewer', ...next })
 }
@@ -59,12 +60,19 @@ function customRole(c: Context, p: any): Row {
   for (const d of doors) if (typeof d !== 'string' || !approvalDoor.test(d)) fail('INPUT', 'Only approval doors can be removed from a custom role.', { field: 'removedDoors' })
   const places = p.locations === null || p.locations === undefined ? null : [...new Set<string>(list<string>(p.locations, 'locations'))]
   for (const id of places ?? []) get(c.s, 'locations', id, 'location')
-  const data = { name, base, locations: places, costsRestricted: p.costsRestricted === true, removedDoors: doors }
   const existing = p.customRoleId ? get(c.s, 'customRoles', p.customRoleId, 'custom role') : undefined
+  const data = { name, base, locations: places, sites: p.sites === undefined ? existing?.sites ?? null : siteLimits(c, p.sites), costsRestricted: p.costsRestricted === true, removedDoors: doors }
   if (c.s.customRoles.some(r => r.id !== existing?.id && r.name.toLowerCase() === name.toLowerCase())) fail('INPUT', 'A custom role with that name exists.', { field: 'name' })
   if (existing) {
     if (existing.base !== base) fail('INPUT', 'A custom role keeps its base role; make a new one for another base.', { field: 'base' })
     return bump(existing, data)
   }
   return row(c, 'customRoles', data)
+}
+
+function siteLimits(c: Context, value: unknown): string[] | null {
+  if (value === undefined || value === null) return null
+  const ids = [...new Set<string>(list<string>(value, 'sites'))]
+  for (const id of ids) get(c.s, 'sites', id, 'site')
+  return ids
 }

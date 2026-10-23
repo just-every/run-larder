@@ -1,3 +1,4 @@
+import { evidence as stockEvidence } from '../api/harness.mjs'
 import { test, expect, type Page } from '@playwright/test'
 import { mkdir, readdir } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -400,4 +401,53 @@ test('COST reports retain shipment margins, job source drills and missing perfor
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'COST-scheduled-report')}
   await page.goto(origin+'/app#handoff');await expect(page.getByRole('heading',{name:'Accountant handoff',exact:true})).toBeVisible()
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});for(const name of ['Order margins','Job cost variances','Production performance'])await expect(page.getByRole('link',{name,exact:true})).toBeVisible();expect(await page.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await shot(page,'COST-handoff')}
+})
+
+test('STOCK-001 dispatch and receive stock with unavailable transit balances at 1440 and 390', async ({ page }) => {
+  await enter(page)
+  await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false')
+  const command = async (type: string, payload: object) => {
+    const response = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type, payload } })
+    const body = await response.json(); expect(body.ok, JSON.stringify(body.error)).toBe(true); return body.result
+  }
+  const suffix = crypto.randomUUID().slice(0, 6)
+  const west = await command('site.save', { name: `West ${suffix}` }), east = await command('site.save', { name: `East ${suffix}` })
+  const from = await command('location.save', { name: `Source ${suffix}`, siteId: west.id }), to = await command('location.save', { name: `Destination ${suffix}`, siteId: east.id })
+  for (const width of [1440, 390]) {
+    const item = await command('item.save', { sku: `synthetic-larder-${suffix}-${width}`, name: `Transit part ${width} ${suffix}`, baseUnit: 'each' })
+    await command('opening.record', { locationId: from.id, countedOn: new Date().toISOString().slice(0, 10), valuationBasis: 'owner-estimate', countedBy: 'Olive', evidence: stockEvidence('Counted six'), lines: [{ itemId: item.id, quantity: '6', unitCost: '7.25', lot: `synthetic-larder-${width}` }] })
+    await page.setViewportSize({ width, height: 1000 })
+    await page.goto(origin + '/app#stock'); await page.reload()
+    await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false')
+    const form = card(page, 'Stock movements').locator('form').filter({ has: page.getByRole('heading', { name: 'Transfer', exact: true }) })
+    await form.getByLabel('Timing', { exact: true }).selectOption('transit')
+    await form.getByLabel('Item', { exact: true }).selectOption(item.id)
+    await form.getByLabel('From', { exact: true }).selectOption(from.id)
+    await form.getByLabel('To', { exact: true }).selectOption(to.id)
+    await form.getByLabel('Quantity', { exact: true }).fill('6')
+    await form.getByLabel('Reason', { exact: true }).fill('Replenish east')
+    const transfer = await act(page, () => form.getByRole('button', { name: 'Transfer', exact: true }).click())
+    const pending = card(page, 'Stock movements').locator('form').filter({ has: page.getByRole('heading', { name: `Receive ${transfer.reference}`, exact: true }) })
+    await expect(pending).toContainText('Unavailable until received')
+    const position = card(page, 'By location').locator('tbody tr').filter({ hasText: item.name })
+    await expect(position).toContainText('Transit')
+    let snapshot = await state(page), availability = snapshot.availability.find((x: any) => x.itemId === item.id)
+    expect([availability.available, availability.inTransit]).toEqual(['0', '6'])
+    expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    const account = page.getByLabel('Account menu', { exact: true })
+    await account.focus(); await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab')
+    await expect(page.locator('#account-tooltip')).toBeVisible()
+    await page.keyboard.press('Tab'); await account.hover()
+    await expect(page.locator('#account-tooltip')).toBeVisible()
+    await shot(page, 'STOCK-001-in-transit')
+    if (shots) await card(page, 'Stock movements').screenshot({ path: join(shots, `${width}-STOCK-001-controls.png`) })
+    await pending.getByLabel('Receipt reason', { exact: true }).fill('Six counted on arrival')
+    await act(page, () => pending.getByRole('button', { name: 'Receive transfer', exact: true }).click())
+    await expect(pending).toHaveCount(0)
+    await expect(position).toContainText(to.name); await expect(position).toContainText('Available')
+    snapshot = await state(page); availability = snapshot.availability.find((x: any) => x.itemId === item.id)
+    expect([availability.available, availability.inTransit]).toEqual(['6', '0'])
+    await shot(page, 'STOCK-001-received')
+    if (shots) await card(page, 'By location').screenshot({ path: join(shots, `${width}-STOCK-001-balances.png`) })
+  }
 })

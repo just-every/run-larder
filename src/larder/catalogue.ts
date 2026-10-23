@@ -84,10 +84,13 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
     case 'location.save': {
       allow(c, ['manager', 'warehouse'])
       const name = text(p.name, 'location name', 120)
+      const previous = p.id ? get(c.s, 'locations', p.id, 'location') : undefined
+      const siteId = p.siteId === undefined ? previous?.siteId ?? '' : p.siteId ? get(c.s, 'sites', p.siteId, 'site').id : ''
+      if (siteId !== (previous?.siteId ?? '')) allow(c, [])
       if (c.s.locations.some(l => l.id !== p.id && l.name.toLowerCase() === name.toLowerCase())) fail('DUPLICATE_LOCATION', `A location called ${name} already exists.`)
-      if (!p.id) return row(c, 'locations', { name, note: optionalText(p.note, 'note', 400), archived: false })
+      if (!p.id) return row(c, 'locations', { name, siteId, note: optionalText(p.note, 'note', 400), archived: false })
       const l = get(c.s, 'locations', p.id, 'location'); fresh(l, p.version)
-      return bump(l, { name, note: optionalText(p.note, 'note', 400), archived: p.archived === true })
+      return bump(l, { name, siteId, note: optionalText(p.note, 'note', 400), archived: p.archived === true })
     }
     case 'party.save': {
       allow(c, ['manager', 'buyer', 'sales'])
