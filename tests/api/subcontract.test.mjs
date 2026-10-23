@@ -82,6 +82,20 @@ test('TRACE-001 / BUY-004 two-lot free issue, partial good/scrap, service bill, 
   const customerTrace = await traceProof(h, co.receipts[0].lotId, 'upstream', [property.id])
   assert.ok(customerTrace.rows.some(r => r.recordType === 'custody' && r.lotId === property.id))
   assert.ok(customerTrace.rows.every(r => r.recordType !== 'movement'))
+  // COST-001 consumes the subcontract's already-capitalized material/service
+  // rate once; the job report retains its source lot and service order.
+  const costPolicy = await h.command('costing.policy.prepare', {standardLaborRate:'0',machineRate:'0',overheadRate:'0',overtimeAfterHours:'8',overtimeMultiplier:'1.5',reason:'synthetic-larder-488 subcontract costing'})
+  await h.command('costing.policy.approve', {policyId:costPolicy.id,version:costPolicy.version,reason:'synthetic-larder-489 explicit owner approval'})
+  const assembly = await h.command('item.save', {sku:'synthetic-larder-490',name:'Costed subcontract assembly',kind:'make',baseUnit:'each'})
+  await h.command('bom.revise', {itemId:assembly.id,components:[{itemId:output.id,quantity:'1'}]})
+  let work = await h.command('wo.draft', {itemId:assembly.id,quantity:'1',requiredBy:today,reason:'synthetic-larder-491 roll service into final product'})
+  work = await h.command('wo.release', {workOrderId:work.id,version:work.version})
+  work = await h.command('wo.issue', {workOrderId:work.id,lines:[{itemId:output.id,locationId:shop.id,lotId:o.receipts[0].lotId,quantity:'1'}]})
+  const costRead = await h.request('/api/larder/costing/variances?workOrderId='+work.id)
+  assert.equal(costRead.status,200)
+  const costReport = (await costRead.json()).jobs[0]
+  assert.equal(costReport.materialCost,'12');assert.equal(costReport.serviceCost,'0');assert.equal(costReport.actualCost,'12')
+  assert.equal(costReport.components[0].sources[0].unitCost,'12');assert.equal(costReport.components[0].sources[0].sourceDocumentId,o.id)
   await h.command('role.set', { operatorId: buyer.id, role: 'viewer' })
   await buyer.run('subcontract.draft', draft(), { error: 'FORBIDDEN' })
 })

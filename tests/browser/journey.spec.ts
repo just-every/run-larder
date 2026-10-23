@@ -379,7 +379,7 @@ test('COST reports retain shipment margins, job source drills and missing perfor
         const metric=card(page,'Performance metrics').getByRole('button',{name:'Metric sources yield',exact:true});await metric.click();await expect(card(page,'Performance metrics')).toContainText('Output')
       }
       const account=page.getByRole('button',{name:'Account menu'}).or(page.locator('summary[aria-label="Account menu"]'))
-      await page.mouse.move(0,0);await account.evaluate(el=>(el as HTMLElement).blur());await account.hover();await expect(page.getByRole('tooltip',{name:'Account menu'})).toBeHidden();await expect(page.getByRole('tooltip',{name:'Account menu'})).toBeVisible()
+      await page.mouse.move(0,0);await account.evaluate(el=>(el as HTMLElement).blur());await expect(account.locator('[role=tooltip]')).toBeHidden();await account.hover();await expect(account.locator('[role=tooltip]')).toHaveCSS('transition-delay','0.3s, 0.3s');await expect(page.getByRole('tooltip',{name:'Account menu'})).toBeVisible()
       await page.mouse.move(0,0);await page.keyboard.press('Tab');await account.focus();await expect(page.getByRole('tooltip',{name:'Account menu'})).toBeVisible({timeout:100})
       expect(await page.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true)
       await shot(page,`COST-${report}`)

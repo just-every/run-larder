@@ -1,6 +1,6 @@
 import { cents, decimal, divide, format, max, times } from '../decimal'
 import { shipmentPrice } from '../sales-terms'
-import { valuedRate } from './valuation'
+import { valuedRate, valuedAmount } from './valuation'
 import { jobCosts } from './jobs'
 import type { Row, State } from '../model'
 const d=(v:string)=>decimal(v,'money',{signed:true})
@@ -13,13 +13,13 @@ export function marginReport(s:State,q=new URLSearchParams()) {
     const item=s.items.find(i=>i.id===l.itemId),quantity=d(l.quantity)-d(l.cancelled??'0'),open=max(0n,quantity-d(l.shipped)),quoted=l.quotedUnitCost===null||l.quotedUnitCost===undefined?null:times(quantity,d(l.quotedUnitCost))
     const shipments=s.shipments.filter(sh=>sh.orderId===o.id)
     const sources=s.movements.filter(m=>m.itemId===l.itemId&&m.documentKind==='shipments'&&shipments.some(sh=>sh.id===m.documentId&&sh.lines.some((x:any)=>x.lineId===l.id&&x.movementIds?.includes(m.id)))).flatMap(m=>{
-      const original={movementId:m.id,shipmentId:m.documentId,kind:'shipment',quantity:format(-m.quantity),unitPrice:shipmentPrice(s,m).unitPrice,unitCost:format(valuedRate(s,m)),revenue:format(times(-m.quantity,d(shipmentPrice(s,m).unitPrice))),cost:format(times(-m.quantity,valuedRate(s,m)))}
-      const reversals=s.movements.filter(x=>x.reversesId===m.id).map(x=>({...original,movementId:x.id,kind:'shipment reversal',quantity:format(-x.quantity),revenue:format(times(-x.quantity,d(original.unitPrice))),cost:format(times(-x.quantity,valuedRate(s,m)))}))
+      const original={movementId:m.id,shipmentId:m.documentId,kind:'shipment',quantity:format(-m.quantity),unitPrice:shipmentPrice(s,m).unitPrice,unitCost:format(valuedRate(s,m)),revenue:format(times(-m.quantity,d(shipmentPrice(s,m).unitPrice))),cost:format(-valuedAmount(s,m))}
+      const reversals=s.movements.filter(x=>x.reversesId===m.id).map(x=>({...original,movementId:x.id,kind:'shipment reversal',quantity:format(-x.quantity),revenue:format(times(-x.quantity,d(original.unitPrice))),cost:format(-valuedAmount(s,x))}))
       const returns=s.returns.filter(r=>r.orderId===o.id&&r.lineId===l.id).flatMap(r=>(r.sources??[]).filter((x:any)=>x.shipmentMovementId===m.id).flatMap((x:any)=>{
         const returned=s.movements.find(v=>v.id===x.returnMovementId)
         if(!returned)return []
-        const base={movementId:returned.id,shipmentId:m.documentId,returnId:r.id,kind:'return',quantity:format(-returned.quantity),unitPrice:x.unitPrice,unitCost:format(valuedRate(s,m)),revenue:format(-times(returned.quantity,d(x.unitPrice))),cost:format(-times(returned.quantity,valuedRate(s,m)))}
-        return [base,...s.movements.filter(v=>v.reversesId===returned.id).map(v=>({...base,movementId:v.id,kind:'return reversal',quantity:format(-v.quantity),revenue:format(-times(v.quantity,d(x.unitPrice))),cost:format(-times(v.quantity,valuedRate(s,m)))}))]
+        const base={movementId:returned.id,shipmentId:m.documentId,returnId:r.id,kind:'return',quantity:format(-returned.quantity),unitPrice:x.unitPrice,unitCost:format(valuedRate(s,m)),revenue:format(-times(returned.quantity,d(x.unitPrice))),cost:format(-valuedAmount(s,returned))}
+        return [base,...s.movements.filter(v=>v.reversesId===returned.id).map(v=>({...base,movementId:v.id,kind:'return reversal',quantity:format(-v.quantity),revenue:format(-times(v.quantity,d(x.unitPrice))),cost:format(-valuedAmount(s,v))}))]
       }))
       return [original,...reversals,...returns]
     })

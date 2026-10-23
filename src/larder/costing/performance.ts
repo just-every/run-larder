@@ -36,7 +36,7 @@ export function performanceReport(s:State,q=new URLSearchParams()) {
   const capacityMissing=[...timeMissing,...(!calendars.length?['No configured machine-slot calendar for these filters']:[]),...(f.ownerId?['Person-filtered machine capacity is not allocated to an individual']:[])]
   const finished=jobs.filter(w=>w.closedAt&&within(w.closedAt)),output=add(finished.map(w=>decimal(w.output))),scrap=add(finished.map(w=>decimal(w.scrap)))
   const adherence=operations.filter(o=>o.completedAt).map(o=>{
-    const booking=s.scheduleBookings.filter(b=>b.operations?.some((x:any)=>x.workOrderId===o.workOrderId&&x.sequence===o.sequence)).at(-1)
+    const booking=s.scheduleBookings.filter(b=>b.approvedAt<=o.startedAt&&b.operations?.some((x:any)=>x.workOrderId===o.workOrderId&&x.sequence===o.sequence)).at(-1)
     const slot=booking?.operations.find((x:any)=>x.workOrderId===o.workOrderId&&x.sequence===o.sequence)
     return {...o,scheduledEnd:slot?.endsAt??null,onTime:slot?o.completedAt<=slot.endsAt:null}
   })

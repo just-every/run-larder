@@ -1,11 +1,11 @@
 import { canonicalJson, sha256 } from '../../modules/import-kit/src/d1/index'
-import { decimal, format, times, min } from '../decimal'
+import { decimal, format, times, min, divide } from '../decimal'
 import { fail, forbidden } from '../problem'
 import { allow, approver } from '../roles'
 import { attach } from '../attachments'
 import { bump, fresh, get, oneOf, row, text, type Context, type Row, type State } from '../model'
 import { jobCosts } from './jobs'
-import { valuedRate } from './valuation'
+import { valuedRate, valuedAmount, residualAt } from './valuation'
 
 export const costingReaders=['owner','manager','accounts']
 export const costFingerprint=(s:State,w:Row)=>sha256(canonicalJson(jobCosts(s,w)))
@@ -53,10 +53,17 @@ export function costing(c:Context,type:string,p:any):Row|undefined {
     if(w.status!=='closed'||report.actualUnitCost===null)fail('COST_INCOMPLETE','Close the job and resolve missing cost evidence before reviewing valuation.')
     const output=c.s.movements.filter(m=>m.documentKind==='workOrders'&&m.documentId===w.id&&m.kind==='output')
     if(!output.length||output.some(m=>!m.lotId))fail('COST_TRACE','Valuation requires exact output lots; legacy unlotted output is never guessed.')
+    let cumulative=0n,assigned=0n
+    const totalGood=decimal(w.output),goodValue=decimal(report.goodCost!)
     const lines=output.map(m=>{
-      const previous=valuedRate(c.s,m),rate=decimal(report.actualUnitCost!),delta=rate-previous
-      const onHand=c.s.movements.filter(x=>x.itemId===m.itemId&&x.lotId===m.lotId).reduce((n,x)=>n+x.quantity,0n)
-      return {movementId:m.id,itemId:m.itemId,lotId:m.lotId,quantity:format(m.quantity),previousUnitCost:format(previous),unitCost:format(rate),valueChange:format(times(m.quantity,delta)),stockValueChange:format(times(min(onHand,m.quantity),delta)),consumedValueChange:format(times(m.quantity-min(onHand,m.quantity),delta))}
+      cumulative+=m.quantity
+      const through=cumulative===totalGood?goodValue:(goodValue*cumulative+totalGood/2n)/totalGood
+      const targetValue=through-assigned;assigned=through
+      const previous=valuedRate(c.s,m),rate=divide(targetValue,m.quantity),residual=targetValue-times(m.quantity,rate)
+      const lotMovements=c.s.movements.filter(x=>x.itemId===m.itemId&&x.lotId===m.lotId)
+      const onHand=lotMovements.reduce((n,x)=>n+x.quantity,0n),previousStock=lotMovements.reduce((n,x)=>n+valuedAmount(c.s,x),0n)
+      const change=targetValue-valuedAmount(c.s,m),stockChange=times(onHand,rate)+residualAt(residual,onHand,m.quantity)-previousStock
+      return {movementId:m.id,itemId:m.itemId,lotId:m.lotId,quantity:format(m.quantity),previousUnitCost:format(previous),unitCost:format(rate),targetValue:format(targetValue),roundingResidual:format(residual),valueChange:format(change),stockValueChange:format(stockChange),consumedValueChange:format(change-stockChange)}
     })
     return row(c,'costValuations',{workOrderId:w.id,currency:'USD',status:'draft',preparedBy:c.actor.id,stateVersion:c.s.version+1,digest:costFingerprint(c.s,w),report,lines,reason})
   }

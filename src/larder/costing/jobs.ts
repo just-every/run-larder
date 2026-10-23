@@ -3,7 +3,7 @@ import { materialCost } from '../production-cost'
 import { timeCosts } from '../time-entries'
 import { laborCosts } from '../scheduling/labor-costs'
 import { averageCost } from '../stock'
-import { valuedRate } from './valuation'
+import { valuedRate, valuedAmount } from './valuation'
 import type { Row, State } from '../model'
 
 export const activePolicy = (s: State) => s.costPolicies.filter(p => p.status === 'approved').at(-1)
@@ -19,7 +19,7 @@ export function jobCosts(s: State, w: Row) {
   const pinned = w.costingStandard, policy = pinned?.policy
   const movements = s.movements.filter(m => (m.documentKind === 'workOrders' && m.documentId === w.id && m.kind === 'issue') || (m.kind === 'issue-reversal' && s.reversals.some(r=>r.id===m.documentId && r.targetId===w.id)))
   const components = w.components.map((l: any) => {
-    const sources = movements.filter(m=>m.itemId===l.itemId).map(m=>({movementId:m.id,lotId:m.lotId,quantity:format(-m.quantity),unitCost:format(valuedRate(s,m)),originalUnitCost:format(m.unitCost),cost:format(-times(m.quantity,valuedRate(s,m)))}))
+    const sources = movements.filter(m=>m.itemId===l.itemId).map(m=>({movementId:m.id,lotId:m.lotId,sourceDocumentKind:s.lots.find(l=>l.id===m.lotId)?.source??'stock',sourceDocumentId:s.lots.find(l=>l.id===m.lotId)?.documentId??m.documentId,quantity:format(-m.quantity),unitCost:format(valuedRate(s,m)),originalUnitCost:format(m.unitCost),cost:format(-valuedAmount(s,m))}))
     const q=total(sources.map(x=>d(x.quantity))), actual=total(sources.map(x=>d(x.cost))), standard=pinned?.components.find((x:any)=>x.itemId===l.itemId), rate=standard ? d(standard.unitCost) : null
     return {itemId:l.itemId,sku:s.items.find(i=>i.id===l.itemId)?.sku,required:l.required,issued:format(q),standardUnitCost:rate===null?null:format(rate),actualCost:format(actual),priceVariance:rate===null?null:format(actual-times(q,rate)),usageVariance:rate===null?null:format(times(q-d(l.required),rate)),sources}
   })

@@ -1,4 +1,4 @@
-import { valuedRate } from './costing/valuation'
+import { valuedRate, valuedAmount } from './costing/valuation'
 // Stock truth: positions are sums of append-only movements; available stock is
 // on-hand available status minus reservations. Every write goes through move().
 import { lotRecalls, workRecalls, recallReason } from './recall-policy'
@@ -43,7 +43,7 @@ export const reservedQuantity = (s: State, demandId: string, lineId: string) => 
 export function averageCost(s: State, itemId: string): bigint {
   let quantity = 0n, value = 0n, last = 0n
   for (const m of s.movements) if (m.itemId === itemId) {
-    quantity += m.quantity; value += times(m.quantity, valuedRate(s, m))
+    quantity += m.quantity; value += valuedAmount(s,m)
     if (m.quantity > 0) last = valuedRate(s, m)
   }
   return quantity > 0n ? (value > 0n ? divide(value, quantity) : 0n) : last
