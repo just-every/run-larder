@@ -18,9 +18,7 @@ export function SerialNumbers({ larder }: { larder: Larder }) {
   }, [q, s.version])
   if (!rows(s, 'items').some(i => i.tracking === 'serial')) return null
   return <Card title="Serial numbers">
-    <form className="form-grid" role="search" onSubmit={e => { e.preventDefault(); setQ(String(new FormData(e.currentTarget).get('serial') ?? '').trim()) }}>
-      <Field label="Find a serial" name="serial" hint="Whole or part of a serial number" /><button className="button" type="submit">Find serial</button>
-    </form>
+    <Form submit="Find serial" quiet onSubmit={d => { setQ(text(d, 'serial')) }}><Field label="Find a serial" name="serial" hint="Whole or part of a serial number" /></Form>
     {error && <p role="alert">{error}</p>}
     {found && found.length === 0 && <Empty>No serial matches {q}.</Empty>}
     {found?.map(x => <SerialHistory key={x.lotId} larder={larder} x={x} />)}
