@@ -1162,3 +1162,23 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   const archive=await(await h.request('/api/larder/archive')).json(),target=await installation();t.after(()=>target.close());assert.equal((await target.request('/api/larder/archive/restore',{method:'POST',body:archive})).status,200)
   assert.deepEqual((await target.state()).reportSchedules[0].filters,filtered.filters);assert.equal((await target.state()).reportSchedules[0].status,'paused')
 })
+
+test('COST-001 unvalued production lots keep weighted average until an actual valuation is approved',async t=>{
+  const h=await installation();t.after(()=>h.close());await zeroCostPolicy(h)
+  const location=await h.command('location.save',{name:'synthetic-larder-540'}),raw=await h.command('item.save',{sku:'synthetic-larder-541',name:'Raw',kind:'buy',baseUnit:'each'}),product=await h.command('item.save',{sku:'synthetic-larder-542',name:'Product',kind:'make',baseUnit:'each',standardCost:'10'})
+  await h.command('opening.record',{locationId:location.id,countedOn:'2026-10-01',countedBy:'synthetic-larder-543',valuationBasis:'supplier-invoice',evidence:evidence(),lines:[{itemId:raw.id,quantity:'4',unitCost:'10'},{itemId:product.id,quantity:'2',unitCost:'30'}]})
+  await h.command('bom.revise',{itemId:product.id,components:[{itemId:raw.id,quantity:'1'}]})
+  const job=await costJob(h,product,location,'2',[{itemId:raw.id,locationId:location.id,quantity:'2'}],'2','0','synthetic-larder-544')
+  const customer=await h.command('party.save',{name:'synthetic-larder-545',kind:'customer'}),order=await h.command('so.quote',{customerId:customer.id,promiseDate:new Date().toISOString().slice(0,10),lines:[{itemId:product.id,quantity:'2',unitPrice:'50'}]})
+  await h.command('so.confirm',{orderId:order.id,version:order.version})
+  const ship=async()=>{let r=await h.command('shipment.pick',{orderId:order.id,lines:[{lineId:order.lines[0].id,locationId:location.id,lotId:job.outputs[0].lotId,quantity:'1'}]});r=await h.command('shipment.pack',{shipmentId:r.id,version:r.version,packages:1});return h.command('shipment.ship',{shipmentId:r.id,version:r.version,carrier:'synthetic-larder-546'})}
+  const first=await ship(),before=(await h.state()).movements
+  assert.equal(before.find(m=>m.documentId===first.id&&m.kind==='shipment').unitCost,'20') // (2×30 + 2×10) / 4
+  assert.equal((await costReport(h,'margins',`?orderId=${order.id}`)).rows[0].actualCost,null)
+  const review=await h.command('costing.valuation.prepare',{workOrderId:job.id,reason:'synthetic-larder-547 exact lot actual cost'})
+  assert.equal(review.lines[0].stockValueChange,'10');assert.equal(review.lines[0].consumedValueChange,'-10')
+  await h.command('costing.valuation.approve',{valuationId:review.id,version:review.version,reason:'synthetic-larder-548 approved actual basis'})
+  assert.deepEqual((await h.state()).movements,before)
+  const second=await ship();assert.equal((await h.state()).movements.find(m=>m.documentId===second.id&&m.kind==='shipment').unitCost,'10')
+  const report=(await costReport(h,'margins',`?orderId=${order.id}`)).rows[0];assert.equal(report.actualCost,'20.00');assert.equal(report.sources.reduce((n,x)=>n+parse(x.cost),0n),parse('20'))
+})

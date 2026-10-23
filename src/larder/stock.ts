@@ -55,6 +55,8 @@ type MoveInput = Pick<Movement, 'itemId' | 'locationId' | 'status' | 'kind' | 'd
 // Preserve that lot's basis instead of blending it into other unrepaired stock.
 function recoveryCost(s: State, lotId: string) {
   if (!s.lots.some(l => l.id === lotId && ['rework', 'subcontract', 'production'].includes(l.source))) return undefined
+  // A physical close is not authority to change the existing WAC basis.
+  if (s.lots.some(l => l.id === lotId && l.source === 'production') && !s.costValuations.some(v => v.status === 'approved' && v.lines.some((line: any) => line.lotId === lotId))) return undefined
   const source = s.movements.find(m => m.lotId === lotId && ['repair-output', 'recovered-component', 'subcontract-output', 'output'].includes(m.kind))
   return source ? valuedRate(s, source) : undefined
 }
