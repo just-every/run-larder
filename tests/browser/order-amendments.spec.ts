@@ -62,9 +62,21 @@ test('DEMAND-002 customer-approved split dates, prospective prices and cancellat
   await fill('8', `3, ${date(2)}\n4, ${date(7)}`, 'Increase quantity and split delivery')
   for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await shot(page, 'prepare-increase') }
   await submit(page, 'Preview order revision', 'so.changePreview')
+  await expect(page.getByRole('region', { name: 'Order revision preview' })).toContainText('Changed customer promises: 1')
+  await expect(page.getByRole('region', { name: 'Order revision preview' })).toContainText('Previous dates:')
+  await expect(page.getByRole('region', { name: 'Order revision preview' })).toContainText('Proposed dates:')
   const impact = page.getByRole('region', { name: 'Order revision impact' })
   await expect(impact).toContainText(work.reference); await expect(impact).toContainText('$72.00'); await expect(impact).toContainText(po.reference)
-  for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await shot(page, 'impact-increase') }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const account = page.getByLabel('Account menu', { exact: true })
+    await page.mouse.move(0, 0); await page.keyboard.press('Tab'); await account.focus()
+    await expect(page.getByRole('tooltip', { name: 'Account menu' })).toBeVisible({ timeout: 100 })
+    await account.blur(); await account.hover()
+    await expect(account.locator('[role=tooltip]')).toHaveCSS('transition-delay', '0.3s, 0.3s')
+    await expect(page.getByRole('tooltip', { name: 'Account menu' })).toBeVisible()
+    await shot(page, 'impact-increase')
+  }
   // Any intervening business write invalidates the review; the screen exposes it.
   await command(page, 'party.save', { name: `Unrelated customer ${suffix}`, kind: 'customer' })
   await page.reload(); await expect(page.getByText('Business records changed. Create a new preview before approval.')).toBeVisible()

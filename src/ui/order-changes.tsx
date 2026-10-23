@@ -20,6 +20,8 @@ export function OrderChanges({ larder, order }: { larder: Larder; order: Rec }) 
       <p>{preview.reason}</p>
       <Details label="Current commercial terms" value={preview.before} s={s} />
       <Details label="Proposed commercial terms" value={preview.after} s={s} />
+      <p>Changed customer promises: {preview.impact.changedPromiseCount ?? 'not recorded'}</p>
+      {preview.impact.promiseChanges?.map((change: any) => <p key={change.lineId}>{itemName(s, change.itemId)} · Previous dates: {change.before.map((d: any) => day(d.date)).join(', ') || 'none'} · Proposed dates: {change.after.map((d: any) => day(d.date)).join(', ') || 'none'}</p>)}
       <ChangeImpact larder={larder} impact={preview.impact} />
       <p>Approved work and purchases remain committed. Use their own authorized workflows for any follow-up changes.</p>
       {preview.stateVersion !== s.version && <p className="warn-text">Business records changed. Create a new preview before approval.</p>}

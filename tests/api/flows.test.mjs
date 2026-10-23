@@ -657,8 +657,12 @@ test('Qualified alternate comparison keeps pinned instructions, setup transition
     m = await planner.run('capacity.sequence', { id: m.id, version: m.version, tools: ['Fixture'], initialFamily: 'steel', changeovers: [{ from:'steel',to:'wood',minutes,cleanupMinutes }], planningHourlyCost: '60', overtimeHourlyCost: '90', outsourceCost:'150',outsourceDays:3, reason:'synthetic-larder-603 qualified tooling and public service tariffs' }); machines.push(m)
   }
   await h.command('bom.revise', { itemId:w.board.id,components:[{itemId:w.timber.id,quantity:'1'}],routing:[{name:'Qualified cutting',workCentre:'Primary',eligibleCentres:['Primary','Alternate A','Alternate B'],requiredTools:['Fixture'],setupFamily:'wood',setupMinutes:5,runMinutes:20,requiredSkills:['cutting'],instructions:'Retain fixture torque and inspection.',drawings:[evidence('synthetic-larder-604 pinned drawing')]}] })
-  let job = await h.command('wo.draft',{itemId:w.board.id,quantity:'1',requiredBy:'2026-11-26',reason:'synthetic-larder-605 alternate need'})
+  let order = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-11-26', lines: [{ itemId: w.board.id, quantity: '5', unitPrice: '89' }] })
+  order = await h.command('so.confirm', { orderId: order.id, version: order.version, reserve: false })
+  let job = await h.command('plan.draft',{itemId:w.board.id,reason:'synthetic-larder-605 alternate need'})
   job = await h.command('wo.release',{workOrderId:job.id,version:job.version})
+  const original = await h.command('proposal.prepare',{kind:'reschedule',summary:'synthetic-larder-1415 original primary assignment',evidence:['synthetic-larder-1416'],plan:{changes:[{workOrderId:job.id,plannedStart:'2026-11-25',priority:1,scheduleChoices:{1:'Primary'}}],capacity:{asOf:'2026-11-25T00:00:00Z',days:7}}})
+  await h.command('proposal.approve',{proposalId:original.id,version:original.version})
   await h.command('maintenance.create',{workCentre:'Primary',kind:'preventive',startsAt:'2026-11-24T00:00:00Z',expectedReturnAt:'2026-11-28T00:00:00Z',repairOwner:'Olive',note:'synthetic-larder-606 primary unavailable'})
   const baseline = await finite(h), selected = name => ({kind:'reschedule',summary:'synthetic-larder-607 compare alternate '+name,evidence:['synthetic-larder-608 technical review'],plan:{changes:[{workOrderId:job.id,plannedStart:'2026-11-25',priority:1,scheduleChoices:{1:name}}],capacity:{asOf:'2026-11-25T00:00:00Z',days:7}}})
   const a = await planner.run('proposal.prepare',selected('Alternate A')), b = await planner.run('proposal.prepare',selected('Alternate B'))
@@ -666,6 +670,11 @@ test('Qualified alternate comparison keeps pinned instructions, setup transition
   assert.deepEqual([oa.machine,oa.setupMinutes,oa.changeoverMinutes,oa.cleanupMinutes,oa.occupiedMinutes,oa.planningCost],['Alternate A',5,10,5,40,'40'])
   assert.deepEqual([ob.machine,ob.changeoverMinutes,ob.cleanupMinutes,ob.occupiedMinutes,ob.planningCost],['Alternate B',40,10,75,'75'])
   assert.equal(oa.operatorId,owner.id);assert.ok(oa.endsAt<ob.endsAt);assert.deepEqual(oa.requiredTools,['Fixture'])
+  assert.equal(baseline.jobs.find(j => j.workOrderId === job.id).unscheduled, true)
+  assert.equal(b.context.capacity.changedPromiseCount, 0)
+  assert.equal(b.context.capacity.after.jobs.find(j => j.workOrderId === job.id).late, false)
+  assert.deepEqual(b.context.capacity.promiseEffects.find(p => p.orderId === order.id).workOrderIds, [job.id])
+  assert.ok(ob.endsAt < order.promiseDate + 'T23:59:59.999Z')
   assert.deepEqual(oa.comparisons.map(c=>c.cost),['40','60','150']);assert.equal(oa.comparisons[2].leadDays,3)
   assert.deepEqual((await h.state()).workOrders.find(x=>x.id===job.id).routing,job.routing)
   await h.command('proposal.approve',{proposalId:a.id,version:a.version},{error:'STALE'})
@@ -674,6 +683,7 @@ test('Qualified alternate comparison keeps pinned instructions, setup transition
   const before = await h.state(), approved = await h.command('proposal.approve',{proposalId:b.id,version:b.version},{commandId:'synthetic-larder-609-approval'})
   assert.equal(approved.status,'approved');assert.deepEqual(await h.command('proposal.approve',{proposalId:b.id,version:b.version},{commandId:'synthetic-larder-609-approval'}),approved)
   const after = await h.state();assert.equal(after.workOrders.find(x=>x.id===job.id).scheduleChoices[1],'Alternate B')
+  assert.equal(after.salesOrders.find(o => o.id === order.id).promiseDate, order.promiseDate)
   for(const k of ['movements','reservations','salesOrders']) assert.deepEqual(after[k],before[k])
   assert.deepEqual((await finite(h)).operations,b.context.capacity.after.operations)
   await planner.run('proposal.prepare',selected('Unqualified'),{error:'WORK_CENTER'})
@@ -1294,7 +1304,8 @@ test('CAP-008 owner-approved nesting consumes once, recovers a traced offcut and
   assert.deepEqual(after.workOrders.map(w => w.components[0].issued), ['2', '3', '3'])
   assert.equal(after.positions.find(p => p.lotId === posted.body.result.offcutLotId).quantity, '2')
   const recovered = after.lots.find(l => l.id === posted.body.result.offcutLotId)
-  for (const key of ['manufacturedOn', 'expiresOn', 'retestOn', 'storage']) assert.equal(recovered[key], f.lot[key], key)
+  assert.equal(f.lot.dates.expiresOn, '2027-10-01')
+  assert.deepEqual(recovered.dates, f.lot.dates)
   assert.equal(after.positions.some(p => p.lotId === f.lot.id), false)
   for (const k of ['scheduleBookings', 'schedulePolicies', 'salesOrders']) assert.deepEqual(after[k], before[k], k)
   assert.deepEqual((await h.send('nest.approve', payload, { commandId: posted.commandId })).body, posted.body)
@@ -1317,6 +1328,7 @@ test('CAP-008 owner-approved nesting consumes once, recovers a traced offcut and
   assert.equal((await (await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })).json()).ok, true)
   assert.deepEqual((await target.state()).workGroups, (await h.state()).workGroups)
   assert.deepEqual((await target.state()).movements, (await h.state()).movements)
+  assert.deepEqual((await target.state()).lots.find(l => l.id === recovered.id).dates, f.lot.dates)
 })
 
 test('CAP-008 stale or impossible physical nesting approval leaves every job and offcut unposted', async t => {
@@ -1356,4 +1368,71 @@ test('CAP-008 nesting cannot recover expired or controlled material as a new usa
     const after = await h.state()
     for (const key of ['workGroups', 'lots', 'movements', 'reservations', 'workOrders']) assert.deepEqual(after[key], before[key], mode + ':' + key)
   }
+})
+
+async function allocationWorkshop(h) {
+  const loc = await h.command('location.save', { name: 'synthetic-larder-1400 receipt rack' })
+  const item = await h.command('item.save', { sku: 'synthetic-larder-1401', name: 'Sheet stock', kind: 'buy', baseUnit: 'each', standardCost: '5' })
+  const supplier = await h.command('party.save', { name: 'synthetic-larder-1402', kind: 'supplier' })
+  const customer = await h.command('party.save', { name: 'synthetic-larder-1403', kind: 'customer' })
+  let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: '2026-11-01', reason: 'synthetic-larder-1404', lines: [{ itemId: item.id, quantity: '10', unitPrice: '5' }] })
+  po = await h.command('po.approve', { poId: po.id, version: po.version })
+  const receipt = await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-1405', lines: [{ lineId: po.lines[0].id, locationId: loc.id, quantity: '10', lot: 'synthetic-larder-1406' }] })
+  const orders = []
+  for (let i = 0; i < 2; i++) {
+    let order = await h.command('so.quote', { customerId: customer.id, promiseDate: `2026-11-0${5 + i}`, lines: [{ itemId: item.id, quantity: '8', unitPrice: '12' }] })
+    order = await h.command('so.confirm', { orderId: order.id, version: order.version, reserve: false })
+    orders.push(order)
+  }
+  await h.command('so.reserve', { orderId: orders[0].id })
+  await h.command('so.reserve', { orderId: orders[1].id })
+  return { loc, item, receipt, orders, payload: { receiptId: receipt.id, itemId: item.id, locationId: loc.id, reason: 'synthetic-larder-1407 reviewed equal split', allocations: orders.map(order => ({ orderId: order.id, lineId: order.lines[0].id, quantity: '5' })) } }
+}
+
+test('DEMAND-005 reviewed receipt split shows displacement, both promises and estimated margins, then atomically reserves exact totals without stock or promise changes', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const f = await allocationWorkshop(h), before = await h.invariant()
+  const preview = await h.command('so.allocationPreview', f.payload)
+  assert.equal(preview.changedPromiseCount, 0)
+  assert.deepEqual(preview.effects.map(e => [e.before, e.after, e.displaced, e.promiseDate, e.estimatedMarginBefore, e.estimatedMarginAfter]), [['8', '5', '3', '2026-11-05', '56', '35'], ['2', '5', '0', '2026-11-06', '14', '35']])
+  assert.deepEqual([preview.totalBefore, preview.totalAfter, preview.acceptedQuantity], ['10', '10', '10'])
+  assert.deepEqual((await h.state()).reservations, before.reservations)
+  const payload = { previewId: preview.id, version: preview.version, reason: 'synthetic-larder-1408 owner approves exact split' }
+  const approved = await h.command('so.allocationApprove', payload, { commandId: 'synthetic-larder-1409-approve' })
+  const after = await h.invariant()
+  assert.equal(approved.status, 'approved')
+  assert.deepEqual(after.reservations.map(r => r.quantity).sort(), ['5', '5'])
+  assert.deepEqual(after.salesOrders.map(o => o.promiseDate), before.salesOrders.map(o => o.promiseDate))
+  assert.deepEqual(after.movements, before.movements)
+  assert.deepEqual(await h.command('so.allocationApprove', payload, { commandId: 'synthetic-larder-1409-approve' }), approved)
+  const archived = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  assert.equal((await target.request('/api/larder/archive/restore', { method: 'POST', body: archived })).status, 200)
+  assert.deepEqual((await target.state()).approvals, after.approvals)
+  assert.deepEqual((await target.invariant()).reservations, after.reservations)
+  await h.restart(); assert.deepEqual((await h.state()).reservations, after.reservations)
+})
+
+test('DEMAND-005 stale, overallocated, duplicated and picked receipt splits refuse without changing hard reservations', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const f = await allocationWorkshop(h), before = await h.invariant()
+  await h.command('so.allocationPreview', { ...f.payload, allocations: f.payload.allocations.map(a => ({ ...a, quantity: '8' })) }, { error: 'INSUFFICIENT_STOCK' })
+  await h.command('so.allocationPreview', { ...f.payload, allocations: [f.payload.allocations[0], f.payload.allocations[0]] }, { error: 'INPUT' })
+  const preview = await h.command('so.allocationPreview', f.payload)
+  await h.command('shipment.pick', { orderId: f.orders[0].id, lines: [{ lineId: f.orders[0].lines[0].id, locationId: f.loc.id, quantity: '6' }] })
+  await h.command('so.allocationApprove', { previewId: preview.id, version: preview.version, reason: 'synthetic-larder-1410' }, { error: 'STALE' })
+  await h.command('so.allocationPreview', f.payload, { error: 'PICKED_COMMITMENT' })
+  assert.deepEqual((await h.invariant()).reservations, before.reservations)
+})
+
+test('DEMAND-005 sales, planners, managers and agents cannot take reservation approval authority through the command API', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const f = await allocationWorkshop(h)
+  for (const role of ['sales', 'planner', 'manager', 'agent']) {
+    const person = await h.person(`synthetic-larder-1411-${role}@example.test`, role)
+    await person.run('so.allocationPreview', f.payload, { error: 'FORBIDDEN' })
+  }
+  const preview = await h.command('so.allocationPreview', f.payload)
+  const sales = await h.person('synthetic-larder-1412@example.test', 'sales')
+  await sales.run('so.allocationApprove', { previewId: preview.id, version: preview.version, reason: 'synthetic-larder-1413' }, { error: 'FORBIDDEN' })
+  assert.deepEqual((await h.invariant()).reservations.map(r => r.quantity).sort(), ['2', '8'])
 })

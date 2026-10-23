@@ -2,6 +2,7 @@
 // into the freshly migrated database `rer reset --yes` leaves, through Base
 // portability and the seed's own policy, with every Larder record intact.
 import test from 'node:test'
+import { createHash } from 'node:crypto'
 import assert from 'node:assert/strict'
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -126,4 +127,30 @@ test('MOVE-008 source history searches original IDs/files, exports every record 
   await h.command('history.preview', { file: { name: 'bad.json', content: JSON.stringify(invalid) }, attachments: [originalFile] }, { error: 'INPUT' })
   assert.equal((await h.state()).sourceHistory.length, 5)
   assert.equal(w.loc.name, 'Workshop')
+})
+
+
+test('US-001 restore refuses undeclared or non-USD functional money without relabelling amounts or writing records', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h)
+  await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-11-01', lines: [{ itemId: w.board.id, quantity: '2', unitPrice: '89.25' }] })
+  const archive = await (await h.request('/api/larder/archive')).json()
+  const target = await installation(); t.after(() => target.close())
+  const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value
+  for (const currency of [undefined, 'AUD', 'EUR', 'usd', 'ZZZ']) {
+    const altered = structuredClone(archive)
+    if (currency === undefined) delete altered.currency
+    else altered.currency = currency
+    const { exportedAt, checksum, ledger, ...content } = altered
+    altered.checksum = createHash('sha256').update(JSON.stringify(stable(content))).digest('hex')
+    const response = await target.request('/api/larder/archive/restore', { method: 'POST', body: altered })
+    assert.equal((await response.json()).error.code, 'CURRENCY_MIGRATION')
+    const empty = await target.invariant()
+    assert.equal(empty.version, 0); assert.equal(empty.salesOrders.length, 0); assert.equal(empty.movements.length, 0)
+  }
+  assert.equal((await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })).status, 200)
+  const exported = await (await target.request('/api/larder/archive')).json()
+  assert.equal(exported.currency, 'USD')
+  assert.deepEqual(exported.records.salesOrders, archive.records.salesOrders)
+  assert.deepEqual(exported.movements, archive.movements)
 })

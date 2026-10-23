@@ -696,3 +696,13 @@ Location scope and cost restrictions apply to preparation, results and replay.
 Grouping and import page controls, combined finite setup booking, broader batch
 stages and ct approval of the default remain CAP-008 gaps. CONN-012 will supply
 vendor-specific nesting imports and inherits these review and posting guards.
+
+## Reviewed sales reservation splits (DEMAND-005, partial)
+
+`so.allocationPreview` accepts `{receiptId, itemId, locationId, reason, allocations: [{orderId, lineId, quantity}]}`. Each quantity is the target reservation at that location, including zero to release it. Every named line must be open and confirmed. The preview records both promises, prior and target totals, displaced quantities, ranks, reserved sales values and estimated margins from retained quote costs. Unknown costs stay unknown. It changes no reservation or promise.
+
+`so.allocationApprove` accepts `{previewId, version, reason}`. Approval is atomic and binds the complete business version and UTC day. Targets cannot exceed usable accepted receipt stock, line demand or stock free after the explicitly reviewed releases. All unnamed reservations and picked quantities stay protected. The command changes no movement or customer date. Allocation reviews and approvals survive restart, JSON and CSV export and inert archive restore.
+
+Conservative authority default pending ct: both commands are owner-only, including command replay. A customer date change still uses `so.changePreview` and `so.changeApprove` with recorded customer attestation. That preview includes `impact.changedPromiseCount` (affected customer orders) and `impact.promiseChanges` (each changed line with previous and proposed delivery dates). The reservation split page remains unfinished. The existing qualified-alternate API and browser journeys now assert customer-linked outage recovery with sufficient alternate capacity, zero changed promises and unchanged order dates.
+
+Archive restore currently accepts only an explicit `USD` functional-currency declaration. Missing, malformed or non-USD declarations answer `CURRENCY_MIGRATION` before any write. This prevents silent relabelling; it does not implement the US-001 versioned AUD conversion. Original currencies of source-history evidence remain separate from functional money.

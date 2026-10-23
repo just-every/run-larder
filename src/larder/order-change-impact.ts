@@ -2,7 +2,7 @@
 // supply. It never claims an SKU match is a dedicated customer commitment.
 import { decimal, format, max, times } from './decimal'
 import { orderStatuses } from './order-status'
-import { pickedQuantity } from './sales-schedules'
+import { deliveries, pickedQuantity } from './sales-schedules'
 import { type Row, type State } from './model'
 import { open } from './availability'
 
@@ -33,7 +33,16 @@ export function changeImpact(s: State, order: Row, after: Row) {
     outstandingExposure: format(['draft', 'approved', 'confirmed', 'part received'].includes(po.status) ? po.lines.reduce((total: bigint, line: any) => total + times(max(0n, decimal(line.quantity) - decimal(line.received)), decimal(line.unitPrice)), 0n) : 0n),
     lines: po.lines.filter((line: any) => items.has(line.itemId)),
   }))
+  const promiseChanges = after.lines.flatMap((line: any) => {
+    const previous = order.lines.find((l: any) => l.id === line.id)
+    const before = previous ? deliveries(order, previous) : []
+    const next = deliveries(after, line)
+    const dates = (rows: any[]) => [...new Set(rows.map(row => row.date))].sort()
+    if (JSON.stringify(dates(before)) === JSON.stringify(dates(next))) return []
+    return [{ lineId: line.id, itemId: line.itemId, before, after: next }]
+  })
   return {
+    changedPromiseCount: promiseChanges.length ? 1 : 0, promiseChanges,
     reservations: s.reservations.filter(reservation => reservation.demandId === order.id).map(reservation => ({ ...reservation, quantity: format(reservation.quantity),
       openAfter: format(open(after.lines.find((line: any) => line.id === reservation.lineId))), treatment: 'retain up to new open quantity; release excess unpicked quantity' })),
     lineBalances: after.lines.map((line: any) => ({ lineId: line.id, itemId: line.itemId, shipped: line.shipped, cancelled: line.cancelled, openAfter: format(open(line)), picked: format(pickedQuantity(s, order.id, line.id)) })),

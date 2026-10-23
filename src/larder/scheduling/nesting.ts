@@ -86,7 +86,7 @@ export function nesting(c: Context, type: string, p: any): Row | undefined {
       const out = withdraw(c, { itemId: source.itemId, locationId: source.locationId, lotId: source.lotId, quantity: -q, status: 'available', kind: 'transfer', documentKind: 'workGroups', documentId: group.id, reason })[0]
       // Recovery keeps the source dates and disposition. It grants no shelf
       // life extension, quality release, new value or supplier certification.
-      const recovered = row(c, 'lots', { itemId: source.itemId, code: r.offcut.code, supplierId: lot.supplierId, source: 'nesting', documentId: group.id, parentLotId: lot.id, status: 'released',
+      const recovered = row(c, 'lots', { itemId: source.itemId, code: r.offcut.code, supplierId: lot.supplierId, source: 'nesting', documentId: group.id, parentLotId: lot.id, status: 'released', ...(lot.dates ? { dates: structuredClone(lot.dates) } : {}),
         manufacturedOn: lot.manufacturedOn, expiresOn: lot.expiresOn, retestOn: lot.retestOn, supplierShelfLifeDays: lot.supplierShelfLifeDays, storage: lot.storage })
       offcutLotId = recovered.id
       move(c, { itemId: source.itemId, locationId: r.offcut.locationId, lotId: recovered.id, quantity: q, unitCost: out.unitCost, status: 'available', kind: 'nesting-offcut', documentKind: 'workGroups', documentId: group.id, reason })
