@@ -119,7 +119,7 @@ test('TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; ex
   const datedReceipt = await h.command('receipt.create', { poId: datedPo.id, supplierReference: 'Inclusive dates', lines: [{ lineId: datedPo.lines[0].id, locationId: cold.id, quantity: '2', lot: 'TODAY', dates: { expiresOn: today, retestOn: today } }] })
   const todayLot = datedReceipt.lines[0].lotId
   s = await h.state()
-  assert.deepEqual(s.availability.find(x => x.itemId === boundary.id), { itemId: boundary.id, onHand: '3', quarantine: '0', reserved: '0', expired: '0', available: '3', expectedPurchase: '0', expectedProduction: '0', unreservedDemand: '0', availableToPromise: '3' })
+  assert.deepEqual(s.availability.find(x => x.itemId === boundary.id), { itemId: boundary.id, onHand: '3', quarantine: '0', inTransit: '0', reserved: '0', expired: '0', available: '3', expectedPurchase: '0', expectedProduction: '0', unreservedDemand: '0', availableToPromise: '3' })
   let boundaryOrder = await h.command('so.quote', { customerId: deli.id, promiseDate: today, lines: [{ itemId: boundary.id, quantity: '2', unitPrice: '3' }] })
   boundaryOrder = await h.command('so.confirm', { orderId: boundaryOrder.id, version: boundaryOrder.version }); await h.command('so.reserve', { orderId: boundaryOrder.id })
   const boundaryPick = await h.command('shipment.pick', { orderId: boundaryOrder.id, lines: [{ lineId: boundaryOrder.lines[0].id, locationId: cold.id, quantity: '2' }] })

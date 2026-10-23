@@ -96,6 +96,12 @@ test('ENG-005 review a safety replacement, evidence and stock/work dispositions,
 })
 
 test('ENG-003 configure two sizes and finishes on the quote, compare the resolved BOM and cost, refuse an invalid choice and draft work to both at 1440/390', async ({ page }) => {
+  // A slow real response must not let the next add replace an unresolved line.
+  await page.route('**/api/larder/configurations/resolve?*', async route => {
+    const response = await route.fetch()
+    await new Promise(resolve => setTimeout(resolve, 500))
+    await route.fulfill({ response })
+  })
   if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
@@ -109,7 +115,9 @@ test('ENG-003 configure two sizes and finishes on the quote, compare the resolve
     invalid: [{ when: { Size: 'Small', Finish: 'Lacquer' }, reason: 'Lacquer is only offered on the Large board.' }] })
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
-    await page.goto(origin + '/app#orders'); await page.reload(); await settled(page)
+    // Finish hydration before using the app's hash navigation.
+    await page.goto(origin + '/app'); await settled(page); await page.reload(); await settled(page)
+    await page.getByRole('navigation', { name: 'Larder', exact: true }).getByRole('link', { name: 'Orders', exact: true }).click(); await settled(page)
     const quote = page.locator('section.card').filter({ has: page.getByRole('heading', { name: 'Configured quote', exact: true }) })
     await quote.getByLabel('Customer', { exact: true }).selectOption(customer.id)
     await quote.getByLabel('Promise date', { exact: true }).fill('2030-01-10')
@@ -122,12 +130,19 @@ test('ENG-003 configure two sizes and finishes on the quote, compare the resolve
     await expect(quote.getByRole('region', { name: /Configured line/ })).toHaveCount(0)
     await quote.getByLabel('Finish', { exact: true }).selectOption('Oil')
     await quote.getByRole('button', { name: 'Add to quote', exact: true }).click()
+    await expect(quote.getByRole('button', { name: 'Add to quote', exact: true })).toBeDisabled()
+    await expect(quote.getByRole('button', { name: 'Save configured quote', exact: true })).toBeDisabled()
     await quote.getByLabel('Size', { exact: true }).selectOption('Large'); await quote.getByLabel('Finish', { exact: true }).selectOption('Lacquer')
     await quote.getByLabel(/^thickness/).fill('30'); await quote.getByLabel('Engraving', { exact: true }).check()
     await quote.getByRole('button', { name: 'Add to quote', exact: true }).click()
     const first = quote.getByRole('region', { name: 'Configured line 1' }), second = quote.getByRole('region', { name: 'Configured line 2' })
     await expect(first).toContainText('Size: Small; Finish: Oil'); await expect(first).toContainText('$9.50 each')
     await expect(second).toContainText('Size: Large; Finish: Lacquer'); await expect(second).toContainText('$32.96 each'); await expect(second).toContainText('2 * thickness / 20 with thickness = 30 = 3')
+    const account = page.getByLabel('Account menu', { exact: true })
+    await account.focus(); await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab')
+    await expect(page.locator('#account-tooltip')).toBeVisible()
+    await page.keyboard.press('Tab'); await account.hover()
+    await expect(page.locator('#account-tooltip')).toBeVisible()
     await shots(page, 'compare', quote)
     await quote.getByRole('button', { name: 'Save configured quote', exact: true }).click(); await settled(page)
     await expect(page.getByRole('heading', { level: 1 })).toContainText('SO-')

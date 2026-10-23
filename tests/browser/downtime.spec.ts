@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
+test.use({ timezoneId: 'UTC' })
 const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787'
 async function command(page: Page, type: string, payload: object) {
   const r = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type, payload } })
@@ -13,6 +14,12 @@ async function shots(page: Page, stage: string, region?: ReturnType<Page['locato
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
     expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    for (const control of await page.getByRole('button', { name: /^(Previous|Next) (day|week)$/ }).all()) {
+      await control.focus(); await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab')
+      await expect(control.getByRole('tooltip')).toBeVisible()
+      await page.keyboard.press('Tab'); await control.hover()
+      await expect(control.getByRole('tooltip')).toBeVisible()
+    }
     const path = join(process.env.LARDER_SCREENSHOTS, `${width}-FLOOR-007-${stage}.png`)
     if (region) await region.screenshot({ path }); else await page.screenshot({ path, fullPage: true })
   }
@@ -29,7 +36,9 @@ test('FLOOR-007 pause for broken tool, notify supervisor in app, revise effort, 
   if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
-  const suffix = crypto.randomUUID().slice(0, 6), today = new Date().toISOString().slice(0, 10)
+  const clock = new Date(); clock.setUTCHours(13, 45, 0, 0)
+  await page.clock.setFixedTime(clock)
+  const suffix = crypto.randomUUID().slice(0, 6), today = clock.toISOString().slice(0, 10)
   const raw = await command(page, 'item.save', { sku: `PLATE-${suffix}`, name: `Steel blank ${suffix}`, kind: 'buy', baseUnit: 'each' })
   const product = await command(page, 'item.save', { sku: `DRILLED-${suffix}`, name: `Ohio mounting plate ${suffix}`, kind: 'make', baseUnit: 'each' })
   const location = await command(page, 'location.save', { name: `Plate shelf ${suffix}` })
@@ -50,7 +59,9 @@ test('FLOOR-007 pause for broken tool, notify supervisor in app, revise effort, 
   const task = page.getByRole('region', { name: 'Step 1 progress and downtime', exact: true })
   await shots(page, 'running', task.locator('..'))
   const state = await (await page.request.get(origin + '/api/larder/state')).json()
-  const plannedResume = new Date(Date.now() + 2 * 86400000)
+  // Four calendar days leave a working gap even late on Friday: the following
+  // drill needs 80 minutes, more than the 75 minutes left in that shift.
+  const plannedResume = new Date(clock.getTime() + 4 * 86400000)
   const localResume = new Date(plannedResume.getTime() - plannedResume.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
   await task.getByLabel('Step 1 downtime reason', { exact: true }).selectOption('breakdown')
   await task.getByLabel('Step 1 downtime note', { exact: true }).fill('Drill bit snapped; supervisor to obtain replacement')
