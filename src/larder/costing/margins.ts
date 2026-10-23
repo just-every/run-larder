@@ -173,6 +173,13 @@ export function marginReport(s: State, q = new URLSearchParams()) {
           ...(quoted === null ? ['No pinned quote standard cost'] : []),
           ...(unvalued.length ? ['Production output awaits an approved actual valuation'] : []),
         ]
+        const cent = (v: bigint) => d(cents(v))
+        const quoteRevenue = cent(estimatedRevenue),
+          quoteCost = estimatedCost === null ? null : cent(estimatedCost),
+          actualRevenue = cent(recognizedRevenue),
+          actualCost = cent(recognizedCost)
+        const futureRevenue = cent(quantity ? times(expectedRevenue, divide(open, quantity)) : 0n),
+          futureCost = committedCost === null ? null : cent(committedCost)
         return {
           orderId: o.id,
           lineId: l.id,
@@ -186,19 +193,22 @@ export function marginReport(s: State, q = new URLSearchParams()) {
           quantity: format(quantity),
           netShipped: format(net),
           remainingQuantity: format(open),
-          quotedRevenue: cents(estimatedRevenue),
-          quotedCost: estimatedCost === null ? null : cents(estimatedCost),
-          quotedMarginPercent: percent(estimatedRevenue, estimatedCost),
-          recognizedRevenue: legacyMissing ? null : cents(recognizedRevenue),
-          actualCost: actualMissing ? null : cents(recognizedCost),
-          actualMargin: actualMissing ? null : cents(recognizedRevenue - recognizedCost),
-          actualMarginPercent: actualMissing ? null : percent(recognizedRevenue, recognizedCost),
-          committedRevenue: cents(quantity ? times(expectedRevenue, divide(open, quantity)) : 0n),
-          committedCost: committedCost === null ? null : cents(committedCost),
+          quotedRevenue: cents(quoteRevenue),
+          quotedCost: quoteCost === null ? null : cents(quoteCost),
+          quotedMargin: quoteCost === null ? null : cents(quoteRevenue - quoteCost),
+          quotedMarginPercent: percent(quoteRevenue, quoteCost),
+          recognizedRevenue: legacyMissing ? null : cents(actualRevenue),
+          actualCost: actualMissing ? null : cents(actualCost),
+          actualMargin: actualMissing ? null : cents(actualRevenue - actualCost),
+          actualMarginPercent: actualMissing ? null : percent(actualRevenue, actualCost),
+          committedRevenue: cents(futureRevenue),
+          committedCost: futureCost === null ? null : cents(futureCost),
+          committedMargin: futureCost === null ? null : cents(futureRevenue - futureCost),
+          committedMarginPercent: percent(futureRevenue, futureCost),
           costVariance:
             actualMissing || quoted === null || !quantity
               ? null
-              : cents(recognizedCost - times(quoted, divide(net, quantity))),
+              : cents(actualCost - cent(times(quoteCost ?? quoted, divide(net, quantity)))),
           missing,
           sources,
           charges,
@@ -208,6 +218,10 @@ export function marginReport(s: State, q = new URLSearchParams()) {
     )
     .filter(
       (r) =>
+        (!q.get('workOrderId') ||
+          s.costLinks.some(
+            (l) => l.workOrderId === q.get('workOrderId') && l.orderId === r.orderId && l.lineId === r.lineId,
+          )) &&
         (!q.get('customerId') || r.customerId === q.get('customerId')) &&
         (!q.get('channel') || r.channel === q.get('channel')) &&
         (!q.get('itemId') || r.itemId === q.get('itemId')),
@@ -216,13 +230,25 @@ export function marginReport(s: State, q = new URLSearchParams()) {
     [...new Set(rows.map((r) => (r as any)[key]))].map((id) => {
       const found = rows.filter((r) => (r as any)[key] === id),
         revenue = sum(found, 'recognizedRevenue'),
-        cost = sum(found, 'actualCost')
+        cost = sum(found, 'actualCost'),
+        quoteRevenue = sum(found, 'quotedRevenue'),
+        quoteCost = sum(found, 'quotedCost'),
+        committedRevenue = sum(found, 'committedRevenue'),
+        committedCost = sum(found, 'committedCost')
       return {
         [key]: id,
         recognizedRevenue: revenue === null ? null : cents(revenue),
         actualCost: cost === null ? null : cents(cost),
         actualMargin: cost === null || revenue === null ? null : cents(revenue - cost),
-        quotedCost: sum(found, 'quotedCost') === null ? null : cents(sum(found, 'quotedCost')!),
+        quotedRevenue: quoteRevenue === null ? null : cents(quoteRevenue),
+        quotedCost: quoteCost === null ? null : cents(quoteCost),
+        quotedMargin: quoteRevenue === null || quoteCost === null ? null : cents(quoteRevenue - quoteCost),
+        quotedMarginPercent: quoteRevenue === null ? null : percent(quoteRevenue, quoteCost),
+        committedRevenue: committedRevenue === null ? null : cents(committedRevenue),
+        committedCost: committedCost === null ? null : cents(committedCost),
+        committedMargin:
+          committedRevenue === null || committedCost === null ? null : cents(committedRevenue - committedCost),
+        committedMarginPercent: committedRevenue === null ? null : percent(committedRevenue, committedCost),
         costVariance: sum(found, 'costVariance') === null ? null : cents(sum(found, 'costVariance')!),
         actualMarginPercent: revenue === null ? null : percent(revenue, cost),
         lineIds: found.map((r) => r.lineId),
@@ -272,6 +298,12 @@ export function varianceReport(s: State, q = new URLSearchParams()) {
           w.status !== 'draft' &&
           (!q.get('orderId') || s.costLinks.some((l) => l.workOrderId === w.id && l.orderId === q.get('orderId'))) &&
           (!q.get('workOrderId') || w.id === q.get('workOrderId')) &&
+          (!q.get('channel') ||
+            s.costLinks.some(
+              (l) =>
+                l.workOrderId === w.id &&
+                s.salesOrders.some((o) => o.id === l.orderId && o.channel === q.get('channel')),
+            )) &&
           (!q.get('itemId') || w.itemId === q.get('itemId')) &&
           (!q.get('customerId') ||
             s.costLinks.some(

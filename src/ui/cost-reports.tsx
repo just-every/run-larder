@@ -12,6 +12,32 @@ const reportNames: Record<string, string> = {
   variances: 'Job cost variances',
   performance: 'Production performance',
 }
+const metricNames: Record<string, string> = {
+  onTimeDelivery: 'On-time job delivery',
+  scheduleAdherence: 'Schedule adherence',
+  utilization: 'Machine utilization',
+  availability: 'OEE availability',
+  performance: 'OEE performance',
+  quality: 'OEE quality',
+  oee: 'Overall equipment effectiveness',
+  downtime: 'Downtime',
+  yield: 'Yield',
+  supplierOtif: 'Supplier OTIF',
+  forecastError: 'Forecast error',
+}
+const percentShown = (v: any) =>
+  v === null || v === undefined ? 'Unknown' : String(v).startsWith('restricted') ? String(v) : `${v}%`
+function MarginStage({ r, stage }: { r: any; stage: 'quoted' | 'committed' | 'actual' }) {
+  return (
+    <>
+      <span>{shown(r[stage === 'actual' ? 'recognizedRevenue' : stage + 'Revenue'])} revenue</span>
+      <small>{shown(r[stage + 'Cost'])} cost</small>
+      <small>
+        {shown(r[stage + 'Margin'])} · {percentShown(r[stage + 'MarginPercent'])} margin
+      </small>
+    </>
+  )
+}
 const attachment = async (d: FormData) => {
   const f = d.get('evidence') as File
   return f?.size
@@ -170,13 +196,13 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
                             </td>
                             <td>
                               {shown(r.quotedCost)}
-                              <small>{r.quotedMarginPercent ?? 'Unknown'}%</small>
+                              <small>{percentShown(r.quotedMarginPercent)}</small>
                             </td>
                             <td>{shown(r.recognizedRevenue)}</td>
                             <td>
                               {shown(r.actualCost)}
                               <small>
-                                {shown(r.actualMargin)} · {r.actualMarginPercent ?? 'Unknown'}%
+                                {shown(r.actualMargin)} · {percentShown(r.actualMarginPercent)}
                               </small>
                             </td>
                             <td>
@@ -202,23 +228,35 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
                   </Card>
                   {['orders', 'products', 'customers', 'channels'].map((key) => (
                     <Card key={key} title={`Margins by ${key}`}>
-                      <Table head={['Group', 'Revenue', 'Cost', 'Gross margin']}>
-                        {data[key].map((r: any, i: number) => (
-                          <tr key={i}>
-                            <td>
-                              {r.orderId
-                                ? s.salesOrders.find((x: Rec) => x.id === r.orderId)?.reference
-                                : r.customerId
-                                  ? s.parties.find((x: Rec) => x.id === r.customerId)?.name
-                                  : r.itemId
-                                    ? s.items.find((x: Rec) => x.id === r.itemId)?.sku
-                                    : r.channel}
-                            </td>
-                            <td>{shown(r.recognizedRevenue)}</td>
-                            <td>{shown(r.actualCost)}</td>
-                            <td>{shown(r.actualMargin)}</td>
-                          </tr>
-                        ))}
+                      <Table head={['Group', 'Estimated', 'Committed', 'Recognized']}>
+                        {data[key].map((r: any, i: number) =>
+                          r.restricted ? (
+                            <tr key={i}>
+                              <td colSpan={4}>{r.restricted}</td>
+                            </tr>
+                          ) : (
+                            <tr key={i}>
+                              <td>
+                                {r.orderId
+                                  ? s.salesOrders.find((x: Rec) => x.id === r.orderId)?.reference
+                                  : r.customerId
+                                    ? s.parties.find((x: Rec) => x.id === r.customerId)?.name
+                                    : r.itemId
+                                      ? s.items.find((x: Rec) => x.id === r.itemId)?.sku
+                                      : r.channel}
+                              </td>
+                              <td>
+                                <MarginStage r={r} stage="quoted" />
+                              </td>
+                              <td>
+                                <MarginStage r={r} stage="committed" />
+                              </td>
+                              <td>
+                                <MarginStage r={r} stage="actual" />
+                              </td>
+                            </tr>
+                          ),
+                        )}
                       </Table>
                     </Card>
                   ))}
@@ -268,7 +306,7 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
                     </Table>
                   </Card>
                   <Card title="Sales order cost reconciliation">
-                    <Table head={['Order', 'Quoted cost', 'Actual cost', 'Cost variance', 'Actual margin']}>
+                    <Table head={['Order', 'Quoted cost / margin', 'Actual cost', 'Cost variance', 'Actual margin']}>
                       {data.orders.map((r: any) =>
                         r.restricted ? (
                           <tr key={r.orderId}>
@@ -281,10 +319,13 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
                                 {s.salesOrders.find((o: Rec) => o.id === r.orderId)?.reference}
                               </a>
                             </td>
-                            <td>{shown(r.quotedCost)}</td>
+                            <td>
+                              {shown(r.quotedCost)}
+                              <small>{percentShown(r.quotedMarginPercent)}</small>
+                            </td>
                             <td>{shown(r.actualCost)}</td>
                             <td>{shown(r.costVariance)}</td>
-                            <td>{r.actualMarginPercent ?? 'Unknown'}%</td>
+                            <td>{percentShown(r.actualMarginPercent)}</td>
                           </tr>
                         ),
                       )}
@@ -300,9 +341,15 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
                         const r = value as any
                         return (
                           <tr key={key}>
-                            <td>{key}</td>
-                            <td>{r.numerator ?? r.milliseconds ?? '—'}</td>
-                            <td>{r.denominator ?? '—'}</td>
+                            <td>{metricNames[key] ?? key}</td>
+                            <td>
+                              {r.numerator ?? r.milliseconds ?? '—'}
+                              <small>{r.unit}</small>
+                            </td>
+                            <td>
+                              {r.denominator ?? '—'}
+                              <small>{r.unit}</small>
+                            </td>
                             <td>
                               {r.percent === null || r.percent === undefined
                                 ? 'Unknown'
@@ -312,7 +359,7 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
                             </td>
                             <td>
                               {r.missing.join('; ') || 'Recorded'}
-                              <Details label={`Metric sources ${key}`} value={r.sources} s={s} />
+                              <Details label={`Metric sources ${metricNames[key] ?? key}`} value={r.sources} s={s} />
                             </td>
                           </tr>
                         )

@@ -983,7 +983,7 @@ test('COST-004 shipment and return margins keep open commitments, channel/custom
   await h.command('return.receive',{orderId:o.id,lineId,quantity:'1',locationId:w.loc.id,disposition:'quarantine',reason:'synthetic-larder-409 return'})
   r=await costReport(h,'margins',`?channel=wholesale&customerId=${w.customer.id}`);l=r.rows[0]
   assert.deepEqual([l.netShipped,l.remainingQuantity,l.recognizedRevenue,l.actualCost,l.actualMargin,l.committedRevenue],['1','2','90.00','38.00','52.00','180.00'])
-  for(const group of ['orders','products','customers','channels'])assert.equal(r[group][0].actualMargin,'52.00')
+  for(const group of ['orders','products','customers','channels']){assert.equal(r[group][0].actualMargin,'52.00');assert.equal(r[group][0].quotedRevenue,'360.00');assert.equal(r[group][0].quotedCost,'136.00');assert.equal(r[group][0].quotedMargin,'224.00');assert.equal(r[group][0].committedRevenue,'180.00');assert.equal(r[group][0].committedCost,'68.00');assert.equal(r[group][0].committedMargin,'112.00')}
   assert.equal(l.sources.find(x=>x.kind==='return').quantity,'-1');assert.equal(l.sources.find(x=>x.kind==='shipment').unitPrice,'89')
   await h.command('item.save',{id:w.board.id,version:w.board.version,sku:w.board.sku,name:w.board.name,kind:'make',baseUnit:'each',salePrice:'999',standardCost:'999'})
   assert.equal((await costReport(h,'margins',`?orderId=${o.id}`)).rows[0].quotedCost,'136.00')
@@ -1001,6 +1001,9 @@ test('COST-004 shipment and return margins keep open commitments, channel/custom
   const located=await costReport(h,'margins',`?orderId=${hiddenOrder.id}`,manager.cookie);assert.equal(located.rows[0].restricted,'restricted (includes other locations)');assert.equal(JSON.stringify(located).includes(elsewhere.id),false)
   assert.equal((await h.state(operator.cookie)).marginCharges.length,0)
   await h.restart();assert.equal((await costReport(h,'margins',`?orderId=${o.id}`)).rows[0].actualMargin,'52.00')
+  const pinned=(await costReport(h,'margins',`?orderId=${o.id}`)).rows[0].quotedMarginPercent
+  await h.command('costing.orderCharge',{orderId:o.id,lineId,kind:'discount',amount:'4',refundable:true,evidence:evidence(),reason:'synthetic-larder-529 post-shipment concession'})
+  const later=(await costReport(h,'margins',`?orderId=${o.id}`)).rows[0];assert.equal(later.quotedMarginPercent,pinned);assert.equal(later.actualMargin,'51.00')
 })
 
 test('COST-003 component usage and price variances reconcile two jobs to one order and export their sources',async t=>{
@@ -1023,7 +1026,7 @@ test('COST-003 component usage and price variances reconcile two jobs to one ord
   const report=await costReport(h,'variances',`?orderId=${o.id}`),first=report.jobs.find(j=>j.workOrderId===jobs[0].id)
   assert.equal(first.components[0].usageVariance,'10');assert.equal(first.components[0].priceVariance,'0');assert.equal(first.components[0].actualCost,'30');assert.ok(first.components[0].sources[0].movementId)
   assert.equal(first.costVariance,'-2');assert.equal(first.scrapCost,'21');assert.equal(first.laborPriceVariance,'0');assert.equal(first.laborEfficiencyVariance,'-10');assert.equal(first.overheadVariance,'-2');const second=report.jobs.find(j=>j.workOrderId===jobs[1].id);assert.equal(second.components[0].priceVariance,'4');assert.equal(second.laborCost,'20');assert.equal(second.overheadCost,'4');assert.equal(second.laborSources[0].hours,'2')
-  const margin=report.lines[0];assert.equal(margin.jobs.length,2);assert.equal(margin.quotedMarginPercent,'80');assert.equal(margin.actualCost,'69.00');assert.equal(margin.costVariance,'39.00');assert.equal(margin.recognizedRevenue,'150.00');assert.equal(margin.actualMarginPercent,'54')
+  const margin=report.lines[0];assert.equal(margin.jobs.length,2);assert.equal(margin.quotedMarginPercent,'80');assert.equal(margin.actualCost,'69.00');assert.equal(margin.costVariance,'39.00');assert.equal(margin.recognizedRevenue,'150.00');assert.equal(margin.actualMarginPercent,'54');assert.equal(report.orders[0].quotedMarginPercent,'80');assert.equal(report.orders[0].actualMarginPercent,'54')
   assert.match(await(await h.request(`/api/larder/costing/variances.csv?orderId=${o.id}`)).text(),/usageVariance/)
   const source=await(await h.request('/api/larder/archive')).json(),target=await installation();t.after(()=>target.close());assert.equal((await target.request('/api/larder/archive/restore',{method:'POST',body:source})).status,200)
   assert.equal((await costReport(target,'margins',`?orderId=${o.id}`)).rows[0].actualCost,'69.00');assert.match(await(await h.request('/api/larder/archive.csv')).text(),/costValuations/)
@@ -1074,12 +1077,12 @@ test('COST-001 approved time overtime and service costs roll through scrap and d
   const fractional=await costJob(h,fraction,loc,'3',[{itemId:raw.id,quantity:'1',locationId:loc.id}],'3','0','synthetic-larder-493')
   const fractionReview=await h.command('costing.valuation.prepare',{workOrderId:fractional.id,reason:'synthetic-larder-494 reconcile micro-dollar residual'})
   assert.equal(fractionReview.lines[0].targetValue,'10');assert.equal(fractionReview.lines[0].unitCost,'3.333333');assert.equal(fractionReview.lines[0].roundingResidual,'0.000001')
-  await h.command('costing.valuation.approve',{valuationId:fractionReview.id,version:fractionReview.version,reason:'synthetic-larder-495 retain exact lot value'})
   const customer=await h.command('party.save',{name:'synthetic-larder-496',kind:'customer'})
   const order=await h.command('so.quote',{customerId:customer.id,promiseDate:new Date().toISOString().slice(0,10),lines:[{itemId:fraction.id,quantity:'3',unitPrice:'10'}]})
   await h.command('so.confirm',{orderId:order.id,version:order.version})
   for(let i=0;i<3;i++){
     let sh=await h.command('shipment.pick',{orderId:order.id,lines:[{lineId:order.lines[0].id,quantity:'1',locationId:loc.id}]});sh=await h.command('shipment.pack',{shipmentId:sh.id,version:sh.version,packages:1});await h.command('shipment.ship',{shipmentId:sh.id,version:sh.version,carrier:'synthetic-larder-497'})
+    if(i===0){const pending=(await costReport(h,'margins',`?orderId=${order.id}`)).rows[0];assert.equal(pending.actualCost,null);assert.equal(pending.recognizedRevenue,'10.00');assert.match(pending.missing.join(' '),/valuation/);const fresh=await h.command('costing.valuation.prepare',{workOrderId:fractional.id,reason:'synthetic-larder-528 current stock and cost'});await h.command('costing.valuation.approve',{valuationId:fresh.id,version:fresh.version,reason:'synthetic-larder-495 retain exact lot value'})}
   }
   const exact=(await costReport(h,'margins',`?orderId=${order.id}`)).rows[0]
   assert.equal(exact.sources.reduce((n,x)=>n+parse(x.cost),0n),parse('10'));assert.equal(exact.actualCost,'10.00')
@@ -1094,6 +1097,7 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   job=await h.command('wo.operation.start',{workOrderId:job.id,version:job.version,sequence:1,workCentre:'Bench',station:'synthetic-larder-458',reason:'synthetic-larder-459 start'})
   job=await h.command('wo.operation.pause',{workOrderId:job.id,version:job.version,sequence:1,reason:'breakdown',note:'synthetic-larder-460 broken tool',escalationOwnerId:me.id,anticipatedResumeAt:new Date(Date.now()+3600000).toISOString()})
   job=await h.command('wo.operation.resume',{workOrderId:job.id,version:job.version,sequence:1,reason:'synthetic-larder-461 tool repaired'})
+  job=await h.command('wo.operation.report',{workOrderId:job.id,version:job.version,sequence:1,good:'1',scrap:'1',scrapReason:'synthetic-larder-530 actual reject',reason:'synthetic-larder-531 actual operation quantities'})
   job=await h.command('wo.operation.complete',{workOrderId:job.id,version:job.version,sequence:1,reason:'synthetic-larder-469 operation completed'})
   job=await h.command('wo.issue',{workOrderId:job.id,lines:[{itemId:w.timber.id,locationId:w.loc.id,quantity:'2'},{itemId:w.oil.id,locationId:w.loc.id,quantity:'0.1'}]})
   job=await h.command('wo.output',{workOrderId:job.id,version:job.version,locationId:w.loc.id,quantity:'1',scrap:'1',scrapReason:'synthetic-larder-462 failed finish',lot:'synthetic-larder-463'})
@@ -1102,8 +1106,14 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   await h.command('receipt.create',{poId:po.id,supplierReference:'synthetic-larder-470 delivery note',lines:[{lineId:po.lines[0].id,quantity:'4',locationId:w.loc.id,inspection:'quarantine',lot:'synthetic-larder-465'}]})
   const lot=(await h.state()).lots.find(l=>l.code==='synthetic-larder-465');await h.command('quarantine.decide',{itemId:w.timber.id,locationId:w.loc.id,lotId:lot.id,quantity:'1',decision:'reject',reason:'synthetic-larder-466 damaged'})
   const query=`?from=2026-01-01&to=2026-01-02`;const old=await costReport(h,'performance',query);assert.equal(old.metrics.supplierOtif.percent,'0');assert.equal(old.metrics.supplierOtif.denominator,'1');assert.equal(old.metrics.supplierOtif.sources[0].sources[0].rejected,true)
+  let acceptedPo=await h.command('po.draft',{supplierId:w.supplier.id,expectedDate:today,reason:'synthetic-larder-524 on-time receipt',lines:[{itemId:w.timber.id,quantity:'2',unitPrice:'9.5'}]});acceptedPo=await h.command('po.approve',{poId:acceptedPo.id,version:acceptedPo.version})
+  await h.command('receipt.create',{poId:acceptedPo.id,supplierReference:'synthetic-larder-525',lines:[{lineId:acceptedPo.lines[0].id,quantity:'2',locationId:w.loc.id,inspection:'quarantine',lot:'synthetic-larder-526'}]})
+  const acceptedLot=(await h.state()).lots.find(l=>l.code==='synthetic-larder-526')
+  assert.equal((await costReport(h,'performance',`?from=${today}&to=${today}&itemId=${w.timber.id}`)).metrics.supplierOtif.percent,'0')
+  const released=await h.command('quarantine.decide',{itemId:w.timber.id,locationId:w.loc.id,lotId:acceptedLot.id,quantity:'2',decision:'release',reason:'synthetic-larder-527 accepted by due date'})
+  const otif=await costReport(h,'performance',`?from=${today}&to=${today}&itemId=${w.timber.id}`);assert.equal(otif.metrics.supplierOtif.percent,'100');assert.equal(otif.metrics.supplierOtif.sources[0].onTimeAccepted,'2');assert.ok(otif.metrics.supplierOtif.sources[0].sources[0].qualityDecisionIds.includes(released.id))
   const filtered=await costReport(h,'performance',`?from=${today}&to=${today}&center=Bench&itemId=${w.board.id}`)
-  assert.equal(filtered.metrics.onTimeDelivery.percent,'0');assert.equal(filtered.metrics.yield.percent,'50');assert.equal(filtered.metrics.utilization.percent,null);assert.match(filtered.metrics.utilization.missing.join(' '),/calendar/)
+  assert.equal(filtered.metrics.onTimeDelivery.percent,'0');assert.equal(filtered.metrics.yield.percent,'50');assert.equal(filtered.metrics.quality.percent,'50');assert.equal(filtered.metrics.quality.denominator,'2');assert.equal(filtered.metrics.utilization.percent,null);assert.match(filtered.metrics.utilization.missing.join(' '),/calendar/)
   assert.equal(filtered.metrics.scheduleAdherence.percent,null);assert.match(filtered.metrics.scheduleAdherence.missing.join(' '),/booked end/)
   assert.equal(filtered.metrics.downtime.sources[0].workOrderId,job.id);assert.ok(BigInt(filtered.metrics.downtime.milliseconds)>0n)
   const absent=await costReport(h,'performance',`?center=Finishing&itemId=${w.board.id}`);assert.equal(absent.metrics.oee.percent,null);assert.match(absent.metrics.oee.missing.join(' '),/clock/)

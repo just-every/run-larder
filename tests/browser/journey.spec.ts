@@ -369,14 +369,14 @@ test('COST reports retain shipment margins, job source drills and missing perfor
       const ready=page.waitForResponse(r=>r.url().includes(`/api/larder/costing/${report}?`)&&r.request().method()==='GET')
       await page.getByRole('button',{name:'Apply report filters',exact:true}).click();await ready
       if(report==='margins'){
-        const lines=card(page,'Sales lines');await expect(lines).toContainText(order.reference);await expect(lines).toContainText('$49.00');await expect(lines).toContainText('$16.00');await expect(lines).toContainText('$33.00')
+        const lines=card(page,'Sales lines');await expect(lines).toContainText(order.reference);await expect(lines).toContainText('$49.00');await expect(lines).toContainText('$16.00');await expect(lines).toContainText('$33.00');await expect(lines).toContainText('76%')
         await lines.getByRole('button',{name:`Sources ${order.reference}`,exact:true}).click();await expect(lines).toContainText('return')
       }else if(report==='variances'){
         await expect(card(page,'Job costs and variances')).toContainText(jobs[0].reference)
         await page.getByRole('button',{name:`Cost sources ${jobs[0].reference}`,exact:true}).click();await expect(card(page,'Job costs and variances')).toContainText('Usage variance')
       }else{
         await expect(card(page,'Performance metrics')).toContainText('Unknown');await expect(card(page,'Performance metrics')).toContainText('No recorded operation clocks')
-        const metric=card(page,'Performance metrics').getByRole('button',{name:'Metric sources yield',exact:true});await metric.click();await expect(card(page,'Performance metrics')).toContainText('Output')
+        const metric=card(page,'Performance metrics').getByRole('button',{name:'Metric sources Yield',exact:true});await metric.click();await expect(card(page,'Performance metrics')).toContainText('Output')
       }
       if(width===390) {
         const readable=page.locator('.cost-reports .details-body').first()

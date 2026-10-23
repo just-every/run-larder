@@ -1,13 +1,15 @@
+import { ledgerFacts } from '../operation-ledger'
 // Ratios keep their numerator, denominator, missing observations and source
 // identities. An absent clock or denominator can never become perfect OEE.
-import { decimal, divide, format, times, SCALE } from '../decimal'
+import { decimal, divide, format, times, SCALE, min } from '../decimal'
 import { date, type State, type Context, type Row, row, get, fresh, bump, text } from '../model'
 import { fail } from '../problem'
 import { allow } from '../roles'
 import { calendarMask, localGrid } from '../scheduling/calendars'
 import { adjustedForecast, weeklyOrders } from '../forecast-plan'
 const add = (a: bigint[]) => a.reduce((n, x) => n + x, 0n)
-const rate = (numerator: bigint, denominator: bigint, missing: string[], sources: any[]) => ({
+const rate = (numerator: bigint, denominator: bigint, missing: string[], sources: any[], unit = 'records') => ({
+  unit,
   numerator: format(numerator),
   denominator: format(denominator),
   percent: denominator > 0n && !missing.length ? format(divide(times(numerator, decimal('100')), denominator)) : null,
@@ -19,6 +21,11 @@ export function performanceFilters(q: URLSearchParams, now = new Date().toISOStr
   for (const k of q.keys()) if (!allowed.includes(k)) fail('INPUT', 'Unknown performance filter.')
   const from = date(q.get('from') ?? now, 'report start'),
     to = date(q.get('to') ?? now, 'report end')
+  if (
+    new Date(from + 'T00:00Z').toISOString().slice(0, 10) !== from ||
+    new Date(to + 'T00:00Z').toISOString().slice(0, 10) !== to
+  )
+    fail('INPUT', 'Use real calendar dates for this report.')
   if (to < from || Date.parse(to) - Date.parse(from) > 60 * 86400000)
     fail('INPUT', 'Choose a period of at most 61 days.')
   return {
@@ -48,7 +55,9 @@ export function performanceReport(s: State, q = new URLSearchParams()) {
         (t: any) =>
           (!f.center || t.workCentre === f.center) &&
           (!f.ownerId || t.startedBy === f.ownerId) &&
-          ((t.startedAt && within(t.startedAt)) || (t.completedAt && within(t.completedAt))),
+          t.startedAt &&
+          Date.parse(t.startedAt) < until &&
+          (!t.completedAt || Date.parse(t.completedAt) >= from),
       )
       .map((t: any) => {
         const step = w.routing.find((r: any) => r.sequence === t.sequence),
@@ -68,6 +77,8 @@ export function performanceReport(s: State, q = new URLSearchParams()) {
           downtime += Math.max(0, b - Math.max(a, last))
           last = Math.max(last, b)
         }
+        const ledger = ledgerFacts(w, step)
+        const good = ledger.received - ledger.scrapped - ledger.inProcess - ledger.backordered
         return {
           workOrderId: w.id,
           reference: w.reference,
@@ -81,8 +92,12 @@ export function performanceReport(s: State, q = new URLSearchParams()) {
           downtimeMs: known ? downtime : null,
           activeMs: known ? stop - start - downtime : null,
           idealMinutes: step?.runMinutes ?? step?.minutes ?? null,
-          good: w.output,
-          scrap: w.scrap,
+          good: format(good > 0n ? good : 0n),
+          scrap: format(ledger.scrapped),
+          held: format(ledger.held),
+          quantityInPeriod:
+            Boolean(t.completedAt) && Date.parse(t.startedAt) >= from && Date.parse(t.completedAt) < until,
+          reports: t.reports ?? [],
           downtime: t.downtime ?? [],
         }
       }),
@@ -138,12 +153,7 @@ export function performanceReport(s: State, q = new URLSearchParams()) {
   const suppliers = s.purchaseOrders
     .flatMap((po) =>
       po.lines
-        .filter(
-          (l: any) =>
-            (!f.itemId || l.itemId === f.itemId) &&
-            (!f.ownerId || po.createdBy === f.ownerId) &&
-            within((l.confirmedDate ?? l.expectedDate ?? po.expectedDate) + 'T00:00Z'),
-        )
+        .filter((l: any) => (!f.itemId || l.itemId === f.itemId) && (!f.ownerId || po.createdBy === f.ownerId))
         .map((l: any) => {
           const sources = s.receipts
             .filter((r) => r.poId === po.id)
@@ -156,7 +166,20 @@ export function performanceReport(s: State, q = new URLSearchParams()) {
                       ? m.quantity +
                         s.movements.filter((v) => v.reversesId === m.id).reduce((n, v) => n + v.quantity, 0n)
                       : 0n
+                  const expectedDate = x.expectedDate ?? l.confirmedDate ?? l.expectedDate ?? po.expectedDate
+                  const releases = s.approvals.filter(
+                    (a) =>
+                      a.subjectKind === 'lots' &&
+                      a.subjectId === x.lotId &&
+                      a.decision === 'released' &&
+                      a.createdAt.slice(0, 10) <= expectedDate,
+                  )
+                  const accepted =
+                    x.inspection === 'quarantine' ? min(net, add(releases.map((a) => decimal(a.quantity)))) : net
                   return {
+                    expectedDate,
+                    acceptedOnTime: r.createdAt.slice(0, 10) <= expectedDate ? format(accepted) : '0',
+                    qualityDecisionIds: releases.map((a) => a.id),
                     receiptId: r.id,
                     movementId: x.movementId,
                     arrivedOn: r.createdAt.slice(0, 10),
@@ -166,12 +189,8 @@ export function performanceReport(s: State, q = new URLSearchParams()) {
                   }
                 }),
             )
-          const promised = l.confirmedDate ?? l.expectedDate ?? po.expectedDate,
-            onTime = add(
-              sources
-                .filter((x) => x.arrivedOn <= promised && x.inspection !== 'quarantine' && !x.rejected)
-                .map((x) => decimal(x.quantity)),
-            )
+          const promised = sources[0]?.expectedDate ?? l.confirmedDate ?? l.expectedDate ?? po.expectedDate,
+            onTime = add(sources.filter((x) => x.arrivedOn <= promised).map((x) => decimal(x.acceptedOnTime)))
           return {
             poId: po.id,
             lineId: l.id,
@@ -184,7 +203,7 @@ export function performanceReport(s: State, q = new URLSearchParams()) {
           }
         }),
     )
-    .filter((x) => !f.site || x.sources.length > 0)
+    .filter((x) => (!f.site || x.sources.length > 0) && within(x.promised + 'T00:00Z'))
   const forecasts = s.forecasts
     .filter(
       (forecast) => (!f.itemId || forecast.itemId === f.itemId) && forecast.week >= f.from && forecast.week <= f.to,
@@ -205,32 +224,51 @@ export function performanceReport(s: State, q = new URLSearchParams()) {
     })
   const forecastMissing =
     f.site || f.center || f.ownerId ? ['Forecast demand has no site, center or person attribution'] : []
-  const availability = rate(active * SCALE, elapsed * SCALE, timeMissing, operations),
+  const availability = rate(active * SCALE, elapsed * SCALE, timeMissing, operations, 'milliseconds'),
     performance = rate(
       times(ideal, decimal('60000')),
       active * SCALE,
-      [...timeMissing, ...(operations.some((o) => o.idealMinutes === null) ? ['Missing pinned ideal run time'] : [])],
+      [
+        ...timeMissing,
+        ...operations
+          .filter((o) => !o.quantityInPeriod)
+          .map((o) => `${o.reference}: interval output quantities not recorded`),
+        ...(operations.some((o) => o.idealMinutes === null) ? ['Missing pinned ideal run time'] : []),
+      ],
       operations,
+      'milliseconds',
     ),
-    quality = rate(
+    finalYield = rate(
       output,
       output + scrap,
       finished.length ? [] : ['No completed output quantities'],
       finished.map((w) => ({ workOrderId: w.id, output: w.output, scrap: w.scrap, outputs: w.outputs ?? [] })),
+      'base units',
     )
-  const oee =
-    availability.percent !== null && performance.percent !== null && quality.percent !== null
-      ? format(
-          divide(
-            times(times(times(ideal, decimal('60000')), output), decimal('100')),
-            times(elapsed * SCALE, output + scrap),
-          ),
-        )
-      : null
+  const operationGood = add(operations.map((o) => decimal(o.good))),
+    operationScrap = add(operations.map((o) => decimal(o.scrap)))
+  const quality = rate(
+    operationGood,
+    operationGood + operationScrap,
+    operations.length
+      ? operations
+          .filter((o) => !o.quantityInPeriod || decimal(o.held) > 0n)
+          .map((o) => `${o.reference}: incomplete interval quantities or unresolved held units`)
+      : ['No operation quantity observations'],
+    operations,
+    'operation units',
+  )
+  const oee = rate(
+    times(times(ideal, decimal('60000')), operationGood),
+    times(elapsed * SCALE, operationGood + operationScrap),
+    [...new Set([...availability.missing, ...performance.missing, ...quality.missing])],
+    operations,
+    'milliseconds × units',
+  )
   return {
     filters: f,
     basis:
-      'UTC event period; site is an existing stock location. OTD is closed jobs by required date. Utilization uses configured machine-slot minutes; incomplete time is unknown. OEE is availability × performance × quality, uncapped. Supplier OTIF requires accepted ordered units by the pinned expected date. Forecast error is absolute units / actual demand. No external sends.',
+      'UTC event period; site is an existing stock location. OTD is closed jobs by required date. Utilization uses configured machine-slot milliseconds; incomplete time is unknown. OEE uses operation quantities, availability × performance × quality, uncapped; yield uses final job output. Cross-period output quantities stay unknown. Supplier OTIF requires accepted ordered units by the first receipt’s pinned expected date (the current promise for an undelivered line). Forecast error is absolute units / actual demand. No external sends.',
     metrics: {
       onTimeDelivery: rate(
         BigInt(finished.filter((w) => w.closedAt.slice(0, 10) <= w.requiredBy).length) * SCALE,
@@ -244,21 +282,20 @@ export function performanceReport(s: State, q = new URLSearchParams()) {
         adherence.filter((o) => o.onTime === null).map((o) => `${o.reference}: no retained booked end`),
         adherence,
       ),
-      utilization: rate(active * SCALE, capacity * SCALE, capacityMissing, operations),
+      utilization: rate(active * SCALE, capacity * SCALE, capacityMissing, operations, 'milliseconds'),
       availability,
       performance,
       quality,
-      oee: {
-        percent: oee,
-        missing: [...new Set([...availability.missing, ...performance.missing, ...quality.missing])],
-        sources: operations,
+      oee,
+      downtime: {
+        ...rate(downtime * SCALE, elapsed * SCALE, timeMissing, operations, 'milliseconds'),
+        milliseconds: String(downtime),
       },
-      downtime: { milliseconds: String(downtime), missing: timeMissing, sources: operations },
-      yield: quality,
+      yield: finalYield,
       supplierOtif: rate(
         BigInt(suppliers.filter((x) => x.otif).length) * SCALE,
         BigInt(suppliers.length) * SCALE,
-        [],
+        f.center ? ['Purchase receipts have no work-center attribution'] : [],
         suppliers,
       ),
       forecastError: rate(
@@ -266,6 +303,7 @@ export function performanceReport(s: State, q = new URLSearchParams()) {
         add(forecasts.map((x) => decimal(x.actual))),
         forecastMissing,
         forecasts,
+        'base units',
       ),
     },
   }
