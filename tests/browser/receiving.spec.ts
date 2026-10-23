@@ -133,6 +133,8 @@ test('Supplier credit and landed-cost corrections reach the accountant handoff w
   await expect(page.getByRole('heading', { name: 'Accountant handoff', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Prepare handoff batch', exact: true }).click(); await settled(page)
   await expect(page.getByRole('cell', { name: 'Supplier credit (payable correction; no stock quantity)', exact: true })).toBeVisible()
+  await expect(page.getByText('Supplier return stock correction', { exact: true })).toBeVisible()
+  await expect(page.getByText('Supplier replacement receipt', { exact: true })).toBeVisible()
   const batch = (await (await page.request.get(origin + '/api/larder/state')).json()).handoffs.at(-1)
   const credit = batch.lines.find((l: any) => l.claimId === claimId)
   await page.getByLabel('Acknowledged lines', { exact: true }).fill(`${credit.id},synthetic-larder-464,-4.00`)

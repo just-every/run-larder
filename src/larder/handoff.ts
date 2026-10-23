@@ -24,7 +24,7 @@ function describe(s: State, m: Movement) {
   const base = { itemSku: item?.sku ?? '', itemName: item?.name ?? '', party: '', document: '', partyReference: '', unitAmount: format(m.unitCost), amount: times(m.quantity, m.unitCost) }
   if (m.documentKind === 'receipts') {
     const r = s.receipts.find(x => x.id === m.documentId), po = s.purchaseOrders.find(x => x.id === r?.poId)
-    return { ...base, type: 'Supplier receipt', party: s.parties.find(p => p.id === po?.supplierId)?.name ?? '', document: `${r?.reference} / ${po?.reference}`, partyReference: r?.supplierReference ?? '' }
+    return { ...base, type: m.kind === 'supplier-return' ? 'Supplier return stock correction' : m.kind === 'supplier-replacement' ? 'Supplier replacement receipt' : 'Supplier receipt', party: s.parties.find(p => p.id === po?.supplierId)?.name ?? '', document: `${r?.reference} / ${po?.reference}`, partyReference: r?.supplierReference ?? '' }
   }
   if (m.documentKind === 'shipments') return { ...base, ...invoiced(s, m, m), type: 'Customer shipment (invoice preparation)' }
   if (m.documentKind === 'reworkOrders') return { ...base, type: m.kind, document: s.reworkOrders.find(x => x.id === m.documentId)?.reference ?? '' }
