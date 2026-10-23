@@ -1,6 +1,7 @@
 // LARDER-014 roles are enforced in every handler; LARDER-015 agents prepare and people approve; GOV-001 roles inherit their clauses' doors.
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFile, readdir } from 'node:fs/promises'
 import { installation, workshop, evidence } from './harness.mjs'
 
 test('LARDER-014 roles and sessions are checked on every command and read', async t => {
@@ -726,4 +727,44 @@ test('GOV-001 costs-and-wages scope and custom roles: a restricted member never 
   // A restriction lifted by the owner takes effect on the next request too.
   await h.command('member.scope', { operatorId: boss.id, locations: null, costsRestricted: false })
   assert.equal((await h.state(boss.cookie)).items.find(i => i.id === gauge.id).standardCost, '33.3131')
+})
+
+// A one-line purchase, and a service order dispatched from its lot, received and ready to bill, each at a distinctive price.
+async function billedServiceOrder(h, w) {
+  const vendor = await h.command('location.save', { name: 'Finisher custody' })
+  let po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: day(7), reason: 'One walnut line', lines: [{ itemId: w.timber.id, quantity: '3', unitPrice: '7.4141' }] })
+  po = await h.command('po.approve', { poId: po.id, version: po.version })
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-601', lines: [{ lineId: po.lines[0].id, quantity: '2', locationId: w.loc.id, lot: 'synthetic-larder-602' }] })
+  const lot = (await h.state()).lots.find(l => l.code === 'synthetic-larder-602')
+  let order = await h.command('subcontract.draft', { supplierId: w.supplier.id, itemId: w.board.id, vendorLocationId: vendor.id, quantity: '5', serviceRate: '2.3131', expectedDate: day(7), operation: 'Oil and buff boards' })
+  order = await h.command('subcontract.approve', { orderId: order.id, version: order.version })
+  order = await h.command('subcontract.dispatch', { orderId: order.id, version: order.version, lines: [{ lotId: lot.id, locationId: w.loc.id, quantity: '2' }] })
+  const receive = { orderId: order.id, version: order.version, good: '1', scrap: '1', inputs: [{ issuedId: order.issued[0].id, quantity: '2' }], lot: 'synthetic-larder-603', locationId: w.loc.id, reason: 'Finisher packing slip', evidence: evidence('Finisher slip') }
+  return { po, order, receive }
+}
+
+test('a cost-restricted member reads no purchase, service-order or cutover total that a hidden price can be recovered from', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h)
+  const clerk = await h.person('synthetic-larder-604@example.test', 'warehouse')
+  await h.command('member.scope', { operatorId: clerk.id, locations: null, costsRestricted: true })
+  let { po, order, receive } = await billedServiceOrder(h, w)
+  // Purchase 3 × 7.4141; service 5 × 2.3131; 2 walnut consumed; 2 units of service accrued; billed 5.0001; Odoo says 1.5 is on order.
+  const secrets = ['7.4141', '22.2423', '2.3131', '11.5655', '17.95705', '4.6262', '11.291625', '5.0001', '0.3739', '5.9141']
+  const found = text => secrets.filter(x => text.includes(x))
+  const received = await h.send('subcontract.receive', receive, { as: clerk.cookie })
+  assert.equal(received.res.status, 200, JSON.stringify(received.body)); assert.deepEqual(found(JSON.stringify(received.body)), [])
+  order = await h.command('subcontract.bill', { orderId: order.id, version: received.body.result.version, amount: '5.0001', reference: 'synthetic-larder-605', evidence: evidence('Supplier invoice') })
+  const files = await Promise.all((await readdir('fixtures/odoo')).filter(n => n.endsWith('.csv')).map(async name => ({ name, content: await readFile(`fixtures/odoo/${name}`, 'utf8') })))
+  const preview = await h.command('import.preview', { label: 'Parallel run', files, opening: { countedOn: '2026-10-01', valuationBasis: 'standard-cost', countedBy: 'Olive' } })
+  let plan = await h.command('cutover.plan', { label: 'Parallel run', importIds: [preview.id] })
+  plan = await h.command('cutover.compare', { cutoverId: plan.id, version: plan.version, day: day(0), source: { openPurchaseValueUsd: '1.5', openPurchaseOrders: '1' } })
+  // The owner reads every figure; the restricted member reads each one as restricted, with the records' shape and quantities kept.
+  const full = await h.state(), seen = await h.state(clerk.cookie)
+  assert.deepEqual(found(JSON.stringify(full)).sort(), [...secrets].sort())
+  assert.deepEqual(found(JSON.stringify(seen)), [])
+  const mine = seen.subcontractOrders.find(o => o.id === order.id), compared = seen.cutovers[0].comparisons[0].differences
+  assert.deepEqual([seen.purchaseOrders.find(p => p.id === po.id).exposure, mine.exposure, mine.serviceAccrued, mine.receipts[0].material, mine.receipts[0].service, mine.bill.expected, mine.bill.difference], Array(7).fill('restricted'))
+  assert.deepEqual([mine.quantity, mine.good, mine.scrap, mine.bill.reference], ['5', '1', '1', 'synthetic-larder-605'])
+  assert.deepEqual(compared.map(d => [d.metric, d.larder]), [['openPurchaseValueUsd', 'restricted'], ['openPurchaseOrders', '1']])
 })
