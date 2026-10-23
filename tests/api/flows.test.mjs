@@ -1181,13 +1181,12 @@ test('COST-001 unvalued production lots keep weighted average until an actual va
   assert.deepEqual((await h.state()).movements,before)
   const second=await ship();assert.equal((await h.state()).movements.find(m=>m.documentId===second.id&&m.kind==='shipment').unitCost,'10')
   const report=(await costReport(h,'margins',`?orderId=${order.id}`)).rows[0];assert.equal(report.actualCost,'20.00');assert.equal(report.sources.reduce((n,x)=>n+parse(x.cost),0n),parse('20'))
-
 })
 
-async function nestingWorkshop(h) {
+async function nestingWorkshop(h, dates = { manufacturedOn: '2026-10-01', expiresOn: '2027-10-01', retestOn: '2027-09-01', storage: 'Dry covered rack' }) {
   const loc = await h.command('location.save', { name: 'Sheet store' })
   const sheet = await h.command('item.save', { sku: 'synthetic-larder-1', name: 'Steel sheet', kind: 'buy', baseUnit: 'm2' })
-  await h.command('opening.record', { locationId: loc.id, countedOn: '2026-10-01', valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: sheet.id, quantity: '10', unitCost: '10', lot: 'synthetic-larder-2', dates: { manufacturedOn: '2026-10-01', expiresOn: '2027-10-01', retestOn: '2027-09-01', storage: 'Dry covered rack' } }] })
+  await h.command('opening.record', { locationId: loc.id, countedOn: '2026-10-01', valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: sheet.id, quantity: '10', unitCost: '10', lot: 'synthetic-larder-2', dates }] })
   const customer = await h.command('party.save', { name: 'Sheet customer', kind: 'customer' }), jobs = []
   for (let i = 0; i < 3; i++) {
     const item = await h.command('item.save', { sku: `synthetic-larder-${i + 3}`, name: `Bracket ${i + 1}`, kind: 'make', baseUnit: 'each' })
@@ -1340,4 +1339,21 @@ test('CAP-008 stale or impossible physical nesting approval leaves every job and
   for (const k of ['workGroups', 'movements', 'reservations', 'workOrders', 'lots']) assert.deepEqual(after[k], before[k], k)
   await h.command('item.save', { sku: 'synthetic-larder-10', name: 'Concurrent record', kind: 'buy', baseUnit: 'each' })
   await h.command('nest.approve', { groupId: review.id, version: review.version, reason: 'Stale review' }, { error: 'STALE' })
+})
+
+
+test('CAP-008 nesting cannot recover expired or controlled material as a new usable lot', async t => {
+  for (const mode of ['expired', 'certificate', 'inspection']) {
+    const h = await installation(); t.after(() => h.close())
+    const f = await nestingWorkshop(h, mode === 'expired' ? { manufacturedOn: '2019-01-01', expiresOn: '2020-01-01' } : undefined)
+    if (mode === 'certificate') await h.command('certificate.requirements', { itemId: f.sheet.id, types: ['coa'], note: 'Incoming evidence required' })
+    if (mode === 'inspection') {
+      const plan = await h.command('quality.plan.save', { itemId: f.sheet.id, stage: 'receipt', name: 'Sheet inspection', required: true, sampleSize: 1, measurements: [{ name: 'Surface', unit: 'score', target: '1', lower: '1', upper: '1' }], attachments: [evidence('Incoming sheet surface check')] })
+      await h.command('quality.plan.approve', { planId: plan.id, version: plan.version })
+    }
+    const group = await h.command('nest.prepare', f.prepare), before = await h.state()
+    await h.command('nest.import', { groupId: group.id, version: group.version, file: f.file(f.report) }, { error: 'QUALITY_HOLD' })
+    const after = await h.state()
+    for (const key of ['workGroups', 'lots', 'movements', 'reservations', 'workOrders']) assert.deepEqual(after[key], before[key], mode + ':' + key)
+  }
 })

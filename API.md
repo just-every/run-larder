@@ -672,7 +672,7 @@ changed UTC day requires a fresh group and import. The same atomic command
 issues the reviewed material to original jobs through `wo.issue`, recovers the
 offcut into a new lot with its source dates and value, and records approval and
 movement links. A stock, reservation, quality, recall or allocation refusal
-posts nothing. Serial-configured material is refused. Identical command replay
+posts nothing. Serial-configured, expired and inspection-required or certificate-controlled material is refused. Identical command replay
 returns the first result. Each original job keeps its own operation, output,
 quality and closing gates; its recorded nesting share follows its eventual lot
 trace. Shared setup minutes are observations and never alter finite bookings.

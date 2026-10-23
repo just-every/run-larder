@@ -9,8 +9,9 @@ import { scopeOf } from '../scope'
 import { refuseHidden, visibleState } from '../scope-view'
 import { balance, averageCost, move, withdraw } from '../stock'
 import { production } from '../production'
+import { requiredTypes } from '../certificate-policy'
 import { lotBlock } from '../lot-dates'
-import { workHolds } from '../quality-holds'
+import { workHolds, plansFor, openHolds } from '../quality-holds'
 import { workRecalls } from '../recall-policy'
 
 function reachable(c: Context, ids: unknown) {
@@ -112,7 +113,8 @@ export function nesting(c: Context, type: string, p: any): Row | undefined {
   const material = get(c.s, 'items', source.itemId), location = get(c.s, 'locations', source.locationId), lot = get(c.s, 'lots', source.lotId)
   if (lot.itemId !== material.id) fail('INCOMPATIBLE', 'The source lot must belong to the group material.')
   if (material.tracking === 'serial') fail('TRACKING_NOT_READY', 'Serial execution is not available through nesting.')
-  if (lot.ownerId || lotBlock(lot, c.now.slice(0, 10)) || lot.status !== 'released') fail('QUALITY_HOLD', 'Choose a released, owned, current material lot.')
+  if (requiredTypes(c.s, material.id).length || plansFor(c.s, 'receipt', material.id, null).some(plan => plan.required)) fail('QUALITY_HOLD', 'Nesting recovery for certificate-controlled or inspection-required material needs its own disposition flow; use the existing quality doors.')
+  if (lot.ownerId || openHolds(c.s, lot.id).length || lotBlock(lot, c.now.slice(0, 10)) || lot.status !== 'released') fail('QUALITY_HOLD', 'Choose a released, owned, current material lot.')
   const gross = decimal(source.quantity, 'source quantity', { positive: true }), offcut = decimal(report.offcut?.quantity ?? '0', 'offcut quantity')
   if (gross > balance(c.s, material.id, location.id, 'available', lot.id)) fail('INSUFFICIENT_STOCK', 'The source lot does not cover the reported sheet quantity.')
   if (offcut >= gross) fail('ALLOCATION', 'Recoverable offcut must be less than the input quantity.')
