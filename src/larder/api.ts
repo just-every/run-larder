@@ -81,6 +81,7 @@ import { redactCosts } from './scope-cost'
 import { refuseHidden, scopedRead, scopedState, stubHidden, visibleState } from './scope-view'
 import { commit, load, roleSql, saved, authority } from './storage'
 import { stateView } from './view'
+import { readsWages, withoutWages } from './wage-view'
 import { get, type Actor, type Context, type Row } from './model'
 
 const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' }
@@ -107,7 +108,7 @@ async function people(env: Bindings, actor: Actor) {
 async function command(env: Bindings, actor: Actor, request: Request): Promise<Response> {
   // FLOOR-004 retains its explicit production authoring authority. Operators
   // and other readers never recover a rework rate from a prior command replay.
-  const respond = (body: any) => json(scopeOf(actor).costs && body?.result ? { ...body, result: redactCosts(body.result) } : !rateReaders.includes(actor.role) && !(actor.role === 'production' && body?.result?.preparedBy === actor.id) && Array.isArray(body?.result?.labor) ? { ...body, result: { ...body.result, labor: body.result.labor.map(({ rate, ...line }: any) => line) } } : body)
+  const respond = (body: any) => json(scopeOf(actor).costs && body?.result ? { ...body, result: redactCosts(body.result) } : Array.isArray(body?.result?.labor) && !readsWages(actor, body.result) ? { ...body, result: withoutWages(body.result) } : body)
   if (request.headers.get('origin') !== new URL(env.AUTH_ORIGIN).origin) throw new Problem('ORIGIN', 'Send commands from this installation.', null, 403)
   if (!request.headers.get('content-type')?.includes('application/json')) throw new Problem('CONTENT_TYPE', 'Use application/json.', null, 400)
   const raw = await request.text()

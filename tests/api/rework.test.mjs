@@ -116,3 +116,39 @@ test('TRACE-001 / FLOOR-004 return defective assemblies, unbuild recovered parts
   assert.deepEqual((await restored.state()).reworkOrders, s.reworkOrders)
   assert.deepEqual((await restored.invariant()).positions, s.positions)
 })
+
+test('a person without wage authority reads no rework labor cost, total, output value or valued movement that the hourly rate follows from', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const production = await h.person('synthetic-larder-621@example.test', 'production'), manager = await h.person('synthetic-larder-622@example.test', 'manager')
+  const operator = await h.person('synthetic-larder-623@example.test', 'operator'), colleague = await h.person('synthetic-larder-624@example.test', 'production')
+  const bench = await h.command('location.save', { name: 'Repair bench' })
+  const item = (sku, kind) => h.command('item.save', { sku, name: sku, kind, baseUnit: 'each' })
+  const core = await item('CORE', 'buy'), motor = await item('MOTOR', 'make'), kit = await item('KIT', 'make')
+  await h.command('bom.revise', { itemId: motor.id, components: [{ itemId: core.id, quantity: '1' }] }); await h.command('bom.revise', { itemId: kit.id, components: [{ itemId: motor.id, quantity: '1' }] })
+  await h.command('opening.record', { locationId: bench.id, countedOn: today, valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: core.id, quantity: '1', unitCost: '10', lot: 'CORE-A' }] })
+  const make = async (itemId, componentId, lot) => {
+    let w = await h.command('wo.draft', { itemId, quantity: '1', requiredBy: today, reason: 'One unit' }); w = await h.command('wo.release', { workOrderId: w.id, version: w.version })
+    w = await h.command('wo.issue', { workOrderId: w.id, lines: [{ itemId: componentId, locationId: bench.id, quantity: '1' }] })
+    return lot ? h.command('wo.output', { workOrderId: w.id, version: w.version, locationId: bench.id, quantity: '1', lot }) : w
+  }
+  const job = await make(motor.id, core.id, 'MOTOR-A'), original = (await h.state()).lots.find(l => l.code === 'MOTOR-A')
+  // One labor line, three hours at 41.3333, on a source worth 10.
+  let order = await production.run('rework.draft', { sourceLotId: original.id, sourceJobId: job.id, locationId: bench.id, sourceStatus: 'available', quantity: '1', kind: 'rework', instructions: 'Rewind and test', disposition: 'Repair the motor', evidence: [evidence('Repair sheet')], outputs: [{ itemId: motor.id, quantity: '1', value: '133.9999', lot: 'MOTOR-R' }], labor: [{ person: 'Riley', hours: '3', rate: '41.3333', note: 'Rewind' }] })
+  order = await manager.run('rework.approve', { orderId: order.id, version: order.version, reason: 'Checked instructions and values' })
+  const executed = await h.send('rework.execute', { orderId: order.id, version: order.version }, { as: colleague.cookie })
+  assert.equal(executed.res.status, 200, JSON.stringify(executed.body))
+  order = await manager.run('rework.release', { orderId: order.id, version: executed.body.result.version, reason: 'Function tested', evidence: [evidence('Test sheet')] })
+  const kitJob = await make(kit.id, motor.id)
+  await h.command('handoff.prepare', {})
+  const secrets = ['41.3333', '123.9999', '133.9999'], found = text => secrets.filter(x => text.includes(x))
+  // The owner, a manager and the production person who entered the rate read every figure.
+  for (const who of [h.owner(), manager.cookie, production.cookie]) assert.deepEqual(found(JSON.stringify(await h.state(who))), secrets)
+  // An operator and another production person, the one who executed included, keep the hours, quantities and source cost but no figure the rate follows from.
+  assert.deepEqual(found(JSON.stringify(executed.body)), [])
+  for (const who of [operator, colleague]) {
+    const s = await h.state(who.cookie), w = s.reworkOrders.find(x => x.id === order.id)
+    assert.deepEqual(found(JSON.stringify(s)), [])
+    assert.deepEqual([w.labor[0].hours, w.labor[0].rate, w.cost.source, w.cost.labor, w.cost.total, w.outputs[0].value, s.workTransferCosts[kitJob.id]], ['3', undefined, '10', 'restricted', 'restricted', 'restricted', 'restricted'])
+    assert.ok(s.movements.filter(m => m.lotId === w.outputLots[0].lotId).every(m => m.unitCost === 'restricted'))
+  }
+})
