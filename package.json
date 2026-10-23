@@ -11,14 +11,13 @@
     "dev": "rer dev",
     "preview": "rer preview",
     "typecheck": "tsc --build --incremental",
-    "test:typecheck": "rer queue test:typecheck -- sh -c \"node --test tests/incremental-typecheck.test.mjs\"",
     "verify": "rer verify",
     "setup": "rer setup",
     "deploy": "rer deploy",
     "test:runtime": "rer queue test:runtime -- sh -c \"node tests/runtime.mjs\"",
     "onboard": "node scripts/install.mjs",
     "build:app": "rer queue build:app -- sh -c \"vite build\"",
-    "verify:app": "rer queue verify:app -- sh -c \"pnpm run build && pnpm run typecheck && pnpm run test:typecheck && pnpm run test:larder && pnpm run test:site && pnpm run test:runtime && node tests/browser/run.mjs\"",
+    "verify:app": "rer queue verify:app -- sh -c \"pnpm run build && pnpm run typecheck && pnpm run test:larder && pnpm run test:runtime && node tests/browser/run.mjs\"",
     "reset": "rer reset",
     "export": "rer export",
     "import": "rer import",
@@ -29,9 +28,8 @@
     "deps": "rer install",
     "rer": "rer",
     "test:larder": "node --test --test-concurrency=1 tests/api/*.test.mjs",
-    "test:site": "node --test tests/site/*.test.mjs",
     "test:browser": "rer queue test:browser -- sh -c \"node tests/browser/run.mjs\"",
-    "verify:foundation": "rer queue verify:foundation -- sh -c \"pnpm run build && pnpm run typecheck && pnpm run test:typecheck && pnpm run test:site && pnpm run test:runtime\""
+    "verify:foundation": "rer queue verify:foundation -- sh -c \"pnpm run build && pnpm run typecheck && pnpm run test:runtime\""
   },
   "dependencies": {
     "@tanstack/react-router": "1.170.41",

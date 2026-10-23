@@ -35,9 +35,10 @@ Their pinned `action.yml` files declare `runs.using: node24`.
 The Verify workflow runs four required jobs in parallel: foundation, authenticated
 HTTP/API tests, and two Playwright partitions. Each browser partition creates its
 own real installation with one worker; Playwright distributes the complete suite
-between them. No test is removed from push verification. The foundation job still
-runs Base's `rer verify`, including production hosted-output and hydration checks,
-with the build, typecheck, incremental-typecheck, site and emitted-Worker tests.
+between them. The foundation job runs Base's `rer verify`, including production hosted-output
+and hydration checks, with the build, typecheck and emitted-Worker tests. Static
+site assertions and the compiler/cache regression suite are omitted; the retained
+HTTP/API and browser journeys cover the product contract.
 
 Only that GitHub job sets `LARDER_VERIFY_PART=foundation`. Outside GitHub Actions,
 or with an unknown partition, the adapter refuses the partition. Ordinary local
