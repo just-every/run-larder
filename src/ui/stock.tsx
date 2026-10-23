@@ -1,5 +1,6 @@
 import { LotTrace } from './lot-trace'
 import { SerialNumbers } from './serials'
+import { ScanPanel } from './scan'
 import { Certificates } from './certificates'
 import { can, itemName, locationName, personName, rows, sku, type LarderState } from './api'
 import type { Larder } from './app'
@@ -47,6 +48,7 @@ export function Stock({ larder }: { larder: Larder }) {
         <OpeningLines items={items} />
       </Form></Card>
       <Card title="Stock movements">
+        <ScanPanel larder={larder} use="transfer" />
         <Form title="Transfer" submit="Transfer" busy={busy} onSubmit={d => run('transfer.create', { itemId: text(d, 'itemId'), fromLocationId: text(d, 'from'), toLocationId: text(d, 'to'), quantity: text(d, 'quantity'), reason: text(d, 'reason') })}>
           <Choose label="Item" name="itemId" options={items} /><Choose label="From" name="from" options={locs} /><Choose label="To" name="to" options={locs} /><Field label="Quantity" name="quantity" inputMode="decimal" /><Field label="Reason" name="reason" /></Form>
         {can(s, ['manager', 'warehouse', 'production']) && documents(s).length > 0 && <Form title="Correct a recorded movement" submit="Reverse" quiet busy={busy} note="Posts the exact opposite movement and keeps the original. Refused while later work depends on the stock." onSubmit={d => { const [kind, id] = text(d, 'doc').split(':'); return run('movement.reverse', { documentKind: kind, documentId: id, reason: text(d, 'reason') }) }}>

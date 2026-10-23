@@ -240,7 +240,7 @@ test('FLOOR-008 scanned GS1 codes resolve item, lot, expiry and serial for recei
   const resin = await h.command('item.save', { sku: 'RESIN', name: 'Epoxy resin', kind: 'buy', baseUnit: 'each', barcode: '09501101530003', tracking: 'batch' })
   const hardener = await h.command('item.save', { sku: 'HARDENER', name: 'Hardener', kind: 'buy', baseUnit: 'each', barcode: '4006381333931' })
   const pump = await h.command('item.save', { sku: 'PUMP', name: 'Bilge pump', kind: 'buy', baseUnit: 'each', barcode: '09501101530010', tracking: 'serial' })
-  const kit = await h.command('item.save', { sku: 'KIT', name: 'Repair kit', kind: 'make', baseUnit: 'each' })
+  const kit = await h.command('item.save', { sku: 'KIT', name: 'Repair kit', kind: 'make', baseUnit: 'each', barcode: '09501101530027' })
   await h.command('bom.revise', { itemId: kit.id, components: [{ itemId: resin.id, quantity: '1' }] })
   let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: day(0), reason: 'Scanned delivery', lines: [{ itemId: resin.id, quantity: '6', unitPrice: '9' }, { itemId: pump.id, quantity: '1', unitPrice: '80' }] }); po = await h.command('po.approve', { poId: po.id, version: po.version })
   const scan = async (code, use, id) => (await h.request(`/api/larder/scan?code=${encodeURIComponent(code)}${use ? `&use=${use}&id=${id}` : ''}`)).json()
@@ -272,5 +272,13 @@ test('FLOOR-008 scanned GS1 codes resolve item, lot, expiry and serial for recei
   await h.command('shipment.pick', { orderId: order.id, lines: [{ lineId: picked.lineId, locationId: dock.id, quantity: '1', serials: [picked.lot.code] }] })
   // A second read of the same unit is a duplicate scan: refused, and the pick posted no movement.
   await refused('(01)09501101530010(21)PUMP-1', 'pick', order.id, 'SCAN_DUPLICATE')
+  assert.equal(await moved(), moves)
+  // Transfers scan stock in the bin it leaves; output labels must name the job's own product.
+  const shelf = await h.command('location.save', { name: 'Scan shelf' })
+  assert.equal((await scan('(01)09501101530003(10)RES-A', 'transfer', dock.id)).lot.code, 'RES-A')
+  await refused('RES-A', 'transfer', shelf.id, 'SCAN_WRONG_ITEM')
+  await refused('RES-B', 'transfer', dock.id, 'SCAN_HELD')
+  const kitLabel = await scan('(01)09501101530027(10)KIT-B1(17)271130', 'output', w.id); assert.deepEqual(kitLabel.output, { serial: '', lot: 'KIT-B1', expiresOn: '2027-11-30' })
+  await refused('(01)09501101530003(10)RES-A', 'output', w.id, 'SCAN_WRONG_ITEM')
   assert.equal(await moved(), moves)
 })

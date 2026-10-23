@@ -10,8 +10,8 @@ import { decimal } from './decimal'
 import { fail } from './problem'
 import { get, oneOf, type Row, type State } from './model'
 
-export const scanUses = ['receipt', 'issue', 'pick'] as const
-type Use = (typeof scanUses)[number]
+export const scanUses = ['receipt', 'issue', 'pick', 'transfer', 'output'] as const
+type Use = 'receipt' | 'issue' | 'pick'
 
 const norm = (v: unknown) => typeof v === 'string' ? v.trim().toUpperCase() : ''
 // UPC-A, EAN-13 and GTIN-14 name the same product once padded to 14 digits.
@@ -79,7 +79,26 @@ export function resolveScan(s: State, raw: unknown, use: unknown, documentId: un
   }
   const found = { code, kind: lot ? (lot.serial ? 'serial' : 'lot') : 'item', gs1, item: brief(item), lot: lot ? { id: lot.id, code: lot.code, serial: !!lot.serial } : null }
   if (!use) return found
-  const purpose = oneOf(use, scanUses, 'scan use'), { doc, lines, name } = documentFor(s, purpose, documentId)
+  const purpose = oneOf(use, scanUses, 'scan use')
+  if (purpose === 'transfer') {
+    // A transfer takes stock out of the bin it was scanned in.
+    const from = get(s, 'locations', documentId, 'location')
+    if (gs1 && (gs1.serial ?? gs1.lot) && !lot) fail('SCAN_UNKNOWN', `${gs1.serial ? 'Serial' : 'Lot'} ${gs1.serial ?? gs1.lot} of ${item.name} was never received.`, { itemId: item.id })
+    if (lot) {
+      usable(s, lot, today, 'moved')
+      if (s.movements.reduce((n, m) => m.lotId === lot!.id && m.locationId === from.id && m.status === 'available' ? n + m.quantity : n, 0n) <= 0n) fail('SCAN_WRONG_ITEM', `${lot.serial ? 'Serial' : 'Lot'} ${lot.code} is not in ${from.name}; scan stock from the bin you are moving out of.`, { lotId: lot.id, locationId: from.id })
+    }
+    return { ...found, locationId: from.id }
+  }
+  if (purpose === 'output') {
+    // An output label names the job's own product; a serial on it must be new.
+    const w = get(s, 'workOrders', documentId, 'work order')
+    if (w.status !== 'released') fail('SCAN_STALE', `${w.reference} is ${w.status}; record output only on released work.`, { documentId: w.id })
+    if (item.id !== w.itemId) fail('SCAN_WRONG_ITEM', `${item.name} is not what ${w.reference} makes; scan this job's own label.`, { itemId: item.id, documentId: w.id })
+    if (gs1?.serial && lot) fail('SCAN_DUPLICATE', `Serial ${gs1.serial} of ${item.name} already exists; this unit was received or made before.`, { lotId: lot.id })
+    return { ...found, output: { serial: gs1?.serial ?? '', lot: gs1?.lot ?? '', expiresOn: gs1?.expiresOn ?? '' } }
+  }
+  const { doc, lines, name } = documentFor(s, purpose, documentId)
   const line = lines.find((l: any) => l.itemId === item!.id) ?? fail('SCAN_WRONG_ITEM', `${item.name} is not ${name} ${doc.reference}; scan an item from this ${purpose}.`, { itemId: item.id, documentId: doc.id })
   if (purpose === 'receipt') {
     // A new delivery carries its own lot or serial; a serial an item already used is a duplicate.
