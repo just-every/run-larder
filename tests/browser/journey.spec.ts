@@ -386,9 +386,9 @@ test('COST reports retain shipment margins, job source drills and missing perfor
       const download=page.waitForEvent('download');await page.getByRole('link',{name:'Download this report CSV',exact:true}).click();expect((await download).suggestedFilename()).toBe('larder-costs.csv')
     }
   }
-  await page.goto(origin+'/app#handoff/performance');await page.getByLabel('Product',{exact:true}).selectOption(product.id);const ready=page.waitForResponse(r=>r.url().includes('/costing/performance?'));await page.getByRole('button',{name:'Apply report filters',exact:true}).click();await ready
+  await expect(card(page,'Performance metrics')).toContainText('Unknown')
   await page.getByLabel('I consent to saving this filtered report in the app').check();await page.getByLabel('Schedule reason',{exact:true}).fill('synthetic-larder-487 daily in-app snapshot')
-  await act(page,()=>page.getByRole('button',{name:'Schedule this report',exact:true}).click())
+  const scheduled=await act(page,()=>page.getByRole('button',{name:'Schedule this report',exact:true}).click());expect(scheduled.filters.itemId).toBe(product.id);expect(scheduled.filters.from).toBe(today)
   await act(page,()=>card(page,'Scheduled in-app reports').getByRole('button',{name:'Open due report',exact:true}).last().click())
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'COST-scheduled-report')}
 })
