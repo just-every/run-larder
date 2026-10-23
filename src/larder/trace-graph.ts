@@ -38,6 +38,11 @@ export function traceGraph(s: State) {
       link(`movement:${m.id}`, doc('returns', m.documentId), lot(m.lotId, m.id, m.itemId), { ...data, kind: m.kind, basis: 'physical customer return' })
     }
   }
+  for (const g of s.workGroups.filter(g => g.status === 'posted')) {
+    const source = g.review.source
+    if (g.offcutLotId) link(`nesting:offcut:${g.id}`, lot(source.lotId), lot(g.offcutLotId), { ...document('workGroups', g.id), ...measure(source.itemId, g.review.offcut.quantity), date: g.approvedAt, basis: 'approved nesting offcut recovery', value: g.review.offcut.materialCost })
+    for (const j of g.review.jobs) events.push({ recordType: 'event', id: `nesting:allocation:${g.id}:${j.workOrderId}`, from: doc('workOrders', j.workOrderId), ...document('workGroups', g.id), ...measure(source.itemId, j.materialQuantity), date: g.approvedAt, basis: 'approved nesting allocation to original job', value: j.materialCost })
+  }
   for (const r of s.receipts) {
     const po = s.purchaseOrders.find(p => p.id === r.poId)
     if (po) { link(`receipt:${r.id}`, doc('purchaseOrders', po.id), doc('receipts', r.id), { ...document('receipts', r.id), date: r.createdAt, basis: 'purchase reference' }); link(`supplier:${r.id}`, party(po.supplierId), doc('purchaseOrders', po.id), { date: po.createdAt, basis: 'supplier' }) }

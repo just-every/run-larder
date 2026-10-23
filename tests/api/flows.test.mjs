@@ -1181,4 +1181,163 @@ test('COST-001 unvalued production lots keep weighted average until an actual va
   assert.deepEqual((await h.state()).movements,before)
   const second=await ship();assert.equal((await h.state()).movements.find(m=>m.documentId===second.id&&m.kind==='shipment').unitCost,'10')
   const report=(await costReport(h,'margins',`?orderId=${order.id}`)).rows[0];assert.equal(report.actualCost,'20.00');assert.equal(report.sources.reduce((n,x)=>n+parse(x.cost),0n),parse('20'))
+
+})
+
+async function nestingWorkshop(h) {
+  const loc = await h.command('location.save', { name: 'Sheet store' })
+  const sheet = await h.command('item.save', { sku: 'synthetic-larder-1', name: 'Steel sheet', kind: 'buy', baseUnit: 'm2' })
+  await h.command('opening.record', { locationId: loc.id, countedOn: '2026-10-01', valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: sheet.id, quantity: '10', unitCost: '10', lot: 'synthetic-larder-2', dates: { manufacturedOn: '2026-10-01', expiresOn: '2027-10-01', retestOn: '2027-09-01', storage: 'Dry covered rack' } }] })
+  const customer = await h.command('party.save', { name: 'Sheet customer', kind: 'customer' }), jobs = []
+  for (let i = 0; i < 3; i++) {
+    const item = await h.command('item.save', { sku: `synthetic-larder-${i + 3}`, name: `Bracket ${i + 1}`, kind: 'make', baseUnit: 'each' })
+    await h.command('bom.revise', { itemId: item.id, components: [{ itemId: sheet.id, quantity: '2' }], routing: [{ name: 'Cut', workCentre: 'Laser', setupMinutes: 20, runMinutes: 1 }] })
+    const quote = await h.command('so.quote', { customerId: customer.id, promiseDate: `2026-11-0${i + 1}`, lines: [{ itemId: item.id, quantity: '1', unitPrice: '50' }] })
+    await h.command('so.confirm', { orderId: quote.id, version: quote.version })
+    const draft = await h.command('plan.draft', { itemId: item.id })
+    jobs.push(await h.command('wo.release', { workOrderId: draft.id, version: draft.version }))
+  }
+  const s = await h.state(), lot = s.lots.find(l => l.itemId === sheet.id)
+  const prepare = { materialItemId: sheet.id, reason: 'Cut three customer jobs on one sheet', members: jobs.map(w => ({ workOrderId: w.id, version: w.version, sequence: 1 })) }
+  const report = { format: 'larder-nesting-v1', source: { itemId: sheet.id, locationId: loc.id, lotId: lot.id, quantity: '10' }, sharedSetupMinutes: '30', offcut: { quantity: '2', code: 'synthetic-larder-6', locationId: loc.id }, jobs: jobs.map((w, i) => ({ workOrderId: w.id, quantity: '1', materialQuantity: i ? '3' : '2', goodMaterialQuantity: i ? '2.5' : '1.5', setupMinutes: '10' })) }
+  const file = report => ({ name: 'nesting.json', content: JSON.stringify(report) })
+  return { loc, sheet, lot, jobs, prepare, report, file }
+}
+
+test('CAP-008 three original jobs retain demand and revisions in an inert nesting review with reconciled yield, offcuts and cost shares', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const f = await nestingWorkshop(h), before = await h.invariant()
+  const group = await h.command('nest.prepare', f.prepare)
+  assert.deepEqual(group.members.map(m => [m.workOrderId, m.bomId, m.bomRevision, m.requiredBy, m.reason]), f.jobs.map(w => [w.id, w.bomId, w.bomRevision, w.requiredBy, w.reason]))
+  const payload = { groupId: group.id, version: group.version, file: f.file(f.report) }
+  const imported = await h.send('nest.import', payload)
+  assert.equal(imported.res.status, 200, JSON.stringify(imported.body))
+  const reviewed = imported.body.result, r = reviewed.review
+  assert.equal(reviewed.status, 'review'); assert.equal(r.approvalEnabled, true)
+  assert.deepEqual([r.materialYield, r.scrapQuantity, r.materialCost, r.offcut.materialCost, r.source.materialCost], ['0.65', '1.5', '80', '20', '100'])
+  assert.deepEqual(r.jobs.map(j => [j.materialCost, j.setupMinutes]), [['20', '10'], ['30', '10'], ['30', '10']])
+  assert.deepEqual([r.baselineSetupMinutes, r.sharedSetupMinutes], ['60', '30'])
+  assert.equal(await (await h.request(`/api/larder/attachments/${reviewed.original.id}`)).text(), payload.file.content)
+  assert.deepEqual((await h.send('nest.import', payload, { commandId: imported.commandId })).body, imported.body)
+  await h.command('nest.import', { ...payload, file: f.file({ ...f.report, sharedSetupMinutes: '31' }) }, { commandId: imported.commandId, error: 'IDEMPOTENCY' })
+  const after = await h.invariant()
+  for (const k of ['movements', 'reservations', 'workOrders', 'salesOrders', 'scheduleBookings', 'schedulePolicies']) assert.deepEqual(after[k], before[k], k)
+  const archive = await (await h.request('/api/larder/archive')).json(), csv = await (await h.request('/api/larder/archive.csv')).text()
+  assert.deepEqual(archive.records.workGroups, after.workGroups); assert.ok(csv.includes('records.workGroups'))
+  const target = await installation(); t.after(() => target.close())
+  const restored = await (await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })).json()
+  assert.equal(restored.ok, true, JSON.stringify(restored)); assert.deepEqual((await target.state()).workGroups, after.workGroups)
+  assert.deepEqual((await target.state()).movements, after.movements)
+  assert.equal(await (await target.request(`/api/larder/attachments/${reviewed.original.id}`)).text(), payload.file.content)
+  await h.restart(); assert.deepEqual((await h.state()).workGroups, after.workGroups)
+})
+
+test('CAP-008 invalid nesting and incompatible or changed jobs leave no partial review or attachment', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const f = await nestingWorkshop(h)
+  await h.command('nest.prepare', { ...f.prepare, members: [f.prepare.members[0], f.prepare.members[0]] }, { error: 'DUPLICATE_WORK' })
+  await h.command('nest.prepare', { ...f.prepare, members: f.prepare.members.map((m, i) => i ? m : { ...m, sequence: 99 }) }, { error: 'OPERATION' })
+  const group = await h.command('nest.prepare', f.prepare)
+  const invalid = [
+    [{ ...f.report, jobs: f.report.jobs.slice(1) }, 'ALLOCATION'],
+    [{ ...f.report, jobs: [f.report.jobs[0], f.report.jobs[0], f.report.jobs[2]] }, 'ALLOCATION'],
+    [{ ...f.report, jobs: f.report.jobs.map((j, i) => i ? j : { ...j, quantity: '2' }) }, 'OVER_OUTPUT'],
+    [{ ...f.report, jobs: f.report.jobs.map((j, i) => i ? j : { ...j, goodMaterialQuantity: '3' }) }, 'ALLOCATION'],
+    [{ ...f.report, offcut: { ...f.report.offcut, quantity: '3' } }, 'ALLOCATION'],
+    [{ ...f.report, sharedSetupMinutes: '31' }, 'ALLOCATION'],
+    [{ ...f.report, source: { ...f.report.source, quantity: '11' } }, 'INSUFFICIENT_STOCK'],
+  ]
+  const before = await h.state(), archive = await (await h.request('/api/larder/archive')).json()
+  for (const [report, error] of invalid) await h.command('nest.import', { groupId: group.id, version: group.version, file: f.file(report) }, { error })
+  const after = await h.state()
+  for (const key of Object.keys(archive.records)) assert.deepEqual(after[key], before[key], key)
+  for (const key of ['version', 'movements', 'reservations', 'commands']) assert.deepEqual(after[key], before[key], key)
+  assert.deepEqual((await (await h.request('/api/larder/archive')).json()).attachments, archive.attachments)
+  await h.command('wo.issue', { workOrderId: f.jobs[0].id, lines: [{ itemId: f.sheet.id, locationId: f.loc.id, lotId: f.lot.id, quantity: '1' }] })
+  await h.command('nest.import', { groupId: group.id, version: group.version, file: f.file(f.report) }, { error: 'STALE' })
+  const current = (await h.state()).workOrders.find(w => w.id === f.jobs[0].id)
+  await h.command('nest.prepare', { ...f.prepare, members: f.prepare.members.map((m, i) => i ? m : { ...m, version: current.version }) }, { error: 'STATE' })
+})
+
+test('CAP-008 nesting preparation obeys live roles, location scope and cost restrictions including replay', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const f = await nestingWorkshop(h), planner = await h.person('nest-planner@example.test', 'planner'), warehouse = await h.person('nest-warehouse@example.test', 'warehouse')
+  await warehouse.run('nest.prepare', f.prepare, { error: 'FORBIDDEN' })
+  assert.equal((await h.send('nest.prepare', f.prepare, { as: '' })).res.status, 401)
+  const outsider = await h.person('nest-outsider@example.test', 'planner')
+  const prepared = await h.send('nest.prepare', f.prepare, { as: planner.cookie })
+  assert.equal(prepared.res.status, 200, JSON.stringify(prepared.body))
+  await outsider.run('nest.cancel', { groupId: prepared.body.result.id, version: 1, reason: 'Not my review' }, { error: 'FORBIDDEN' })
+  const other = await h.command('location.save', { name: 'Other site' })
+  await h.command('member.scope', { operatorId: planner.id, locations: [other.id] })
+  await planner.run('nest.prepare', f.prepare, { error: 'FORBIDDEN' })
+  await planner.run('nest.prepare', f.prepare, { commandId: prepared.commandId, error: 'FORBIDDEN' })
+  assert.equal((await h.state(planner.cookie)).workGroups.length, 0)
+  await h.command('member.scope', { operatorId: planner.id, locations: null, costsRestricted: true })
+  await planner.run('nest.prepare', f.prepare, { error: 'FORBIDDEN' })
+  await h.command('member.scope', { operatorId: planner.id, locations: null, costsRestricted: false })
+  await h.command('role.set', { operatorId: planner.id, role: 'warehouse' })
+  await planner.run('nest.prepare', f.prepare, { error: 'FORBIDDEN' })
+})
+
+test('CAP-008 owner-approved nesting consumes once, recovers a traced offcut and attributes each original output cost', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const f = await nestingWorkshop(h), agent = await h.person('nest-agent@example.test', 'agent'), manager = await h.person('nest-manager@example.test', 'manager')
+  const group = await h.command('nest.prepare', f.prepare)
+  const review = await h.command('nest.import', { groupId: group.id, version: group.version, file: f.file(f.report) })
+  const before = await h.state(), payload = { groupId: review.id, version: review.version, reason: 'Approve exact observed sheet consumption and recover reusable steel' }
+  await agent.run('nest.approve', payload, { error: 'FORBIDDEN' })
+  await manager.run('nest.approve', payload, { error: 'FORBIDDEN' })
+  const posted = await h.send('nest.approve', payload)
+  assert.equal(posted.res.status, 200, JSON.stringify(posted.body)); assert.equal(posted.body.result.status, 'posted')
+  const after = await h.invariant()
+  assert.equal(after.movements.length - before.movements.length, 5)
+  assert.deepEqual(after.workOrders.map(w => w.components[0].issued), ['2', '3', '3'])
+  assert.equal(after.positions.find(p => p.lotId === posted.body.result.offcutLotId).quantity, '2')
+  const recovered = after.lots.find(l => l.id === posted.body.result.offcutLotId)
+  for (const key of ['manufacturedOn', 'expiresOn', 'retestOn', 'storage']) assert.equal(recovered[key], f.lot[key], key)
+  assert.equal(after.positions.some(p => p.lotId === f.lot.id), false)
+  for (const k of ['scheduleBookings', 'schedulePolicies', 'salesOrders']) assert.deepEqual(after[k], before[k], k)
+  assert.deepEqual((await h.send('nest.approve', payload, { commandId: posted.commandId })).body, posted.body)
+  await h.command('nest.approve', { ...payload, version: posted.body.result.version }, { error: 'STATE' })
+  assert.deepEqual((await h.state()).movements, after.movements)
+  const recoveredTrace = await (await h.request(`/api/larder/lots/${posted.body.result.offcutLotId}/trace?direction=upstream`)).json()
+  assert.ok(recoveredTrace.rows.some(r => r.basis === 'approved nesting offcut recovery' && r.quantity === '2' && r.value === '20'))
+  for (let i = 0; i < f.jobs.length; i++) {
+    let work = (await h.state()).workOrders.find(w => w.id === f.jobs[i].id)
+    work = await h.command('wo.output', { workOrderId: work.id, version: work.version, quantity: '1', locationId: f.loc.id, lot: `synthetic-larder-${i + 7}` })
+    work = await h.command('wo.close', { workOrderId: work.id, version: work.version })
+    assert.equal(work.cost.materials, i ? '30' : '20')
+    assert.equal(work.nestingGroups[0].materialCost, work.cost.materials)
+    const trace = await (await h.request(`/api/larder/lots/${work.outputs[0].lotId}/trace?direction=upstream`)).json()
+    assert.ok(trace.nodes.some(n => n.id === `workOrders:${work.id}`))
+    assert.ok(trace.rows.some(r => r.basis === 'approved nesting allocation to original job' && r.value === work.cost.materials))
+    assert.deepEqual(work.demandSources, f.jobs[i].demandSources)
+  }
+  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  assert.equal((await (await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })).json()).ok, true)
+  assert.deepEqual((await target.state()).workGroups, (await h.state()).workGroups)
+  assert.deepEqual((await target.state()).movements, (await h.state()).movements)
+})
+
+test('CAP-008 stale or impossible physical nesting approval leaves every job and offcut unposted', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const f = await nestingWorkshop(h)
+  const duplicateGroup = await h.command('nest.prepare', f.prepare)
+  const duplicateReport = { ...f.report, offcut: { ...f.report.offcut, code: f.lot.code } }
+  const duplicateReview = await h.command('nest.import', { groupId: duplicateGroup.id, version: duplicateGroup.version, file: f.file(duplicateReport) })
+  const original = await h.state()
+  await h.command('nest.approve', { groupId: duplicateReview.id, version: duplicateReview.version, reason: 'Duplicate recovery code' }, { error: 'DUPLICATE_LOT' })
+  const unchanged = await h.state()
+  for (const key of ['workOrders', 'movements', 'reservations', 'lots', 'workGroups']) assert.deepEqual(unchanged[key], original[key], key)
+  const group = await h.command('nest.prepare', f.prepare)
+  // The review can describe observed usage, but it cannot take another job's reservation.
+  const impossible = { ...f.report, jobs: f.report.jobs.map((j, i) => ({ ...j, materialQuantity: i ? '1' : '6', goodMaterialQuantity: '1' })) }
+  const review = await h.command('nest.import', { groupId: group.id, version: group.version, file: f.file(impossible) })
+  const before = await h.state()
+  await h.command('nest.approve', { groupId: review.id, version: review.version, reason: 'Cannot take reserved material' }, { error: 'RESERVED_STOCK' })
+  const after = await h.invariant()
+  for (const k of ['workGroups', 'movements', 'reservations', 'workOrders', 'lots']) assert.deepEqual(after[k], before[k], k)
+  await h.command('item.save', { sku: 'synthetic-larder-10', name: 'Concurrent record', kind: 'buy', baseUnit: 'each' })
+  await h.command('nest.approve', { groupId: review.id, version: review.version, reason: 'Stale review' }, { error: 'STALE' })
 })

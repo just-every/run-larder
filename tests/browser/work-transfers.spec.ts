@@ -64,3 +64,50 @@ test('FLOOR-005 split partly completed work across two centers, merge remaining 
     await open(page, mergedId); await expect(card(page, 'Split and merge work')).toContainText('Material cost attributed to this job: $40.00'); await shot(page, 'merged-closed')
   }
 })
+
+test('CAP-008 grouped nesting preserves three customer jobs and their allocated material costs at both widths', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('Private entry required')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  await settled(page)
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const tag = `${width}-${crypto.randomUUID().slice(0, 6)}`, jobs: any[] = [], orders: any[] = []
+    const loc = await command(page, 'location.save', { name: `Sheet store ${tag}` })
+    const sheet = await command(page, 'item.save', { sku: `synthetic-larder-sheet-${tag}`, name: `Steel sheet ${tag}`, kind: 'buy', baseUnit: 'm2' })
+    const customer = await command(page, 'party.save', { name: `Sheet customer ${tag}`, kind: 'customer' })
+    await command(page, 'opening.record', { locationId: loc.id, countedOn: today, valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: { name: 'count.txt', contentType: ['text', 'plain'].join('/'), base64: Buffer.from('Sheet count').toString('base64') }, lines: [{ itemId: sheet.id, quantity: '10', unitCost: '10', lot: `synthetic-larder-source-${tag}` }] })
+    for (let i = 0; i < 3; i++) {
+      const item = await command(page, 'item.save', { sku: `synthetic-larder-job-${i}-${tag}`, name: `Bracket ${i + 1} ${tag}`, kind: 'make', baseUnit: 'each' })
+      await command(page, 'bom.revise', { itemId: item.id, components: [{ itemId: sheet.id, quantity: '2' }], routing: [{ name: 'Cut', workCentre: 'Laser', setupMinutes: 20, runMinutes: 1 }] })
+      const quote = await command(page, 'so.quote', { customerId: customer.id, promiseDate: today, lines: [{ itemId: item.id, quantity: '1', unitPrice: '50' }] })
+      orders.push(await command(page, 'so.confirm', { orderId: quote.id, version: quote.version }))
+      const draft = await command(page, 'plan.draft', { itemId: item.id })
+      jobs.push(await command(page, 'wo.release', { workOrderId: draft.id, version: draft.version }))
+    }
+    const before = await (await page.request.get(origin + '/api/larder/state')).json(), lot = before.lots.find((l: any) => l.itemId === sheet.id)
+    const group = await command(page, 'nest.prepare', { materialItemId: sheet.id, reason: 'Cut customer jobs together', members: jobs.map(w => ({ workOrderId: w.id, version: w.version, sequence: 1 })) })
+    const report = { format: 'larder-nesting-v1', source: { itemId: sheet.id, locationId: loc.id, lotId: lot.id, quantity: '10' }, offcut: { quantity: '2', code: `synthetic-larder-offcut-${tag}`, locationId: loc.id }, sharedSetupMinutes: '30', jobs: jobs.map((w, i) => ({ workOrderId: w.id, quantity: '1', materialQuantity: i ? '3' : '2', goodMaterialQuantity: i ? '2.5' : '1.5', setupMinutes: '10' })) }
+    const review = await command(page, 'nest.import', { groupId: group.id, version: group.version, file: { name: 'nesting.json', content: JSON.stringify(report) } })
+    expect(review.review.materialYield).toBe('0.65')
+    await command(page, 'nest.approve', { groupId: review.id, version: review.version, reason: 'Approve observed cut consumption and reusable offcut' })
+    for (let i = 0; i < jobs.length; i++) {
+      let s = await (await page.request.get(origin + '/api/larder/state')).json(), w = s.workOrders.find((w: any) => w.id === jobs[i].id)
+      w = await command(page, 'wo.output', { workOrderId: w.id, version: w.version, locationId: loc.id, quantity: '1', lot: `synthetic-larder-output-${i}-${tag}` })
+      w = await command(page, 'wo.close', { workOrderId: w.id, version: w.version })
+      await open(page, w.id)
+      await expect(card(page, 'Split and merge work')).toContainText(`Material cost attributed to this job: $${i ? '30' : '20'}.00`)
+      await expect(card(page, 'Split and merge work')).toContainText(orders[i].reference)
+      await expect(page.getByText('pinned to BOM revision 1', { exact: false })).toBeVisible()
+      expect(w.demandSources).toEqual(jobs[i].demandSources)
+      if (process.env.LARDER_SCREENSHOTS) {
+        await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true })
+        await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-CAP-008-job-${i + 1}.png`), fullPage: true })
+      }
+    }
+    const after = await (await page.request.get(origin + '/api/larder/state')).json()
+    expect(after.scheduleBookings).toEqual(before.scheduleBookings)
+    expect(after.salesOrders).toEqual(before.salesOrders)
+    expect(after.positions.find((p: any) => p.lotId === after.workGroups.find((g: any) => g.id === group.id).offcutLotId).quantity).toBe('2')
+  }
+})

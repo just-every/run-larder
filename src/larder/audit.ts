@@ -44,7 +44,7 @@ const byKind: Record<string, string> = {
   boms: 'revisions', configModels: 'revisions', kits: 'revisions', timeEntries: 'time', timeLocks: 'time', kitSales: 'commercial', bomChanges: 'revisions', engineeringChanges: 'revisions', catalogChanges: 'revisions', items: 'revisions', partyItems: 'revisions',
   roles: 'roles', customRoles: 'roles', approvalPolicies: 'roles', approvalDelegations: 'roles', approvalSignatures: 'roles', imports: 'integrations', cutovers: 'integrations', historyImports: 'integrations', sourceHistory: 'integrations', handoffs: 'integrations',
   qualityHolds: 'quality', inspections: 'quality', inspectionPlans: 'quality', nonconformances: 'quality', recalls: 'quality', certificates: 'quality', certificatePolicies: 'quality',
-  scheduleGrants: 'schedules', schedulePolicies: 'schedules', schedulePlans: 'schedules', scheduleBookings: 'schedules', machineCalendars: 'schedules', laborCalendars: 'schedules', laborRates: 'schedules', productionPlans: 'schedules', forecasts: 'schedules',
+  workGroups: 'schedules', scheduleGrants: 'schedules', schedulePolicies: 'schedules', schedulePlans: 'schedules', scheduleBookings: 'schedules', machineCalendars: 'schedules', laborCalendars: 'schedules', laborRates: 'schedules', productionPlans: 'schedules', forecasts: 'schedules',
   receipts: 'stock', shipments: 'stock', returns: 'stock', transfers: 'stock', counts: 'stock', openings: 'stock', reversals: 'stock', lots: 'stock', countSessions: 'stock', subcontractCustody: 'stock', movements: 'stock',
   salesOrders: 'commercial', purchaseOrders: 'commercial', parties: 'commercial',
 }

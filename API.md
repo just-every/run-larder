@@ -629,3 +629,59 @@ Under ct’s 23 October approval, the owner alone applies policy, service-charge
 `reports.schedule {filters,consent:true,reason}` saves a daily in-app due report with the owner’s explicit consent. Its owner (or owner role) opens a due snapshot with `reports.run {scheduleId,version}` and cancels with `reports.cancel {scheduleId,version,reason}`. It sends nothing and has no unattended background runner; restored schedules pause. COST-001’s financial authority and allocation rules are ct-approved: overtime is per entry, machine/overhead use active hours and the displayed good/scrap allocation is equal per unit. Cost-link and commercial-charge recordings are audited immutable entries; a reversal must be a new entry. Costing retains no payroll data beyond the rate used and posts no journals. COST-006 retains its unattended-generation and background-authority gap.
 
 A physical production close alone preserves the existing weighted-average withdrawal basis. Only an explicitly approved actual valuation selects the produced lot’s actual rate; earlier withdrawals stay recorded and their financial correction is shown separately.
+
+
+## Grouped nesting (CAP-008, partial)
+
+Use the existing command API. Owner, manager, planner and agent may prepare a
+group with `nest.prepare`: `{materialItemId, reason, members: [{workOrderId,
+version, sequence}]}`. Select two to fifty distinct released jobs before issue,
+output or operation execution. Every pinned recipe must contain the material;
+selected operations must agree on centers, selected center, setup family, tools
+and skills. The group retains original job, demand, BOM and due-date identities.
+
+`nest.import` takes `{groupId, version, file: {name, content}}`. Content is JSON
+in this documented interchange format, not a vendor-specific adapter:
+
+```json
+{
+  "format": "larder-nesting-v1",
+  "source": {"itemId": "material-id", "locationId": "bin-id", "lotId": "lot-id", "quantity": "10"},
+  "offcut": {"quantity": "2", "code": "recovered-sheet", "locationId": "bin-id"},
+  "sharedSetupMinutes": "30",
+  "jobs": [
+    {"workOrderId": "first-job", "quantity": "1", "materialQuantity": "3", "goodMaterialQuantity": "2.5", "setupMinutes": "15"},
+    {"workOrderId": "second-job", "quantity": "1", "materialQuantity": "5", "goodMaterialQuantity": "4", "setupMinutes": "15"}
+  ]
+}
+```
+
+All quantities are decimal strings in the material's base unit. Output quantity
+uses each original job's base unit. Every job is listed exactly once; allocated
+consumption plus offcut equals input exactly. Good material cannot exceed
+consumption, and setup shares sum exactly. Yield is good material divided by
+input; scrap is consumption less good material. Weighted-average source cost
+prices material shares; the final job receives the six-place rounding residue
+so input value equals allocated consumption plus offcut value. Negative residue
+is refused. The original UTF-8 file is retained with a digest. Import posts no
+movement, reservation, output, booking or promise change.
+
+The owner alone calls `nest.approve` with `{groupId, version, reason}` under the
+conservative default awaiting ct approval. Any intervening business write or
+changed UTC day requires a fresh group and import. The same atomic command
+issues the reviewed material to original jobs through `wo.issue`, recovers the
+offcut into a new lot with its source dates and value, and records approval and
+movement links. A stock, reservation, quality, recall or allocation refusal
+posts nothing. Serial-configured material is refused. Identical command replay
+returns the first result. Each original job keeps its own operation, output,
+quality and closing gates; its recorded nesting share follows its eventual lot
+trace. Shared setup minutes are observations and never alter finite bookings.
+
+`nest.cancel` takes `{groupId, version, reason}` for an open draft or review;
+only its preparer or the owner may cancel it.
+All group records, original files, physical links and recorded outcomes survive
+the complete JSON and CSV archive and restore; restore never executes them.
+Location scope and cost restrictions apply to preparation, results and replay.
+Grouping and import page controls, combined finite setup booking, broader batch
+stages and ct approval of the default remain CAP-008 gaps. CONN-012 will supply
+vendor-specific nesting imports and inherits these review and posting guards.
