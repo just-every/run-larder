@@ -277,7 +277,7 @@ async function planningShot(page:Page,name:string){
 test('Qualified alternates compare setup, tools, labor, delivery and cost before human approval at 1440/390', async ({ page }) => {
   await planningEnter(page)
   const call = async (type: string, payload: any) => { const r=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}}); const b=await r.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result }
-  const suffix=crypto.randomUUID().slice(0,6), day=(n:number)=>new Date(Date.now()+n*86400000).toISOString().slice(0,10)
+  const fixtureNow=Date.now(), suffix=crypto.randomUUID().slice(0,6), day=(n:number)=>new Date(fixtureNow+n*86400000).toISOString().slice(0,10)
   const raw=await call('item.save',{sku:`synthetic-larder-611-${suffix}`,name:'Fixture blank',kind:'buy',baseUnit:'each'})
   const made=await call('item.save',{sku:`synthetic-larder-612-${suffix}`,name:'Fixture bracket',kind:'make',baseUnit:'each'})
   const names=['Primary','Alternate A','Alternate B'].map(n=>`${n} ${suffix}`)
@@ -309,8 +309,14 @@ test('Qualified alternates compare setup, tools, labor, delivery and cost before
     await page.getByLabel('Sequence constraint reason',{exact:true}).fill('synthetic-larder-616 qualified transition')
     await planningAct(page,()=>page.getByRole('button',{name:'Save sequence constraints',exact:true}).click())
   }
-  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00')
+  // The calendar and fixture dates use UTC; datetime-local needs the same
+  // instant rendered locally, rather than UTC midnight interpreted locally.
+  const planStart=day(1)+'T00:00:00.000Z'
+  await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(local(new Date(planStart)))
+  const projection=page.waitForResponse(r=>r.url().includes('/api/larder/scheduling/finite?')&&new URL(r.url()).searchParams.get('asOf')===planStart)
   await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click()
+  expect((await projection).ok()).toBe(true)
+  await expect(page.getByText('Calculating finite capacity…',{exact:true})).toHaveCount(0)
   await expect(page.getByLabel('Move work order',{exact:true})).toBeVisible()
   for(const alternate of [names[1],names[2]]) {
     await page.getByLabel('Move work order',{exact:true}).selectOption(w.id)
