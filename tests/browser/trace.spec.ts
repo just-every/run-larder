@@ -118,7 +118,7 @@ test('TRACE-002 receive, assemble, ship, return and service serials with exact c
     await expect(page.getByRole('alert')).toContainText(`shipped on ${shipment.reference} to Ridge Mills ${tag}`); await serialShot(page, 'shipped-refused')
     await page.goto(origin + `/app#orders/${order.id}`); await page.reload(); await settled(page)
     const back = form(page, 'Receive a return')
-    await back.getByLabel('Quantity', { exact: true }).fill('1'); await back.getByLabel('Returned serials', { exact: true }).fill(`D1-${tag}`); await back.getByLabel('Into', { exact: true }).selectOption(cage.id); await back.getByLabel('Reason', { exact: true }).fill('Warranty return')
+    await back.getByLabel('Line', { exact: true }).selectOption(order.lines[0].id); await back.getByLabel('Condition', { exact: true }).selectOption('quarantine'); await back.getByLabel('Quantity', { exact: true }).fill('1'); await back.getByLabel('Returned serials', { exact: true }).fill(`D1-${tag}`); await back.getByLabel('Into', { exact: true }).selectOption(cage.id); await back.getByLabel('Reason', { exact: true }).fill('Warranty return')
     await back.getByRole('button', { name: 'Receive return', exact: true }).click(); await settled(page)
     await page.goto(origin + '/app#stock'); await page.reload(); await settled(page)
     const serials = page.locator('section.card').filter({ has: page.getByRole('heading', { name: 'Serial numbers', exact: true }) })
