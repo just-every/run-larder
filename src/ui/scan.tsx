@@ -71,7 +71,7 @@ export function ScanPanel({ larder, use, doc }: { larder: Larder; use: Use; doc?
     {typeof window !== 'undefined' && 'BarcodeDetector' in window && <button type="button" className="button" onClick={() => setCamera(!camera)}>{camera ? 'Stop camera' : 'Scan with camera'}</button>}
     {camera && <CameraScan onCode={code => { setCamera(false); void resolve(code) }} />}
     {refusal && <p className="scan-refusal" role="status">Not accepted: {refusal}</p>}{note && <p className="muted" role="status">{note}</p>}
-    {lines.length > 0 && <><Table head={['Item', 'Lot or serial', 'Quantity']} numeric={[2]}>{lines.map(l => <tr key={l.key}><td>{l.item}</td><td>{l.lot || '—'}{l.expiresOn && <small>Expires {l.expiresOn}</small>}</td><td>{l.quantity}</td></tr>)}</Table>
+    {lines.length > 0 && <><Table head={['Item', 'Lot or serial', 'Quantity']} numeric={[2]}>{lines.map(l => <tr key={l.key}><td>{l.item}</td><td>{l.lot || '—'}{l.expiresOn && <small>Expires {l.expiresOn}</small>}</td><td className="num">{l.quantity}</td></tr>)}</Table>
       <div className="form-actions"><button type="button" className="button primary" disabled={larder.busy || !locationId || ((use === 'receipt' || use === 'transfer') && !slip.trim()) || (use === 'transfer' && !toId)} onClick={() => void post()}>{{ receipt: 'Receive scanned', issue: 'Issue scanned', pick: 'Pick scanned', transfer: 'Transfer scanned' }[use]}</button><button type="button" className="button" onClick={() => { keep([]); setNote(''); setRefusal(''); input.current?.focus() }}>Clear scans</button></div></>}
   </section>
 }
