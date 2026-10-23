@@ -1,4 +1,5 @@
 import { LotTrace } from './lot-trace'
+import { SerialNumbers } from './serials'
 import { Certificates } from './certificates'
 import { can, itemName, locationName, personName, rows, sku, type LarderState } from './api'
 import type { Larder } from './app'
@@ -23,6 +24,7 @@ export function Stock({ larder }: { larder: Larder }) {
   return <div className="page">
     <header className="page-head"><p className="eyebrow">Stock</p><h1>Stock on hand</h1><p className="meta">Every quantity is the sum of its recorded movements. Reserved stock cannot be moved or sold twice.</p></header>
     <LotTrace larder={larder} />
+    <SerialNumbers larder={larder} />
     <CountSessions larder={larder} />
     <Certificates larder={larder} />
     <LotExpiry larder={larder} />

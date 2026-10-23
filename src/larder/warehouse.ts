@@ -3,7 +3,8 @@ import { requiredTypes } from './certificate-policy'
 import { requireCatalogLot } from './catalog-fields'
 import { attach } from './attachments'
 import { toBase } from './catalogue'
-import { returnSources } from './sales-terms'
+import { returnSources, shipmentSources } from './sales-terms'
+import { isSerial, returnedSerials } from './serials'
 import { decimal, format } from './decimal'
 import { fail } from './problem'
 import { allow, approver } from './roles'
@@ -54,8 +55,10 @@ export function warehouse(c: Context, type: string, p: any): Row | undefined {
       if (decimal(line.shipped) - decimal(line.returned) < quantity) fail('RETURN_EXCEEDS', `Only ${format(decimal(line.shipped) - decimal(line.returned))} ${item.baseUnit} shipped on this line can come back.`)
       const location = get(c.s, 'locations', p.locationId, 'location'); let disposition = oneOf(p.disposition, ['restock', 'quarantine'] as const, 'disposition')
       if (requiredTypes(c.s, item.id).length) disposition = 'quarantine'
-      const sources = returnSources(c.s, order, line, quantity)
-      const r = row(c, 'returns', { reference: nextReference(c.s.returns, 'RT'), orderId: order.id, lineId: line.id, itemId: item.id, quantity: format(quantity), locationId: location.id, disposition, reason: text(p.reason, 'reason', 400), sources })
+      // TRACE-002: a serial item comes back as the named serials that left on this line.
+      const serialLots = isSerial(item) ? returnedSerials(c.s, item, p.serials, quantity, shipmentSources(c.s, order, line).map(m => m.lotId)) : undefined
+      const sources = returnSources(c.s, order, line, quantity, serialLots)
+      const r = row(c, 'returns', { reference: nextReference(c.s.returns, 'RT'), orderId: order.id, lineId: line.id, itemId: item.id, quantity: format(quantity), locationId: location.id, disposition, reason: text(p.reason, 'reason', 400), sources, ...(serialLots ? { serials: serialLots.map(id => get(c.s, 'lots', id).code) } : {}) })
       for (const source of sources) {
         const original = c.s.movements.find(m => m.id === source.shipmentMovementId)!
         const movement = move(c, { itemId: item.id, locationId: location.id, status: disposition === 'restock' ? 'available' : 'quarantine', lotId: original.lotId, quantity: decimal(source.quantity), unitCost: decimal(source.unitCost), kind: 'return', documentKind: 'returns', documentId: r.id, reason: r.reason })

@@ -126,9 +126,7 @@ export function normalizeCatalogItem(s: State, input: Record<string, any>, curre
   return Object.assign(item, normalizeCatalogFields(s, item, current))
 }
 
-// Until TRACE-002 ships its serial-aware physical door, configured serial
-// requirements refuse operations rather than pretending untracked stock is serial.
+// Serial items follow TRACE-002's one-unit serial rule in move() (serials.ts).
 export function requireCatalogLot(item: Row, lot: unknown) {
-  if (item.tracking === 'serial') fail('SERIAL_EXECUTION', 'Serial policy configured; serial execution not yet available.', { itemId: item.id })
   if (item.tracking === 'batch' && (typeof lot !== 'string' || !lot.trim())) fail('LOT_REQUIRED', 'This item requires a batch/lot on every receipt or production output.', { itemId: item.id })
 }

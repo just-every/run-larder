@@ -55,6 +55,7 @@ import { supplyChange, supplyChanges } from './supply-changes'
 import { workTransfers } from './work-transfers'
 import { nesting } from './scheduling/nesting'
 import { lotTrace, traceCsv } from './trace'
+import { serials, serialSearch } from './serials'
 import { subcontract } from './subcontract'
 import { rework } from './rework'
 import { production } from './production'
@@ -92,7 +93,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version, scope: effectiveScope(member, custom) }
 }
 
-const handlers = [nesting, reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [nesting, reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, serials, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -235,6 +236,12 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (path === '/planning/materials') return json(await read(s => materialDates(s)))
     if (path === '/planning/pegging') return json(await read(s => materialPegging(s, url.searchParams)))
     if (path === '/planning/supply-changes') return json(await read(s => supplyChanges(s)))
+    // TRACE-002 serial search: a scoped member never sees a serial or record outside their locations.
+    if (path === '/serials') {
+      const all = await load(env.DB), seen = scope.locations === null ? undefined : visibleState(all, scope)
+      const found = serialSearch(all, url.searchParams.get('q') ?? '', url.searchParams.get('itemId') ?? '').filter(r => !seen?.hidden.has(r.lotId))
+      return json(seen ? stubHidden(found, seen.hidden) : found)
+    }
     const trace = /^\/lots\/([-0-9a-f]{36})\/trace(\.csv)?$/.exec(path)
     if (trace) {
       const all = await load(env.DB), seen = scope.locations === null ? undefined : visibleState(all, scope)

@@ -7,7 +7,8 @@ import { approvedCertificates, requiredTypes } from './certificate-policy'
 import { requireCatalogLot } from './catalog-fields'
 import { attach } from './attachments'
 import { toBase } from './catalogue'
-import { decimal, format, times } from './decimal'
+import { SCALE, decimal, format, times } from './decimal'
+import { isSerial, newSerials } from './serials'
 import { fail } from './problem'
 import { allow } from './roles'
 import { authorize, gate } from './approval-policy'
@@ -114,18 +115,22 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
         if (q > overAllowance(line)) fail('OVER_RECEIPT', `Only ${format(outstanding)} ${item.baseUnit} of ${item.name} is still expected on ${po.reference}${decimal(line.tolerancePercent ?? '0') > 0n ? `, plus its ${line.tolerancePercent}% tolerance` : ''}.`, { lineId: line.id })
         let inspection = oneOf(l.inspection ?? 'accept', ['accept', 'quarantine'] as const, 'inspection')
         requireCatalogLot(item, l.lot)
+        // TRACE-002: a serial item arrives as one named serial (a one-unit lot) per unit.
+        const serials = isSerial(item) ? newSerials(c.s, item, l.serials, q) : []
         if (requiredTypes(c.s, item.id).length) {
-          text(l.lot, 'lot required for controlled certificates', 80)
+          if (!serials.length) text(l.lot, 'lot required for controlled certificates', 80)
           inspection = 'quarantine'
         }
-        const code = optionalText(l.lot, 'supplier lot', 80), dates = lotDates(l.dates, code, c.now.slice(0, 10)), damage = damaged(l.damage, q)
+        const code = optionalText(l.lot, 'supplier lot', 80), dates = lotDates(l.dates, serials[0] ?? code, c.now.slice(0, 10)), damage = damaged(l.damage, q)
+        if (serials.length && damage) fail('INPUT', 'Receive damaged serial units on their own line, held in quarantine.', { field: 'damage' })
         // Damaged units arrive in quarantine under their own lot, so they can never be allocated or issued as accepted stock.
-        for (const part of [{ quantity: q - (damage?.quantity ?? 0n), inspection, damage: null }, ...(damage ? [{ quantity: damage.quantity, inspection: 'quarantine' as const, damage }] : [])]) {
+        const parts = serials.length ? serials.map(serial => ({ quantity: SCALE, inspection, damage: null, serial })) : [{ quantity: q - (damage?.quantity ?? 0n), inspection, damage: null, serial: '' }, ...(damage ? [{ quantity: damage.quantity, inspection: 'quarantine' as const, damage, serial: '' }] : [])]
+        for (const part of parts) {
           if (part.quantity <= 0n) continue
-          const partCode = part.damage && code ? `${code}-DAMAGED` : code
-          const lot = partCode ? row(c, 'lots', { itemId: item.id, code: partCode, supplierId: po.supplierId, source: 'receipt', documentId: receipt.id, status: part.inspection === 'quarantine' ? 'quarantined' : 'released', ...dates }) : null
-          const movement = move(c, { itemId: item.id, locationId: location.id, status: part.inspection === 'quarantine' ? 'quarantine' : 'available', lotId: lot?.id, quantity: part.quantity, unitCost: decimal(line.unitPrice), kind: 'receipt', documentKind: 'receipts', documentId: receipt.id, reason: part.damage ? `Received damaged on ${po.reference}: ${part.damage.reason}` : `Received on ${po.reference}` })
-          receipt.lines.push({ lineId: line.id, itemId: item.id, locationId: location.id, quantity: format(part.quantity), lotId: lot?.id ?? '', inspection: part.inspection, ...(part.damage ? { damageReason: part.damage.reason } : {}), movementId: movement.id, expectedDate: purchaseDate(po, line), approvedDate: c.s.approvals.find(a => a.id === po.approvalId)?.terms?.lines.find((l: any) => l.id === line.id)?.expectedDate ?? po.expectedDate })
+          const partCode = part.serial || (part.damage && code ? `${code}-DAMAGED` : code)
+          const lot = partCode ? row(c, 'lots', { itemId: item.id, code: partCode, ...(part.serial ? { serial: true, supplierLot: code } : {}), supplierId: po.supplierId, source: 'receipt', documentId: receipt.id, status: part.inspection === 'quarantine' ? 'quarantined' : 'released', ...dates }) : null
+          const movement = move(c, { itemId: item.id, locationId: location.id, status: part.inspection === 'quarantine' ? 'quarantine' : 'available', lotId: lot?.id, quantity: part.quantity, unitCost: decimal(line.unitPrice), kind: 'receipt', documentKind: 'receipts', documentId: receipt.id, reason: part.damage ? `Received damaged on ${po.reference}: ${part.damage.reason}` : part.serial ? `Received serial ${part.serial} on ${po.reference}` : `Received on ${po.reference}` })
+          receipt.lines.push({ lineId: line.id, itemId: item.id, locationId: location.id, quantity: format(part.quantity), lotId: lot?.id ?? '', ...(part.serial ? { serial: part.serial } : {}), inspection: part.inspection, ...(part.damage ? { damageReason: part.damage.reason } : {}), movementId: movement.id, expectedDate: purchaseDate(po, line), approvedDate: c.s.approvals.find(a => a.id === po.approvalId)?.terms?.lines.find((l: any) => l.id === line.id)?.expectedDate ?? po.expectedDate })
         }
         line.received = format(decimal(line.received) + q)
       }

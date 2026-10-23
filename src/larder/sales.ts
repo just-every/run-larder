@@ -7,7 +7,8 @@ import { open } from './availability'
 import { customerAttestation, trimOrderReservations } from './order-changes'
 import { commercialSnapshot, pickedQuantity, refreshPromise, removeDeliveries } from './sales-schedules'
 import { toBase } from './catalogue'
-import { decimal, format, max } from './decimal'
+import { SCALE, decimal, format, max } from './decimal'
+import { isSerial, stockSerials } from './serials'
 import { fail } from './problem'
 import { allow } from './roles'
 import { gate } from './approval-policy'
@@ -94,7 +95,7 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'warehouse'])
       const order = get(c.s, 'salesOrders', p.orderId, 'order')
       if (!['confirmed', 'part shipped'].includes(order.status)) fail('STATE', 'Only a confirmed order can be picked.')
-      const selecting = new Map<string, bigint>()
+      const selecting = new Map<string, bigint>(), picking = new Set<string>()
       const lines = list(p.lines).flatMap((l: any) => {
         const line = lineOf(order, l.lineId), item = get(c.s, 'items', line.itemId, 'item'), location = get(c.s, 'locations', l.locationId, 'location')
         const q = toBase(item, l.quantity, l.unit)
@@ -103,6 +104,13 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
         if (pickedQuantity(c.s, order.id, line.id, location.id) + selected + q > reservedHere) fail('NOT_RESERVED', `Only ${format(reservedHere - pickedQuantity(c.s, order.id, line.id, location.id))} ${item.baseUnit} of ${item.name} is reserved at ${location.name} and not yet picked.`)
         selecting.set(selectionKey, selected + q)
         const promisedSchedules = commercialSnapshot(order).lines.find((snapshot: any) => snapshot.id === line.id)?.schedules
+        // TRACE-002: a serial item is picked by naming each serial, once across open picks.
+        if (isSerial(item)) return stockSerials(c.s, item, l.serials, q, location.id).map(lot => {
+          const held = c.s.shipments.find(x => ['picked', 'packed'].includes(x.status) && x.lines.some((pl: any) => pl.lotId === lot.id))
+          if (held || picking.has(lot.id)) fail('SERIAL_PICKED', `Serial ${lot.code} is already picked${held ? ` on ${held.reference}` : ''}.`, { serial: lot.code })
+          picking.add(lot.id); assertLotNotHeld(c.s, lot.id, 'picked'); pickLots(c, order, item.id, location.id, SCALE, lot.id)
+          return { lineId: line.id, itemId: item.id, unitPrice: line.unitPrice, promisedSchedules, locationId: location.id, lotId: lot.id, serial: lot.code, quantity: format(SCALE) }
+        })
         if (l.lotId) assertLotNotHeld(c.s, get(c.s, 'lots', l.lotId, 'lot').id, 'picked')
         return pickLots(c, order, item.id, location.id, q, l.lotId ? get(c.s, 'lots', l.lotId, 'lot').id : '').map(x => ({ lineId: line.id, itemId: item.id, unitPrice: line.unitPrice, promisedSchedules, locationId: location.id, lotId: x.lotId, quantity: format(x.quantity) }))
       })

@@ -12,7 +12,8 @@ import { activeBom } from './bom'
 import { configuredBom, workConfiguration } from './configurations'
 import { resolvedComponents } from './bom-explosion'
 import { toBase } from './catalogue'
-import { decimal, divide, format, max, min, times } from './decimal'
+import { SCALE, decimal, divide, format, max, min, times } from './decimal'
+import { isSerial, newSerials, stockSerials } from './serials'
 import { fail } from './problem'
 import { allow, approver } from './roles'
 import { averageCost, consume, move, release, reserve, reservedQuantity, withdraw } from './stock'
@@ -86,7 +87,10 @@ export function production(c: Context, type: string, p: any): Row | undefined {
         const q = toBase(item, l.quantity, l.unit)
         const fromReservation = min(q, c.s.reservations.find(r => r.demandId === w.id && r.lineId === line.id && r.locationId === location.id)?.quantity ?? 0n)
         if (fromReservation > 0n) consume(c, w.id, line.id, location.id, fromReservation)
-        withdraw(c, { itemId: item.id, locationId: location.id, status: 'available', lotId: l.lotId ? get(c.s, 'lots', l.lotId, 'lot').id : undefined, quantity: -q, kind: 'issue', documentKind: 'workOrders', documentId: w.id, reason: optionalText(l.note, 'note', 200) || `Issued to ${w.reference}` })
+        const reason = optionalText(l.note, 'note', 200) || `Issued to ${w.reference}`
+        // TRACE-002: each issued serial is its own movement, so assembly links name the exact unit.
+        const lots = isSerial(item) ? stockSerials(c.s, item, l.serials, q, location.id).map(lot => lot.id) : [l.lotId ? get(c.s, 'lots', l.lotId, 'lot').id : undefined]
+        for (const lotId of lots) withdraw(c, { itemId: item.id, locationId: location.id, status: 'available', lotId, quantity: isSerial(item) ? -SCALE : -q, kind: 'issue', documentKind: 'workOrders', documentId: w.id, reason })
         line.issued = format(decimal(line.issued) + q)
       }
       return bump(w, {})
@@ -121,7 +125,10 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       if (good === 0n && scrap === 0n) fail('INPUT', 'Record a good or scrap quantity.')
       const hold = workHolds(c.s, w)[0]
       if (hold) fail('QUALITY_HOLD', `${w.reference} cannot record output. ${holdReason(hold)}`, { holdId: hold.id })
-      if (good > 0n && !p.lot && ['in-process', 'final'].some(stage => plansFor(c.s, stage, w.itemId, w.bomRevision).some(plan => plan.required))) fail('INPUT', 'Record a batch lot: required inspections hold this output by lot.', { field: 'lot' })
+      // TRACE-002: each serialized unit is its own output report, so its exact components stay linked to it.
+      const serials = good > 0n && isSerial(item) ? newSerials(c.s, item, p.serials, good) : []
+      if (serials.length > 1) fail('SERIAL_QUANTITY', 'Record each serialized unit as its own output so its exact components stay linked to it.', { field: 'serials' })
+      if (good > 0n && !p.lot && !serials.length && ['in-process', 'final'].some(stage => plansFor(c.s, stage, w.itemId, w.bomRevision).some(plan => plan.required))) fail('INPUT', 'Record a batch lot: required inspections hold this output by lot.', { field: 'lot' })
       if (decimal(w.output) + decimal(w.scrap) + good + scrap > decimal(w.quantity)) fail('OVER_OUTPUT', `${w.reference} is for ${w.quantity} ${item.baseUnit}; this would exceed it. Release more work instead.`)
       const missing = workMaterialPool(c.s, w).unrecorded
       if (missing.length) fail('TRACE_LEGACY_ALLOCATION', `Record historical component-lot allocations first: ${[...new Set(missing.map(x => x.reference))].join(', ')}.`)
@@ -130,10 +137,10 @@ export function production(c: Context, type: string, p: any): Row | undefined {
       if (good > 0n) {
         requireCatalogLot(item, p.lot)
         const controlled = requiredTypes(c.s, item.id).length > 0
-        if (controlled) text(p.lot, 'lot required for controlled certificates', 80)
-        const location = get(c.s, 'locations', p.locationId, 'location'), code = optionalText(p.lot, 'batch', 80), today = c.now.slice(0, 10)
+        if (controlled && !serials.length) text(p.lot, 'lot required for controlled certificates', 80)
+        const location = get(c.s, 'locations', p.locationId, 'location'), code = serials[0] ?? optionalText(p.lot, 'batch', 80), today = c.now.slice(0, 10)
         const dates = p.dates ? lotDates(p.dates, code, today, today) : {}
-        const lot = code ? row(c, 'lots', { itemId: item.id, code, supplierId: null, source: 'production', documentId: w.id, batchId, status: controlled ? 'quarantined' : 'released', ...dates }) : null
+        const lot = code ? row(c, 'lots', { itemId: item.id, code, ...(serials.length ? { serial: true } : {}), supplierId: null, source: 'production', documentId: w.id, batchId, status: controlled ? 'quarantined' : 'released', ...dates }) : null
         outputLotId = lot?.id ?? ''
         outputMovementId = move(c, { itemId: item.id, locationId: location.id, status: controlled ? 'quarantine' : 'available', lotId: lot?.id, quantity: good, unitCost: decimal(w.standardUnitCost), kind: 'output', documentKind: 'workOrders', documentId: w.id, reason: `Output of ${w.reference}` }).id
       }

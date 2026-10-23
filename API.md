@@ -99,7 +99,7 @@ and the usual audit entries.
 | `so.confirm` | `{orderId, version, reserve?: true}` | manager, sales |
 | `so.reserve` | `{orderId, locationId?}` | manager, sales, warehouse |
 | `so.cancelLine` | `{orderId, version, lineId, quantity, unit?, customerApproval, reason?}` | manager, sales |
-| `shipment.pick` | `{orderId, lines: [{lineId, locationId, quantity, unit?, lotId?}]}` | manager, warehouse |
+| `shipment.pick` | `{orderId, lines: [{lineId, locationId, quantity, unit?, lotId?, serials?}]}` | manager, warehouse |
 | `shipment.pack` | `{shipmentId, version, packages, weightKg?}` | manager, warehouse |
 | `shipment.ship` | `{shipmentId, version, carrier, tracking?}` | manager, warehouse |
 | `plan.draft` | `{itemId, quantity?, supplierId?, unitPrice?, expectedDate?, reason?}` (aggregate) or `{itemId, dated: {version, asOf, key}, unitPrice?, reason}` (exact dated suggestion; see below) — drafts the work or purchase order a shortage calls for | manager, buyer, production, planner, agent |
@@ -107,7 +107,7 @@ and the usual audit entries.
 | `po.approve` | `{poId, version, note?}` | manager, buyer (never an agent) |
 | `po.confirm` | `{poId, version, supplierReference, source: phone\|email\|portal\|in person\|other, confirmedDate, evidence?, lineId?}` — a buyer records a supplier confirmation received outside the product: the line's supplier-confirmed date (`confirmedDate`, with `confirmation: {date, source, reference, by, at}`) and its promised `expectedDate` become the supplier's date; the line's `requestedDate` (set by an approved MRP-002 expedite or deferral, never changing a supplier date) stays beside it; audited | manager, buyer (never an agent) |
 | `po.revise` | `{poId, version, expectedDate, note}` | manager, buyer |
-| `receipt.create` | `{poId, supplierReference, documents?: [{name, contentType, base64}], lines: [{lineId, quantity, unit?, locationId, lot?, dates?, inspection?: accept\|quarantine, damage?: {quantity, reason}}]}` — `quantity` is what arrived; `damage.quantity` of it is received into quarantine as its own `<lot>-DAMAGED` lot with the reason; supplier documents are kept on the receipt; a PO line's `tolerancePercent` (0–20, set on `po.draft` lines, default 0) lets a delivery exceed the ordered quantity by that share | manager, warehouse |
+| `receipt.create` | `{poId, supplierReference, documents?: [{name, contentType, base64}], lines: [{lineId, quantity, unit?, locationId, lot?, serials?, dates?, inspection?: accept\|quarantine, damage?: {quantity, reason}}]}` — `quantity` is what arrived; `damage.quantity` of it is received into quarantine as its own `<lot>-DAMAGED` lot with the reason; supplier documents are kept on the receipt; a PO line's `tolerancePercent` (0–20, set on `po.draft` lines, default 0) lets a delivery exceed the ordered quantity by that share | manager, warehouse |
 | `receipt.allocate` | `{receiptId, version, asOf, reason}` from a current `GET /planning/pegging?kind=receipt&id=<receiptId>` — reserves the receipt's accepted, unreserved stock for the sales lines and released-job components the dated plan pegs it to, in the plan's date order; demand reached only through a make path is skipped and listed; the record lists `allocated` and `skipped`; a stale version or UTC day answers `STALE` | manager, warehouse (never an agent) |
 | `receipt.allocate.job` | `{receiptId, workOrderId, version, itemId, quantity, unit?, reason, takeFrom?: [{demandId, lineId, locationId, quantity}]}` — reserves the receipt's accepted, unreserved stock of a component to a released job that makes the product, by hand and never automatically; a draft, closed, cancelled or quality-held job answers `STATE`/`QUALITY_HOLD`, quarantined, damaged and rejected stock is never counted (`INSUFFICIENT_STOCK`); `takeFrom` takes stock reserved to another demand and needs a manager or the owner; the `receipt-allocation` approval record names the receipt, job, reservation, quantity, role and anything taken, and closing the job returns the reservation; no signatures | manager, warehouse (never an agent); `takeFrom`: manager |
 | `quarantine.decide` | `{itemId, locationId, lotId?, quantity, decision: release\|reject, reason}` | manager, warehouse |
@@ -115,8 +115,8 @@ and the usual audit entries.
 | `wo.draft` | `{itemId, quantity, requiredBy, reason, priority?, plannedStart?}` | manager, production, planner, agent |
 | `wo.release` | `{workOrderId, version}` | manager, production |
 | `wo.reserve` | `{workOrderId}` | manager, production, warehouse |
-| `wo.issue` | `{workOrderId, lines: [{itemId, locationId, quantity, unit?, lotId?, note?}]}` | manager, production, warehouse |
-| `wo.output` | `{workOrderId, version, locationId?, quantity?, scrap?, scrapReason?, lot?, dates?}` | manager, production |
+| `wo.issue` | `{workOrderId, lines: [{itemId, locationId, quantity, unit?, lotId?, serials?, note?}]}` | manager, production, warehouse |
+| `wo.output` | `{workOrderId, version, locationId?, quantity?, scrap?, scrapReason?, lot?, serials?, dates?}` | manager, production |
 | `rework.draft` | `{kind: rework\|unbuild, sourceLotId, sourceJobId, locationId, sourceStatus: available\|quarantine, quantity, disposition, instructions, evidence: [file], outputs: [{itemId, quantity, lot, value}], materials?: [{itemId, locationId, lotId?, quantity}], labor?: [{person, hours, rate, note}], scrapValue?}` | manager, production |
 | `rework.approve` | `{orderId, version, reason}` | manager, independent preparer (owner exception) |
 | `rework.execute` | `{orderId, version}` — consume source/extras and post quarantined outputs at approved allocation | manager, production |
@@ -130,7 +130,8 @@ and the usual audit entries.
 | `count.recount` | `{sessionId, lineId, version, note}` | manager |
 | `count.record` | `{itemId, locationId, counted, lotId?, note?}` | manager, warehouse |
 | `count.approve` / `count.reject` | `{countId, version, note?}` | manager (not the counter), owner |
-| `return.receive` | `{orderId, lineId, quantity, unit?, locationId, disposition: restock\|quarantine, reason}` | manager, warehouse |
+| `return.receive` | `{orderId, lineId, quantity, unit?, locationId, disposition: restock\|quarantine, reason, serials?}` | manager, warehouse |
+| `serial.service` | `{itemId, serial, kind: service\|warranty repair\|inspection, on, note}` | manager, production, warehouse, quality |
 | `movement.reverse` | `{documentKind: receipts\|shipments\|transfers\|counts\|openings\|returns\|workOrders, documentId, movementIds?, reason}` | manager, warehouse, production |
 | `handoff.prepare` | `{note?}` | manager, accounts |
 | `handoff.acknowledge` | `{handoffId, version, entries: [{lineId, ledgerId, amount, note?}]}` | manager, accounts |
@@ -262,7 +263,7 @@ The preview retains original text, every field's old/new values, file/physical-r
 
 `catalog.bulkApprove` takes `{previewId,version,acceptRejected?:<exact row-error count>}` and applies every valid item group atomically. Owner/manager/buyer/production/engineer approve; a different preparer is required except for the owner, and agents cannot approve or enable tracking. Any intervening business write refuses the stale preview. The original CSV, proposal, approver and resulting item IDs remain in the state/archive.
 
-Tracking is declared configuration. Enabling batch refuses any nonzero position lacking a valid lot, across every location/disposition. Batch physical receipts/output require a lot. Serial configuration refuses existing physical stock and displays “serial policy configured; serial execution not yet available”; current serial physical receipt/output is refused. TRACE-002 inherits honoring that configured serial policy when serial-aware execution ships. The future GOV-001 engineer inherits these catalog authorities. No serial lifecycle or inventory-policy engine is claimed by this catalog edit.
+Tracking is declared configuration. Enabling batch refuses any nonzero position lacking a valid lot, across every location/disposition. Batch physical receipts/output require a lot. Serial configuration refuses existing physical stock and displays “serial policy configured; one serial per unit at every stock door”; TRACE-002's doors then move every unit of a serial item as one named serial. The future GOV-001 engineer inherits these catalog authorities. No serial lifecycle or inventory-policy engine is claimed by this catalog edit.
 
 ## Engineering changes (ENG-005)
 
@@ -325,6 +326,12 @@ Use the state API's stable case key and version. A note, ETA revision, draft pur
 Every subsequent command takes `orderId, version`. `subcontract.dispatch` takes `lines: [{lotId, locationId, quantity}]`; `subcontract.receive` takes `{good, scrap, lot, locationId, reason, evidence, inputs: [{issuedId, quantity}]}`; `subcontract.return` takes `{issuedId, quantity, locationId, reason}`. Buyer/manager/warehouse record these physical events. `subcontract.bill` takes `{reference, amount, evidence}` and requires accounts/manager; records local reconciliation, never a provider outcome. All quantities use base units and six-decimal strings; service is per good-plus-scrap output unit. Agents never post these effects.
 
 `customerStock.receive` takes `{customerId, itemId, locationId, lot, quantity, evidence}` (buyer/manager/warehouse). It creates customer property with separate `subcontractCustody` events and zero owned value; customer lots cannot enter the owned movement ledger. `subcontractOrders` state includes approved terms, issued lots/consumption/returns, dated receipts with input movement IDs, output lot IDs, yield, material/service/output/scrap costs and bill history. Each finished lot names its service order and receipt, allowing that receipt's exact upstream lots and supplier to be traced. The Make & buy Subcontract screen shows these same quantities, source lots and supplier references, and the separate customer custody ledger.
+
+## Serial numbers (TRACE-002)
+
+A serial-tracked item moves only as named serials, each a one-unit lot (`serial: true`) that TRACE-001's trace, holds, recalls and the archive already carry. `receipt.create`, `wo.output`, `wo.issue`, `shipment.pick` and `return.receive` take `serials` (a list, or text separated by commas or new lines) with exactly one serial per whole unit. A receipt or output refuses a code the item has used before (`DUPLICATE_SERIAL`), an output report records one serialized unit (`SERIAL_QUANTITY` otherwise) with its exact component allocation, issue and pick name serials in stock at that location (`SERIAL_SHIPPED` or `SERIAL_NOT_IN_STOCK` otherwise, and `SERIAL_PICKED` for one already on an open pick), and a return names serials that left on that order line (`SERIAL_NOT_SHIPPED`). Every other physical door refuses a serial item it cannot name (`SERIAL_REQUIRED`). `serial.service` appends a service, warranty repair or inspection record with the customer then holding the unit.
+
+`GET /api/larder/serials?q=<code>&itemId=<id>` returns up to 50 serials whose code contains `q`, each with its place (in stock, quarantine, assembled or shipped), origin, exact components, the products it went into, customers with shipment, order and tracking, returns, service records and movements. A location-scoped member sees only serials with stock history inside their locations; other records read `restricted record`.
 
 ## TRACE-001 genealogy and production allocations
 

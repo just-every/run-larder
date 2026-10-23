@@ -1,4 +1,5 @@
 import { ShipmentCertificates } from './certificates'
+import { serialHint, serialTracked } from './serials'
 import { useState } from 'react'
 import { byId, can, itemName, locationName, partyName, rows, sku, unitOf, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
@@ -95,23 +96,24 @@ function OrderWorkspace({ larder, order }: { larder: Larder; order: Rec }) {
       <Card title="Pick, pack and ship" className="pick"><span id="pick" />
         {shipments.length === 0 && <Empty>Nothing picked yet.</Empty>}
         {shipments.map(x => <article key={x.id} className="shipment"><h3>{x.reference} <Chip tone={x.status === 'shipped' ? 'good' : ['reversed', 'cancelled'].includes(x.status) ? 'bad' : 'info'}>{words(x.status)}</Chip></h3>
-          <ul>{x.lines.map((l: any, i: number) => <li key={i}>{qty(l.quantity)} {itemName(s, l.itemId)} from {locationName(s, l.locationId)}{l.lotId && `, lot ${rows(s, 'lots').find(x => x.id === l.lotId)?.code ?? ''}`}</li>)}</ul>
+          <ul>{x.lines.map((l: any, i: number) => <li key={i}>{qty(l.quantity)} {itemName(s, l.itemId)} from {locationName(s, l.locationId)}{l.lotId && `, ${l.serial ? 'serial' : 'lot'} ${rows(s, 'lots').find(x => x.id === l.lotId)?.code ?? ''}`}</li>)}</ul>
           {x.commercialTerms && <Details label="Shipment commercial terms" value={x.commercialTerms} s={s} />}{x.status === 'shipped' && <p className="muted">{x.carrier}{x.tracking && ` · ${x.tracking}`}</p>}
           <ShipmentCertificates shipment={x} />
           {warehouse && x.status === 'picked' && <Form submit="Mark packed" busy={busy} onSubmit={d => run('shipment.pack', { shipmentId: x.id, version: x.version, packages: Number(text(d, 'packages')), weightKg: text(d, 'weightKg') || '0' })}><Field label="Packages" name="packages" type="number" min="1" defaultValue="1" /><Field label="Weight (kg)" name="weightKg" inputMode="decimal" required={false} /></Form>}
           {warehouse && ['picked', 'packed'].includes(x.status) && <Form title={`Undo ${x.reference} pick`} submit="Undo pick" quiet busy={busy} note="Use before dispatch. Stock and reservations stay with the order; record a separate cancellation to release them." onSubmit={d => run('shipment.unpick', { shipmentId: x.id, version: x.version, reason: text(d, 'reason') })}><Field label="Reason for undoing pick" name="reason" /></Form>}
           {warehouse && x.status === 'packed' && <Form submit="Ship" busy={busy} onSubmit={d => run('shipment.ship', { shipmentId: x.id, version: x.version, carrier: text(d, 'carrier'), tracking: text(d, 'tracking') })}><Field label="Carrier" name="carrier" /><Field label="Tracking" name="tracking" required={false} /></Form>}
         </article>)}
-        {open && warehouse && reservations.length > 0 && <Form title="Pick reserved stock" submit="Pick" busy={busy} onSubmit={d => run('shipment.pick', { orderId: order.id, lines: reservations.map(r => ({ lineId: r.lineId, locationId: r.locationId, quantity: text(d, r.id), lotId: ['', 'fefo'].includes(text(d, `lot.${r.id}`)) ? undefined : text(d, `lot.${r.id}`) })).filter(l => l.quantity && !isZero(l.quantity)) })}>
+        {open && warehouse && reservations.length > 0 && <Form title="Pick reserved stock" submit="Pick" busy={busy} onSubmit={d => run('shipment.pick', { orderId: order.id, lines: reservations.map(r => ({ lineId: r.lineId, locationId: r.locationId, quantity: text(d, r.id), lotId: ['', 'fefo'].includes(text(d, `lot.${r.id}`)) ? undefined : text(d, `lot.${r.id}`), ...(text(d, `serials.${r.id}`) ? { serials: text(d, `serials.${r.id}`) } : {}) })).filter(l => l.quantity && !isZero(l.quantity)) })}>
           {reservations.map(r => <Field key={`${r.id}:${r.quantity}`} label={`${itemName(s, r.itemId)} at ${locationName(s, r.locationId)} (reserved ${qty(r.quantity)})`} name={r.id} defaultValue={r.quantity} inputMode="decimal" required={false} />)}
+          {reservations.filter(r => serialTracked(s, r.itemId)).map(r => <Field key={`serials:${r.id}`} label={`${itemName(s, r.itemId)} serials`} name={`serials.${r.id}`} hint={serialHint} required={false} />)}
           {reservations.map(r => <FefoPick key={`fefo:${r.id}`} s={s} orderId={order.id} reservation={r} />)}
         </Form>}
         {open && reservations.length === 0 && <Empty>Reserve stock before picking.</Empty>}
       </Card>
       <Card title="Changes and returns">
-        {warehouse && order.lines.some((l: any) => positive(minus(l.shipped, l.returned))) && <Form title="Receive a return" submit="Receive return" busy={busy} onSubmit={d => run('return.receive', { orderId: order.id, lineId: text(d, 'lineId'), quantity: text(d, 'quantity'), locationId: text(d, 'locationId'), disposition: text(d, 'disposition'), reason: text(d, 'reason') })}>
+        {warehouse && order.lines.some((l: any) => positive(minus(l.shipped, l.returned))) && <Form title="Receive a return" submit="Receive return" busy={busy} onSubmit={d => run('return.receive', { orderId: order.id, lineId: text(d, 'lineId'), quantity: text(d, 'quantity'), locationId: text(d, 'locationId'), disposition: text(d, 'disposition'), reason: text(d, 'reason'), ...(text(d, 'serials') ? { serials: text(d, 'serials') } : {}) })}>
           <Choose label="Line" name="lineId" options={order.lines.filter((l: any) => positive(minus(l.shipped, l.returned))).map((l: any) => ({ value: l.id, label: `${itemName(s, l.itemId)} (shipped ${qty(l.shipped)})` }))} />
-          <Field label="Quantity" name="quantity" inputMode="decimal" /><Choose label="Into" name="locationId" options={options(rows(s, 'locations'), r => r.name)} />
+          <Field label="Quantity" name="quantity" inputMode="decimal" />{order.lines.some((l: any) => serialTracked(s, l.itemId)) && <Field label="Returned serials" name="serials" hint={serialHint} required={false} />}<Choose label="Into" name="locationId" options={options(rows(s, 'locations'), r => r.name)} />
           <Choose label="Condition" name="disposition" options={[{ value: 'quarantine', label: 'Hold in quarantine for inspection' }, { value: 'restock', label: 'Good: back to stock' }]} /><Field label="Reason" name="reason" /></Form>}
         {warehouse && shipments.filter(x => x.status === 'shipped').map(x => <Form key={x.id} title={`Correct ${x.reference}`} submit="Reverse shipment" quiet busy={busy} note="Use only when the parcel never left. Stock and the reservation come back; the original record stays." onSubmit={d => run('movement.reverse', { documentKind: 'shipments', documentId: x.id, reason: text(d, 'reason') })}><Field label="Reason" name="reason" /></Form>)}
         {!open && order.status !== 'quote' && <Empty>This order is {words(order.status).toLowerCase()}.</Empty>}

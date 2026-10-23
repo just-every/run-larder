@@ -3,6 +3,7 @@ import { valuedRate, valuedAmount } from './costing/valuation'
 // on-hand available status minus reservations. Every write goes through move().
 import { lotRecalls, workRecalls, recallReason } from './recall-policy'
 import { requireCatalogLot } from './catalog-fields'
+import { isSerial, requireSerialUnit } from './serials'
 import { blockedQuantity, fefoOrder, lotBlock, utcToday } from './lot-dates'
 import { decimal, divide, format, min, times } from './decimal'
 import { fail } from './problem'
@@ -74,6 +75,7 @@ export function move(c: Context, x: MoveInput): Movement {
   const workRecall = work && workRecalls(c.s, work)[0]
   if (workRecall && x.quantity > 0n && x.kind === 'output') fail('RECALL_HOLD', recallReason(workRecall))
   if (x.quantity > 0n) requireCatalogLot(item, c.s.lots.find(l => l.id === lotId && l.itemId === item.id)?.code)
+  requireSerialUnit(c.s, item, lotId, x.quantity)
   if (x.quantity < 0n) {
     if (x.status === 'quarantine') {
       const held = c.s.nonconformances.filter(n => n.status === 'open' && n.itemId === x.itemId && n.locationId === x.locationId && n.lotId === lotId && !(x.documentKind === 'nonconformances' && x.documentId === n.id) && !(x.kind === 'rework-source' && x.documentKind === 'reworkOrders' && c.s.reworkOrders.some(w => w.id === x.documentId && w.nonconformanceId === n.id))).reduce((n, r) => n + decimal(r.remaining), 0n)
@@ -100,6 +102,8 @@ export function move(c: Context, x: MoveInput): Movement {
 // or retest-due lot; counts still record it.
 const usesStock = ['shipment', 'issue', 'transfer']
 export function withdraw(c: Context, x: Omit<MoveInput, 'lotId'> & { lotId?: string }): Movement[] {
+  // A person names each serial they take; stock never chooses one for them.
+  if (!x.lotId && isSerial(c.s.items.find(i => i.id === x.itemId))) return [move(c, { ...x, lotId: '' })]
   const today = c.now.slice(0, 10), blocked = (lotId: string) => x.status === 'available' && usesStock.includes(x.kind) ? lotBlock(c.s.lots.find(l => l.id === lotId), today) : ''
   if (x.lotId !== undefined && x.lotId !== '') {
     if (blocked(x.lotId)) fail('LOT_BLOCKED', `Lot ${c.s.lots.find(l => l.id === x.lotId)?.code} ${blocked(x.lotId)} and cannot be used until an owner or manager records its disposition.`, { lotId: x.lotId })

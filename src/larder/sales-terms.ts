@@ -14,10 +14,14 @@ export function shipmentPrice(s: State, movement: Movement) {
 
 }
 
-export function returnSources(s: State, order: Row, line: any, quantity: bigint) {
-  const sources = s.movements.filter(movement => movement.documentKind === 'shipments' && movement.itemId === line.itemId
+// The unreversed shipment movements of one order line.
+export const shipmentSources = (s: State, order: Row, line: any) => s.movements.filter(movement => movement.documentKind === 'shipments' && movement.itemId === line.itemId
     && !s.movements.some(reverse => reverse.reversesId === movement.id)
     && s.shipments.some(shipment => shipment.id === movement.documentId && shipment.orderId === order.id && shipment.lines.some((issued: any) => issued.lineId === line.id && (issued.movementIds ? issued.movementIds.includes(movement.id) : issued.locationId === movement.locationId))))
+
+// A serial return names its lots, so only those shipment movements come back.
+export function returnSources(s: State, order: Row, line: any, quantity: bigint, lotIds?: string[]) {
+  const sources = shipmentSources(s, order, line).filter(movement => !lotIds || lotIds.includes(movement.lotId))
   const prior = s.returns.filter(record => record.orderId === order.id && record.lineId === line.id && record.status !== 'reversed')
   let legacyReturned = prior.filter(record => !record.sources).reduce((total, record) => total + decimal(record.quantity), 0n)
   let left = quantity

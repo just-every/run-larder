@@ -69,9 +69,9 @@ test('ENG-007 real catalog export/edit/preview/approve/re-export with two locati
   const serialFile = `serial-${suffix}.csv`
   await upload(serialFile, csv([header, change(serial, ohio, { tracking: 'serial' })]))
   const serialPreview = page.getByRole('heading', { name: `${serialFile} · preview`, exact: true }).locator('../..')
-  await expect(serialPreview).toContainText('serial policy configured; serial execution not yet available')
+  await expect(serialPreview).toContainText('serial policy configured; one serial per unit at every stock door')
   await shots(page, 'serial-preview', serialPreview)
   await serialPreview.getByRole('button', { name: 'Approve catalog changes', exact: true }).click(); await settled(page)
-  await expect(catalog).toContainText('serial policy configured; serial execution not yet available'); await shots(page, 'serial-configured', catalog)
+  await expect(catalog).toContainText('serial policy configured; one serial per unit at every stock door'); await shots(page, 'serial-configured', catalog)
   const policy = await (await page.request.get(origin + '/api/larder/state')).json(); expect(policy.items.find((i: any) => i.id === serial.id).tracking).toBe('serial')
 })

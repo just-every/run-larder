@@ -97,10 +97,10 @@ test('ENG-007 export/edit catalog by Larder ID at two locations, preview all fie
   const work = await h.command('wo.draft', { itemId: serial.id, quantity: '1', requiredBy: '2026-12-18', reason: 'Configured serial policy' })
   const released = await h.command('wo.release', { workOrderId: work.id, version: work.version })
   const beforePhysical = (await h.state()).movements
-  await h.command('wo.output', { workOrderId: work.id, version: released.version, locationId: ohio.id, quantity: '1', lot: 'BATCH-IS-NOT-SERIAL' }, { error: 'SERIAL_EXECUTION' })
+  await h.command('wo.output', { workOrderId: work.id, version: released.version, locationId: ohio.id, quantity: '1', lot: 'BATCH-IS-NOT-SERIAL' }, { error: 'SERIAL_REQUIRED' })
   const serialPo = await h.command('po.draft', { supplierId: supplier.id, expectedDate: '2026-12-18', reason: 'Serial receipt policy', lines: [{ itemId: serial.id, quantity: '1', unitPrice: '4' }] })
   await h.command('po.approve', { poId: serialPo.id, version: serialPo.version })
-  await h.command('receipt.create', { poId: serialPo.id, supplierReference: 'R-serial', lines: [{ lineId: serialPo.lines[0].id, locationId: ohio.id, quantity: '1', lot: 'NOT-A-SERIAL' }] }, { error: 'SERIAL_EXECUTION' })
+  await h.command('receipt.create', { poId: serialPo.id, supplierReference: 'R-serial', lines: [{ lineId: serialPo.lines[0].id, locationId: ohio.id, quantity: '1', lot: 'NOT-A-SERIAL' }] }, { error: 'SERIAL_REQUIRED' })
   assert.deepEqual((await h.state()).movements, beforePhysical)
   const batch = await h.command('item.save', { sku: 'BATCH-POLICY', name: 'Batch requirement', kind: 'buy', baseUnit: 'each', tracking: 'batch' })
   const opening = { locationId: dispatch.id, countedOn: new Date().toISOString().slice(0, 10), countedBy: 'Olive', valuationBasis: 'owner-estimate', evidence: evidence(), lines: [{ itemId: batch.id, quantity: '1', unitCost: '2' }] }
