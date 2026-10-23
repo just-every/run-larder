@@ -1,3 +1,4 @@
+import './styles/costing.css'
 // Uses Larder's existing cards, forms and responsive table; monetary reports
 // stay behind their own live API permission check, never computed in a browser.
 import { useEffect, useState } from 'react'
@@ -44,7 +45,7 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
     }
   }, [report, query, s.version, permitted])
   return (
-    <div className="page">
+    <div className="page cost-reports">
       <header className="page-head">
         <p className="eyebrow">Handoff</p>
         <h1>{reportNames[report]}</h1>

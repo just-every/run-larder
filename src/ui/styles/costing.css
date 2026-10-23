@@ -1,0 +1,11 @@
+/* Source drills keep the existing card style, with a single readable column
+   instead of repeatedly nesting narrow definition-list grids. */
+.cost-reports .details-body dl { display: block; }
+.cost-reports .details-body .fact { display: block; margin: 8px 0; }
+.cost-reports .details-body dt { font-weight: 600; }
+.cost-reports .source-links { padding-left: 18px; overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+  .cost-reports .stack-table td:has(.details) { display: block; }
+  .cost-reports .stack-table td:has(.details)::before { display: block; margin-bottom: 6px; }
+  .cost-reports .stack-table td .details { width: 100%; min-width: 0; }
+}
