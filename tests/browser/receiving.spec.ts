@@ -139,10 +139,12 @@ test('Supplier credit and landed-cost corrections reach the accountant handoff w
   await page.getByRole('button', { name: 'Reconcile', exact: true }).click(); await settled(page)
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
-    const account = page.getByLabel('Account menu', { exact: true }), tooltip = page.getByRole('tooltip', { name: 'Account menu' })
-    await account.focus(); await expect(tooltip).toBeVisible()
+    const account = page.getByLabel('Account menu', { exact: true }), tooltip = account.locator('[role=tooltip]')
+    await account.focus(); await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Tab')
+    await expect(account).toBeFocused(); await expect(tooltip).toHaveText('Account menu'); expect(await tooltip.isVisible()).toBe(true)
+    if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-BUY-006-tooltip.png`), fullPage: true })
     await page.getByLabel('Acknowledged lines', { exact: true }).focus(); await expect(tooltip).toBeHidden()
-    await account.hover(); await expect(tooltip).toBeVisible()
+    await account.hover(); await page.waitForTimeout(100); await expect(tooltip).toBeHidden(); await expect(tooltip).toBeVisible()
     await page.mouse.move(0, 900)
     await expect(page.getByRole('cell', { name: 'synthetic-larder-464', exact: true })).toBeVisible()
   }
