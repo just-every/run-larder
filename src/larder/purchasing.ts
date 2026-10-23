@@ -264,7 +264,10 @@ function purchaseAccounting(c: Context, type: string, p: any): Row {
       r.replacements.push({ ...stamp(), quantity: format(quantity), lotId: lot.id, movementId: m.id, reference, evidence })
     } else {
       const b = bills.find((b: any) => b.id === p.billId && b.status === 'ready for handoff') ?? fail('STATE', 'Match the credit to an approved original bill.')
-      if (!b.lines.some((l: any) => l.lineId === c.s.receipts.find(x => x.id === r.receiptId)!.lines.find((l: any) => l.movementId === r.movementId).lineId)) fail('INPUT', 'The bill does not include this receipt line.')
+      const lineId = c.s.receipts.find(x => x.id === r.receiptId)!.lines.find((l: any) => l.movementId === r.movementId).lineId
+      const billed = b.lines.find((l: any) => l.lineId === lineId) ?? fail('INPUT', 'The bill does not include this receipt line.')
+      const credited = claims.filter((x: any) => c.s.receipts.find(y => y.id === x.receiptId)?.lines.some((l: any) => l.movementId === x.movementId && l.lineId === lineId)).flatMap((x: any) => x.credits).filter((x: any) => x.billId === b.id).reduce((n: bigint, x: any) => n + decimal(x.quantity), 0n)
+      if (credited + quantity > decimal(billed.quantity)) fail('CREDIT_QUANTITY', 'Credits cannot exceed the original billed quantity.')
       if (c.s.purchaseOrders.some(o => o.supplierId === po.supplierId && (o.supplierClaims ?? []).some((r: any) => r.credits.some((x: any) => x.reference === reference)))) fail('DUPLICATE_CREDIT', 'That supplier credit is already matched.')
       const amount = decimal(p.amount, 'credit amount', { positive: true })
       if (amount !== times(quantity, decimal(r.unitCost))) fail('CREDIT_VARIANCE', 'Resolve a credit price variance in the connected ledger; this handoff matches the original receipt basis exactly.')

@@ -1375,8 +1375,8 @@ test('Supplier RMA settles a partial rejected lot with quarantined replacement a
   const p = await purchasingFixture(h, true), agent = await h.person('synthetic-larder-437@example.test', 'agent'), warehouse = await h.person('synthetic-larder-438@example.test', 'warehouse')
   const sent = async () => (await h.state()).movements
   const original = await sent()
-  const capture = await p.run('po.bill.capture', { reference: 'synthetic-larder-439', currency: 'USD', lines: [{ lineId: p.po.lines[0].id, quantity: '10', unitPrice: '2' }], evidence: evidence() })
-  const billId = capture.bills[0].id
+  const capture = await p.run('po.bill.capture', { reference: 'synthetic-larder-439', currency: 'USD', lines: [{ lineId: p.po.lines[0].id, quantity: '1', unitPrice: '2' }], evidence: evidence() })
+  let billId = capture.bills[0].id
   await p.run('po.bill.resolve', { billId, evidence: evidence('Invoice reviewed against rejected receipt') })
   await p.run('po.bill.approve', { billId })
   const payload = { poId: p.po.id, version: (await p.current()).version, receiptId: p.receipt.id, movementId: p.receipt.lines[0].movementId, quantity: '4', purpose: 'rejected', supplierRma: 'synthetic-larder-440', dueDate: '2099-12-01', reason: 'Rejected surface finish', evidence: evidence() }
@@ -1392,6 +1392,10 @@ test('Supplier RMA settles a partial rejected lot with quarantined replacement a
   await p.run('po.claim.close', { claimId }, { error: 'CLAIM_OPEN' })
   await p.run('po.claim.replace', { claimId, quantity: '2', lot: 'synthetic-larder-442', reference: 'synthetic-larder-443', evidence: evidence() })
   await p.run('po.claim.credit', { claimId, quantity: '3', amount: '6', billId, reference: 'synthetic-larder-444', evidence: evidence() }, { error: 'CLAIM_QUANTITY' })
+  await p.run('po.claim.credit', { claimId, quantity: '2', amount: '4', billId, reference: 'synthetic-larder-444', evidence: evidence() }, { error: 'CREDIT_QUANTITY' })
+  const rest = await p.run('po.bill.capture', { reference: 'synthetic-larder-456', currency: 'USD', lines: [{ lineId: p.po.lines[0].id, quantity: '9', unitPrice: '2' }], evidence: evidence() })
+  billId = rest.bills.at(-1).id
+  await p.run('po.bill.resolve', { billId, evidence: evidence() }); await p.run('po.bill.approve', { billId })
   await p.run('po.claim.credit', { claimId, quantity: '2', amount: '5', billId, reference: 'synthetic-larder-444', evidence: evidence() }, { error: 'CREDIT_VARIANCE' })
   await p.run('po.claim.credit', { claimId, quantity: '2', amount: '4', billId, reference: 'synthetic-larder-444', evidence: evidence() })
   await p.run('po.claim.close', { claimId }, { error: 'CLAIM_OPEN' })
@@ -1463,5 +1467,10 @@ test('Late landed charges allocate exact stock and open WIP corrections by expli
   await p.run('po.landed.approve', { chargeId: po.landedCharges.at(-1).id })
   const correction = await h.command('handoff.prepare', {})
   assert.equal(correction.lines.reduce((n, l) => n + parse(l.amount), 0n), parse('-2'))
+  po = await p.run('po.landed.prepare', { ...payload, policy: 'value', amount: '0.01', reference: 'synthetic-larder-455' })
+  await p.run('po.landed.approve', { chargeId: po.landedCharges.at(-1).id })
+  const penny = await h.command('handoff.prepare', {})
+  assert.equal(penny.lines.reduce((n, l) => n + parse(l.amountCents), 0n), parse('0.01'))
+  assert.equal(penny.lines.reduce((n, l) => n + parse(l.amount), 0n), parse('0.01'))
   await h.invariant()
 })

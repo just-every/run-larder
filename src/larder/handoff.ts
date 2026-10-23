@@ -118,7 +118,15 @@ function purchasingCorrections(s: State) {
   return s.purchaseOrders.flatMap(po => {
     const base = { movementIds: [], quantity: '0', unitAmount: '0', itemSku: '', itemName: '', party: s.parties.find(p => p.id === po.supplierId)?.name ?? '', document: po.reference, corrects: null }
     const credits = (po.supplierClaims ?? []).flatMap((r: any) => r.credits.filter((x: any) => !done.has(x.id)).map((x: any) => ({ ...base, id: newId(), purchasingCorrectionIds: [x.id], sourceMovementIds: [r.movementId], billId: x.billId, claimId: r.id, type: 'Supplier credit (payable correction; no stock quantity)', partyReference: x.reference, amount: format(-decimal(x.amount)), amountCents: cents(-decimal(x.amount)), date: x.at.slice(0, 10) })))
-    const landed = (po.landedCharges ?? []).filter((x: any) => x.status === 'approved').flatMap((x: any) => x.lines.flatMap((l: any) => ['stock', 'wip', 'cogs'].filter(k => decimal(l[k], 'correction', { signed: true }) !== 0n).filter(k => !done.has(`${x.id}:${l.movementId}:${k}`)).map(k => ({ ...base, id: newId(), purchasingCorrectionIds: [`${x.id}:${l.movementId}:${k}`], sourceMovementIds: [l.movementId], type: `Landed cost ${k.toUpperCase()} correction (no stock quantity)`, partyReference: x.reference, amount: l[k], amountCents: cents(decimal(l[k], 'correction', { signed: true })), date: x.approval.at.slice(0, 10), correctsChargeId: x.correctsId, allocationPolicy: x.policy }))))
+    const landed = (po.landedCharges ?? []).filter((x: any) => x.status === 'approved').flatMap((x: any) => {
+      let cumulative = 0n, presented = 0n
+      return x.lines.flatMap((l: any) => ['stock', 'wip', 'cogs'].filter(k => decimal(l[k], 'correction', { signed: true }) !== 0n).map(k => {
+        cumulative += decimal(l[k], 'correction', { signed: true })
+        const through = decimal(cents(cumulative), 'rounded correction', { signed: true }), amountCents = cents(through - presented)
+        presented = through
+        return { ...base, id: newId(), purchasingCorrectionIds: [`${x.id}:${l.movementId}:${k}`], sourceMovementIds: [l.movementId], type: `Landed cost ${k.toUpperCase()} correction (no stock quantity)`, partyReference: x.reference, amount: l[k], amountCents, date: x.approval.at.slice(0, 10), correctsChargeId: x.correctsId, allocationPolicy: x.policy }
+      })).filter((l: any) => !done.has(l.purchasingCorrectionIds[0]))
+    })
     return [...credits, ...landed]
   })
 }
