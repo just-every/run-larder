@@ -146,7 +146,8 @@ test('Supplier credit and landed-cost corrections reach the accountant handoff w
     await page.getByLabel('Acknowledged lines', { exact: true }).focus(); await expect(tooltip).toBeHidden()
     await account.hover(); await page.waitForTimeout(100); await expect(tooltip).toBeHidden(); await expect(tooltip).toBeVisible()
     await page.mouse.move(0, 900)
-    await expect(page.getByRole('cell', { name: 'synthetic-larder-464', exact: true })).toBeVisible()
+    await expect(page.getByText('synthetic-larder-464', { exact: true })).toBeVisible()
+    await expect(page.getByText('undefined: $0.00', { exact: true })).toHaveCount(0)
   }
   await shot(page, 'credit-reconciled', 'BUY-006')
   await run('po.claim.close', { claimId })
@@ -160,6 +161,6 @@ test('Supplier credit and landed-cost corrections reach the accountant handoff w
   await command(page, 'po.landed.approve', { poId: late.id, version: late.version, chargeId: late.landedCharges[0].id, reason: 'Owner approved exact allocation' })
   await page.reload(); await settled(page); await page.goto(origin + '/app#handoff')
   await page.getByRole('button', { name: 'Prepare handoff batch', exact: true }).click(); await settled(page)
-  await expect(page.getByRole('cell', { name: 'Landed cost STOCK correction (no stock quantity)', exact: true })).toBeVisible()
+  await expect(page.getByText('Landed cost STOCK correction (no stock quantity)', { exact: true })).toBeVisible()
   await shot(page, 'landed-cost', 'BUY-005')
 })
