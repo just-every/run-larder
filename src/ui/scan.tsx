@@ -15,6 +15,8 @@ const titles = { receipt: 'Scan this delivery', issue: 'Scan materials to issue'
 export function ScanPanel({ larder, use, doc }: { larder: Larder; use: Use; doc: Rec }) {
   const s = larder.state!, [lines, setLines] = useState<Line[]>([]), [note, setNote] = useState(''), [refusal, setRefusal] = useState(''), [camera, setCamera] = useState(false)
   const [locationId, setLocationId] = useState(''), [slip, setSlip] = useState(''), input = useRef<HTMLInputElement>(null)
+  // Scans can arrive faster than a render; the list they check is kept in step here.
+  const current = useRef<Line[]>([]), keep = (next: Line[]) => { current.current = next; setLines(next) }
   async function resolve(code: string) {
     setRefusal(''); setNote('')
     const r = await fetch(`/api/larder/scan?code=${encodeURIComponent(code)}&use=${use}&id=${doc.id}`, { credentials: 'same-origin', cache: 'no-store' })
@@ -22,8 +24,9 @@ export function ScanPanel({ larder, use, doc }: { larder: Larder; use: Use; doc:
     if (!r.ok) { setRefusal(b.error?.message ?? 'That code was not accepted.'); return }
     const lot: string = b.lot?.code || b.receive?.serial || b.receive?.lot || '', serial = !!(b.lot?.serial || b.receive?.serial)
     const key = `${b.lineId}|${lot}`
-    if (serial && lines.some(l => l.key === key)) { setRefusal(`Duplicate scan: serial ${lot} is already on this list.`); return }
-    setLines(now => now.some(l => l.key === key) ? now.map(l => l.key === key ? { ...l, quantity: l.quantity + 1 } : l)
+    const now = current.current
+    if (serial && now.some(l => l.key === key)) { setRefusal(`Duplicate scan: serial ${lot} is already on this list.`); return }
+    keep(now.some(l => l.key === key) ? now.map(l => l.key === key ? { ...l, quantity: l.quantity + 1 } : l)
       : [...now, { key, lineId: b.lineId, itemId: b.item.id, item: b.item.name, lot, lotId: b.lot?.id ?? '', serial, expiresOn: b.receive?.expiresOn ?? '', quantity: 1 }])
     setNote(`Scanned ${b.item.name}${lot ? ` · ${serial ? 'serial' : 'lot'} ${lot}` : ''}.`)
   }
@@ -41,7 +44,7 @@ export function ScanPanel({ larder, use, doc }: { larder: Larder; use: Use; doc:
       : use === 'issue'
         ? { workOrderId: doc.id, lines: grouped(l => l.serial ? `${l.itemId}|serial` : l.key).map(ls => ({ itemId: ls[0].itemId, locationId, quantity: quantity(ls), ...(ls[0].serial ? { serials: serials(ls) } : ls[0].lotId ? { lotId: ls[0].lotId } : {}) })) }
         : { orderId: doc.id, lines: grouped(l => l.serial ? `${l.lineId}|serial` : l.key).map(ls => ({ lineId: ls[0].lineId, locationId, quantity: quantity(ls), ...(ls[0].serial ? { serials: serials(ls) } : ls[0].lotId ? { lotId: ls[0].lotId } : {}) })) }
-    if (await larder.run(commandFor[use], payload)) { setLines([]); setNote('Posted.') }
+    if (await larder.run(commandFor[use], payload)) { keep([]); setNote('Posted.') }
   }
   return <section className="scan" aria-label={titles[use]}>
     <h3>{titles[use]}</h3>
@@ -54,7 +57,7 @@ export function ScanPanel({ larder, use, doc }: { larder: Larder; use: Use; doc:
     {camera && <CameraScan onCode={code => { setCamera(false); void resolve(code) }} />}
     {refusal && <p className="scan-refusal" role="status">Not accepted: {refusal}</p>}{note && <p className="muted" role="status">{note}</p>}
     {lines.length > 0 && <><Table head={['Item', 'Lot or serial', 'Quantity']} numeric={[2]}>{lines.map(l => <tr key={l.key}><td>{l.item}</td><td>{l.lot || '—'}{l.expiresOn && <small>Expires {l.expiresOn}</small>}</td><td>{l.quantity}</td></tr>)}</Table>
-      <div className="form-actions"><button type="button" className="button primary" disabled={larder.busy || !locationId || (use === 'receipt' && !slip.trim())} onClick={() => void post()}>{use === 'receipt' ? 'Receive scanned' : use === 'issue' ? 'Issue scanned' : 'Pick scanned'}</button><button type="button" className="button" onClick={() => { setLines([]); setNote(''); setRefusal(''); input.current?.focus() }}>Clear scans</button></div></>}
+      <div className="form-actions"><button type="button" className="button primary" disabled={larder.busy || !locationId || (use === 'receipt' && !slip.trim())} onClick={() => void post()}>{use === 'receipt' ? 'Receive scanned' : use === 'issue' ? 'Issue scanned' : 'Pick scanned'}</button><button type="button" className="button" onClick={() => { keep([]); setNote(''); setRefusal(''); input.current?.focus() }}>Clear scans</button></div></>}
   </section>
 }
 
