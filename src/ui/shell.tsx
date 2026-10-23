@@ -31,7 +31,7 @@ export function TopBar({ larder, view, mode, setMode }: { larder: Larder; view: 
     {state && <Search s={state} />}
     <p className={`sync ${error ? 'bad' : busy ? 'busy' : ''}`} role="status"><span className="dot" aria-hidden="true" /><span className="sync-text">{error ? 'Last change not saved' : busy ? 'Saving…' : loadedAt ? <>All changes saved<span className="since"> · loaded {clock(loadedAt)}</span></> : 'Loading…'}</span></p>
     {state && <details className="account">
-      <summary><span className="avatar" aria-hidden="true">{initials(state.actor.name)}</span><span className="who">{shortName(state.actor.name)}</span><Icon name="down" /></summary>
+      <summary className="has-tooltip" aria-label="Account menu" aria-describedby="account-tooltip"><span className="control-tooltip" id="account-tooltip" role="tooltip">Account menu</span><span className="avatar" aria-hidden="true">{initials(state.actor.name)}</span><span className="who">{shortName(state.actor.name)}</span><Icon name="down" /></summary>
       <div className="account-menu"><p><strong>{state.actor.name}</strong><small>{words(state.actor.role)}</small>{scopeNote(state) && <small>{scopeNote(state)}</small>}</p><button className="signout" type="button" onClick={() => void signOut()}><Icon name="signout" />Sign out</button></div>
     </details>}
   </header>

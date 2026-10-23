@@ -1,3 +1,4 @@
+import { CostReports } from './cost-reports'
 import { byId, can, personName, rows, type Rec } from './api'
 import type { Larder } from './app'
 import { Card, Chip, Empty, Field, Form, Table, text } from './controls'
@@ -11,11 +12,13 @@ function parseAck(raw: string) {
 }
 
 export function Handoff({ larder, id }: { larder: Larder; id?: string }) {
+  if (id && ['margins','variances','performance'].includes(id)) return <CostReports key={id} larder={larder} report={id} />
   const s = larder.state!, batch = id ? byId(s, 'handoffs', id) : undefined
   const access = can(s, ['manager', 'accounts'])
   return <div className="page">
     <header className="page-head"><p className="eyebrow">Handoff</p><h1>{batch ? batch.reference : 'Accountant handoff'}</h1>
       <p className="meta">Larder prepares operational costs, receipts and invoice lines for your accountant's ledger. It posts no journals; the ledger stays the authority.</p></header>
+    <nav aria-label="Cost reports"><a href="#handoff/margins">Order margins</a> · <a href="#handoff/variances">Job cost variances</a> · <a href="#handoff/performance">Production performance</a></nav>
     {batch ? <Batch larder={larder} h={batch} /> : <>
       <Card title="Ready to hand off" aside={<Chip tone={s.pendingHandoff ? 'info' : 'good'}>{s.pendingHandoff} movements</Chip>}>
         {access ? <Form submit="Prepare handoff batch" busy={larder.busy} onSubmit={async d => { const r = await larder.run('handoff.prepare', { note: text(d, 'note') }); if (r) window.location.hash = `handoff/${r.id}`; return r }}><Field label="Note for the accountant" name="note" required={false} /></Form> : <Empty>Ask a manager or your accounts person to prepare the handoff.</Empty>}

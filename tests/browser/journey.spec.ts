@@ -319,3 +319,76 @@ test('BUY-001 buyers maintain two suppliers, select feasible scheduled terms and
     await shot(page, 'BUY-001-performance')
   }
 })
+
+test('COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390', async ({page})=>{
+  await enter(page)
+  const suffix=crypto.randomUUID().slice(0,8),today=new Date().toISOString().slice(0,10)
+  const command=async(type:string,payload:any)=>{const res=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}});const b=await res.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result}
+  await page.goto(origin+'/app#handoff/variances');await page.reload()
+  await expect(page.getByRole('heading',{name:'Job cost variances',exact:true})).toBeVisible()
+  const policy=card(page,'Versioned allocation policy')
+  for(const[label,value]of [['standard Labor Rate','0'],['machine Rate','0'],['overhead Rate','0'],['overtime After Hours','8'],['overtime Multiplier','1.5'],['Policy reason','synthetic-larder-471 explicit rule']])await policy.getByLabel(label,{exact:true}).fill(value)
+  await act(page,()=>policy.getByRole('button',{name:'Prepare costing policy',exact:true}).click())
+  await policy.getByLabel('Policy approval reason',{exact:true}).last().fill('synthetic-larder-472 reviewed independently as owner')
+  await act(page,()=>policy.getByRole('button',{name:'Approve costing policy',exact:true}).last().click())
+  const raw=await command('item.save',{sku:`synthetic-larder-473-${suffix}`,name:`Cost blank ${suffix}`,kind:'buy',baseUnit:'each',standardCost:'12'})
+  const product=await command('item.save',{sku:`synthetic-larder-474-${suffix}`,name:`Cost product ${suffix}`,kind:'make',baseUnit:'each',standardCost:'12'})
+  const location=await command('location.save',{name:`Cost shelf ${suffix}`}),customer=await command('party.save',{name:`Cost buyer ${suffix}`,kind:'customer'})
+  await command('opening.record',{locationId:location.id,countedOn:today,countedBy:'synthetic-larder-475',valuationBasis:'supplier-invoice',evidence:{name:'count.txt',contentType:'text/plain',base64:Buffer.from('synthetic-larder-476 count and valuation').toString('base64')},lines:[{itemId:raw.id,quantity:'10',unitCost:'12'}]})
+  await command('bom.revise',{itemId:product.id,components:[{itemId:raw.id,quantity:'1'}]})
+  const order=await command('so.quote',{customerId:customer.id,channel:`wholesale-${suffix}`,promiseDate:today,lines:[{itemId:product.id,quantity:'4',unitPrice:'50'}]})
+  const jobs=[]
+  for(const[quantity,issued,good,scrap]of [['3','4','2','1'],['2','2','2','0']]){
+    let w=await command('wo.draft',{itemId:product.id,quantity,requiredBy:'2026-01-01',reason:'synthetic-larder-477 source costing work'})
+    w=await command('wo.release',{workOrderId:w.id,version:w.version});w=await command('wo.issue',{workOrderId:w.id,lines:[{itemId:raw.id,locationId:location.id,quantity:issued}]});w=await command('wo.output',{workOrderId:w.id,version:w.version,locationId:location.id,quantity:good,scrap,scrapReason:'synthetic-larder-478 reject',lot:`synthetic-larder-479-${suffix}-${jobs.length}`});w=await command('wo.close',{workOrderId:w.id,version:w.version});jobs.push(w)
+    await command('costing.link',{workOrderId:w.id,orderId:order.id,lineId:order.lines[0].id,quantity:'2',reason:'synthetic-larder-480 source job allocation'})
+  }
+  // The actual correcting valuations are reviewed through their built screen.
+  for(const w of jobs){
+    await page.goto(origin+'/app#handoff/variances');await page.reload()
+    await page.getByLabel('Valuation job',{exact:true}).selectOption(w.id);await page.getByLabel('Valuation reason',{exact:true}).fill('synthetic-larder-481 review all source costs')
+    await act(page,()=>page.getByRole('button',{name:'Prepare valuation review',exact:true}).click())
+    await page.getByLabel('Valuation approval reason',{exact:true}).last().fill('synthetic-larder-482 approve exact value correction')
+    await act(page,()=>page.getByRole('button',{name:'Approve valuation review',exact:true}).last().click())
+  }
+  await command('so.confirm',{orderId:order.id,version:order.version})
+  let shipment=await command('shipment.pick',{orderId:order.id,lines:[{lineId:order.lines[0].id,quantity:'2',locationId:location.id,lotId:jobs[0].outputs[0].lotId}]});shipment=await command('shipment.pack',{shipmentId:shipment.id,version:shipment.version,packages:1});await command('shipment.ship',{shipmentId:shipment.id,version:shipment.version,carrier:'synthetic-larder-483'})
+  await command('return.receive',{orderId:order.id,lineId:order.lines[0].id,quantity:'1',locationId:location.id,disposition:'quarantine',reason:'synthetic-larder-484 returned unit'})
+  await page.goto(origin+'/app#handoff/margins');await page.reload()
+  const charge=card(page,'Record a line discount, fee or freight')
+  await charge.getByLabel('Charge order',{exact:true}).selectOption(order.id);await charge.getByLabel('Charge sales line',{exact:true}).selectOption(order.lines[0].id);await charge.getByLabel('Charge kind',{exact:true}).selectOption('discount');await charge.getByLabel('Charge USD',{exact:true}).fill('4');await charge.getByLabel('Refund proportionally on a return').check();await charge.getByLabel('Charge evidence',{exact:true}).setInputFiles({name:'discount.txt',mimeType:'text/plain',buffer:Buffer.from('synthetic-larder-485 agreed discount')});await charge.getByLabel('Charge reason',{exact:true}).fill('synthetic-larder-486 exact commercial charge')
+  await act(page,()=>charge.getByRole('button',{name:'Record commercial charge',exact:true}).click())
+  for(const width of [1440,390]){
+    await page.setViewportSize({width,height:1000})
+    for(const report of ['margins','variances','performance']){
+      await page.goto(origin+`/app#handoff/${report}`)
+      await expect(page.getByRole('heading',{name:report==='margins'?'Order margins':report==='variances'?'Job cost variances':'Production performance',exact:true})).toBeVisible()
+      if(report==='performance'){
+        await page.getByLabel('Product',{exact:true}).selectOption(product.id);await page.getByLabel('From date',{exact:true}).fill(today);await page.getByLabel('To date',{exact:true}).fill(today)
+      }else await page.getByLabel('Sales order',{exact:true}).selectOption(order.id)
+      const ready=page.waitForResponse(r=>r.url().includes(`/api/larder/costing/${report}?`)&&r.request().method()==='GET')
+      await page.getByRole('button',{name:'Apply report filters',exact:true}).click();await ready
+      if(report==='margins'){
+        const lines=card(page,'Sales lines');await expect(lines).toContainText(order.reference);await expect(lines).toContainText('$49.00');await expect(lines).toContainText('$16.00');await expect(lines).toContainText('$33.00')
+        await lines.getByRole('button',{name:`Sources ${order.reference}`,exact:true}).click();await expect(lines).toContainText('return')
+      }else if(report==='variances'){
+        await expect(card(page,'Job costs and variances')).toContainText(jobs[0].reference)
+        await page.getByRole('button',{name:`Cost sources ${jobs[0].reference}`,exact:true}).click();await expect(card(page,'Job costs and variances')).toContainText('Usage variance')
+      }else{
+        await expect(card(page,'Performance metrics')).toContainText('Unknown');await expect(card(page,'Performance metrics')).toContainText('No recorded operation clocks')
+        const metric=card(page,'Performance metrics').getByRole('button',{name:'Metric sources yield',exact:true});await metric.click();await expect(card(page,'Performance metrics')).toContainText('Output')
+      }
+      const account=page.getByRole('button',{name:'Account menu'}).or(page.locator('summary[aria-label="Account menu"]'))
+      await page.mouse.move(0,0);await account.evaluate(el=>(el as HTMLElement).blur());await account.hover();await expect(page.getByRole('tooltip',{name:'Account menu'})).toBeHidden();await expect(page.getByRole('tooltip',{name:'Account menu'})).toBeVisible()
+      await page.mouse.move(0,0);await page.keyboard.press('Tab');await account.focus();await expect(page.getByRole('tooltip',{name:'Account menu'})).toBeVisible({timeout:100})
+      expect(await page.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true)
+      await shot(page,`COST-${report}`)
+      const download=page.waitForEvent('download');await page.getByRole('link',{name:'Download this report CSV',exact:true}).click();expect((await download).suggestedFilename()).toBe('larder-costs.csv')
+    }
+  }
+  await page.goto(origin+'/app#handoff/performance');await page.getByLabel('Product',{exact:true}).selectOption(product.id);const ready=page.waitForResponse(r=>r.url().includes('/costing/performance?'));await page.getByRole('button',{name:'Apply report filters',exact:true}).click();await ready
+  await page.getByLabel('I consent to saving this filtered report in the app').check();await page.getByLabel('Schedule reason',{exact:true}).fill('synthetic-larder-487 daily in-app snapshot')
+  await act(page,()=>page.getByRole('button',{name:'Schedule this report',exact:true}).click())
+  await act(page,()=>card(page,'Scheduled in-app reports').getByRole('button',{name:'Open due report',exact:true}).last().click())
+  for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'COST-scheduled-report')}
+})

@@ -1,3 +1,4 @@
+import { pinCosts } from './costing/jobs'
 // Work orders: draft, release (pins the BOM revision and reserves components),
 // material issue, output with scrap, and close with cost variance.
 import { workRecalls, recallReason } from './recall-policy'
@@ -58,6 +59,7 @@ export function production(c: Context, type: string, p: any): Row | undefined {
         step.workCentre = center
       }
       bump(w, { traceAllocationVersion: 1, status: 'released', bomId: bom.id, bomRevision: bom.revision, bomRevisions: w.configuration ? [] : resolved.revisions, components, routing, operationStates: bom.routing.map((r: any) => ({ sequence: r.sequence, status: 'pending', acknowledgments: [] })), standardUnitCost: format(standardUnitCost), releasedBy: c.actor.id, releasedAt: c.now })
+      w.costingStandard = pinCosts(c.s, w)
       w.shortages = components.map((l: any) => {
         const got = reserve(c, { demandKind: 'work', demandId: w.id, lineId: l.id, itemId: l.itemId }, decimal(l.required))
         return { itemId: l.itemId, short: format(decimal(l.required) - got) }

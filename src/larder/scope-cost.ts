@@ -4,14 +4,14 @@
 // `restricted`. A restricted value is never echoed in an error, preview, evidence or audit text.
 export const restricted = 'restricted'
 
-const moneyTokens = new Set(['cost', 'costs', 'price', 'prices', 'rate', 'rates', 'wage', 'wages', 'burden', 'margin', 'valuation', 'amount', 'amounts', 'cents', 'usd', 'cash', 'value', 'values', 'total', 'totals', 'worth'])
+const moneyTokens = new Set(['cost', 'costs', 'price', 'prices', 'rate', 'rates', 'wage', 'wages', 'burden', 'margin', 'valuation', 'amount', 'amounts', 'cents', 'usd', 'cash', 'value', 'values', 'total', 'totals', 'worth', 'revenue', 'profit', 'discount'])
 const notMoney = new Set(['yield', 'conversion'])
 const tokens = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
 export const isCostKey = (key: string) => { const t = tokens(key); return t.some(x => moneyTokens.has(x)) && !t.some(x => notMoney.has(x)) }
 const filled = (v: unknown) => v !== undefined && v !== null && v !== '' && v !== false
 
 // Every door that needs or shows a cost field to its caller: refused to a restricted member.
-export const costDoors = /^(so\.(quote|confirm|changePreview|cancelLine)|po\.(draft|approve|revise|confirm|amend|selectQuote|tolerance)|handoff\.|capacity\.rate|rework\.|subcontract\.(approve|bill|draft)|supplier\.terms|cutover\.|import\.|history\.|proposal\.(prepare|approve)|opening\.record)/
+export const costDoors = /^(so\.(quote|confirm|changePreview|cancelLine)|po\.(draft|approve|revise|confirm|amend|selectQuote|tolerance)|handoff\.|costing\.|reports\.|capacity\.rate|rework\.|subcontract\.(approve|bill|draft)|supplier\.terms|cutover\.|import\.|history\.|proposal\.(prepare|approve)|opening\.record)/
 
 // Everything under a cost-named key is restricted (its identifiers stay, so the record keeps its shape).
 const identity = (key: string) => key === 'id' || key === 'version' || /Ids?$/.test(key)

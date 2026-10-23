@@ -52,15 +52,21 @@ function describe(s: State, m: Movement) {
 
 export function pendingHandoffCount(s: State) {
   const done = handedOff(s)
-  return s.movements.filter(m => !done.has(m.id) && !internal.has(m.kind)).length
+  return s.movements.filter(m => !done.has(m.id) && !internal.has(m.kind)).length + pendingValuations(s).length
 }
 
+function pendingValuations(s: State) {
+  const done = new Set(s.handoffs.flatMap(h => h.lines.flatMap((l: any) => l.valuationIds ?? [])))
+  return s.costValuations.filter(v => v.status === 'approved' && !done.has(v.id))
+}
 export function handoffLines(s: State) {
   const done = handedOff(s)
-  return s.movements.filter(m => !done.has(m.id) && !internal.has(m.kind)).map(m => {
+  const movementLines = s.movements.filter(m => !done.has(m.id) && !internal.has(m.kind)).map(m => {
     const d = describe(s, m), corrects = m.reversesId ? done.get(m.reversesId) ?? null : null
     return { id: newId(), movementIds: [m.id], ...d, quantity: format(m.quantity), amount: format(d.amount), amountCents: cents(d.amount), corrects, date: m.createdAt.slice(0, 10) }
   })
+  const valuationLines = pendingValuations(s).flatMap(v => v.lines.map((l: any) => ({ id:newId(),movementIds:[],valuationIds:[v.id],sourceMovementIds:[l.movementId],itemSku:s.items.find(i=>i.id===l.itemId)?.sku??'',itemName:s.items.find(i=>i.id===l.itemId)?.name??'',type:'Production valuation correction (no stock quantity)',party:'',partyReference:'',document:s.workOrders.find(w=>w.id===v.workOrderId)?.reference??'',unitAmount:l.unitCost,quantity:'0',amount:l.valueChange,amountCents:cents(decimal(l.valueChange,'valuation correction',{signed:true})),corrects:null,date:v.approvedAt.slice(0,10) })))
+  return [...movementLines,...valuationLines]
 }
 
 export const handoffColumns = ['line', 'date', 'type', 'document', 'party', 'party_reference', 'sku', 'item', 'quantity', 'unit_amount', 'amount', 'corrects_batch', 'corrects_line']

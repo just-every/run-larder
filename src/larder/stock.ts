@@ -1,3 +1,4 @@
+import { valuedRate } from './costing/valuation'
 // Stock truth: positions are sums of append-only movements; available stock is
 // on-hand available status minus reservations. Every write goes through move().
 import { lotRecalls, workRecalls, recallReason } from './recall-policy'
@@ -42,8 +43,8 @@ export const reservedQuantity = (s: State, demandId: string, lineId: string) => 
 export function averageCost(s: State, itemId: string): bigint {
   let quantity = 0n, value = 0n, last = 0n
   for (const m of s.movements) if (m.itemId === itemId) {
-    quantity += m.quantity; value += times(m.quantity, m.unitCost)
-    if (m.quantity > 0) last = m.unitCost
+    quantity += m.quantity; value += times(m.quantity, valuedRate(s, m))
+    if (m.quantity > 0) last = valuedRate(s, m)
   }
   return quantity > 0n ? (value > 0n ? divide(value, quantity) : 0n) : last
 }
@@ -53,8 +54,9 @@ type MoveInput = Pick<Movement, 'itemId' | 'locationId' | 'status' | 'kind' | 'd
 // A recovery lot carries its approved allocation, including extra repair costs.
 // Preserve that lot's basis instead of blending it into other unrepaired stock.
 function recoveryCost(s: State, lotId: string) {
-  if (!s.lots.some(l => l.id === lotId && ['rework', 'subcontract'].includes(l.source))) return undefined
-  return s.movements.find(m => m.lotId === lotId && ['repair-output', 'recovered-component', 'subcontract-output'].includes(m.kind))?.unitCost
+  if (!s.lots.some(l => l.id === lotId && ['rework', 'subcontract', 'production'].includes(l.source))) return undefined
+  const source = s.movements.find(m => m.lotId === lotId && ['repair-output', 'recovered-component', 'subcontract-output', 'output'].includes(m.kind))
+  return source ? valuedRate(s, source) : undefined
 }
 
 export function move(c: Context, x: MoveInput): Movement {

@@ -1,3 +1,4 @@
+import { averageCost } from './stock'
 // Quotes, confirmed orders, atomic reservation, pick/pack/ship and cancellation.
 import { assertLotNotHeld } from './quality'
 import { approvedCertificates } from './certificate-policy'
@@ -22,14 +23,14 @@ export function quoteLines(c: Context, lines: unknown) {
     if (item.archived) fail('ARCHIVED', `${item.name} is archived and cannot be sold.`)
     // ENG-003: a configured line pins the resolved configuration (revision, choices, components, routing and cost).
     const configuration = line.configuration ? resolveFor(c.s, item.id, line.configuration) : undefined
-    return { id: newId(), itemId: item.id, quantity: format(toBase(item, line.quantity, line.unit)), unitPrice: format(decimal(line.unitPrice ?? item.salePrice, 'unit price')), shipped: '0', returned: '0', cancelled: '0', ...(configuration ? { configuration } : {}) }
+    return { id: newId(), itemId: item.id, quantity: format(toBase(item, line.quantity, line.unit)), unitPrice: format(decimal(line.unitPrice ?? item.salePrice, 'unit price')), quotedUnitCost: decimal(item.standardCost??'0')>0n ? item.standardCost : averageCost(c.s,item.id)>0n ? format(averageCost(c.s,item.id)) : null, shipped: '0', returned: '0', cancelled: '0', ...(configuration ? { configuration } : {}) }
   })
 }
 
 export function createQuote(c: Context, p: any, preparedBy?: string): Row {
   const customer = get(c.s, 'parties', p.customerId, 'customer')
   if (customer.kind === 'supplier') fail('INPUT', `${customer.name} is set up as a supplier only.`)
-  return row(c, 'salesOrders', { reference: nextReference(c.s.salesOrders, 'SO'), customerId: customer.id, customerReference: optionalText(p.customerReference, 'customer reference', 120), promiseDate: date(p.promiseDate, 'promise date'), note: optionalText(p.note, 'note', 1000), billingAddress: optionalText(p.billingAddress, 'billing address', 2000), shippingAddress: optionalText(p.shippingAddress, 'shipping address', 2000), lines: quoteLines(c, p.lines), status: 'quote', preparedBy: preparedBy ?? c.actor.id })
+  return row(c, 'salesOrders', { channel: optionalText(p.channel, 'sales channel', 80) || 'direct', reference: nextReference(c.s.salesOrders, 'SO'), customerId: customer.id, customerReference: optionalText(p.customerReference, 'customer reference', 120), promiseDate: date(p.promiseDate, 'promise date'), note: optionalText(p.note, 'note', 1000), billingAddress: optionalText(p.billingAddress, 'billing address', 2000), shippingAddress: optionalText(p.shippingAddress, 'shipping address', 2000), lines: quoteLines(c, p.lines), status: 'quote', preparedBy: preparedBy ?? c.actor.id })
 }
 
 const lineOf = (order: Row, lineId: unknown) => order.lines.find((l: any) => l.id === lineId) ?? fail('NOT_FOUND', 'That order line was not found.')

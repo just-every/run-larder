@@ -1,3 +1,6 @@
+import { performanceReport, reportScheduling } from './costing/performance'
+import { costing, costingReaders } from './costing/commands'
+import { marginReport, varianceReport, reportCsv } from './costing/margins'
 import { newBookings } from './scheduling/booking-guards'
 import { replenishment } from './replenishment'
 import { recovery, observeRecovery } from './scheduling/recovery'
@@ -88,7 +91,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version, scope: effectiveScope(member, custom) }
 }
 
-const handlers = [timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -118,6 +121,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (target!.role === 'owner') fail('OWNER_ROLE', 'The owner keeps owner authority.')
   }
   gateCommand(actor, type, payload)
+  if ((type.startsWith('costing.') || type.startsWith('reports.')) && !costingReaders.includes(actor.role)) forbidden('Only accounts or managers may use costing.')
   if (blindSessions(await load(env.DB), actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
   if (type === 'count.schedule') {
     const counter = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(payload.counterId).first<{ role: string }>()
@@ -212,6 +216,11 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     // imports and attachment doors need an unscoped person.
     const scope = scopeOf(actor), scoped = isScoped(actor), read = async <T>(compute: (s: any) => T | Promise<T>) => scopedRead(await load(env.DB), scope, compute)
     if (scoped && (path.startsWith('/audit') || path.startsWith('/archive') || path.startsWith('/handoffs/') || path.startsWith('/imports/'))) forbidden('This download needs an unscoped owner or manager.')
+    if (/^\/costing\/(margins|variances|performance)(\.csv)?$/.test(path)) {
+      if (!costingReaders.includes(actor.role)) forbidden('Only accounts or managers may read cost reports.')
+      const report = await read(s => path.startsWith('/costing/margins') ? marginReport(s, url.searchParams) : path.startsWith('/costing/performance') ? performanceReport(s,url.searchParams) : varianceReport(s, url.searchParams))
+      return path.endsWith('.csv') ? new Response(reportCsv(report), { headers: { ...headers, 'content-type':'text/csv; charset=utf-8', 'content-disposition':'attachment; filename="larder-costs.csv"' } }) : json(report)
+    }
     if (path === '/scheduling/labor-costs') {
       if (!rateReaders.includes(actor.role) || scope.costs) forbidden('Only accounts or authorized managers may read wage-based costing evidence.')
       return json({ basis: 'Recorded operation time; not payroll or posted accounting cost.', rows: await read(s => laborCosts(s)), entries: await read(s => timeCosts(s)) })

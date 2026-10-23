@@ -108,3 +108,9 @@ body:has(.larder) { padding: 0; }
   .planner a { margin-left: auto; }
   .account-menu { right: -4px; }
 }
+
+/* Icon-only account control on narrow screens: 300 ms hover, immediate focus. */
+.has-tooltip { position: relative; }
+.control-tooltip { position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; padding: 6px 10px; background: var(--ink, #202520); color: white; border-radius: 4px; font-size: 13px; white-space: nowrap; pointer-events: none; visibility: hidden; opacity: 0; transition: opacity 0s .3s, visibility 0s .3s; }
+.has-tooltip:hover .control-tooltip, .has-tooltip:focus-visible .control-tooltip { visibility: visible; opacity: 1; }
+.has-tooltip:focus-visible .control-tooltip { transition-delay: 0s; }

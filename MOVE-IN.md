@@ -119,3 +119,5 @@ this export/restore obligation before shipping; see the receiver clauses listed
 in MOVE-008. This does not assert implementation of those future capabilities.
 
 CAP-007 schedule grants and automatic applications are included in JSON and CSV. Every restored grant is inactive (`draft`), with its old approval retained in history; live authorized people must approve it again before any new delegated booking. Restore itself never executes an event or duplicates a booking.
+
+Costing policies, charge evidence, job-to-order allocations, exact output valuations and report schedules/snapshots inherit the complete JSON/CSV archive. Physical movements keep their original rates; valuation records carry correcting financial rates and their source IDs. Restored report schedules are paused, without consent or background authority. Old jobs without a release cost policy or historical rates stay unknown, and legacy unlotted output cannot receive a guessed valuation.
