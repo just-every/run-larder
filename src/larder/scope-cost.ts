@@ -4,7 +4,7 @@
 // `restricted`. A restricted value is never echoed in an error, preview, evidence or audit text.
 export const restricted = 'restricted'
 
-const moneyTokens = new Set(['cost', 'costs', 'price', 'prices', 'rate', 'rates', 'wage', 'wages', 'burden', 'margin', 'valuation', 'amount', 'amounts', 'cents', 'usd', 'cash', 'value', 'values', 'total', 'totals', 'worth', 'revenue', 'profit', 'discount'])
+const moneyTokens = new Set(['cost', 'costs', 'price', 'prices', 'rate', 'rates', 'wage', 'wages', 'burden', 'margin', 'valuation', 'amount', 'amounts', 'cents', 'usd', 'cash', 'value', 'values', 'total', 'totals', 'worth', 'revenue', 'profit', 'discount', 'charge', 'charges', 'expense', 'expenses'])
 const notMoney = new Set(['yield', 'conversion'])
 const tokens = (key: string) => key.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)
 export const isCostKey = (key: string) => { const t = tokens(key); return t.some(x => moneyTokens.has(x)) && !t.some(x => notMoney.has(x)) }

@@ -340,12 +340,13 @@ test('COST reports retain shipment margins, job source drills and missing perfor
   const jobs=[]
   for(const[quantity,issued,good,scrap]of [['3','4','2','1'],['2','2','2','0']]){
     let w=await command('wo.draft',{itemId:product.id,quantity,requiredBy:'2026-01-01',reason:'synthetic-larder-477 source costing work'})
-    w=await command('wo.release',{workOrderId:w.id,version:w.version});w=await command('wo.issue',{workOrderId:w.id,lines:[{itemId:raw.id,locationId:location.id,quantity:issued}]});w=await command('wo.output',{workOrderId:w.id,version:w.version,locationId:location.id,quantity:good,scrap,scrapReason:'synthetic-larder-478 reject',lot:`synthetic-larder-479-${suffix}-${jobs.length}`});w=await command('wo.close',{workOrderId:w.id,version:w.version});jobs.push(w)
+    w=await command('wo.release',{workOrderId:w.id,version:w.version});w=await command('wo.issue',{workOrderId:w.id,lines:[{itemId:raw.id,locationId:location.id,quantity:issued}]});w=await command('wo.output',{workOrderId:w.id,version:w.version,locationId:location.id,quantity:good,scrap,scrapReason:'synthetic-larder-478 reject',lot:`synthetic-larder-479-${suffix}-${jobs.length}`});if(jobs.length===0)w=await command('wo.close',{workOrderId:w.id,version:w.version});jobs.push(w)
     await command('costing.link',{workOrderId:w.id,orderId:order.id,lineId:order.lines[0].id,quantity:'2',reason:'synthetic-larder-480 source job allocation'})
   }
   // The actual correcting valuations are reviewed through their built screen.
   for(const w of jobs){
     await page.goto(origin+'/app#handoff/variances');await page.reload()
+    if(w.status==='released'){await page.getByLabel('Job to close and value',{exact:true}).selectOption(w.id);await page.getByLabel('Close and valuation reason',{exact:true}).fill('synthetic-larder-536 exact actual cost at closing');const value=await act(page,()=>page.getByRole('button',{name:'Close and approve actual valuation',exact:true}).click());expect(value.closedWithValuation).toBe(true);continue}
     await page.getByLabel('Valuation job',{exact:true}).selectOption(w.id);await page.getByLabel('Valuation reason',{exact:true}).fill('synthetic-larder-481 review all source costs')
     await act(page,()=>page.getByRole('button',{name:'Prepare valuation review',exact:true}).click())
     await page.getByLabel('Valuation approval reason',{exact:true}).last().fill('synthetic-larder-482 approve exact value correction')

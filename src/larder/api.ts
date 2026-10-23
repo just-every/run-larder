@@ -281,9 +281,12 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (exported) return json(exportBatch(await load(env.DB), exported[1]))
     const file = /^\/attachments\/([-0-9a-f]{36})$/.exec(path)
     if (file) {
+      const financialState = await load(env.DB)
+      const financialFile = names([...financialState.marginCharges, ...financialState.jobCharges, ...financialState.costValuations], new Set([file[1]]))
+      if (financialFile && (!costingReaders.includes(actor.role) || scope.costs)) forbidden('This evidence requires unrestricted costing authority.')
       const a = await env.DB.prepare('SELECT name,content_type,bytes FROM larder_attachments WHERE id=?').bind(file[1]).first<any>()
       // A scoped member opens only evidence a record they can see names.
-      if (a && scoped && !names(visibleState(await load(env.DB), scope).state, new Set([file[1]]))) forbidden('This evidence belongs to records outside your scope.')
+      if (a && scoped && !names(visibleState(financialState, scope).state, new Set([file[1]]))) forbidden('This evidence belongs to records outside your scope.')
       if (!a) throw new Problem('NOT_FOUND', 'No such attachment.', null, 404)
       return new Response(new Uint8Array(a.bytes), { headers: { ...headers, 'content-type': a.content_type, 'content-disposition': `attachment; filename="${String(a.name).replace(/[^\w.\- ]/g, '_')}"` } })
     }

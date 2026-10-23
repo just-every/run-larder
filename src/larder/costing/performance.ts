@@ -311,7 +311,7 @@ export function performanceReport(s: State, q = new URLSearchParams()) {
 
 export function reportScheduling(c: Context, type: string, p: any): Row | undefined {
   if (!type.startsWith('reports.')) return
-  allow(c, ['manager', 'accounts'])
+  allow(c, []) // New report schedules require the owner's explicit consent.
   if (type === 'reports.schedule') {
     const filters = performanceFilters(new URLSearchParams(p.filters ?? {}))
     if (p.consent !== true) fail('CONSENT', 'Explicit consent is required to save a report schedule.')

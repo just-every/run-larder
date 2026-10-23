@@ -975,7 +975,8 @@ test('COST-004 shipment and return margins keep open commitments, channel/custom
   const h=await installation();t.after(()=>h.close());const w=await workshop(h)
   let o=await h.command('so.quote',{customerId:w.customer.id,channel:'wholesale',promiseDate:'2026-11-01',lines:[{itemId:w.board.id,quantity:'4',unitPrice:'89'}]})
   assert.equal(o.lines[0].quotedUnitCost,'30');const lineId=o.lines[0].id
-  for(const [kind,amount,refundable]of [['discount','4',true],['freight-revenue','8',true],['fee','4',false],['freight-cost','12',false]])await h.command('costing.orderCharge',{orderId:o.id,lineId,kind,amount,refundable,reason:'synthetic-larder-406 source commercial charge',evidence:evidence('synthetic-larder-407 invoice')})
+  const commercial=[]
+  for(const [kind,amount,refundable]of [['discount','4',true],['freight-revenue','8',true],['fee','4',false],['freight-cost','12',false]])commercial.push(await h.command('costing.orderCharge',{orderId:o.id,lineId,kind,amount,refundable,reason:'synthetic-larder-406 source commercial charge',evidence:evidence('synthetic-larder-407 invoice')}))
   await h.command('so.confirm',{orderId:o.id,version:o.version})
   let sh=await h.command('shipment.pick',{orderId:o.id,lines:[{lineId,quantity:'2',locationId:w.loc.id}]});sh=await h.command('shipment.pack',{shipmentId:sh.id,version:sh.version,packages:1});await h.command('shipment.ship',{shipmentId:sh.id,version:sh.version,carrier:'synthetic-larder-408'})
   let r=await costReport(h,'margins',`?orderId=${o.id}`),l=r.rows[0]
@@ -991,6 +992,8 @@ test('COST-004 shipment and return margins keep open commitments, channel/custom
   const operator=await h.person('synthetic-larder-410@example.test','operator'),manager=await h.person('synthetic-larder-411@example.test','manager')
   for(const name of ['margins','margins.csv','variances','variances.csv','performance','performance.csv'])assert.equal((await h.request('/api/larder/costing/'+name,{as:operator.cookie})).status,403)
   await h.command('member.scope',{operatorId:manager.id,costsRestricted:true,locations:null})
+  for(const as of [manager.cookie,operator.cookie])assert.equal((await h.request('/api/larder/attachments/'+commercial[0].evidence.id,{as})).status,403)
+  assert.equal(await(await h.request('/api/larder/attachments/'+commercial[0].evidence.id)).text(),'synthetic-larder-407 invoice')
   const restricted=await costReport(h,'margins',`?orderId=${o.id}`,manager.cookie);assert.equal(restricted.rows[0].recognizedRevenue,'restricted');assert.equal(restricted.rows[0].actualMargin,'restricted');assert.equal(restricted.rows[0].sources[0].unitCost,'restricted')
   const hiddenCsv=await(await h.request(`/api/larder/costing/margins.csv?orderId=${o.id}`,{as:manager.cookie})).text();assert.match(hiddenCsv,/restricted/);assert.doesNotMatch(hiddenCsv,/52\.00|90\.00|38\.00/)
   const elsewhere=await h.command('location.save',{name:'synthetic-larder-521 hidden stock'})
@@ -1038,7 +1041,8 @@ test('COST-001 approved time overtime and service costs roll through scrap and d
   const policy=await manager.run('costing.policy.prepare',{standardLaborRate:'25',machineRate:'2',overheadRate:'3',overtimeAfterHours:'8',overtimeMultiplier:'1.5',reason:'synthetic-larder-426 costing policy'})
   await manager.run('costing.policy.approve',{policyId:policy.id,version:policy.version,reason:'synthetic-larder-427 self refusal'},{error:'FORBIDDEN'})
   await agent.run('costing.policy.approve',{policyId:policy.id,version:policy.version,reason:'synthetic-larder-428 agent refusal'},{error:'FORBIDDEN'})
-  await accounts.run('costing.policy.approve',{policyId:policy.id,version:policy.version,reason:'synthetic-larder-429 independent approval'})
+  await accounts.run('costing.policy.approve',{policyId:policy.id,version:policy.version,reason:'synthetic-larder-429 owner approval required'},{error:'FORBIDDEN'})
+  await h.command('costing.policy.approve',{policyId:policy.id,version:policy.version,reason:'synthetic-larder-429 owner approves exact rule'})
   const calendar=await h.command('capacity.labor',{name:'synthetic-larder-430',timeZone:'UTC',effectiveFrom:'2026-01-01',effectiveTo:'2027-12-31',shifts:[{weekdays:[0,1,2,3,4,5,6],start:0,end:1440}],operatorIds:[me.id],skills:[],capacity:1,reason:'synthetic-larder-431 employment calendar'})
   const rate=await h.command('capacity.rate',{laborId:calendar.id,hourlyRate:'20',burdenRate:'5',reason:'synthetic-larder-432 retained employment rate'})
   const loc=await h.command('location.save',{name:'synthetic-larder-433'}),raw=await h.command('item.save',{sku:'synthetic-larder-434',name:'Raw',kind:'buy',baseUnit:'each',standardCost:'10'}),part=await h.command('item.save',{sku:'synthetic-larder-435',name:'Part',kind:'make',baseUnit:'each'}),final=await h.command('item.save',{sku:'synthetic-larder-436',name:'Assembly',kind:'make',baseUnit:'each'})
@@ -1051,7 +1055,8 @@ test('COST-001 approved time overtime and service costs roll through scrap and d
   await h.command('time.decide',{entryId:entry.id,correctionId:entry.corrections[0].id,decision:'approve',reason:'synthetic-larder-441 shift record checked'})
   await h.command('capacity.rate',{laborId:calendar.id,version:rate.version,hourlyRate:'99',burdenRate:'9',reason:'synthetic-larder-442 future rate never reprices old clock'})
   let charge=await manager.run('costing.charge.prepare',{workOrderId:w.id,amount:'4',reference:'synthetic-larder-443 subcontract service invoice',evidence:evidence(),reason:'synthetic-larder-444 external finishing'})
-  charge=await accounts.run('costing.charge.approve',{chargeId:charge.id,version:charge.version,reason:'synthetic-larder-445 independently checked invoice'})
+  await accounts.run('costing.charge.approve',{chargeId:charge.id,version:charge.version,reason:'synthetic-larder-445 owner approval required'},{error:'FORBIDDEN'})
+  charge=await h.command('costing.charge.approve',{chargeId:charge.id,version:charge.version,reason:'synthetic-larder-445 independently checked invoice'})
   w=await h.command('wo.issue',{workOrderId:w.id,lines:[{itemId:raw.id,quantity:'3',locationId:loc.id}]})
   w=await h.command('wo.output',{workOrderId:w.id,version:w.version,locationId:loc.id,quantity:'1',scrap:'0',lot:'synthetic-larder-446',allocations:[{movementId:(await h.state()).movements.find(m=>m.documentId===w.id&&m.kind==='issue').id,quantity:'2'}]})
   let report=(await costReport(h,'variances',`?workOrderId=${w.id}`)).jobs[0];assert.equal(report.wipCost,'177');assert.equal(report.goodCost,'177')
@@ -1061,12 +1066,13 @@ test('COST-001 approved time overtime and service costs roll through scrap and d
   const physical=(await h.state()).movements
   let stale=await manager.run('costing.valuation.prepare',{workOrderId:w.id,reason:'synthetic-larder-449 inspect changes'})
   await h.command('party.save',{name:'synthetic-larder-450',kind:'customer'})
-  await accounts.run('costing.valuation.approve',{valuationId:stale.id,version:stale.version,reason:'synthetic-larder-451 stale refuses'},{error:'STALE'})
+  await h.command('costing.valuation.approve',{valuationId:stale.id,version:stale.version,reason:'synthetic-larder-451 stale refuses'},{error:'STALE'})
   let review=await manager.run('costing.valuation.prepare',{workOrderId:w.id,reason:'synthetic-larder-452 fresh review'})
   assert.equal(review.report.actualCost,'354');assert.equal(review.report.laborCost,'270');assert.equal(review.report.materialCost,'30');assert.equal(review.report.machineCost,'20');assert.equal(review.report.overheadCost,'30');assert.equal(review.report.serviceCost,'4');assert.equal(review.report.scrapCost,'177');assert.equal(review.report.actualUnitCost,'177');assert.equal(review.report.laborSources[0].hourlyRate,'20');assert.equal(review.report.laborSources[0].overtimeCost,'20')
   assert.equal(review.lines[0].stockValueChange,'0');assert.equal(review.lines[0].consumedValueChange,'167')
   await manager.run('costing.valuation.approve',{valuationId:review.id,version:review.version,reason:'synthetic-larder-453 no self approval'},{error:'FORBIDDEN'})
-  review=await accounts.run('costing.valuation.approve',{valuationId:review.id,version:review.version,reason:'synthetic-larder-454 approved transparent correction'})
+  await accounts.run('costing.valuation.approve',{valuationId:review.id,version:review.version,reason:'synthetic-larder-454 owner approval required'},{error:'FORBIDDEN'})
+  review=await h.command('costing.valuation.approve',{valuationId:review.id,version:review.version,reason:'synthetic-larder-454 approved transparent correction'})
   report=(await costReport(h,'variances',`?workOrderId=${next.id}`)).jobs[0];assert.equal(report.materialCost,'177');assert.equal(report.components[0].priceVariance,'167')
   assert.deepEqual((await h.state()).movements,physical)
   const handoff=await h.command('handoff.prepare',{note:'synthetic-larder-455 cost correction'});assert.ok(handoff.lines.some(l=>l.valuationIds?.includes(review.id)&&l.amount==='167'))
@@ -1086,7 +1092,14 @@ test('COST-001 approved time overtime and service costs roll through scrap and d
   }
   const exact=(await costReport(h,'margins',`?orderId=${order.id}`)).rows[0]
   assert.equal(exact.sources.reduce((n,x)=>n+parse(x.cost),0n),parse('10'));assert.equal(exact.actualCost,'10.00')
+  let atomic=await h.command('wo.draft',{itemId:fraction.id,quantity:'1',requiredBy:new Date().toISOString().slice(0,10),reason:'synthetic-larder-532 atomic close'})
+  atomic=await h.command('wo.release',{workOrderId:atomic.id,version:atomic.version});atomic=await h.command('wo.issue',{workOrderId:atomic.id,lines:[{itemId:raw.id,quantity:'2',locationId:loc.id}]});atomic=await h.command('wo.output',{workOrderId:atomic.id,version:atomic.version,locationId:loc.id,quantity:'1',scrap:'0',lot:'synthetic-larder-533'})
+  const beforeClose=(await h.state()).movements
+  await accounts.run('costing.close',{workOrderId:atomic.id,version:atomic.version,reason:'synthetic-larder-534 owner only'},{error:'FORBIDDEN'})
+  const closedValue=await h.command('costing.close',{workOrderId:atomic.id,version:atomic.version,reason:'synthetic-larder-535 approve exact actual cost at close'})
+  assert.equal(closedValue.status,'approved');assert.equal(closedValue.closedWithValuation,true);assert.equal(closedValue.report.actualCost,'20');assert.equal(closedValue.lines[0].valueChange,'10');assert.equal((await h.state()).workOrders.find(w=>w.id===atomic.id).status,'closed');assert.deepEqual((await h.state()).movements,beforeClose)
   const restricted=await h.person('synthetic-larder-456@example.test','manager');await h.command('member.scope',{operatorId:restricted.id,locations:null,costsRestricted:true})
+  for(const as of [restricted.cookie,agent.cookie])assert.equal((await h.request('/api/larder/attachments/'+charge.evidence.id,{as})).status,403)
   const hidden=(await costReport(h,'variances',`?workOrderId=${w.id}`,restricted.cookie)).jobs[0];assert.equal(hidden.actualCost,'restricted');assert.equal(hidden.laborSources[0].hourlyRate,'restricted')
 })
 

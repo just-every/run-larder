@@ -1,3 +1,4 @@
+import { production } from '../production'
 import { canonicalJson, sha256 } from '../../modules/import-kit/src/d1/index'
 import { decimal, format, times, min, divide } from '../decimal'
 import { fail, forbidden } from '../problem'
@@ -14,6 +15,25 @@ export function costing(c: Context, type: string, p: any): Row | undefined {
   allow(c, ['manager', 'accounts'])
   if (c.actor.scope?.costs) forbidden('Costs and wages are restricted.')
   const reason = text(p.reason, 'costing reason', 400)
+  if (type === 'costing.close') {
+    allow(c, [])
+    const work = get(c.s, 'workOrders', p.workOrderId)
+    fresh(work, p.version)
+    const evidence = jobCosts(c.s, work)
+    if (evidence.missing.length)
+      fail('COST_INCOMPLETE', 'Resolve missing actual costs before closing and valuing this job.')
+    production(c, 'wo.close', { workOrderId: work.id, version: work.version })
+    const valuation = costing(c, 'costing.valuation.prepare', { workOrderId: work.id, reason })!
+    // One explicit owner decision, with live session/scope/state rechecked by
+    // storage.commit. No write or asynchronous gap separates close and value.
+    return bump(valuation, {
+      status: 'approved',
+      approvedBy: c.actor.id,
+      approvedAt: c.now,
+      approvalReason: reason,
+      closedWithValuation: true,
+    })
+  }
   if (type === 'costing.policy.prepare') {
     const data = Object.fromEntries(
       ['standardLaborRate', 'machineRate', 'overheadRate', 'overtimeAfterHours', 'overtimeMultiplier'].map((k) => [
@@ -34,6 +54,7 @@ export function costing(c: Context, type: string, p: any): Row | undefined {
     })
   }
   if (type === 'costing.policy.approve') {
+    allow(c, []) // Conservative default: only the owner applies a financial decision.
     const r = get(c.s, 'costPolicies', p.policyId)
     fresh(r, p.version)
     approver(c, ['manager', 'accounts'], r.preparedBy)
@@ -55,6 +76,7 @@ export function costing(c: Context, type: string, p: any): Row | undefined {
     })
   }
   if (type === 'costing.charge.approve') {
+    allow(c, []) // Conservative default: only the owner applies a financial decision.
     const r = get(c.s, 'jobCharges', p.chargeId)
     fresh(r, p.version)
     approver(c, ['manager', 'accounts'], r.preparedBy)
@@ -62,6 +84,7 @@ export function costing(c: Context, type: string, p: any): Row | undefined {
     return bump(r, { status: 'approved', approvedBy: c.actor.id, approvedAt: c.now, approvalReason: reason })
   }
   if (type === 'costing.link') {
+    allow(c, []) // Conservative default: only the owner applies a financial decision.
     const w = get(c.s, 'workOrders', p.workOrderId),
       o = get(c.s, 'salesOrders', p.orderId),
       l = o.lines.find((l: any) => l.id === p.lineId)
@@ -86,6 +109,7 @@ export function costing(c: Context, type: string, p: any): Row | undefined {
     })
   }
   if (type === 'costing.orderCharge') {
+    allow(c, []) // Conservative default: only the owner applies a financial decision.
     const o = get(c.s, 'salesOrders', p.orderId),
       l = o.lines.find((l: any) => l.id === p.lineId)
     if (!l) fail('INPUT', 'Choose a sales line.')
@@ -159,6 +183,7 @@ export function costing(c: Context, type: string, p: any): Row | undefined {
     })
   }
   if (type === 'costing.valuation.approve') {
+    allow(c, []) // Conservative default: only the owner applies a financial decision.
     const r = get(c.s, 'costValuations', p.valuationId)
     fresh(r, p.version)
     approver(c, ['manager', 'accounts'], r.preparedBy)

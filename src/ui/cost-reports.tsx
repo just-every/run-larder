@@ -366,7 +366,7 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
                       })}
                     </Table>
                   </Card>
-                  {!restricted && (
+                  {!restricted && s.actor.role === 'owner' && (
                     <Card title="Save a daily in-app report">
                       <Form
                         submit="Schedule this report"
@@ -401,7 +401,7 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
                           value={{ filters: r.filters, snapshots: r.snapshots }}
                           s={s}
                         />
-                        {r.status === 'active' && !restricted && (
+                        {r.status === 'active' && !restricted && s.actor.role === 'owner' && (
                           <>
                             <button
                               className="button"
@@ -433,7 +433,7 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
             </>
           )}
           {!restricted && report === 'variances' && <CostControls larder={larder} />}
-          {!restricted && report === 'margins' && (
+          {!restricted && s.actor.role === 'owner' && report === 'margins' && (
             <Card title="Record a line discount, fee or freight">
               <Form
                 submit="Record commercial charge"
@@ -514,7 +514,7 @@ function CostControls({ larder }: { larder: Larder }) {
               {r.status} · {r.createdAt}
             </p>
             <Details label="Policy terms" value={r} s={s} />
-            {r.status === 'draft' && (
+            {r.status === 'draft' && s.actor.role === 'owner' && (
               <Form
                 submit="Approve costing policy"
                 busy={larder.busy}
@@ -533,30 +533,36 @@ function CostControls({ larder }: { larder: Larder }) {
         ))}
       </Card>
       <Card title="Allocate a job to a sales line">
-        <Form
-          submit="Link job cost"
-          busy={larder.busy}
-          onSubmit={(d) => larder.run('costing.link', Object.fromEntries(d))}
-        >
-          <Choose label="Allocated job" name="workOrderId" options={options(jobs, (w) => w.reference)} />
-          <Choose
-            label="Allocated order"
-            name="orderId"
-            options={options(rows(s, 'salesOrders'), (w) => w.reference)}
-          />
-          <Choose
-            label="Allocated sales line"
-            name="lineId"
-            options={rows(s, 'salesOrders').flatMap((o) =>
-              o.lines.map((l: any) => ({
-                value: l.id,
-                label: `${o.reference} · ${s.items.find((i: Rec) => i.id === l.itemId)?.sku}`,
-              })),
-            )}
-          />
-          <Field label="Allocated units" name="quantity" inputMode="decimal" />
-          <Field label="Allocation reason" name="reason" />
-        </Form>
+        {s.actor.role !== 'owner' ? (
+          <Empty>The owner records job-to-order allocations.</Empty>
+        ) : (
+          <>
+            <Form
+              submit="Link job cost"
+              busy={larder.busy}
+              onSubmit={(d) => larder.run('costing.link', Object.fromEntries(d))}
+            >
+              <Choose label="Allocated job" name="workOrderId" options={options(jobs, (w) => w.reference)} />
+              <Choose
+                label="Allocated order"
+                name="orderId"
+                options={options(rows(s, 'salesOrders'), (w) => w.reference)}
+              />
+              <Choose
+                label="Allocated sales line"
+                name="lineId"
+                options={rows(s, 'salesOrders').flatMap((o) =>
+                  o.lines.map((l: any) => ({
+                    value: l.id,
+                    label: `${o.reference} · ${s.items.find((i: Rec) => i.id === l.itemId)?.sku}`,
+                  })),
+                )}
+              />
+              <Field label="Allocated units" name="quantity" inputMode="decimal" />
+              <Field label="Allocation reason" name="reason" />
+            </Form>
+          </>
+        )}
       </Card>
       <Card title="Additional job service charge">
         <Form
@@ -573,7 +579,7 @@ function CostControls({ larder }: { larder: Larder }) {
           <Field label="Service reason" name="reason" />
         </Form>
         {rows(s, 'jobCharges')
-          .filter((r) => r.status === 'draft')
+          .filter((r) => r.status === 'draft' && s.actor.role === 'owner')
           .map((r) => (
             <Form
               key={r.id}
@@ -588,6 +594,32 @@ function CostControls({ larder }: { larder: Larder }) {
             </Form>
           ))}
       </Card>
+      {s.actor.role === 'owner' && (
+        <Card title="Close and value a job">
+          <Form
+            submit="Close and approve actual valuation"
+            busy={larder.busy}
+            note="Review the job's source costs above. Closing and its correcting actual valuation are one explicit owner decision; physical movements stay unchanged."
+            onSubmit={(d) => {
+              const work = jobs.find((w) => w.id === text(d, 'workOrderId'))
+              return (
+                work &&
+                larder.run('costing.close', { workOrderId: work.id, version: work.version, reason: text(d, 'reason') })
+              )
+            }}
+          >
+            <Choose
+              label="Job to close and value"
+              name="workOrderId"
+              options={options(
+                jobs.filter((w) => w.status === 'released'),
+                (w) => w.reference,
+              )}
+            />
+            <Field label="Close and valuation reason" name="reason" />
+          </Form>
+        </Card>
+      )}
       <Card title="Review correcting output valuations">
         <Form
           submit="Prepare valuation review"
@@ -611,7 +643,7 @@ function CostControls({ larder }: { larder: Larder }) {
               {r.status} · {s.workOrders.find((w: Rec) => w.id === r.workOrderId)?.reference}
             </p>
             <Details label="Valuation sources and changes" value={r} s={s} />
-            {r.status === 'draft' && (
+            {r.status === 'draft' && s.actor.role === 'owner' && (
               <Form
                 submit="Approve valuation review"
                 busy={larder.busy}
