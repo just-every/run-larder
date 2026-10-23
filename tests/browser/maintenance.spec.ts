@@ -42,7 +42,9 @@ test('CAP-009 schedule maintenance, log breakdown, assign repair/ETA, inspect re
   await card.getByText('Record equipment maintenance', { exact: true }).click()
   await card.getByLabel('Maintenance work center', { exact: true }).selectOption(center)
   await card.getByLabel('Maintenance kind', { exact: true }).selectOption('breakdown')
-  const eta = new Date(Date.now() + 2 * 86400000)
+  // Four calendar days always reach past the next working start, even from
+  // Friday evening, so the breakdown visibly moves the planned work.
+  const eta = new Date(Date.now() + 4 * 86400000)
   await card.getByLabel('Expected equipment return (local time)', { exact: true }).fill(local(eta))
   await card.getByLabel('Repair owner', { exact: true }).fill('Alex at Ohio Machine Repair')
   await card.getByLabel('CMMS record ID', { exact: true }).fill(`CMMS-${tag}`)

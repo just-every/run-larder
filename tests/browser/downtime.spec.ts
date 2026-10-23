@@ -50,7 +50,10 @@ test('FLOOR-007 pause for broken tool, notify supervisor in app, revise effort, 
   const task = page.getByRole('region', { name: 'Step 1 progress and downtime', exact: true })
   await shots(page, 'running', task.locator('..'))
   const state = await (await page.request.get(origin + '/api/larder/state')).json()
-  const plannedResume = new Date(Date.now() + 2 * 86400000)
+  // Four calendar days always leave a full working day before the resume
+  // estimate, even from Friday evening, so the paused job moves later and the
+  // following job can use the gap at any hour.
+  const plannedResume = new Date(Date.now() + 4 * 86400000)
   const localResume = new Date(plannedResume.getTime() - plannedResume.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
   await task.getByLabel('Step 1 downtime reason', { exact: true }).selectOption('breakdown')
   await task.getByLabel('Step 1 downtime note', { exact: true }).fill('Drill bit snapped; supervisor to obtain replacement')
