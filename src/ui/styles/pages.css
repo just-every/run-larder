@@ -145,5 +145,7 @@
 /* FLOOR-008 scan panel */
 .scan { display: grid; gap: 12px; padding: 0 0 16px; margin-bottom: 16px; border-bottom: 1px solid var(--rule); }
 .scan h3 { margin: 0; }
+.scan > .button { justify-self: start; }
+.scan .form-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .scan .scan-refusal { margin: 0; padding: 10px 14px; border-radius: var(--radius); background: var(--red-wash); color: var(--red-ink); font-weight: 600; }
 .scan-camera video { width: 100%; max-width: 420px; border-radius: var(--radius); background: var(--ink); }
