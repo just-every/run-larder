@@ -1357,3 +1357,111 @@ test('CAP-008 nesting cannot recover expired or controlled material as a new usa
     for (const key of ['workGroups', 'lots', 'movements', 'reservations', 'workOrders']) assert.deepEqual(after[key], before[key], mode + ':' + key)
   }
 })
+
+
+async function purchasingFixture(h, quarantine = false) {
+  const item = await h.command('item.save', { sku: 'synthetic-larder-430', name: 'Return stock', kind: 'buy', baseUnit: 'each' })
+  const location = await h.command('location.save', { name: 'synthetic-larder-431' }), supplier = await h.command('party.save', { name: 'synthetic-larder-432', kind: 'supplier' })
+  let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: '2026-12-01', reason: 'synthetic-larder-433', lines: [{ itemId: item.id, quantity: '10', unitPrice: '2' }] })
+  po = await h.command('po.approve', { poId: po.id, version: po.version })
+  const receipt = await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-434', lines: [{ lineId: po.lines[0].id, locationId: location.id, quantity: '10', lot: 'synthetic-larder-435', inspection: quarantine ? 'quarantine' : 'accept' }] })
+  const current = async () => (await h.state()).purchaseOrders.find(x => x.id === po.id)
+  const run = async (type, payload, opts) => h.command(type, { poId: po.id, version: (await current()).version, reason: 'synthetic-larder-436 reviewed', ...payload }, opts)
+  return { item, location, supplier, po, receipt, current, run }
+}
+
+test('Supplier RMA settles a partial rejected lot with quarantined replacement and reconciled original-bill credit without rewriting stock', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const p = await purchasingFixture(h, true), agent = await h.person('synthetic-larder-437@example.test', 'agent'), warehouse = await h.person('synthetic-larder-438@example.test', 'warehouse')
+  const sent = async () => (await h.state()).movements
+  const original = await sent()
+  const capture = await p.run('po.bill.capture', { reference: 'synthetic-larder-439', currency: 'USD', lines: [{ lineId: p.po.lines[0].id, quantity: '10', unitPrice: '2' }], evidence: evidence() })
+  const billId = capture.bills[0].id
+  await p.run('po.bill.resolve', { billId, evidence: evidence('Invoice reviewed against rejected receipt') })
+  await p.run('po.bill.approve', { billId })
+  const payload = { poId: p.po.id, version: (await p.current()).version, receiptId: p.receipt.id, movementId: p.receipt.lines[0].movementId, quantity: '4', purpose: 'rejected', supplierRma: 'synthetic-larder-440', dueDate: '2099-12-01', reason: 'Rejected surface finish', evidence: evidence() }
+  await agent.run('po.claim.open', payload, { error: 'FORBIDDEN' })
+  let po = await warehouse.run('po.claim.open', payload), claimId = po.supplierClaims[0].id
+  assert.equal(po.supplierClaims[0].ownerId, warehouse.id)
+  const ship = { claimId, quantity: '4', stockStatus: 'quarantine', reference: 'synthetic-larder-441', evidence: evidence() }
+  await warehouse.run('po.claim.ship', { poId: po.id, version: po.version, reason: 'Return', ...ship }, { error: 'FORBIDDEN' })
+  await p.run('po.claim.ship', { ...ship, quantity: '5' }, { error: 'CLAIM_QUANTITY' })
+  const id = crypto.randomUUID(), version = (await p.current()).version
+  const shipped = await p.run('po.claim.ship', ship, { commandId: id })
+  assert.deepEqual(await h.command('po.claim.ship', { poId: po.id, version, reason: 'synthetic-larder-436 reviewed', ...ship }, { commandId: id }), shipped)
+  await p.run('po.claim.close', { claimId }, { error: 'CLAIM_OPEN' })
+  await p.run('po.claim.replace', { claimId, quantity: '2', lot: 'synthetic-larder-442', reference: 'synthetic-larder-443', evidence: evidence() })
+  await p.run('po.claim.credit', { claimId, quantity: '3', amount: '6', billId, reference: 'synthetic-larder-444', evidence: evidence() }, { error: 'CLAIM_QUANTITY' })
+  await p.run('po.claim.credit', { claimId, quantity: '2', amount: '5', billId, reference: 'synthetic-larder-444', evidence: evidence() }, { error: 'CREDIT_VARIANCE' })
+  await p.run('po.claim.credit', { claimId, quantity: '2', amount: '4', billId, reference: 'synthetic-larder-444', evidence: evidence() })
+  await p.run('po.claim.close', { claimId }, { error: 'CLAIM_OPEN' })
+  const batch = await h.command('handoff.prepare', {})
+  const credit = batch.lines.find(l => l.claimId === claimId)
+  assert.deepEqual([credit.amount, credit.quantity, credit.billId, credit.sourceMovementIds], ['-4', '0', billId, [p.receipt.lines[0].movementId]])
+  const ack = await h.command('handoff.acknowledge', { handoffId: batch.id, version: batch.version, entries: [{ lineId: credit.id, ledgerId: 'synthetic-larder-445', amount: '-3' }] })
+  await p.run('po.claim.close', { claimId }, { error: 'CLAIM_OPEN' })
+  await h.command('handoff.acknowledge', { handoffId: batch.id, version: ack.version, entries: [{ lineId: credit.id, ledgerId: 'synthetic-larder-445', amount: '-4' }] })
+  po = await p.run('po.claim.close', { claimId }); assert.equal(po.supplierClaims[0].status, 'closed')
+  const state = await h.invariant()
+  assert.deepEqual(state.movements.slice(0, original.length), original)
+  assert.deepEqual(state.positions.filter(x => x.itemId === p.item.id).map(x => [x.quantity, x.status]).sort(), [['2', 'quarantine'], ['6', 'quarantine']])
+  const trace = await (await h.request('/api/larder/lots/' + p.receipt.lines[0].lotId + '/trace?direction=downstream')).json()
+  assert.ok(trace.rows.some(x => x.kind === 'supplier-return' && x.quantity === '-4'))
+  assert.equal(state.pendingHandoff, 0)
+  await h.restart(); assert.deepEqual((await p.current()).supplierClaims, po.supplierClaims)
+  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  const restore = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restore.status, 200, await restore.text())
+  assert.deepEqual((await target.state()).purchaseOrders[0].supplierClaims, po.supplierClaims)
+})
+
+test('Supplier invoices retain three-way variances, refuse self-resolution and duplicate bills, and expose incremental billing without invented payment state', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const p = await purchasingFixture(h), accounts = await h.person('synthetic-larder-446@example.test', 'accounts'), manager = await h.person('synthetic-larder-447@example.test', 'manager')
+  const capture = { reference: 'synthetic-larder-448', currency: 'USD', freight: '1', tax: '2', evidence: evidence(), lines: [{ lineId: p.po.lines[0].id, quantity: '4', unitPrice: '3' }] }
+  let po = await p.current()
+  await manager.run('po.bill.capture', { poId: po.id, version: po.version, reason: 'Capture', ...capture }, { error: 'FORBIDDEN' })
+  po = await accounts.run('po.bill.capture', { poId: po.id, version: po.version, reason: 'Capture', ...capture })
+  const billId = po.bills[0].id
+  assert.deepEqual([po.bills[0].lines[0].priceVariance, po.bills[0].lines[0].acceptedQuantity, po.bills[0].amount], ['1', '10', '15'])
+  await accounts.run('po.bill.resolve', { poId: po.id, version: po.version, billId, reason: 'Self', evidence: evidence() }, { error: 'FORBIDDEN' })
+  await p.run('po.bill.approve', { billId }, { error: 'STATE' })
+  await p.run('po.bill.resolve', { billId, evidence: evidence() })
+  po = await p.run('po.bill.approve', { billId })
+  assert.equal(po.billingStatus, 'Partially billed'); assert.equal(po.paymentState, 'not connected')
+  await p.run('po.bill.capture', capture, { error: 'DUPLICATE_BILL' })
+  po = await p.run('po.bill.capture', { ...capture, reference: 'synthetic-larder-449', lines: [{ lineId: p.po.lines[0].id, quantity: '6', unitPrice: '2' }] })
+  const second = po.bills[1].id
+  await p.run('po.bill.resolve', { billId: second, evidence: evidence() }); po = await p.run('po.bill.approve', { billId: second })
+  assert.equal(po.billingStatus, 'Billed'); assert.ok(po.bills.every(b => b.paymentState === 'not connected'))
+  await h.invariant()
+})
+
+test('Late landed charges allocate exact stock and open WIP corrections by explicit policy, reject stale approval and hand off each correction once', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const p = await purchasingFixture(h), agent = await h.person('synthetic-larder-450@example.test', 'agent')
+  const made = await h.command('item.save', { sku: 'synthetic-larder-451', name: 'Work in progress', kind: 'make', baseUnit: 'each' })
+  await h.command('bom.revise', { itemId: made.id, components: [{ itemId: p.item.id, quantity: '1' }] })
+  let job = await h.command('wo.draft', { itemId: made.id, quantity: '4', requiredBy: '2026-12-02', reason: 'synthetic-larder-452' })
+  job = await h.command('wo.release', { workOrderId: job.id, version: job.version })
+  await h.command('wo.issue', { workOrderId: job.id, lines: [{ itemId: p.item.id, locationId: p.location.id, quantity: '4', lotId: p.receipt.lines[0].lotId }] })
+  const payload = { kind: 'freight', policy: 'quantity', amount: '10.000001', reference: 'synthetic-larder-453', evidence: evidence(), sources: [{ movementId: p.receipt.lines[0].movementId }] }
+  let po = await p.run('po.landed.prepare', payload), charge = po.landedCharges[0]
+  assert.deepEqual([charge.lines[0].stock, charge.lines[0].wip, charge.lines[0].cogs], ['6', '4.000001', '0'])
+  await agent.run('po.landed.approve', { poId: po.id, version: po.version, chargeId: charge.id, reason: 'No authority' }, { error: 'FORBIDDEN' })
+  await h.command('party.save', { name: 'synthetic-larder-454', kind: 'customer' })
+  await p.run('po.landed.approve', { chargeId: charge.id }, { error: 'STALE' })
+  po = await p.run('po.landed.prepare', payload); charge = po.landedCharges.at(-1)
+  const original = (await h.state()).movements
+  await p.run('po.landed.approve', { chargeId: charge.id })
+  const batch = await h.command('handoff.prepare', {})
+  const lines = batch.lines.filter(l => l.purchasingCorrectionIds?.some(x => x.startsWith(charge.id)))
+  assert.deepEqual(lines.map(l => l.amount), ['6', '4.000001'])
+  assert.equal(lines.reduce((n, l) => n + parse(l.amount), 0n), parse('10.000001'))
+  assert.deepEqual((await h.state()).movements, original)
+  await h.command('handoff.prepare', {}, { error: 'NOTHING_TO_HAND_OFF' })
+  po = await p.run('po.landed.prepare', { ...payload, policy: 'weight', amount: '-2', correctsId: charge.id, sources: [{ movementId: p.receipt.lines[0].movementId, weight: '3' }] })
+  await p.run('po.landed.approve', { chargeId: po.landedCharges.at(-1).id })
+  const correction = await h.command('handoff.prepare', {})
+  assert.equal(correction.lines.reduce((n, l) => n + parse(l.amount), 0n), parse('-2'))
+  await h.invariant()
+})

@@ -685,3 +685,51 @@ Location scope and cost restrictions apply to preparation, results and replay.
 Grouping and import page controls, combined finite setup booking, broader batch
 stages and ct approval of the default remain CAP-008 gaps. CONN-012 will supply
 vendor-specific nesting imports and inherits these review and posting guards.
+
+
+## Supplier accounting preparation
+
+All commands below use `poId`, the current PO `version` and a required `reason`.
+Every command uses the native session, atomic role and location scope guards,
+append-only audit and command replay. Records are nested on the original PO and
+included in the existing complete business archive. No command sends a document
+or calls a ledger provider. Financial decisions below use an adopted owner-only
+default awaiting ct approval; the contract gaps remain partial.
+
+- `po.bill.capture` (accounts) takes `reference`, explicit `currency`, `lines`
+  containing `lineId`, `quantity`, `unitPrice`, optional `freight` and `tax`, and
+  `evidence`. Supplier invoice references are unique for that supplier.
+- `po.bill.resolve` (independent accounts, owner exception) takes `billId` and
+  `evidence`, retaining current accepted receipt and prior approved bill quantities.
+  Resolve again if another PO change invalidates that decision.
+- `po.bill.approve` (owner) takes `billId`; it approves only the resolved version,
+  refusing cross-currency approval without a connected ledger conversion. Billing
+  quantity states are recorded on the PO; payment stays `not connected`.
+- `po.claim.open` (warehouse or manager) takes `receiptId`, original `movementId`,
+  `quantity`, `purpose` (`rejected` or `excess`), `supplierRma`, `dueDate`, `evidence`.
+  The initiator owns the claim. Claims never exceed that original receipt quantity.
+- `po.claim.ship` (owner) takes `claimId`, `quantity`, `stockStatus`, `reference`,
+  `evidence`. Rejected units leave quarantine only. Reserved stock, recall and
+  nonconformance protections remain enforced. Dispatch is recorded locally.
+- `po.claim.replace` (owner) takes `claimId`, `quantity`, `lot`, `reference`,
+  `evidence`; replacement is quarantined and linked to the original receipt.
+- `po.claim.credit` (owner) takes `claimId`, `quantity`, `billId`, `amount`,
+  `reference`, `evidence`. Credit must match an approved original bill and the
+  original receipt cost exactly. Replacement plus credit cannot exceed dispatch.
+- `po.claim.close` (owner) takes `claimId`, requiring full dispatch and settlement,
+  and matching accountant acknowledgements for every credit. This acknowledges
+  recorded ledger references without claiming provider verification.
+- `po.landed.prepare` (accounts) takes `kind` (`freight`, `duty`, `insurance`,
+  `handling`), `policy` (`quantity`, `value`, `weight`), signed `amount`, `reference`,
+  `evidence`, `sources` containing exact receipt `movementId` and a positive
+  `weight` for that policy. Negative corrections also name approved `correctsId`.
+  Allocation conserves the six-place amount across stock, open WIP and direct COGS;
+  completed production or unsupported return attribution refuses with `LANDED_TRACE`.
+- `po.landed.approve` (owner) takes `chargeId`, requiring unchanged state since
+  preparation. This prepares correction lines without applying valuation changes.
+
+Approved credits and landed charges enter the existing accountant handoff once.
+Each line retains `purchasingCorrectionIds` and `sourceMovementIds`; quantities
+are zero. Credits correct payables, while dispatch movements account for physical
+stock. Landed lines label their destination as stock, WIP or COGS. The CSV and
+acknowledgement door retain exact amounts and ledger references.
