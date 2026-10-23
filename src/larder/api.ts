@@ -296,6 +296,8 @@ export async function larderResponse(request: Request, original: Bindings): Prom
       const financialState = await load(env.DB)
       const financialFile = names([...financialState.marginCharges, ...financialState.jobCharges, ...financialState.costValuations], new Set([file[1]]))
       if (financialFile && (!costingReaders.includes(actor.role) || scope.costs)) forbidden('This evidence requires unrestricted costing authority.')
+      // A supplier's bill is a cost document: a member restricted from costs never opens it.
+      if (scope.costs && names(financialState.subcontractOrders.map(o => [o.bill, o.bills]), new Set([file[1]]))) forbidden('This evidence requires unrestricted costing authority.')
       const a = await env.DB.prepare('SELECT name,content_type,bytes FROM larder_attachments WHERE id=?').bind(file[1]).first<any>()
       // A scoped member opens only evidence a record they can see names.
       if (a && scoped && !names(visibleState(financialState, scope).state, new Set([file[1]]))) forbidden('This evidence belongs to records outside your scope.')

@@ -768,3 +768,19 @@ test('a cost-restricted member reads no purchase, service-order or cutover total
   assert.deepEqual([mine.quantity, mine.good, mine.scrap, mine.bill.reference], ['5', '1', '1', 'synthetic-larder-605'])
   assert.deepEqual(compared.map(d => [d.metric, d.larder]), [['openPurchaseValueUsd', 'restricted'], ['openPurchaseOrders', '1']])
 })
+
+test('a cost-restricted member cannot download a supplier bill, while its other service evidence stays open', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h)
+  const clerk = await h.person('synthetic-larder-606@example.test', 'warehouse'), accounts = await h.person('synthetic-larder-607@example.test', 'accounts')
+  let { order, receive } = await billedServiceOrder(h, w)
+  order = await h.command('subcontract.receive', receive)
+  order = await accounts.run('subcontract.bill', { orderId: order.id, version: order.version, amount: '4.6262', reference: 'synthetic-larder-608', evidence: evidence('Supplier invoice: USD 4.6262') })
+  await h.command('member.scope', { operatorId: clerk.id, locations: null, costsRestricted: true })
+  const bill = (await h.state(clerk.cookie)).subcontractOrders.find(o => o.id === order.id).bill.evidence.id, slip = order.receipts[0].evidence.id
+  const download = async (id, as) => { const res = await h.request(`/api/larder/attachments/${id}`, { as }); return [res.status, (await res.text()).includes('4.6262')] }
+  assert.deepEqual([await download(bill, clerk.cookie), await download(slip, clerk.cookie)], [[403, false], [200, false]])
+  // The owner, the accounts person and the member once the restriction is lifted open it.
+  await h.command('member.scope', { operatorId: clerk.id, locations: null, costsRestricted: false })
+  assert.deepEqual([await download(bill, h.owner()), await download(bill, accounts.cookie), await download(bill, clerk.cookie)], [[200, true], [200, true], [200, true]])
+})
