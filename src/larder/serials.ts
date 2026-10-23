@@ -94,7 +94,8 @@ export const serviceKinds = ['service', 'warranty repair', 'inspection'] as cons
 
 export function serials(c: Context, type: string, p: any): Row | undefined {
   if (type !== 'serial.service') return
-  allow(c, ['manager', 'production', 'warehouse', 'quality'])
+  // GOV-001: a manager runs operations and quality inspects; agents only prepare.
+  allow(c, ['manager', 'quality'])
   const item = get(c.s, 'items', p.itemId, 'item')
   if (!isSerial(item)) fail('INPUT', `${item.name} is not serial-tracked.`, { field: 'itemId' })
   const lot = serialLot(c.s, item.id, text(p.serial, 'serial', 80)) ?? fail('NOT_FOUND', `Serial ${p.serial} of ${item.name} was not found.`, { field: 'serial' })

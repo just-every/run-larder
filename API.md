@@ -131,7 +131,7 @@ and the usual audit entries.
 | `count.record` | `{itemId, locationId, counted, lotId?, note?}` | manager, warehouse |
 | `count.approve` / `count.reject` | `{countId, version, note?}` | manager (not the counter), owner |
 | `return.receive` | `{orderId, lineId, quantity, unit?, locationId, disposition: restock\|quarantine, reason, serials?}` | manager, warehouse |
-| `serial.service` | `{itemId, serial, kind: service\|warranty repair\|inspection, on, note}` | manager, production, warehouse, quality |
+| `serial.service` | `{itemId, serial, kind: service\|warranty repair\|inspection, on, note}` | manager, quality |
 | `movement.reverse` | `{documentKind: receipts\|shipments\|transfers\|counts\|openings\|returns\|workOrders, documentId, movementIds?, reason}` | manager, warehouse, production |
 | `handoff.prepare` | `{note?}` | manager, accounts |
 | `handoff.acknowledge` | `{handoffId, version, entries: [{lineId, ledgerId, amount, note?}]}` | manager, accounts |

@@ -39,7 +39,7 @@ function SerialHistory({ larder, x }: { larder: Larder; x: Rec }) {
       {x.returns.map((r: Rec) => <tr key={r.returnId}><td>Returned</td><td>{r.reference}<small>{words(r.disposition)} · {r.reason}</small></td><td>{when(r.at)}</td></tr>)}
       {x.service.map((e: Rec) => <tr key={e.id}><td>{words(e.kind)}</td><td>{e.note}<small>{e.customer ? `At ${e.customer}` : words(e.state)}</small></td><td>{day(e.on)}</td></tr>)}
     </Table>
-    {can(s, ['manager', 'production', 'warehouse', 'quality']) && <Form title={`Record service on ${x.serial}`} submit="Record service" quiet busy={larder.busy} onSubmit={d => larder.run('serial.service', { itemId: x.itemId, serial: x.serial, kind: text(d, 'kind'), on: text(d, 'on'), note: text(d, 'note') })}>
+    {can(s, ['manager', 'quality']) && <Form title={`Record service on ${x.serial}`} submit="Record service" quiet busy={larder.busy} onSubmit={d => larder.run('serial.service', { itemId: x.itemId, serial: x.serial, kind: text(d, 'kind'), on: text(d, 'on'), note: text(d, 'note') })}>
       <Choose label="Service kind" name="kind" options={['service', 'warranty repair', 'inspection'].map(v => ({ value: v, label: words(v) }))} /><Field label="Service date" name="on" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /><Field label="What was done" name="note" />
     </Form>}
   </article>
