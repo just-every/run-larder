@@ -60,6 +60,13 @@ test('STOCK-002 schedule, blind count, busy-bin stale refusal, recount and indep
       await counter.goto(origin + '/app#stock'); await counter.reload()
       await expect(counter.getByRole('heading', { name: 'Blind counts', exact: true })).toBeVisible()
       expect((await state(counter)).positions).toEqual([])
+      // FLOOR-008: the counter's scanner fills the count in the browser; a wrong code is refused and no quantity is revealed.
+      const scanCount = counter.getByLabel(`Scan Machined spacer ${width} into this count`, { exact: true })
+      await scanCount.focus(); await counter.keyboard.type(`NOT-${runId}`); await counter.keyboard.press('Enter')
+      await expect(counter.getByText(`Not accepted: that code is not Machined spacer ${width}`)).toBeVisible()
+      for (let i = 0; i < 2; i++) { await scanCount.focus(); await counter.keyboard.type(`STOCK-002-${width}-${runId}`); await counter.keyboard.press('Enter') }
+      await expect(counter.getByLabel('Counted quantity', { exact: true })).toHaveValue('2')
+      expect((await state(counter)).positions).toEqual([])
       await counter.getByLabel('Counted quantity', { exact: true }).fill('9')
       await shot(counter, 'blind')
       await act(counter, () => counter.getByRole('button', { name: 'Submit count', exact: true }).click())

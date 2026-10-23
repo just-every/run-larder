@@ -3,6 +3,7 @@ import { can, itemName, locationName, personName, rows, sku, unitOf, type Larder
 import type { Larder } from './app'
 import { Area, Card, Chip, Choose, Details, Empty, Field, Form, Table, options, text } from './controls'
 import { day, money, qty, when, words } from './format'
+import { ScanCount } from './scan-count'
 
 const lotName = (s: LarderState, id: string) => rows(s, 'lots').find(l => l.id === id)?.code ?? '—'
 
@@ -19,6 +20,7 @@ export function BlindCounts({ larder }: { larder: Larder }) {
           const serials = text(d, 'serials').split(/[\n,]+/).map(v => v.trim()).filter(Boolean)
           return larder.run('count.submit', { sessionId: session.id, lineId: line.id, version: session.version, counted: text(d, 'counted'), note: text(d, 'note'), ...(serials.length ? { serials } : {}) })
         }}>
+          <ScanCount s={s} line={line} />
           <Field label="Counted quantity" name="counted" inputMode="decimal" autoComplete="off" />
           <Field label="Count note" name="note" required={false} />
           <Area label="Serial IDs (one per line or separated by commas)" name="serials" required={false} />
