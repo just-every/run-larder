@@ -56,6 +56,7 @@ import { workTransfers } from './work-transfers'
 import { nesting } from './scheduling/nesting'
 import { lotTrace, traceCsv } from './trace'
 import { serials, serialSearch } from './serials'
+import { resolveScan } from './scan'
 import { subcontract } from './subcontract'
 import { rework } from './rework'
 import { production } from './production'
@@ -236,6 +237,8 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (path === '/planning/materials') return json(await read(s => materialDates(s)))
     if (path === '/planning/pegging') return json(await read(s => materialPegging(s, url.searchParams)))
     if (path === '/planning/supply-changes') return json(await read(s => supplyChanges(s)))
+    // FLOOR-008: resolve a scanned code, checked against the receipt, issue or pick it is for; never moves stock.
+    if (path === '/scan') return json(await read(s => resolveScan(s, url.searchParams.get('code') ?? '', url.searchParams.get('use') || undefined, url.searchParams.get('id') ?? '', new Date().toISOString().slice(0, 10))))
     // TRACE-002 serial search: a scoped member never sees a serial or record outside their locations.
     if (path === '/serials') {
       const all = await load(env.DB), seen = scope.locations === null ? undefined : visibleState(all, scope)

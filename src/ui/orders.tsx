@@ -1,4 +1,5 @@
 import { ShipmentCertificates } from './certificates'
+import { ScanPanel } from './scan'
 import { serialHint, serialTracked } from './serials'
 import { useState } from 'react'
 import { byId, can, itemName, locationName, partyName, rows, sku, unitOf, type LarderState, type Rec } from './api'
@@ -103,6 +104,7 @@ function OrderWorkspace({ larder, order }: { larder: Larder; order: Rec }) {
           {warehouse && ['picked', 'packed'].includes(x.status) && <Form title={`Undo ${x.reference} pick`} submit="Undo pick" quiet busy={busy} note="Use before dispatch. Stock and reservations stay with the order; record a separate cancellation to release them." onSubmit={d => run('shipment.unpick', { shipmentId: x.id, version: x.version, reason: text(d, 'reason') })}><Field label="Reason for undoing pick" name="reason" /></Form>}
           {warehouse && x.status === 'packed' && <Form submit="Ship" busy={busy} onSubmit={d => run('shipment.ship', { shipmentId: x.id, version: x.version, carrier: text(d, 'carrier'), tracking: text(d, 'tracking') })}><Field label="Carrier" name="carrier" /><Field label="Tracking" name="tracking" required={false} /></Form>}
         </article>)}
+        {open && warehouse && reservations.length > 0 && <ScanPanel larder={larder} use="pick" doc={order} />}
         {open && warehouse && reservations.length > 0 && <Form title="Pick reserved stock" submit="Pick" busy={busy} onSubmit={d => run('shipment.pick', { orderId: order.id, lines: reservations.map(r => ({ lineId: r.lineId, locationId: r.locationId, quantity: text(d, r.id), lotId: ['', 'fefo'].includes(text(d, `lot.${r.id}`)) ? undefined : text(d, `lot.${r.id}`), ...(text(d, `serials.${r.id}`) ? { serials: text(d, `serials.${r.id}`) } : {}) })).filter(l => l.quantity && !isZero(l.quantity)) })}>
           {reservations.map(r => <Field key={`${r.id}:${r.quantity}`} label={`${itemName(s, r.itemId)} at ${locationName(s, r.locationId)} (reserved ${qty(r.quantity)})`} name={r.id} defaultValue={r.quantity} inputMode="decimal" required={false} />)}
           {reservations.filter(r => serialTracked(s, r.itemId)).map(r => <Field key={`serials:${r.id}`} label={`${itemName(s, r.itemId)} serials`} name={`serials.${r.id}`} hint={serialHint} required={false} />)}
