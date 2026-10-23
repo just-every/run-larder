@@ -289,7 +289,7 @@ function purchaseAccounting(c: Context, type: string, p: any): Row {
     allow(c, ['accounts'])
     const policy = oneOf(p.policy, ['quantity', 'value', 'weight'] as const, 'allocation policy'), amount = decimal(p.amount, 'landed charge', { signed: true })
     if (amount === 0n) fail('INPUT', 'A landed charge must be nonzero.')
-    if (amount < 0n && !charges.some((x: any) => x.id === p.correctsId && x.status === 'approved')) fail('INPUT', 'A negative correction must name an approved charge.')
+    if ((amount < 0n || p.correctsId) && !charges.some((x: any) => x.id === p.correctsId && x.status === 'approved')) fail('INPUT', 'A negative correction must name an approved charge.')
     const seen = new Set<string>()
     const sources = list(p.sources).map((x: any) => {
       if (seen.has(x.movementId)) fail('INPUT', 'List each receipt movement once.'); seen.add(x.movementId)
@@ -319,6 +319,7 @@ function purchaseAccounting(c: Context, type: string, p: any): Row {
     allow(c, [])
     const charge = charges.find((x: any) => x.id === p.chargeId) ?? fail('NOT_FOUND', 'Choose a landed charge.')
     if (charge.status !== 'draft') fail('STATE', 'Approve a draft charge once.')
+    if (c.s.purchaseOrders.some(o => o.supplierId === po.supplierId && (o.landedCharges ?? []).some((x: any) => x.status === 'approved' && x.reference === charge.reference))) fail('DUPLICATE_CHARGE', 'That supplier charge is already approved.')
     if (charge.stateVersion !== c.s.version) fail('STALE', 'Stock or financial records changed; prepare a fresh allocation.')
     Object.assign(charge, { status: 'approved', approval: stamp() })
     return saved()
