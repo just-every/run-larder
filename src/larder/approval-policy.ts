@@ -8,6 +8,8 @@ import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
 import { decimal, format } from './decimal'
 import { fail, forbidden } from './problem'
 import { approver, type Role } from './roles'
+import { effectiveScope } from './scope'
+import { costDoors } from './scope-cost'
 import { balance } from './stock'
 import { bump, get, oneOf, optionalText, row, text, type Context, type Row, type State } from './model'
 import { integer } from './scheduling/calendars'
@@ -52,17 +54,24 @@ const inputsOf: Record<string, (s: State, r: Row, terms: any, people?: Person[])
 // Decisions without terms keep the digest of their inputs alone.
 const digestOf = (s: State, kind: string, r: Row, terms: unknown, people?: Person[]) => sha256(canonicalJson((terms === null || terms === undefined ? inputsOf[kind](s, r, null, people) : { inputs: inputsOf[kind](s, r, terms, people), terms }) as any))
 
-// A delegation is live while it is active and in date and its principal still holds the authority.
-function liveDelegation(d: Row | undefined, people: Person[] | undefined, permitted: readonly string[], now: string) {
+// Whether the principal may still use this door themselves: a door their custom role removed, or a cost door while
+// they are restricted from costs, is closed to their deputy too (GOV-001).
+function principalHolds(s: State, principalId: string, door: string | undefined) {
+  const member = s.roles.find(r => r.id === principalId), scope = effectiveScope(member, s.customRoles.find(r => r.id === member?.customRoleId))
+  return !door || (!scope.removed.includes(door) && !(scope.costs && costDoors.test(door)))
+}
+
+// A delegation is live while it is active and in date and its principal still holds the authority for the door.
+function liveDelegation(s: State, d: Row | undefined, people: Person[] | undefined, permitted: readonly string[], now: string, door?: string) {
   const principal = people?.find(x => x.id === d?.principalId)
-  return !!d && d.status === 'active' && d.validFrom <= now && now < d.validUntil && !!principal && (principal.role === 'owner' || permitted.includes(principal.role))
+  return !!d && d.status === 'active' && d.validFrom <= now && now < d.validUntil && !!principal && (principal.role === 'owner' || permitted.includes(principal.role)) && principalHolds(s, principal.id, door)
 }
 
 // Whether a signature's signer, or the principal a deputy stood in for, still holds the authority
 // it was given under (judged against the active people).
 export function authorityHeld(s: State, sig: Row, now: string, people: Person[]) {
   const signer = people.find(x => x.id === sig.signerId), permitted: string[] = sig.permitted ?? permittedFor[sig.category] ?? []
-  return !!signer && (sig.delegationId ? !nonApprovers.includes(signer.role) && liveDelegation(s.approvalDelegations.find(d => d.id === sig.delegationId), people, permitted, now) : signer.role === 'owner' || permitted.includes(signer.role))
+  return !!signer && (sig.delegationId ? !nonApprovers.includes(signer.role) && liveDelegation(s, s.approvalDelegations.find(d => d.id === sig.delegationId), people, permitted, now, sig.door) : signer.role === 'owner' || permitted.includes(signer.role))
 }
 
 // valid: counts toward approval now; invalidated: the version or exact inputs changed; expired;
@@ -82,7 +91,7 @@ export function signatureStatus(s: State, sig: Row, now: string, people?: Person
 export function authorize(c: Context, permitted: Role[], category: string, preparedBy?: string): { seat: string; deputy?: Row } {
   if (c.actor.role === 'agent' || c.actor.role === 'viewer') forbidden('Agents prepare; a person with authority approves.')
   const own = c.actor.role === 'owner' || permitted.includes(c.actor.role as Role)
-  const deputy = own ? undefined : c.s.approvalDelegations.find(d => d.deputyId === c.actor.id && d.categories.includes(category) && liveDelegation(d, c.people, permitted, c.now))
+  const deputy = own ? undefined : c.s.approvalDelegations.find(d => d.deputyId === c.actor.id && d.categories.includes(category) && liveDelegation(c.s, d, c.people, permitted, c.now, c.type))
   if (!deputy) { approver(c, permitted, preparedBy); return { seat: c.actor.id } }
   if (preparedBy && (preparedBy === c.actor.id || preparedBy === deputy.principalId)) forbidden('A different person must approve what you or your principal prepared.')
   return { seat: deputy.principalId, deputy }
@@ -122,7 +131,7 @@ export function gate(c: Context, o: Decision): Gate | null {
   if (live.some(x => x.signerId === c.actor.id || x.seat === who.seat)) fail('DUPLICATE_SIGNATURE', 'You, or the person you stand in for, already signed these exact inputs. A different person must sign next.')
   const needed = override ? 1 : policy.signatures
   const signature = row(c, 'approvalSignatures', {
-    category: o.category, policyId: policy.id, policyVersion: policy.version, signaturesRequired: policy.signatures, expiryMinutes: policy.expiryMinutes, subjectKind: o.subjectKind, subjectId: o.subject.id, subjectVersion: o.subject.version, inputsDigest: digestOf(c.s, o.subjectKind, o.subject, terms, c.people), terms, permitted: o.permitted,
+    category: o.category, policyId: policy.id, policyVersion: policy.version, signaturesRequired: policy.signatures, expiryMinutes: policy.expiryMinutes, subjectKind: o.subjectKind, subjectId: o.subject.id, subjectVersion: o.subject.version, inputsDigest: digestOf(c.s, o.subjectKind, o.subject, terms, c.people), terms, permitted: o.permitted, door: c.type,
     ...(floors.includes(o.category) ? { marginPercent: value === null ? null : format(value) } : o.category === 'schedule' ? { delayMinutes: format(value!) } : { valueUsd: format(value!) }),
     signerId: c.actor.id, signerName: c.actor.name, signerRole: c.actor.role, seat: who.seat, onBehalfOf: who.deputy ? who.seat : null, delegationId: who.deputy?.id ?? null,
     note: optionalText(o.p.note, 'note', 400), signedAt: c.now, expiresAt: new Date(Date.parse(c.now) + policy.expiryMinutes * 60000).toISOString(), override, remainingAtSigning: Math.max(0, needed - live.length - 1),

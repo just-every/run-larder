@@ -784,3 +784,31 @@ test('a cost-restricted member cannot download a supplier bill, while its other 
   await h.command('member.scope', { operatorId: clerk.id, locations: null, costsRestricted: false })
   assert.deepEqual([await download(bill, h.owner()), await download(bill, accounts.cookie), await download(bill, clerk.cookie)], [[200, true], [200, true], [200, true]])
 })
+
+test('a deputy holds a delegated approval only while the principal\'s custom role still includes it', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h)
+  const custom = { name: 'Floor buyer', base: 'buyer', removedDoors: [], locations: null, costsRestricted: false }
+  const floor = await h.command('role.custom', custom), narrow = more => h.command('role.custom', { ...custom, customRoleId: floor.id, ...more })
+  const buyer = await h.person('synthetic-larder-611@example.test'), engineer = await h.person('synthetic-larder-612@example.test', 'engineer'), manager = await h.person('synthetic-larder-613@example.test', 'manager')
+  await h.command('role.assign', { operatorId: buyer.id, customRoleId: floor.id })
+  await buyer.run('approval.deputize', { deputyId: engineer.id, validUntil: new Date(Date.now() + 3600000).toISOString(), categories: ['spend'], reason: 'Cover purchases while away' })
+  const draft = quantity => h.command('po.draft', { supplierId: w.supplier.id, expectedDate: day(7), reason: 'Walnut restock', lines: [{ itemId: w.timber.id, quantity, unitPrice: '9.5' }] })
+  const approve = (who, po, error) => who.run('po.approve', { poId: po.id, version: po.version }, error && { error })
+  assert.equal((await approve(engineer, await draft('1'))).approvedBy, engineer.id)
+  // Above a two-signature limit the deputy's signature waits for a second person.
+  await h.command('approval.policy', { category: 'spend', thresholdUsd: '100', signatures: 2, expiryMinutes: 60, reason: 'Two people above the limit' })
+  const large = await draft('20'), signed = await approve(engineer, large)
+  // Once the owner removes the approval from the principal's custom role, neither the principal nor the deputy approves, and the deputy's signature stops counting.
+  await narrow({ removedDoors: ['po.approve'] })
+  const small = await draft('2')
+  await approve(buyer, small, 'FORBIDDEN'); await approve(engineer, small, 'FORBIDDEN')
+  assert.equal((await h.state()).approvalSignatures.find(x => x.id === signed.id).status, 'withdrawn')
+  assert.equal((await approve(manager, large)).remainingAtSigning, 1)
+  // A custom role restricted from costs stops the deputy too; restoring the role restores the delegation.
+  await narrow({ costsRestricted: true })
+  await approve(engineer, small, 'FORBIDDEN')
+  await narrow({})
+  assert.equal((await approve(engineer, small)).approvedBy, engineer.id)
+  assert.deepEqual((await h.state()).purchaseOrders.find(p => p.id === large.id).status, 'draft')
+})
