@@ -155,3 +155,13 @@ credentials, declared migrations and a real verified mail configuration. Local
 verification does not establish hosted acceptance, remote health or mail
 delivery. See `OPERATIONS.md`, `ONBOARDING.md`, `SEED-COMMAND-CONTRACT.md` and
 `RUN-LOCALLY.md` for the implemented requirements.
+
+## Release listing
+
+| Field | Value |
+|---|---|
+| Listing id (`seed.json.id`) | `larder` |
+| `runUrl` | https://run-larder.com/run |
+| `storesFiles` | `true`: evidence files people attach to counts, receipts and supplier confirmations (PDF, image, CSV, text or spreadsheet, up to 1 MiB each) are stored as bytes in the database with their SHA-256. Larder uses no R2 bucket. |
+
+The release app capture at `.github/assets/release/larder-today-1440.png` is the real local app from `rer dev --demo`, signed in as Alex Morgan on the Today screen of the Walnut Workshop demo. Its SHA-256 is `b69d7f48966e519623030a50d3f7bfbc629871873ed8e15af9714fbf7aa80cb8` for the Site source gallery.

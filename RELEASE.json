@@ -1,14 +1,8 @@
 {
-  "version": "0.1.1",
-  "previousVersion": "0.1.0",
-  "publicReleaseNotes": "Prepare Larder for hosted installation with a digest-bound setup manifest, a generated deployment specification, dispatch-only Managed delivery and optional RER mail alongside direct mail providers. This metadata prepares a later native release. Generated private installation custody and a forward migration keep the existing dependency discovery route available under the refreshed Base modules.",
-  "migrations": [
-    "migrations/core/0015_owner_signin.sql",
-    "migrations/core/0016_audit.sql",
-    "migrations/core/0017_audit_erasure.sql",
-    "migrations/core/0018_audit_erasure_scope.sql",
-    "migrations/core/0019_dependency_keys_sealed.sql"
-  ],
+  "version": "0.1.2",
+  "previousVersion": "0.1.1",
+  "publicReleaseNotes": "Add a release-bound capture of the populated Larder app, the Walnut Workshop demo on its Today screen, and explicit listing, storage and run details. No migrations or runtime changes.",
+  "migrations": [],
   "breaking": false,
-  "agentUpdateInstructions": "Use the committed setup manifest and packaging policy. Retain applied migration bytes. Native release and hosted qualification remain separate steps."
+  "agentUpdateInstructions": "No migrations or runtime configuration changes are required for this patch. Keep the exact rer 0.2.80 pin for native installation, export and restore."
 }
