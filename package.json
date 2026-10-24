@@ -1,6 +1,6 @@
 {
   "name": "@manufacturing/larder",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "type": "module",
   "engines": {
@@ -29,7 +29,9 @@
     "rer": "rer",
     "test:larder": "node --test --test-concurrency=1 tests/api/*.test.mjs",
     "test:browser": "rer queue test:browser -- sh -c \"node tests/browser/run.mjs\"",
-    "verify:foundation": "rer queue verify:foundation -- sh -c \"pnpm run build && pnpm run typecheck && pnpm run test:runtime\""
+    "verify:foundation": "rer queue verify:foundation -- sh -c \"pnpm run build && pnpm run typecheck && pnpm run test:runtime\"",
+    "delivery:spec": "node scripts/build-deployment-spec.mjs",
+    "check:deployment-spec": "node scripts/build-deployment-spec.mjs --check"
   },
   "dependencies": {
     "@tanstack/react-router": "1.170.41",
@@ -42,7 +44,7 @@
     "@cloudflare/vite-plugin": "1.54.5",
     "@cloudflare/workers-types": "5.20260908.1",
     "@playwright/test": "1.63.0",
-    "@runeditrun/rer": "0.2.62",
+    "@runeditrun/rer": "0.2.79",
     "@types/node": "22.18.6",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",

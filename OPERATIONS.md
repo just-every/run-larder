@@ -67,3 +67,23 @@ instructions under `node_modules/@runeditrun/rer/modules/deploy-kit`; account sc
 resource ownership, migrations, receipt and health checks are defined there.
 Local validation does not prove hosted acceptance, provider delivery or remote
 health.
+
+## Hosted installation
+
+The seed-owned policy in ./packaging.json produces the hosted descriptor and
+Managed workflow from the real Worker build. Run `pnpm run build`,
+`pnpm delivery:spec` and `pnpm check:deployment-spec` before packaging with
+`node scripts/delivery/base/cli.mjs package --config packaging.json --output rer-package`.
+The artifact command is `node scripts/delivery/base/cli.mjs artifact --config packaging.json`.
+Generated package and artifact folders are disposable and ignored.
+
+The app surface assigns AUTH_ORIGIN. Managed hosting supplies RER mail, its
+relay URL and a private installation credential. Assisted hosting offers RER,
+Resend, SendGrid and Cloudflare with their required setup fields. Sender and
+provider acceptance must be qualified separately before claiming delivery.
+Local development continues to suppress outbound mail.
+
+For recovery, pause writes and preserve the exact source, private settings and
+applied migration bytes. Export the supported Larder records and attachments,
+restore into empty resources, establish a fresh native owner, then re-export
+and compare every record and attachment before routing traffic.

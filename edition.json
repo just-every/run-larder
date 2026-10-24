@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "id": "just-every/run-larder",
+  "toolchain": {
+    "id": "runeditrun/edition-authoring",
+    "version": "1.1.0"
+  },
+  "parent": null,
+  "components": [
+    {
+      "id": "runeditrun/base",
+      "role": "foundation",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "scripts/delivery/base/setup-manifest.mjs",
+          "SEED-COMMAND-CONTRACT.md",
+          "scripts/delivery/base/capabilities.mjs",
+          "scripts/delivery/base/payloads.mjs",
+          "scripts/delivery/base/sql-statements.mjs",
+          "src/modules/dependencies/README.md",
+          "src/modules/dependencies/store.mjs",
+          "src/modules/import-kit/CONTRACT.md",
+          "src/modules/import-kit/README.md",
+          "src/modules/import-kit/src/d1/README.md",
+          "src/modules/import-kit/src/d1/reversal-journal.ts",
+          "src/modules/import-kit/src/door/ADOPTING.md",
+          "src/modules/import-kit/src/door/refusals.ts",
+          "src/modules/operator-auth/README.md",
+          "src/modules/operator-auth/SCHEDULED-POLICY.md",
+          "src/modules/dependencies/sealing.mjs"
+        ],
+        "origin": {
+          "repository": "https://github.com/runeditrun/base",
+          "revision": "4280971d7c0295b8a88c3e1179048efcbbe14f30",
+          "path": ".",
+          "paths": [
+            "modules/delivery-producer/setup-manifest.mjs",
+            "default-seed/SEED-COMMAND-CONTRACT.md",
+            "modules/delivery-producer/capabilities.mjs",
+            "modules/delivery-producer/payloads.mjs",
+            "modules/delivery-producer/sql-statements.mjs",
+            "modules/dependencies/README.md",
+            "modules/dependencies/store.mjs",
+            "modules/import-kit/CONTRACT.md",
+            "modules/import-kit/README.md",
+            "modules/import-kit/src/d1/README.md",
+            "modules/import-kit/src/d1/reversal-journal.ts",
+            "modules/import-kit/src/door/ADOPTING.md",
+            "modules/import-kit/src/door/refusals.ts",
+            "modules/operator-auth/README.md",
+            "modules/operator-auth/SCHEDULED-POLICY.md",
+            "modules/dependencies/sealing.mjs"
+          ]
+        },
+        "mappings": [
+          {
+            "path": "scripts/delivery/base/setup-manifest.mjs",
+            "originPath": "modules/delivery-producer/setup-manifest.mjs"
+          },
+          {
+            "path": "SEED-COMMAND-CONTRACT.md",
+            "originPath": "default-seed/SEED-COMMAND-CONTRACT.md"
+          },
+          {
+            "path": "scripts/delivery/base/capabilities.mjs",
+            "originPath": "modules/delivery-producer/capabilities.mjs"
+          },
+          {
+            "path": "scripts/delivery/base/payloads.mjs",
+            "originPath": "modules/delivery-producer/payloads.mjs"
+          },
+          {
+            "path": "scripts/delivery/base/sql-statements.mjs",
+            "originPath": "modules/delivery-producer/sql-statements.mjs"
+          },
+          {
+            "path": "src/modules/dependencies/README.md",
+            "originPath": "modules/dependencies/README.md"
+          },
+          {
+            "path": "src/modules/dependencies/store.mjs",
+            "originPath": "modules/dependencies/store.mjs"
+          },
+          {
+            "path": "src/modules/import-kit/CONTRACT.md",
+            "originPath": "modules/import-kit/CONTRACT.md"
+          },
+          {
+            "path": "src/modules/import-kit/README.md",
+            "originPath": "modules/import-kit/README.md"
+          },
+          {
+            "path": "src/modules/import-kit/src/d1/README.md",
+            "originPath": "modules/import-kit/src/d1/README.md"
+          },
+          {
+            "path": "src/modules/import-kit/src/d1/reversal-journal.ts",
+            "originPath": "modules/import-kit/src/d1/reversal-journal.ts"
+          },
+          {
+            "path": "src/modules/import-kit/src/door/ADOPTING.md",
+            "originPath": "modules/import-kit/src/door/ADOPTING.md"
+          },
+          {
+            "path": "src/modules/import-kit/src/door/refusals.ts",
+            "originPath": "modules/import-kit/src/door/refusals.ts"
+          },
+          {
+            "path": "src/modules/operator-auth/README.md",
+            "originPath": "modules/operator-auth/README.md"
+          },
+          {
+            "path": "src/modules/operator-auth/SCHEDULED-POLICY.md",
+            "originPath": "modules/operator-auth/SCHEDULED-POLICY.md"
+          },
+          {
+            "path": "src/modules/dependencies/sealing.mjs",
+            "originPath": "modules/dependencies/sealing.mjs"
+          }
+        ]
+      }
+    },
+    {
+      "id": "just-every/run-larder",
+      "role": "edition",
+      "source": {
+        "kind": "local",
+        "paths": [
+          "src/larder",
+          "packaging.json"
+        ]
+      }
+    }
+  ]
+}

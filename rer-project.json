@@ -3,5 +3,25 @@
   "projectId": "just-every/run-larder",
   "name": "Larder",
   "sourceRepository": "https://github.com/just-every/run-larder",
-  "license": "MIT"
+  "license": "MIT",
+  "deployment": {
+    "target": "cloudflare-workers",
+    "artifactFile": "rer-worker-artifact.json"
+  },
+  "operations": {
+    "setup": "pnpm install --frozen-lockfile && pnpm exec rer install",
+    "build": "pnpm run build",
+    "verify": "pnpm run check:deployment-spec && node scripts/edition-authoring/cli.mjs check && node scripts/edition-authoring/cli.mjs verify-base --offline && pnpm exec rer check --profile first-party && pnpm run verify",
+    "artifact": "node scripts/delivery/base/cli.mjs artifact --config packaging.json",
+    "recovery": "Follow OPERATIONS.md: pause writes, retain the exact source and private settings, export Larder data, restore into empty resources, establish the native owner, re-export and compare records and attachment bytes before routing traffic. Preserve every applied migration name and byte."
+  },
+  "verification": {
+    "migrationDirectories": [
+      "migrations/core"
+    ]
+  },
+  "setup": {
+    "path": "rer-setup.json",
+    "sha256": "2875401fc0f317581fa8747ef9fb7dc8658246e630c81d50c7009ddc3a408105"
+  }
 }

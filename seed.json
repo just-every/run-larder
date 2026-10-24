@@ -1,7 +1,7 @@
 {
   "id": "larder",
   "name": "Larder",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "maturity": "first-release-local",
   "category": "erp",
   "spine": {
@@ -170,5 +170,13 @@
       "operator-auth",
       "owner-claim"
     ]
-  }
+  },
+  "replaces": [
+    "Katana",
+    "MRPeasy",
+    "Fishbowl Manufacturing",
+    "Odoo Manufacturing",
+    "Fulcrum",
+    "DOSS"
+  ]
 }
