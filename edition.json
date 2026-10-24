@@ -28,11 +28,13 @@
           "src/modules/import-kit/src/door/refusals.ts",
           "src/modules/operator-auth/README.md",
           "src/modules/operator-auth/SCHEDULED-POLICY.md",
-          "src/modules/dependencies/sealing.mjs"
+          "src/modules/dependencies/sealing.mjs",
+          "src/modules/operator-auth/docs/vite-spa.md",
+          "src/modules/operator-auth/representation.mjs"
         ],
         "origin": {
           "repository": "https://github.com/runeditrun/base",
-          "revision": "4280971d7c0295b8a88c3e1179048efcbbe14f30",
+          "revision": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
           "path": ".",
           "paths": [
             "modules/delivery-producer/setup-manifest.mjs",
@@ -50,7 +52,9 @@
             "modules/import-kit/src/door/refusals.ts",
             "modules/operator-auth/README.md",
             "modules/operator-auth/SCHEDULED-POLICY.md",
-            "modules/dependencies/sealing.mjs"
+            "modules/dependencies/sealing.mjs",
+            "modules/operator-auth/docs/vite-spa.md",
+            "modules/operator-auth/representation.mjs"
           ]
         },
         "mappings": [
@@ -117,6 +121,14 @@
           {
             "path": "src/modules/dependencies/sealing.mjs",
             "originPath": "modules/dependencies/sealing.mjs"
+          },
+          {
+            "path": "src/modules/operator-auth/docs/vite-spa.md",
+            "originPath": "modules/operator-auth/docs/vite-spa.md"
+          },
+          {
+            "path": "src/modules/operator-auth/representation.mjs",
+            "originPath": "modules/operator-auth/representation.mjs"
           }
         ]
       }
