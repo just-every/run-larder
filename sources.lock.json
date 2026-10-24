@@ -181,7 +181,7 @@
       "executable": false
     },
     "base-copies.json": {
-      "sha256": "d123f67a8857f55f72cccf7afd1d5d8f845a3dfcf2aa59e8ed39c7aff377e6db",
+      "sha256": "b7f6f9937215411017d4c4fb29f59bb672cf73741911b8c430ea69332723602f",
       "executable": false
     },
     "CONTRACT.md": {
@@ -201,7 +201,7 @@
       "executable": false
     },
     "deploy.json": {
-      "sha256": "7527f733e651a1fed9daaaa6d6b72abf49abea8126074370c38ac469c852a9d0",
+      "sha256": "90de922be0ef067db865b92bfa49a7c0c19a12519576b517fb7a380b53c990f6",
       "executable": false
     },
     "docs/backup-and-restore.md": {
@@ -297,7 +297,7 @@
       "executable": false
     },
     "management/integration/deployment-spec.json": {
-      "sha256": "422e81de3a30d573bc9d4357f15aedba59aa8d83cc68c18c851cabaa273bdcf2",
+      "sha256": "f1faabc9289744a0880373bb01d83374e68f0517f4cd58f082ff1c96ffd26618",
       "executable": false
     },
     "migrations/core/0001_owner.sql": {
@@ -376,6 +376,10 @@
       "sha256": "d90b3a5646c3288d306492211d7bb7dcd2499fd312b316f45e4a90f7e7febc58",
       "executable": false
     },
+    "migrations/core/0019_dependency_keys_sealed.sql": {
+      "sha256": "9c8fa5f94c48a230f326cd4d666cbc2bd1e7d5a18327b89e65b339ac6a533d9a",
+      "executable": false
+    },
     "MOVE-IN.md": {
       "sha256": "18faac00b0de95841c252c83f66c7d1484a495f591a1980002d00e9cd504c4b8",
       "executable": false
@@ -389,7 +393,7 @@
       "executable": false
     },
     "OPERATIONS.md": {
-      "sha256": "3a9e0fd6e1562f9b75e6f1e6405c0ce3790899951a183c01cf3027099f382467",
+      "sha256": "7b0901dec8662a5ec0a0915fd15bad9a6bbb25d92a44102576aa982f4b2777bc",
       "executable": false
     },
     "package.json": {
@@ -397,7 +401,7 @@
       "executable": false
     },
     "packaging.json": {
-      "sha256": "185b0c28425767dba7d3371f5d0366fdef3e18281f93c808680fdaccfe8fc4fe",
+      "sha256": "6af5293ead79832c3521a774cc17ea22c5965422b531a670aa6bceb1aec90331",
       "executable": false
     },
     "pnpm-lock.yaml": {
@@ -629,15 +633,15 @@
       "executable": false
     },
     "RELEASE.json": {
-      "sha256": "c29b16a196f217d52d0a2e4dcbd304a40df5aad6576f5f31a2330d876ff80ac0",
+      "sha256": "fcb9a9a9e6cf145ba373404fef36cfa6f3d0165e04fcc4cfbacda24d6d139d61",
       "executable": false
     },
     "rer-project.json": {
-      "sha256": "87eae5319ce4b741caebbbf9f31119b2c9f0b7318c89e63ea4e09619cbc3431b",
+      "sha256": "f0c22421f40eb81741378ef2642c050f203027c28f8698f4903ff8c6e368a01a",
       "executable": false
     },
     "rer-setup.json": {
-      "sha256": "2875401fc0f317581fa8747ef9fb7dc8658246e630c81d50c7009ddc3a408105",
+      "sha256": "1e135ef7140a8437aac1c4b903bc28eab20a1e854a377abf160caa9f78b5110c",
       "executable": false
     },
     "RUN-LOCALLY.md": {
@@ -705,7 +709,7 @@
       "executable": false
     },
     "scripts/delivery/base/packaging.json": {
-      "sha256": "185b0c28425767dba7d3371f5d0366fdef3e18281f93c808680fdaccfe8fc4fe",
+      "sha256": "6af5293ead79832c3521a774cc17ea22c5965422b531a670aa6bceb1aec90331",
       "executable": false
     },
     "scripts/delivery/base/paths.mjs": {
@@ -797,7 +801,7 @@
       "executable": false
     },
     "scripts/installer/portability-policy.mjs": {
-      "sha256": "52cf2c3266af86631ee8126ed4d7731170e55a960f195cb966bd606d965bdf92",
+      "sha256": "11784e174c1c758d79b4740207fd0fda27c3f5b2ec43008cbadfe41bc24540a0",
       "executable": false
     },
     "scripts/installer/seed.mjs": {
@@ -833,7 +837,7 @@
       "executable": false
     },
     "src/auth.server.ts": {
-      "sha256": "1390dd3df2ba6ef395ac584bf6e89db9c60a587e7bcc7211a2fa089d953d2c28",
+      "sha256": "88451b3fcc312ea701367441c047f2b91384baced3c0b861f37bb8628caec73a",
       "executable": false
     },
     "src/base/actor.ts": {

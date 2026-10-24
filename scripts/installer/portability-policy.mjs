@@ -7,5 +7,5 @@ export const portabilityPolicy = {
  excludeTables: ['rer_dependency_keys','rer_dependency_pending','rer_dependency_codes'],
  replaceableTables: ['larder_meta'],
  product: 'runeditrun/foundation',
- requiredConfiguration: ['OWNER_EMAIL', 'SESSION_SECRET', 'SETUP_TOKEN', 'AUTH_ORIGIN', 'MAIL_PROVIDER', 'MAIL_FROM'],
+ requiredConfiguration: ['OWNER_EMAIL', 'SESSION_SECRET', 'INSTALLATION_KEY', 'SETUP_TOKEN', 'AUTH_ORIGIN', 'MAIL_PROVIDER', 'MAIL_FROM'],
 };

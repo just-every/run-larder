@@ -44,11 +44,13 @@
         "OWNER_EMAIL"
       ],
       "secretNames": [
-        "SESSION_SECRET"
+        "SESSION_SECRET",
+        "INSTALLATION_KEY"
       ],
       "optionalSecretNames": [
         "SETUP_TOKEN",
-        "MAIL_API_KEY"
+        "MAIL_API_KEY",
+        "INSTALLATION_KEY_PREVIOUS"
       ],
       "healthPath": "/health",
       "recovery": "Follow OPERATIONS.md: pause writes, retain the exact source and private settings, export Larder data, restore into empty resources, establish the native owner, re-export and compare records and attachment bytes before routing traffic. Preserve every applied migration name and byte.",

@@ -1,12 +1,13 @@
 {
   "version": "0.1.1",
   "previousVersion": "0.1.0",
-  "publicReleaseNotes": "Prepare Larder for hosted installation with a digest-bound setup manifest, a generated deployment specification, dispatch-only Managed delivery and optional RER mail alongside direct mail providers. This metadata prepares a later native release.",
+  "publicReleaseNotes": "Prepare Larder for hosted installation with a digest-bound setup manifest, a generated deployment specification, dispatch-only Managed delivery and optional RER mail alongside direct mail providers. This metadata prepares a later native release. Generated private installation custody and a forward migration keep the existing dependency discovery route available under the refreshed Base modules.",
   "migrations": [
     "migrations/core/0015_owner_signin.sql",
     "migrations/core/0016_audit.sql",
     "migrations/core/0017_audit_erasure.sql",
-    "migrations/core/0018_audit_erasure_scope.sql"
+    "migrations/core/0018_audit_erasure_scope.sql",
+    "migrations/core/0019_dependency_keys_sealed.sql"
   ],
   "breaking": false,
   "agentUpdateInstructions": "Use the committed setup manifest and packaging policy. Retain applied migration bytes. Native release and hosted qualification remain separate steps."

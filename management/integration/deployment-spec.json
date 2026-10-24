@@ -120,6 +120,12 @@
       "name": "0018_audit_erasure_scope.sql",
       "sha256": "d90b3a5646c3288d306492211d7bb7dcd2499fd312b316f45e4a90f7e7febc58",
       "sql": "-- GOV-013 (ct, 22 October 2026): the erasure request is retained with its scope; the audit is the only scope today.\nALTER TABLE larder_audit_erasures ADD COLUMN scope TEXT NOT NULL DEFAULT 'audit' CHECK(scope IN ('audit'));\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0019_dependency_keys_sealed.sql",
+      "sha256": "9c8fa5f94c48a230f326cd4d666cbc2bd1e7d5a18327b89e65b339ac6a533d9a",
+      "sql": "ALTER TABLE rer_dependency_installation ADD COLUMN keys_sealed INTEGER NOT NULL DEFAULT 0 CHECK(keys_sealed IN (0,1));\n-- Nonsecret version history lets restored rows name an unavailable retired key\n-- without confusing ciphertext tampering or a wrong current secret with restore.\nALTER TABLE rer_dependency_installation ADD COLUMN key_ids TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(key_ids) AND json_type(key_ids)='array');\n"
     }
   ],
   "compatibilityDate": "2026-09-08",
@@ -139,11 +145,13 @@
     "OWNER_EMAIL": ""
   },
   "secretNames": [
-    "SESSION_SECRET"
+    "SESSION_SECRET",
+    "INSTALLATION_KEY"
   ],
   "optionalSecretNames": [
     "SETUP_TOKEN",
-    "MAIL_API_KEY"
+    "MAIL_API_KEY",
+    "INSTALLATION_KEY_PREVIOUS"
   ],
   "schedules": [],
   "queueConsumers": [],

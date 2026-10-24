@@ -87,3 +87,9 @@ For recovery, pause writes and preserve the exact source, private settings and
 applied migration bytes. Export the supported Larder records and attachments,
 restore into empty resources, establish a fresh native owner, then re-export
 and compare every record and attachment before routing traffic.
+
+The generated private INSTALLATION_KEY seals dependency signing keys. Keep its
+private custody with installation recovery settings. Migration
+./migrations/core/0019_dependency_keys_sealed.sql upgrades existing dependency
+records without changing earlier SQL. Rotate custody through the supported
+deploy command and retain the old key until re-sealing is confirmed.
