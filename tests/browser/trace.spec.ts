@@ -3,7 +3,7 @@ import { readFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
-import { freshCopy, freePort, command as runtimeCommand, startDev, stopDev } from './runtime.mjs'
+import { freshCopy, freePort, setupLocal, startDev, stopDev } from './runtime.mjs'
 const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787', today = new Date().toISOString().slice(0, 10)
 const evidence = { name: 'count.txt', contentType: 'text/plain', base64: Buffer.from('Counted original inputs for trace').toString('base64') }
 async function command(page: Page, type: string, payload: object) { const r = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type, payload } }); const b = await r.json(); expect(b.ok, JSON.stringify(b.error)).toBe(true); return b.result }
@@ -15,7 +15,7 @@ test('TRACE-001 legacy disclosure, evidenced allocation and exact continuation a
   let runtime
   try {
   await freshCopy(resolve(fileURLToPath(new URL('../..', import.meta.url))), root)
-  const port = await freePort(); await runtimeCommand(join(root, 'node_modules/.bin/rer'), ['setup', '--owner-email', 'owner@example.test', '--non-interactive', '--port', String(port)], root)
+  const port = await freePort(); await setupLocal(root, port)
   runtime = await startDev(root, port); const legacyOrigin = runtime.origin
   await page.goto(runtime.entry); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }

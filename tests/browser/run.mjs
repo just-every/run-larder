@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, rm, readdir, readFile } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
-import { freshCopy, freePort, command, startDev, stopDev, redact } from './runtime.mjs'
+import { freshCopy, freePort, command, setupLocal, startDev, stopDev, redact } from './runtime.mjs'
 
 const workspace = resolve(fileURLToPath(new URL('../..', import.meta.url)))
 const evidence = resolve(process.env.LARDER_BROWSER_OUTPUT || join(tmpdir(), 'larder-browser-evidence'))
@@ -17,7 +17,7 @@ try {
   await freshCopy(workspace, root)
   prepared = true
   const port = await freePort()
-  await command(join(root, 'node_modules/.bin/rer'), ['setup', '--owner-email', 'owner@example.test', '--non-interactive', '--port', String(port)], root)
+  await setupLocal(root, port)
   runtime = await startDev(root, port)
   const output = await command(join(workspace, 'node_modules/.bin/playwright'), ['test', '--config', join(workspace, 'tests/browser/playwright.config.ts'), '--workers=1', ...process.argv.slice(2)], workspace, { LARDER_BASE_URL: runtime.origin, LARDER_SITE_URL: runtime.site, LARDER_OPEN: runtime.entry, LARDER_SCREENSHOTS: screenshots, LARDER_BROWSER_OUTPUT: evidence })
   console.log(redact(output))

@@ -3957,11 +3957,11 @@
       "executable": false
     },
     "tests/browser/run.mjs": {
-      "sha256": "faa79da04c69c882d5e948d5f28496c8bc89570c755ce85c4b55a635f5089029",
+      "sha256": "4efb605b540aa6f401f8b3abe00732ff795b22d984c01990c3a5469c6025a84d",
       "executable": false
     },
     "tests/browser/runtime.mjs": {
-      "sha256": "35a4c951e3bf0a9efcb9a28111d1fbd19d83b5c4707d401ded9b52d0af878422",
+      "sha256": "71064ecef5d4daf4a10809b17a9c4b82961483de667f63edfbee25c0a6aa056f",
       "executable": false
     },
     "tests/browser/scopes.spec.ts": {
@@ -3973,7 +3973,7 @@
       "executable": false
     },
     "tests/browser/trace.spec.ts": {
-      "sha256": "879a2123c6e039f91805bdd5ea1cde63381872f57617c1944e5798ac07155c03",
+      "sha256": "5f277289b2e6eef4d64a7a94c7efb4c930286fe2ee774781f84bd24396781d6a",
       "executable": false
     },
     "tests/browser/wip.spec.ts": {

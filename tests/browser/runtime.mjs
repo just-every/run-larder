@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { cp, mkdir } from 'node:fs/promises'
+import { cp, mkdir, rm, writeFile } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
 import { dirname, join } from 'node:path'
 import { createServer } from 'node:net'
@@ -51,6 +51,14 @@ export async function command(executable, args, cwd, env) {
   const code = await task.done
   if (code !== 0) throw new Error(redact(task.output()).slice(-6000) || `Owned command exited ${code}.`)
   return task.output()
+}
+
+export async function setupLocal(root, port) {
+  const answers = 'browser-setup-answers.json'
+  await writeFile(join(root, answers), JSON.stringify({ MAIL_PROVIDER: 'development' }), { mode: 0o600 })
+  try {
+    await command(join(root, 'node_modules/.bin/rer'), ['setup', '--answers', answers, '--owner-email', 'owner@example.test', '--non-interactive', '--port', String(port)], root)
+  } finally { await rm(join(root, answers), { force: true }) }
 }
 
 export async function startDev(root, port) {
