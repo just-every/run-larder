@@ -7,7 +7,7 @@ import { Card, Choose, Field, Area, Form, Table, Details, options, text, fileBas
 export function CoProducts({ larder, w }: { larder: Larder; w: Rec }) {
   const s = larder.state!, [count, setCount] = useState(w.coProductPlan?.outputs.length ?? 3), owner = s.actor.role === 'owner'
   const prepare = can(s, ['manager', 'accounts']) && !(s.actor as any).scope?.costs
-  if (!prepare && !w.coProductPlan) return null
+  if (!w.coProductPlan && (w.status !== 'draft' || !prepare)) return null
   const plan = w.coProductPlan, reviews = w.coProductReviews ?? [], latest = reviews.at(-1)
   return <Card title="Co-products and by-products">
     <p>Each output keeps its own lot, destination and exact component consumption. The owner approves the allocation for this batch. Posting places every output in quarantine.</p>
