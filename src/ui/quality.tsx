@@ -63,9 +63,9 @@ export function WorkQuality({ larder, w }: { larder: Larder; w: Rec }) {
   </Card>
 }
 
-export function InspectForm({ larder, plan, workOrderId, reworkOrderId, nonconformanceId, lots }: { larder: Larder; plan: Rec; workOrderId?: string; reworkOrderId?: string; nonconformanceId?: string; lots?: Rec[] }) {
+export function InspectForm({ larder, plan, workOrderId, reworkOrderId, nonconformanceId, lots, lotId }: { larder: Larder; plan: Rec; workOrderId?: string; reworkOrderId?: string; nonconformanceId?: string; lots?: Rec[]; lotId?: string }) {
   return <Form title={`Record ${plan.name}`} submit="Record inspection" busy={larder.busy} note={`${stageLabel(plan)} · ${plan.sampleSize} samples per measurement. Separate samples with spaces, commas or new lines.`} onSubmit={async d => larder.run('quality.inspect', {
-    planId: plan.id, planVersion: plan.version, workOrderId, reworkOrderId, nonconformanceId, quantity: nonconformanceId ? text(d, 'quantity') : undefined, lotId: text(d, 'lotId') || undefined, note: text(d, 'note'), evidence: await upload(d, 'evidence'),
+    planId: plan.id, planVersion: plan.version, workOrderId, reworkOrderId, nonconformanceId, quantity: nonconformanceId ? text(d, 'quantity') : undefined, lotId: lotId ?? (text(d, 'lotId') || undefined), note: text(d, 'note'), evidence: await upload(d, 'evidence'),
     samples: Object.fromEntries(plan.measurements.map((m: Rec, i: number) => [m.name, text(d, `samples.${i}`).split(/[\s,]+/).filter(Boolean)])),
   })}>
     {nonconformanceId && <Field label="Inspected case quantity" name="quantity" inputMode="decimal" />}

@@ -67,9 +67,9 @@ export function traceGraph(s: State) {
     if (o.allocations) {
       link(`batch:job:${o.id}`, doc('workOrders', w.id), batch, { ...data, basis: 'production job reference' })
       for (const [j, a] of o.allocations.entries()) link(`batch:input:${o.id}:${j}`, lot(a.lotId, a.movementId, a.itemId), batch, { ...data, ...measure(a.itemId, a.quantity), movementId: a.movementId, lotId: a.lotId, kind: 'component consumed' })
-      if (o.movementId) link(`batch:output:${o.id}`, batch, lot(o.lotId, o.movementId, w.itemId), { ...data, ...measure(w.itemId, o.good), movementId: o.movementId, lotId: o.lotId, kind: 'output' })
+      if (o.movementId) link(`batch:output:${o.id}`, batch, lot(o.lotId, o.movementId, o.itemId ?? w.itemId), { ...data, ...measure(o.itemId ?? w.itemId, o.good), movementId: o.movementId, lotId: o.lotId, kind: 'output' })
     }
-    events.push({ recordType: 'event', id: `production:${w.id}:${i}`, from: batch, ...data, ...measure(w.itemId, o.good), scrap: o.scrap, kind: 'production report' })
+    events.push({ recordType: 'event', id: `production:${w.id}:${i}`, from: batch, ...data, ...measure(o.itemId ?? w.itemId, o.good), scrap: o.scrap, kind: 'production report' })
   }
   for (const o of s.subcontractOrders) for (const r of o.receipts) {
     const id = node(`subcontractReceipt:${r.id}`, 'subcontract receipt', `${o.reference} · ${s.lots.find(l => l.id === r.lotId)?.code ?? 'scrap'}`)

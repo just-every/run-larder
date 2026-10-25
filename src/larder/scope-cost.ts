@@ -16,7 +16,7 @@ export const isCostKey = (key: string) => { const t = tokens(key); return t.some
 const filled = (v: unknown) => v !== undefined && v !== null && v !== '' && v !== false
 
 // Every door that needs or shows a cost field to its caller: refused to a restricted member.
-export const costDoors = /^(nest\.|so\.(quote|confirm|changePreview|cancelLine)|po\.(draft|approve|revise|confirm|amend|selectQuote|tolerance)|handoff\.|costing\.|reports\.|capacity\.rate|rework\.|subcontract\.(approve|bill|draft)|supplier\.terms|cutover\.|import\.|history\.|proposal\.(prepare|approve)|opening\.record)/
+export const costDoors = /^(batch\.|nest\.|so\.(quote|confirm|changePreview|cancelLine)|po\.(draft|approve|revise|confirm|amend|selectQuote|tolerance)|handoff\.|costing\.|reports\.|capacity\.rate|rework\.|subcontract\.(approve|bill|draft)|supplier\.terms|cutover\.|import\.|history\.|proposal\.(prepare|approve)|opening\.record)/
 
 // Everything under a cost-named key is restricted (its identifiers stay, so the record keeps its shape).
 const identity = (key: string) => key === 'id' || key === 'version' || /Ids?$/.test(key)

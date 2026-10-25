@@ -117,6 +117,7 @@ export function production(c: Context, type: string, p: any): Row | undefined {
     case 'wo.output': {
       allow(c, ['manager', 'production'])
       const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
+      if (w.coProductPlan) fail('STATE', 'Use the explicit batch allocation review for planned multiple outputs.')
       if (w.status !== 'released') fail('STATE', 'Record output only on released work.')
       const recall = workRecalls(c.s, w)[0]
       if (recall) fail('RECALL_HOLD', recallReason(recall))
@@ -150,6 +151,7 @@ export function production(c: Context, type: string, p: any): Row | undefined {
     case 'wo.close': {
       allow(c, ['manager', 'production'])
       const w = get(c.s, 'workOrders', p.workOrderId, 'work order'); fresh(w, p.version)
+      if (w.coProductPlan) fail('STATE', 'Post the exact multi-output allocation to close this batch.')
       if (w.status !== 'released') fail('STATE', 'Only released work can be closed.')
       if (w.operationStates?.some((t: any) => t.backorders?.some((b: any) => b.status === 'open'))) fail('BACKORDER', 'Resume the open manufacturing backorders before closing this work.')
       if (w.routing.some((r: any) => r.instructions || r.drawings?.length || r.requiredSkills?.length || r.requireMaterials || r.transferBatch && r.transferBatch !== '0') && w.routing.some((r: any) => !w.operationStates?.some((t: any) => t.sequence === r.sequence && t.status === 'done'))) fail('OPERATIONS', 'Complete the pinned operations before closing work.')

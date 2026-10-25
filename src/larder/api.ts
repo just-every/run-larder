@@ -1,3 +1,4 @@
+import { coProducts } from './co-products'
 import { performanceReport, reportScheduling } from './costing/performance'
 import { costing, costingReaders } from './costing/commands'
 import { marginReport, varianceReport, reportCsv } from './costing/margins'
@@ -97,7 +98,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version, scope: effectiveScope(member, custom) }
 }
 
-const handlers = [salesAllocation, nesting, reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, serials, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [coProducts, salesAllocation, nesting, reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, serials, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results

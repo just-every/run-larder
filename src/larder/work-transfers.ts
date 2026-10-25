@@ -12,6 +12,7 @@ const completed = (w: Row) => decimal(w.output) + decimal(w.scrap)
 const remaining = (w: Row) => decimal(w.quantity) - completed(w)
 const fraction = (n: bigint, part: bigint, whole: bigint) => whole > 0n ? n * part / whole : 0n
 function eligible(c: Context, w: Row, merge = false) {
+  if (w.coProductPlan) fail('STATE', 'A planned multi-output batch cannot be split or merged.')
   if (!['draft', 'released'].includes(w.status) || remaining(w) <= 0n) fail('STATE', 'Choose draft or released work with an untransferred remaining quantity.')
   if (w.operationStates?.some((t: any) => t.reports?.length || t.holds?.some((h: any) => h.status === 'open') || t.backorders?.some((b: any) => b.status === 'open'))) fail('WIP_LEDGER', 'Resolve reported quantities, operation holds and backorders (FLOOR-003) before transferring remaining work; the ledger is never reallocated by guess.')
   if (w.operationStates?.some((t: any) => ['running', 'paused'].includes(t.status))) fail('ACTIVE_CLOCK', 'Complete active operations before transferring remaining work; their clocks stay on the original job.')

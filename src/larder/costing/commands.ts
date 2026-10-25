@@ -130,8 +130,9 @@ export function costing(c: Context, type: string, p: any): Row | undefined {
     })
   }
   if (type === 'costing.valuation.prepare') {
-    const w = get(c.s, 'workOrders', p.workOrderId),
-      report = jobCosts(c.s, w)
+    const w = get(c.s, 'workOrders', p.workOrderId)
+    if (w.coProductPlan) fail('STATE', 'Use the explicit batch output allocation; equal-unit valuation would replace it.')
+    const report = jobCosts(c.s, w)
     if (w.status !== 'closed' || report.actualUnitCost === null)
       fail('COST_INCOMPLETE', 'Close the job and resolve missing cost evidence before reviewing valuation.')
     const output = c.s.movements.filter(

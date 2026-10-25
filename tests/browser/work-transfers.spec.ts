@@ -141,3 +141,79 @@ test('CAP-008 grouped nesting preserves three customer jobs and their allocated 
     expect(after.positions.find((p: any) => p.lotId === after.workGroups.find((g: any) => g.id === group.id).offcutLotId).quantity).toBe('2')
   }
 })
+
+test('FLOOR-006 plan, review and approve two co-products and a reusable by-product at both widths', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('Private entry required')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  await settled(page)
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const tag = `${width}-${crypto.randomUUID().slice(0, 6)}`, state = async () => (await (await page.request.get(origin + '/api/larder/state')).json())
+    const screenshot = async (name: string) => { if (process.env.LARDER_SCREENSHOTS) { await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true }); await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-FLOOR-006-${name}.png`), fullPage: true }); await card(page, 'Co-products and by-products').screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-FLOOR-006-${name}-detail.png`) }) } }
+    const loc = await command(page, 'location.save', { name: `Batch store ${tag}` }), items: any[] = []
+    for (let i = 0; i < 4; i++) items.push(await command(page, 'item.save', { sku: `synthetic-larder-${i}-${tag}`, name: `Batch output ${i} ${tag}`, kind: i === 1 || i === 2 ? 'make' : 'buy', baseUnit: 'kg' }))
+    const policy = await command(page, 'costing.policy.prepare', { standardLaborRate: '0', machineRate: '0', overheadRate: '0', overtimeAfterHours: '8', overtimeMultiplier: '1', reason: 'Material only' })
+    await command(page, 'costing.policy.approve', { policyId: policy.id, version: policy.version, reason: 'Owner approves zero time tariffs' })
+    await command(page, 'opening.record', { locationId: loc.id, countedOn: '2026-10-25', valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: { name: 'count.txt', contentType: ['text', 'plain'].join('/'), base64: Buffer.from('Measured batch inputs').toString('base64') }, lines: [{ itemId: items[0].id, quantity: '3', unitCost: '10', lot: `synthetic-larder-input-${tag}` }] })
+    await command(page, 'bom.revise', { itemId: items[1].id, components: [{ itemId: items[0].id, quantity: '3' }], routing: [] })
+    let work = await command(page, 'wo.draft', { itemId: items[1].id, quantity: '1', requiredBy: '2026-10-25', reason: 'One measured batch' })
+    await open(page, work.id)
+    const batch = card(page, 'Co-products and by-products')
+    for (let i = 0; i < 3; i++) {
+      await batch.getByLabel(`Output ${i + 1} item`, { exact: true }).selectOption(items[i + 1].id)
+      await batch.getByLabel(`Output ${i + 1} planned quantity`, { exact: true }).fill(i === 1 ? '2' : '1')
+      await batch.getByLabel(`Output ${i + 1} lot`, { exact: true }).fill(`synthetic-larder-output-${i}-${tag}`)
+      await batch.getByLabel(`Output ${i + 1} destination`, { exact: true }).selectOption(loc.id)
+    }
+    await batch.getByLabel('Output plan reason', { exact: true }).fill('Two co-products and reusable by-product')
+    await screenshot('planned')
+    await batch.getByRole('button', { name: 'Save output plan', exact: true }).click(); await settled(page)
+    work = (await state()).workOrders.find((w: any) => w.id === work.id)
+    expect(work.coProductPlan.outputs.map((o: any) => o.kind)).toEqual(['co-product', 'co-product', 'by-product'])
+    work = await command(page, 'wo.release', { workOrderId: work.id, version: work.version })
+    work = await command(page, 'wo.issue', { workOrderId: work.id, lines: [{ itemId: items[0].id, locationId: loc.id, quantity: '3' }] })
+    const before = await state()
+    await open(page, work.id)
+    for (let i = 0; i < 3; i++) {
+      await batch.getByLabel(`Output ${i + 1} allocated USD value`, { exact: true }).fill(['10', '15', '5'][i])
+      await batch.getByLabel(`Output ${i + 1} input synthetic-larder-input-${tag}`, { exact: true }).fill(['1', '1.5', '0.5'][i])
+    }
+    await batch.getByLabel('Batch allocation policy', { exact: true }).fill('Fixed batch values USD 10, 15 and 5, explicitly approved by owner')
+    await batch.getByLabel('Allocation review reason', { exact: true }).fill('Measured actual consumption')
+    await batch.getByRole('button', { name: 'Review batch allocation', exact: true }).click(); await expect(batch.getByRole('heading', { name: 'Exact batch review', exact: true })).toBeVisible(); await settled(page)
+    expect((await state()).movements).toEqual(before.movements)
+    await expect(batch).toContainText('Actual cost USD 30')
+    await batch.getByRole('button', { name: 'Exact input lots and cost sources', exact: true }).click()
+    await expect(batch).toContainText('synthetic-larder-input')
+    const account = page.getByLabel('Account menu', { exact: true }); await account.focus(); await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
+    await screenshot('review')
+    await batch.getByLabel('Batch approval reason', { exact: true }).fill('Approve exact per-output values and physical posting')
+    await batch.getByRole('button', { name: 'Approve and post exact batch', exact: true }).click(); await expect(batch).toContainText('posted'); await settled(page)
+    work = (await state()).workOrders.find((w: any) => w.id === work.id)
+    expect(work.outputs).toHaveLength(3); expect(work.status).toBe('closed')
+    for (const output of work.outputs) {
+      const trace = await (await page.request.get(origin + `/api/larder/lots/${output.lotId}/trace`)).json()
+      expect(trace.rows.some((r: any) => r.kind === 'output' && r.itemId === output.itemId)).toBe(true)
+      expect(trace.rows.some((r: any) => r.kind === 'component consumed' && r.quantity === output.allocations[0].quantity)).toBe(true)
+    }
+    await screenshot('quarantined')
+    const lot = `synthetic-larder-output-2-${tag}`
+    let inspection = await command(page, 'quality.plan.save', { itemId: items[3].id, stage: 'receipt', name: `Reuse purity ${tag}`, sampleSize: 1, measurements: [{ name: 'Purity', unit: '%', target: '100', lower: '99', upper: '100' }] })
+    await command(page, 'quality.plan.approve', { planId: inspection.id, version: inspection.version })
+    await open(page, work.id)
+    const outputSection = batch.getByRole('region', { name: `Batch lot ${lot}`, exact: true })
+    await outputSection.getByLabel('Purity samples (%)', { exact: true }).fill('100')
+    await outputSection.getByRole('button', { name: 'Record inspection', exact: true }).click(); await settled(page)
+    await expect(outputSection).toContainText('Passed')
+    await screenshot('inspected')
+    await batch.getByLabel(`Release reason for ${lot}`, { exact: true }).fill('Measured reusable by-product cleared')
+    await batch.getByLabel(`Release evidence for ${lot}`, { exact: true }).setInputFiles({ name: 'release.txt', mimeType: ['text', 'plain'].join('/'), buffer: Buffer.from('Output is reusable and free from contamination') })
+    await batch.getByRole('button', { name: `Release ${lot}`, exact: true }).click(); await expect(batch.getByRole('heading', { name: `${lot} · released`, exact: true })).toBeVisible(); await settled(page)
+    const after = await state(), valuation = after.costValuations.find((v: any) => v.workOrderId === work.id && v.batchAllocation)
+    expect(valuation.lines.map((l: any) => l.targetValue)).toEqual(['10', '15', '5'])
+    expect(after.positions.find((p: any) => p.lotId === work.outputs[2].lotId && p.status === 'available').quantity).toBe('1')
+    await screenshot('reusable')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+})

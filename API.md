@@ -734,3 +734,31 @@ and handoffs before any write or new USD export label. Original source-history
 currencies and supplier-quote currencies remain independent and unchanged.
 This refusal does not implement legacy AUD migration or complete per-amount
 currency declarations.
+
+## Explicit multi-output batches (FLOOR-006)
+
+`batch.plan` takes `{workOrderId, version, reason, outputs}` on a draft work order.
+Each output names `itemId`, `kind` (co-product, by-product or recoverable-scrap),
+`quantity`, a new `lot` code and `locationId`. The primary item quantity equals
+the work order quantity. Plan before release; a planned batch cannot split or merge.
+
+After all component issues and operations, `batch.review` takes the current work
+version, `policy`, `reason` and every output with actual `quantity`, allocated
+USD `value` and exact `allocations: [{movementId, quantity}]`. The review changes
+no stock. Every issued component is consumed exactly once across those outputs.
+Total values equal the actual job cost and each unit cost must be exact to six
+places. Missing cost evidence refuses review. The work-order page supplies these
+controls in the existing Co-products and by-products card.
+
+`batch.post` takes `{workOrderId, version, reviewId, reason}`. Only the owner
+approves that exact allocation policy and explicitly posts output and closes
+the batch atomically; changed business evidence requires a fresh review. Every
+output starts in quarantine. `batch.release` takes the work version, `lotId`,
+reason and evidence files; only the owner releases an exact output after current
+quality, certificate, date and hold checks. A required inspection records against
+the exact output with `quality.inspect` and `lotId`; each output section offers
+the existing measurement, result-history and independent hold-release controls. Generic quarantine release cannot
+bypass batch release. Managers and accounts prepare inert plans and reviews,
+agents cannot use batch commands. Location and cost restrictions apply to replay
+and new requests. JSON and CSV archives retain all records; restore posts nothing.
+The owner-only batch allocation default awaits ct approval; FLOOR-006 is partial.

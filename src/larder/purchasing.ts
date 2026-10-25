@@ -138,6 +138,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       return receipt
     }
     case 'quarantine.decide': {
+      if (p.decision === 'release' && c.s.lots.some(l => l.id === p.lotId && l.coProduct)) fail('BATCH_RELEASE', 'Use the batch output release with current inspection evidence.')
       if (c.s.subcontractOrders.some(o => o.vendorLocationId === p.locationId && o.issued.some((i: any) => i.lotId === p.lotId))) fail('SUBCONTRACT_CUSTODY', 'Use the service order to receive work or return unused material.')
       if (p.decision === 'release' && c.s.lots.some(l => l.id === p.lotId && l.source === 'subcontract')) {
         for (const plan of plansFor(c.s, 'receipt', p.itemId, null).filter(p => p.required)) if (!c.s.inspections.filter(i => i.planId === plan.id && i.subjectId === p.lotId).at(-1)?.passed) fail('RETEST', 'Record a passing subcontract receipt inspection first.')

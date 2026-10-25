@@ -116,6 +116,10 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
       } else if (p.reworkOrderId) {
         subjectKind = 'reworkOrders'; subject = get(c.s, 'reworkOrders', p.reworkOrderId, 'repair/unbuild order')
         if (subject.status !== 'quarantine' || !subject.outputLots.some((x: any) => x.itemId === plan.itemId) || (plan.revision !== null && plan.revision !== subject.bomRevision)) fail('INPUT', 'Inspect executed repair/recovery output against its pinned revision.')
+      } else if (p.lotId && c.s.lots.some(l => l.id === p.lotId && l.coProduct)) {
+        subjectKind = 'lots'; subject = get(c.s, 'lots', p.lotId, 'batch output lot')
+        const job = get(c.s, 'workOrders', subject.documentId)
+        if (subject.itemId !== plan.itemId || (plan.revision !== null && (subject.itemId !== job.itemId || plan.revision !== job.bomRevision))) fail('INPUT', 'Use a current inspection plan for this exact batch output.')
       } else if (plan.stage === 'receipt') {
         subjectKind = 'lots'; subject = get(c.s, 'lots', p.lotId, 'lot')
         if (subject.itemId !== plan.itemId || !['receipt', 'subcontract'].includes(subject.source)) fail('INPUT', 'Inspect a received lot of the plan’s item.')

@@ -130,3 +130,108 @@ test('TRACE-001 / FLOOR-005 split partly completed work between centers and merg
   assert.deepEqual((await restored.state()).workTransfers, s.workTransfers)
   assert.deepEqual((await restored.invariant()).positions, s.positions)
 })
+
+async function multiOutputBatch(h) {
+  const loc = await h.command('location.save', { name: 'synthetic-larder-batch-store' })
+  const items = []
+  for (const [i, kind] of ['buy', 'make', 'make', 'buy'].entries()) items.push(await h.command('item.save', { sku: `synthetic-larder-${i}`, name: `Batch item ${i}`, kind, baseUnit: 'kg' }))
+  const policy = await h.command('costing.policy.prepare', { standardLaborRate: '0', machineRate: '0', overheadRate: '0', overtimeAfterHours: '8', overtimeMultiplier: '1', reason: 'Material-only batch' })
+  await h.command('costing.policy.approve', { policyId: policy.id, version: policy.version, reason: 'Approved zero time tariffs' })
+  await h.command('opening.record', { locationId: loc.id, countedOn: '2026-10-25', valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: items[0].id, quantity: '3', unitCost: '10', lot: 'synthetic-larder-input' }] })
+  await h.command('bom.revise', { itemId: items[1].id, components: [{ itemId: items[0].id, quantity: '3' }], routing: [] })
+  let work = await h.command('wo.draft', { itemId: items[1].id, quantity: '1', requiredBy: '2026-10-25', reason: 'One physical batch' })
+  work = await h.command('batch.plan', { workOrderId: work.id, version: work.version, reason: 'Two co-products and reusable by-product', outputs: items.slice(1).map((item, i) => ({ itemId: item.id, locationId: loc.id, quantity: i === 1 ? '2' : '1', lot: `synthetic-larder-output-${i}`, kind: i === 2 ? 'by-product' : 'co-product' })) })
+  work = await h.command('wo.release', { workOrderId: work.id, version: work.version })
+  work = await h.command('wo.issue', { workOrderId: work.id, lines: [{ itemId: items[0].id, locationId: loc.id, quantity: '3' }] })
+  const issue = (await h.state()).movements.find(m => m.documentId === work.id && m.kind === 'issue')
+  const review = { workOrderId: work.id, version: work.version, reason: 'Exact measured batch allocation', policy: 'Owner approves fixed output values 10, 15 and 5 USD for this batch', outputs: items.slice(1).map((item, i) => ({ itemId: item.id, quantity: i === 1 ? '2' : '1', value: ['10', '15', '5'][i], allocations: [{ movementId: issue.id, quantity: ['1', '1.5', '0.5'][i] }] })) }
+  return { work, review, loc, items }
+}
+
+test('FLOOR-006 exact multiple-output batch values, lot consumption, quality release and reusable by-product survive archive restore', async t => {
+  const h = await installation({ now: '2026-10-25T12:00:00.000Z' }); t.after(() => h.close())
+  let { work, review, loc, items } = await multiOutputBatch(h)
+  const service = await h.command('costing.charge.prepare', { workOrderId: work.id, amount: '0.000003', reference: 'synthetic-larder-service', evidence: evidence(), reason: 'Exact six-place service cost' })
+  await h.command('costing.charge.approve', { chargeId: service.id, version: service.version, reason: 'Owner approves the exact additional cost' })
+  review.outputs[0].value = '10.000001'; review.outputs[1].value = '15.000002'
+  const before = await h.state()
+  work = await h.command('batch.review', review)
+  assert.deepEqual((await h.state()).movements, before.movements)
+  const approval = { workOrderId: work.id, version: work.version, reviewId: work.coProductReviews.at(-1).id, reason: 'Owner approves exact source evidence and allocation policy' }, commandId = crypto.randomUUID()
+  work = await h.command('batch.post', approval, { commandId })
+  assert.deepEqual(await h.command('batch.post', approval, { commandId }), work)
+  assert.equal(work.status, 'closed'); assert.equal(work.outputs.length, 3)
+  let s = await h.invariant()
+  assert.equal(s.costValuations.find(v => v.batchAllocation).lines.reduce((n, l) => n + parse(l.targetValue), 0n), parse('30.000003'))
+  assert.equal(work.outputs.reduce((n, o) => n + parse(o.allocations[0].quantity), 0n), parse('3'))
+  for (const output of work.outputs) {
+    const trace = await (await h.request(`/api/larder/lots/${output.lotId}/trace?direction=upstream`)).json()
+    assert.ok(trace.rows.some(r => r.kind === 'component consumed' && r.quantity === output.allocations[0].quantity))
+    assert.ok(trace.rows.some(r => r.kind === 'output' && r.itemId === output.itemId && r.quantity === output.good))
+    const csv = await (await h.request(`/api/larder/lots/${output.lotId}/trace.csv`)).text()
+    assert.ok(csv.includes(output.movementId)); assert.ok(csv.includes('synthetic-larder-input'))
+    await traceProof(h, output.lotId, 'upstream', [s.lots.find(l => l.code === 'synthetic-larder-input').id])
+    await traceProof(h, s.lots.find(l => l.code === 'synthetic-larder-input').id, 'downstream', work.outputs.map(o => o.lotId))
+    assert.equal(s.positions.find(p => p.lotId === output.lotId).status, 'quarantine')
+  }
+  const byproduct = work.outputs[2]
+  await h.command('quarantine.decide', { itemId: byproduct.itemId, locationId: loc.id, lotId: byproduct.lotId, quantity: '1', decision: 'release', reason: 'Bypass' }, { error: 'BATCH_RELEASE' })
+  let plan = await h.command('quality.plan.save', { itemId: items[3].id, stage: 'receipt', name: 'Reuse purity', sampleSize: 1, measurements: [{ name: 'Purity', unit: '%', target: '100', lower: '99', upper: '100' }] })
+  plan = await h.command('quality.plan.approve', { planId: plan.id, version: plan.version })
+  const release = () => ({ workOrderId: work.id, version: work.version, lotId: byproduct.lotId, reason: 'Documented reusable output', evidence: [evidence()] })
+  await h.command('batch.release', release(), { error: 'RETEST' })
+  await h.command('quality.inspect', { lotId: byproduct.lotId, planId: plan.id, planVersion: plan.version, samples: { Purity: ['98'] } })
+  await h.command('batch.release', release(), { error: 'QUALITY_HOLD' })
+  await h.command('quality.inspect', { lotId: byproduct.lotId, planId: plan.id, planVersion: plan.version, samples: { Purity: ['100'] } })
+  const hold = (await h.state()).qualityHolds.find(q => q.subjectId === byproduct.lotId && q.status === 'open')
+  await h.command('quality.release', { holdId: hold.id, version: hold.version, reason: 'Passing independent retest reviewed by owner', evidence: [evidence()] })
+  assert.equal((await h.state()).positions.find(p => p.lotId === byproduct.lotId).status, 'quarantine')
+  work = await h.command('batch.release', release())
+  await h.command('bom.revise', { itemId: items[2].id, components: [{ itemId: items[3].id, quantity: '1' }], routing: [] })
+  let next = await h.command('wo.draft', { itemId: items[2].id, quantity: '1', requiredBy: '2026-10-25', reason: 'Reuse by-product' })
+  next = await h.command('wo.release', { workOrderId: next.id, version: next.version })
+  await h.command('wo.issue', { workOrderId: next.id, lines: [{ itemId: items[3].id, locationId: loc.id, lotId: byproduct.lotId, quantity: '1' }] })
+  s = await h.invariant()
+  assert.equal(s.movements.find(m => m.documentId === next.id && m.kind === 'issue').unitCost, '5')
+  await h.command('movement.reverse', { documentKind: 'workOrders', documentId: work.id, reason: 'Must retain exact genealogy' }, { error: 'DEPENDENCY' })
+  const archive = await (await h.request('/api/larder/archive')).json(), restored = await installation(); t.after(() => restored.close())
+  assert.equal((await restored.request('/api/larder/archive/restore', { method: 'POST', body: archive })).status, 200)
+  assert.deepEqual((await restored.state()).workOrders, s.workOrders)
+  assert.deepEqual((await restored.invariant()).positions, s.positions)
+  assert.ok((await (await h.request('/api/larder/archive.csv')).text()).includes('coProductReviews'))
+})
+
+test('FLOOR-006 refuses unauthorized, stale, nonconserving and reused input allocations without physical posting', async t => {
+  const h = await installation({ now: '2026-10-25T12:00:00.000Z' }); t.after(() => h.close())
+  let { work, review, loc } = await multiOutputBatch(h)
+  const manager = await h.person('batch-manager@example.test', 'manager'), agent = await h.person('batch-agent@example.test', 'agent')
+  const before = await h.state()
+  await agent.run('batch.review', review, { error: 'FORBIDDEN' })
+  for (const [change, error] of [
+    [outputs => { outputs[0].value = '11' }, 'BATCH_VALUE'],
+    [outputs => { outputs[1].allocations[0].quantity = '2' }, 'TRACE_ALLOCATION'],
+    [outputs => { outputs[0].quantity = '3'; outputs[0].value = '10' }, 'BATCH_VALUE'],
+    [outputs => { outputs[2].allocations = [] }, 'TRACE_ALLOCATION'],
+  ]) { const outputs = structuredClone(review.outputs); change(outputs); await h.command('batch.review', { ...review, outputs }, { error }) }
+  assert.deepEqual((await h.state()).movements, before.movements)
+  await h.command('wo.output', { workOrderId: work.id, version: work.version, quantity: '1', locationId: loc.id }, { error: 'STATE' })
+  await h.command('wo.close', { workOrderId: work.id, version: work.version }, { error: 'STATE' })
+  await h.command('wo.split', { workOrderId: work.id, version: work.version, parts: [{ quantity: '0.5' }], reason: 'Must keep plan' }, { error: 'STATE' })
+  work = await manager.run('batch.review', review)
+  const post = () => ({ workOrderId: work.id, version: work.version, reviewId: work.coProductReviews.at(-1).id, reason: 'Explicit owner decision' })
+  await manager.run('batch.post', post(), { error: 'FORBIDDEN' })
+  await agent.run('batch.post', post(), { error: 'FORBIDDEN' })
+  await h.command('location.save', { name: 'Changed evidence' })
+  await h.command('batch.post', post(), { error: 'STALE' })
+  work = await h.command('batch.review', { ...review, version: work.version })
+  const payload = post(), commandId = crypto.randomUUID()
+  work = await h.command('batch.post', payload, { commandId })
+  await manager.run('batch.post', payload, { commandId, error: 'FORBIDDEN' })
+  await h.command('batch.post', { ...post(), version: work.version }, { error: 'STATE' })
+  await h.command('costing.valuation.prepare', { workOrderId: work.id, reason: 'Must retain approved batch policy' }, { error: 'STATE' })
+  await h.command('member.scope', { operatorId: manager.id, costsRestricted: true })
+  const restricted = await h.state(manager.cookie)
+  assert.equal(restricted.workOrders.find(w => w.id === work.id).coProductReviews.at(-1).actualCost, 'restricted')
+  await manager.run('batch.release', { workOrderId: work.id, version: work.version, lotId: work.outputs[0].lotId, reason: 'No authority' }, { error: 'FORBIDDEN' })
+  assert.equal((await h.invariant()).movements.filter(m => m.kind === 'output' && m.documentId === work.id).length, 3)
+})
