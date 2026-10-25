@@ -81,10 +81,10 @@ export function coProducts(c: Context, type: string, p: any): Row | undefined {
       }
       const allocations = batchAllocation(copy, shadow, { allocations: x.allocations ?? [] }, index === inputs.length - 1)
       shadow.outputs = [...(shadow.outputs ?? []), { allocations }]
-      return { ...plan, quantity: format(quantity), value: format(value), roundingResidual: format(index === inputs.length - 1 ? residue : 0n), unitCost: format(rate), allocations }
+      return { ...plan, quantity: format(quantity), value: format(value), roundingResidueValue: format(index === inputs.length - 1 ? residue : 0n), unitCost: format(rate), allocations }
     })
     if (outputs.reduce((n, x) => n + decimal(x.value), 0n) !== decimal(report.actualCost)) fail('BATCH_VALUE', 'Total output value must equal the exact actual batch cost.')
-    const review = { id: newId(), outputs, actualCost: report.actualCost, costReport: report, residueRule: batchResidueRule, roundingResidual: format(residue), policy: text(p.policy, 'allocation policy', 1000), reason, preparedBy: c.actor.id, at: c.now, stateVersion: c.s.version + 1, digest: costFingerprint(c.s, w), status: 'review' }
+    const review = { id: newId(), outputs, actualCost: report.actualCost, costReport: report, residueRule: batchResidueRule, roundingResidueValue: format(residue), policy: text(p.policy, 'allocation policy', 1000), reason, preparedBy: c.actor.id, at: c.now, stateVersion: c.s.version + 1, digest: costFingerprint(c.s, w), status: 'review' }
     return bump(w, { coProductReviews: [...(w.coProductReviews ?? []), review] })
   }
   if (type === 'batch.post') {
@@ -97,9 +97,9 @@ export function coProducts(c: Context, type: string, p: any): Row | undefined {
       const batchId = newId(), lot = row(c, 'lots', { itemId: x.itemId, code: x.lot, supplierId: null, source: 'production', documentId: w.id, batchId, coProduct: true, status: 'quarantined', manufacturedOn: c.now.slice(0, 10) })
       const m = move(c, { itemId: x.itemId, locationId: x.locationId, lotId: lot.id, status: 'quarantine', quantity: decimal(x.quantity), unitCost: decimal(x.unitCost), kind: 'output', documentKind: 'workOrders', documentId: w.id, reason })
       w.outputs = [...(w.outputs ?? []), { id: batchId, itemId: x.itemId, kind: x.kind, bomRevision: x.bomRevision, locationId: x.locationId, lotId: lot.id, movementId: m.id, allocations: x.allocations, good: x.quantity, scrap: '0', at: c.now, by: c.actor.id }]
-      lines.push({ itemId: x.itemId, lotId: lot.id, movementId: m.id, quantity: x.quantity, unitCost: x.unitCost, targetValue: x.value, roundingResidual: '0', allocationResidue: x.roundingResidual })
+      lines.push({ itemId: x.itemId, lotId: lot.id, movementId: m.id, quantity: x.quantity, unitCost: x.unitCost, targetValue: x.value, roundingResidual: '0', allocationResidueValue: x.roundingResidueValue })
     }
-    row(c, 'costValuations', { workOrderId: w.id, currency: 'USD', status: 'approved', batchAllocation: true, residueRule: review.residueRule, allocationResidue: review.roundingResidual, lines, report: review.costReport, approvedBy: c.actor.id, approvedAt: c.now, approvalReason: reason })
+    row(c, 'costValuations', { workOrderId: w.id, currency: 'USD', status: 'approved', batchAllocation: true, residueRule: review.residueRule, allocationResidueValue: review.roundingResidueValue, lines, report: review.costReport, approvedBy: c.actor.id, approvedAt: c.now, approvalReason: reason })
     Object.assign(review, { status: 'posted', approvedBy: c.actor.id, approvedAt: c.now, approvalReason: reason })
     release(c, w.id)
     return bump(w, { coProductPosted: review.id, traceAllocationVersion: 1, output: w.quantity, scrap: '0', status: 'closed', closedAt: c.now })

@@ -1117,7 +1117,7 @@
       "executable": false
     },
     "src/larder/co-products.ts": {
-      "sha256": "c976b94601aef3e666e66ec901fe4cd3092d0cc867ea98e99f49286e44aa2287",
+      "sha256": "f15cc49036080c213930c5dc03b012ce5942efbf922dec886fb805b031bf35ce",
       "executable": false
     },
     "src/larder/config-expr.ts": {
@@ -3529,7 +3529,7 @@
       "executable": false
     },
     "src/ui/co-products.tsx": {
-      "sha256": "b8453bb56d881dcaab6a0c48d6f6af0f2dcf7a625eb1475699c3d68269037e59",
+      "sha256": "08df3d32f6f69dd69f248fa8111fc5953eade77ff3b0163fdfcff29de2b892af",
       "executable": false
     },
     "src/ui/configure.tsx": {
@@ -3965,7 +3965,7 @@
       "executable": false
     },
     "tests/api/work-transfers.test.mjs": {
-      "sha256": "ced72255d862f00816c769538d7deba1b2264fc512726163f1867ecd91b795fb",
+      "sha256": "a7648eca0644d45902f64d9fdb6ccdd0d072e79ec4f89cfc435537fc70cddd96",
       "executable": false
     },
     "tests/api/worker.ts": {
