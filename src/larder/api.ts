@@ -1,4 +1,4 @@
-import { coProducts } from './co-products'
+import { coProducts, voidBatchReviews } from './co-products'
 import { performanceReport, reportScheduling } from './costing/performance'
 import { costing, costingReaders } from './costing/commands'
 import { marginReport, varianceReport, reportCsv } from './costing/margins'
@@ -183,6 +183,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     enforceScope(c, before)
     observeRecovery(c, before, type, payload)
     observeFollowUps(c)
+    voidBatchReviews(c)
     cutoverGuard(before, s, c.now)
     const audit = auditEntries(c, before, type, payload, type.startsWith('import.'))
     if (type === 'import.commit' || type === 'import.undo') {

@@ -173,6 +173,8 @@ test('FLOOR-006 plan, review and approve two co-products and a reusable by-produ
     expect(work.coProductPlan.outputs.map((o: any) => o.kind)).toEqual(['co-product', 'co-product', 'by-product'])
     work = await command(page, 'wo.release', { workOrderId: work.id, version: work.version })
     work = await command(page, 'wo.issue', { workOrderId: work.id, lines: [{ itemId: items[0].id, locationId: loc.id, quantity: '3' }] })
+    const charge = await command(page, 'costing.charge.prepare', { workOrderId: work.id, amount: '0.000003', reference: 'synthetic-larder-residue', evidence: { name: 'charge.txt', contentType: ['text', 'plain'].join('/'), base64: Buffer.from('Measured service').toString('base64') }, reason: 'Six-place actual cost' })
+    await command(page, 'costing.charge.approve', { chargeId: charge.id, version: charge.version, reason: 'Approve exact actual cost' })
     const before = await state()
     await open(page, work.id)
     for (let i = 0; i < 3; i++) {
@@ -190,7 +192,34 @@ test('FLOOR-006 plan, review and approve two co-products and a reusable by-produ
     await account.hover(); await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
     await page.mouse.move(0, 0); await page.keyboard.press('Tab'); await account.focus()
     await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
+    await expect(batch).toContainText('Assigned rounding residue USD 0.000003')
+    await expect(batch).toContainText('final planned output')
     await screenshot('review')
+    await batch.getByLabel('Batch allocation policy', { exact: true }).fill('Changed policy requires fresh owner approval')
+    await expect(batch.getByRole('button', { name: 'Approve and post exact batch', exact: true })).toHaveCount(0)
+    await expect(batch).toContainText('Draft void: inputs changed')
+    await screenshot('edited-draft-void')
+    await settled(page)
+    for (let i = 0; i < 3; i++) {
+      await batch.getByLabel(`Output ${i + 1} allocated USD value`, { exact: true }).fill(['10', '15', '5'][i])
+      await batch.getByLabel(`Output ${i + 1} input synthetic-larder-input-${tag}`, { exact: true }).fill(['1', '1.5', '0.5'][i])
+    }
+    await batch.getByLabel('Allocation review reason', { exact: true }).fill('Fresh edited policy review')
+    await batch.getByRole('button', { name: 'Review batch allocation', exact: true }).click(); await settled(page)
+    const firstReview = (await state()).workOrders.find((w: any) => w.id === work.id).coProductReviews.at(-1).id
+    await command(page, 'location.save', { name: `Changed batch evidence ${tag}` })
+    await open(page, work.id)
+    await expect(batch).toContainText('Draft void: inputs changed')
+    await expect(batch.getByRole('button', { name: 'Approve and post exact batch', exact: true })).toHaveCount(0)
+    await screenshot('business-change-void')
+    for (let i = 0; i < 3; i++) {
+      await batch.getByLabel(`Output ${i + 1} allocated USD value`, { exact: true }).fill(['10', '15', '5'][i])
+      await batch.getByLabel(`Output ${i + 1} input synthetic-larder-input-${tag}`, { exact: true }).fill(['1', '1.5', '0.5'][i])
+    }
+    await batch.getByLabel('Batch allocation policy', { exact: true }).fill('Fresh exact batch policy')
+    await batch.getByLabel('Allocation review reason', { exact: true }).fill('Review changed inputs again')
+    await batch.getByRole('button', { name: 'Review batch allocation', exact: true }).click(); await settled(page)
+    expect((await state()).workOrders.find((w: any) => w.id === work.id).coProductReviews.at(-1).id).not.toBe(firstReview)
     await batch.getByLabel('Batch approval reason', { exact: true }).fill('Approve exact per-output values and physical posting')
     await batch.getByRole('button', { name: 'Approve and post exact batch', exact: true }).click(); await expect(batch).toContainText('posted'); await settled(page)
     work = (await state()).workOrders.find((w: any) => w.id === work.id)
@@ -200,6 +229,7 @@ test('FLOOR-006 plan, review and approve two co-products and a reusable by-produ
       expect(trace.rows.some((r: any) => r.kind === 'output' && r.itemId === output.itemId)).toBe(true)
       expect(trace.rows.some((r: any) => r.kind === 'component consumed' && r.quantity === output.allocations[0].quantity)).toBe(true)
     }
+    await expect(batch).toContainText('Assigned rounding residue USD 0.000003')
     await screenshot('quarantined')
     const lot = `synthetic-larder-output-2-${tag}`
     let inspection = await command(page, 'quality.plan.save', { itemId: items[3].id, stage: 'receipt', name: `Reuse purity ${tag}`, sampleSize: 1, measurements: [{ name: 'Purity', unit: '%', target: '100', lower: '99', upper: '100' }] })
@@ -214,7 +244,7 @@ test('FLOOR-006 plan, review and approve two co-products and a reusable by-produ
     await batch.getByLabel(`Release evidence for ${lot}`, { exact: true }).setInputFiles({ name: 'release.txt', mimeType: ['text', 'plain'].join('/'), buffer: Buffer.from('Output is reusable and free from contamination') })
     await batch.getByRole('button', { name: `Release ${lot}`, exact: true }).click(); await expect(batch.getByRole('heading', { name: `${lot} · released`, exact: true })).toBeVisible(); await settled(page)
     const after = await state(), valuation = after.costValuations.find((v: any) => v.workOrderId === work.id && v.batchAllocation)
-    expect(valuation.lines.map((l: any) => l.targetValue)).toEqual(['10', '15', '5'])
+    expect(valuation.lines.map((l: any) => l.targetValue)).toEqual(['10', '15', '5.000003'])
     expect(after.positions.find((p: any) => p.lotId === work.outputs[2].lotId && p.status === 'available').quantity).toBe('1')
     await screenshot('reusable')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)

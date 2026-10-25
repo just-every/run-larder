@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "07c8833e1c3faa39f9501f62ed543936c73cf0decc21699ba4dbd17e7b188d2e",
+      "sha256": "7b8022a89384963c3cd9771207a515ed4627487901ba91f3c3ec47cdcaef0067",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -193,7 +193,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "d9b52a6b0b9010f19c95adf26e5f920f2befd531ba736b752e98d2adb7fc2891",
+      "sha256": "5d44de38a6e2a622963955d4337ac962a8c29c6c26f8a6d98b7c98e474dd41f8",
       "executable": false
     },
     "base-copies.json": {
@@ -201,7 +201,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "9fc4912d517634d13965517af84dfd0cf15e4f68b29a50bbf3ddba193a6ccfe1",
+      "sha256": "198e4c10712b8b94c0f9270c5ea7921f0e5cd0ce9baeba683486fa8ca72e3805",
       "executable": false
     },
     "DEMO.md": {
@@ -1033,7 +1033,7 @@
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "ebaacb802e675ef501c9ba82903c9b1d663821bee9fad4dab6800704b9f5ea95",
+      "sha256": "eecfb0721d25497459b28a8c3f8bc9e0e92223b77880e017ac4ddc688f6c83ec",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -1117,7 +1117,7 @@
       "executable": false
     },
     "src/larder/co-products.ts": {
-      "sha256": "c2de5e3bfea217d14d9333111b6297218e5b805fefdbc66ea9161ed99891fee8",
+      "sha256": "c976b94601aef3e666e66ec901fe4cd3092d0cc867ea98e99f49286e44aa2287",
       "executable": false
     },
     "src/larder/config-expr.ts": {
@@ -1529,7 +1529,7 @@
       "executable": false
     },
     "src/larder/scope-gate.ts": {
-      "sha256": "33d6e4e2b7c8837384f1a69bc158bfee979e7a4df4397fe00d072a26d7f89bc4",
+      "sha256": "4c7f1684ba15a2182c9307122c7862266e20f6d63b8d086f5ed4583afd676e8f",
       "executable": false
     },
     "src/larder/scope-view.ts": {
@@ -3529,7 +3529,7 @@
       "executable": false
     },
     "src/ui/co-products.tsx": {
-      "sha256": "e8441fd9ae0ab107d86cc8c40fb44ae919f61934c62ebee1587e5d537d862e7c",
+      "sha256": "b8453bb56d881dcaab6a0c48d6f6af0f2dcf7a625eb1475699c3d68269037e59",
       "executable": false
     },
     "src/ui/configure.tsx": {
@@ -3965,7 +3965,7 @@
       "executable": false
     },
     "tests/api/work-transfers.test.mjs": {
-      "sha256": "2b742927c281d6bee5cfa41d886cc40f1678c7dd99a3bb0ed21d9ab69d8d7611",
+      "sha256": "ced72255d862f00816c769538d7deba1b2264fc512726163f1867ecd91b795fb",
       "executable": false
     },
     "tests/api/worker.ts": {
@@ -4097,7 +4097,7 @@
       "executable": false
     },
     "tests/browser/work-transfers.spec.ts": {
-      "sha256": "1af65d5244f484cea882f4ea895e7de095bbc45d1959d64b0c358a99ce32469b",
+      "sha256": "2ac16b82baf0765cdc9e51df554ea1a17c3a92ad6c68048660545c2a67477e9f",
       "executable": false
     },
     "tests/runtime.mjs": {

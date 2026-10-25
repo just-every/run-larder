@@ -762,3 +762,5 @@ bypass batch release. Managers and accounts prepare inert plans and reviews,
 agents cannot use batch commands. Location and cost restrictions apply to replay
 and new requests. JSON and CSV archives retain all records; restore posts nothing.
 The owner-only batch allocation default awaits ct approval; FLOOR-006 is partial.
+
+Batch allocation reviews use `batch.plan` and `batch.review` for owner, manager, accounts or planner preparation; `batch.post` and `batch.release` remain owner-only. Each six-place rounding residue, bounded by USD 0.000001 per output, is assigned to the final planned output and retained with the rule in the review and valuation. Larger differences and inexact unit costs are refused. Any intervening business write permanently voids a pending review; changing page review inputs removes approval until a fresh review. A void draft cannot be revived by restoring earlier inputs.

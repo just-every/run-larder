@@ -5,8 +5,9 @@ import { can, rows, itemName, locationName, byId, type Rec } from './api'
 import { Card, Choose, Field, Area, Form, Table, Details, options, text, fileBase64 } from './controls'
 
 export function CoProducts({ larder, w }: { larder: Larder; w: Rec }) {
+  const [dirty, setDirty] = useState(false)
   const s = larder.state!, [count, setCount] = useState(w.coProductPlan?.outputs.length ?? 3), owner = s.actor.role === 'owner'
-  const prepare = can(s, ['manager', 'accounts']) && !(s.actor as any).scope?.costs
+  const prepare = can(s, ['manager', 'accounts', 'planner']) && !(s.actor as any).scope?.costs
   if (!w.coProductPlan && (w.status !== 'draft' || !prepare)) return null
   const plan = w.coProductPlan, reviews = w.coProductReviews ?? [], latest = reviews.at(-1)
   return <Card title="Co-products and by-products">
@@ -24,16 +25,16 @@ export function CoProducts({ larder, w }: { larder: Larder; w: Rec }) {
     {plan && <Table head={['Output', 'Planned quantity', 'Lot', 'Destination']}>
       {plan.outputs.map((x: Rec) => <tr key={x.itemId}><td>{itemName(s, x.itemId)}<small>{x.kind}</small></td><td>{x.quantity}</td><td>{x.lot}</td><td>{locationName(s, x.locationId)}</td></tr>)}
     </Table>}
-    {plan && w.status === 'released' && prepare && <Form submit="Review batch allocation" busy={larder.busy} onSubmit={d => larder.run('batch.review', { workOrderId: w.id, version: w.version, reason: text(d, 'reason'), policy: text(d, 'policy'), outputs: plan.outputs.map((x: Rec, i: number) => ({ itemId: x.itemId, quantity: text(d, `actual.${i}`), value: text(d, `value.${i}`), allocations: (s.workMaterialPools?.[w.id] ?? []).filter((a: Rec) => text(d, `input.${i}.${a.movementId}`)).map((a: Rec) => ({ movementId: a.movementId, quantity: text(d, `input.${i}.${a.movementId}`) })) })) })}>
+    {plan && w.status === 'released' && prepare && <div onChangeCapture={() => { setDirty(true); if (!dirty && latest?.status === 'review') void larder.run('batch.void', { workOrderId: w.id, version: w.version, reviewId: latest.id, reason: 'Review inputs edited; fresh review and approval required' }) }}><Form submit="Review batch allocation" busy={larder.busy} onSubmit={async d => { const result = await larder.run('batch.review', { workOrderId: w.id, version: w.version, reason: text(d, 'reason'), policy: text(d, 'policy'), outputs: plan.outputs.map((x: Rec, i: number) => ({ itemId: x.itemId, quantity: text(d, `actual.${i}`), value: text(d, `value.${i}`), allocations: (s.workMaterialPools?.[w.id] ?? []).filter((a: Rec) => text(d, `input.${i}.${a.movementId}`)).map((a: Rec) => ({ movementId: a.movementId, quantity: text(d, `input.${i}.${a.movementId}`) })) })) }); if (result) setDirty(false); return result }}>
       {plan.outputs.map((x: Rec, i: number) => <fieldset className="lines wide" key={x.itemId}><legend>{itemName(s, x.itemId)}</legend><div className="form-grid">
         <Field label={`Output ${i + 1} actual quantity`} name={`actual.${i}`} defaultValue={x.quantity} inputMode="decimal" /><Field label={`Output ${i + 1} allocated USD value`} name={`value.${i}`} inputMode="decimal" />
         {(s.workMaterialPools?.[w.id] ?? []).map((a: Rec) => <Field key={a.movementId} label={`Output ${i + 1} input ${byId(s, 'lots', a.lotId)?.code ?? itemName(s, a.itemId)}`} name={`input.${i}.${a.movementId}`} required={false} inputMode="decimal" hint={`Unallocated ${a.quantity}; enter actual consumption`} />)}
       </div></fieldset>)}<Area label="Batch allocation policy" name="policy" /><Field label="Allocation review reason" name="reason" />
-    </Form>}
-    {latest && <section aria-label="Exact batch review"><h3>Exact batch review</h3><p>Actual cost USD {latest.actualCost} · {latest.status}</p><p>{latest.policy}</p><Table head={['Output', 'Actual quantity', 'Allocated USD', 'Unit cost']}>
+    </Form></div>}
+    {latest && <section aria-label="Exact batch review"><h3>Exact batch review</h3><p>Actual cost USD {latest.actualCost} · {latest.status}</p><p>{latest.policy}</p><p>{latest.residueRule}</p><p>Assigned rounding residue USD {latest.roundingResidual ?? '0'} to {itemName(s, latest.outputs.at(-1).itemId)}.</p>{(dirty || latest.status === 'void') && <p role="status">Draft void: inputs changed. Prepare a fresh review and approval.</p>}<Table head={['Output', 'Actual quantity', 'Allocated USD', 'Unit cost']}>
       {latest.outputs.map((x: Rec) => <tr key={x.itemId}><td>{itemName(s, x.itemId)}<small>{x.lot}</small></td><td>{x.quantity}</td><td>{x.value}</td><td>{x.unitCost}</td></tr>)}
     </Table>{latest.outputs.map((x: Rec) => <p key={x.itemId}>{itemName(s, x.itemId)} consumes {x.allocations.map((a: Rec) => `${a.quantity} ${itemName(s, a.itemId)} from ${byId(s, 'lots', a.lotId)?.code ?? 'unlotted issue'}`).join('; ')}</p>)}<Details label="Exact input lots and cost sources" value={latest} s={s} />
-      {owner && latest.status === 'review' && <Form submit="Approve and post exact batch" busy={larder.busy} onSubmit={d => larder.run('batch.post', { workOrderId: w.id, version: w.version, reviewId: latest.id, reason: text(d, 'reason') })}><Field label="Batch approval reason" name="reason" /></Form>}
+      {owner && latest.status === 'review' && !dirty && <Form submit="Approve and post exact batch" busy={larder.busy} onSubmit={d => larder.run('batch.post', { workOrderId: w.id, version: w.version, reviewId: latest.id, reason: text(d, 'reason') })}><Field label="Batch approval reason" name="reason" /></Form>}
     </section>}
     {w.coProductPosted && (w.outputs ?? []).map((x: Rec) => { const lot = byId(s, 'lots', x.lotId); return <section key={x.id} aria-label={`Batch lot ${lot?.code}`}><h3>{lot?.code} · {lot?.status}</h3><p>{itemName(s, x.itemId)} · {x.good} · {locationName(s, x.locationId)}</p><a href="#stock">Inspect lot links</a>
       {lot && can(s, ['manager', 'production', 'quality']) && rows(s, 'inspectionPlans').filter(p => p.status === 'approved' && p.itemId === x.itemId && (p.revision === null || p.revision === x.bomRevision)).map(p => <InspectForm key={p.id} larder={larder} plan={p} lotId={lot.id} />)}

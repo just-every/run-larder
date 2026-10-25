@@ -15,11 +15,31 @@ import { allow } from './roles'
 import { fail } from './problem'
 import { bump, fresh, get, list, newId, oneOf, row, text, type Context, type Row } from './model'
 
+export const batchResidueRule = 'Assign a six-place rounding residue of at most USD 0.000001 per output to the final planned output; refuse larger differences or an inexact unit cost.'
+
+// Any intervening business write permanently voids a pending exact approval.
+export function voidBatchReviews(c: Context) {
+  for (const w of c.s.workOrders) {
+    let changed = false
+    for (const review of w.coProductReviews ?? []) if (review.status === 'review' && review.stateVersion !== c.s.version + 1) {
+      Object.assign(review, { status: 'void', voidedAt: c.now, voidReason: 'Inputs or business records changed; prepare a fresh review and approval.' })
+      changed = true
+    }
+    if (changed) bump(w, {})
+  }
+}
+
 export function coProducts(c: Context, type: string, p: any): Row | undefined {
   if (!type.startsWith('batch.')) return
-  allow(c, type === 'batch.plan' || type === 'batch.review' ? ['manager', 'accounts'] : [])
+  allow(c, ['batch.plan', 'batch.review', 'batch.void'].includes(type) ? ['manager', 'accounts', 'planner'] : [])
   const w = get(c.s, 'workOrders', p.workOrderId); fresh(w, p.version)
   const reason = text(p.reason, 'batch reason', 400)
+  if (type === 'batch.void') {
+    const review = w.coProductReviews?.find((r: any) => r.id === p.reviewId)
+    if (!review || review.status !== 'review') fail('STATE', 'Choose a pending batch review.')
+    Object.assign(review, { status: 'void', voidedAt: c.now, voidReason: reason })
+    return bump(w, {})
+  }
   if (type === 'batch.plan') {
     if (w.status !== 'draft') fail('STATE', 'Plan outputs before releasing the batch.')
     const seen = new Set<string>()
@@ -42,6 +62,8 @@ export function coProducts(c: Context, type: string, p: any): Row | undefined {
     if (report.actualCost === null) fail('COST_INCOMPLETE', 'Resolve actual cost evidence before reviewing output allocation.')
     const inputs = list(p.outputs, 'actual outputs', 20)
     if (inputs.length !== w.coProductPlan.outputs.length) fail('BATCH_OUTPUT', 'Review every planned output exactly once.')
+    const residue = decimal(report.actualCost) - inputs.reduce((n, x) => n + decimal(x.value, 'allocated output value'), 0n)
+    if (residue > BigInt(inputs.length) || residue < -BigInt(inputs.length)) fail('BATCH_VALUE', 'Allocation differs by more than the permitted six-place rounding residue.')
     const copy = structuredClone(c.s), shadow = get(copy, 'workOrders', w.id)
     const seen = new Set<string>()
     const outputs = inputs.map((x, index) => {
@@ -49,7 +71,8 @@ export function coProducts(c: Context, type: string, p: any): Row | undefined {
       if (!plan || seen.has(x.itemId)) fail('BATCH_OUTPUT', 'Review each planned item exactly once.')
       seen.add(x.itemId)
       if (c.s.lots.some(l => l.itemId === plan.itemId && l.code === plan.lot)) fail('BATCH_OUTPUT', 'Use a new output lot.')
-      const quantity = decimal(x.quantity, 'actual yield', { positive: true }), value = decimal(x.value, 'allocated output value'), rate = exactDivide(value, quantity) ?? fail('BATCH_VALUE', 'Each output value must have an exact six-place unit cost.')
+      const quantity = decimal(x.quantity, 'actual yield', { positive: true }), value = decimal(x.value, 'allocated output value') + (index === inputs.length - 1 ? residue : 0n), rate = exactDivide(value, quantity) ?? fail('BATCH_VALUE', 'Each output value must have an exact six-place unit cost.')
+      if (value < 0n) fail('BATCH_VALUE', 'A residue cannot make an output value negative.')
       if (times(quantity, rate) !== value) fail('BATCH_VALUE', 'Each output value must have an exact six-place unit cost.')
       if (plan.itemId === w.itemId && format(quantity) !== w.quantity) fail('BATCH_OUTPUT', 'Actual primary output must equal the order quantity.')
       if (plan.kind === 'recoverable-scrap') {
@@ -58,14 +81,15 @@ export function coProducts(c: Context, type: string, p: any): Row | undefined {
       }
       const allocations = batchAllocation(copy, shadow, { allocations: x.allocations ?? [] }, index === inputs.length - 1)
       shadow.outputs = [...(shadow.outputs ?? []), { allocations }]
-      return { ...plan, quantity: format(quantity), value: format(value), unitCost: format(rate), allocations }
+      return { ...plan, quantity: format(quantity), value: format(value), roundingResidual: format(index === inputs.length - 1 ? residue : 0n), unitCost: format(rate), allocations }
     })
     if (outputs.reduce((n, x) => n + decimal(x.value), 0n) !== decimal(report.actualCost)) fail('BATCH_VALUE', 'Total output value must equal the exact actual batch cost.')
-    const review = { id: newId(), outputs, actualCost: report.actualCost, costReport: report, policy: text(p.policy, 'allocation policy', 1000), reason, preparedBy: c.actor.id, at: c.now, stateVersion: c.s.version + 1, digest: costFingerprint(c.s, w), status: 'review' }
+    const review = { id: newId(), outputs, actualCost: report.actualCost, costReport: report, residueRule: batchResidueRule, roundingResidual: format(residue), policy: text(p.policy, 'allocation policy', 1000), reason, preparedBy: c.actor.id, at: c.now, stateVersion: c.s.version + 1, digest: costFingerprint(c.s, w), status: 'review' }
     return bump(w, { coProductReviews: [...(w.coProductReviews ?? []), review] })
   }
   if (type === 'batch.post') {
     const review = w.coProductReviews?.find((r: any) => r.id === p.reviewId)
+    if (review?.status === 'void') fail('STALE', 'This batch draft is void; prepare a fresh review and approval.')
     if (!review || review.status !== 'review' || w.status !== 'released' || w.coProductPosted) fail('STATE', 'Choose an unposted batch review.')
     if (c.s.version !== review.stateVersion || costFingerprint(c.s, w) !== review.digest) fail('STALE', 'Business or cost evidence changed; prepare a fresh batch review.')
     const lines = []
@@ -73,9 +97,9 @@ export function coProducts(c: Context, type: string, p: any): Row | undefined {
       const batchId = newId(), lot = row(c, 'lots', { itemId: x.itemId, code: x.lot, supplierId: null, source: 'production', documentId: w.id, batchId, coProduct: true, status: 'quarantined', manufacturedOn: c.now.slice(0, 10) })
       const m = move(c, { itemId: x.itemId, locationId: x.locationId, lotId: lot.id, status: 'quarantine', quantity: decimal(x.quantity), unitCost: decimal(x.unitCost), kind: 'output', documentKind: 'workOrders', documentId: w.id, reason })
       w.outputs = [...(w.outputs ?? []), { id: batchId, itemId: x.itemId, kind: x.kind, bomRevision: x.bomRevision, locationId: x.locationId, lotId: lot.id, movementId: m.id, allocations: x.allocations, good: x.quantity, scrap: '0', at: c.now, by: c.actor.id }]
-      lines.push({ itemId: x.itemId, lotId: lot.id, movementId: m.id, quantity: x.quantity, unitCost: x.unitCost, targetValue: x.value, roundingResidual: '0' })
+      lines.push({ itemId: x.itemId, lotId: lot.id, movementId: m.id, quantity: x.quantity, unitCost: x.unitCost, targetValue: x.value, roundingResidual: '0', allocationResidue: x.roundingResidual })
     }
-    row(c, 'costValuations', { workOrderId: w.id, currency: 'USD', status: 'approved', batchAllocation: true, lines, report: review.costReport, approvedBy: c.actor.id, approvedAt: c.now, approvalReason: reason })
+    row(c, 'costValuations', { workOrderId: w.id, currency: 'USD', status: 'approved', batchAllocation: true, residueRule: review.residueRule, allocationResidue: review.roundingResidual, lines, report: review.costReport, approvedBy: c.actor.id, approvedAt: c.now, approvalReason: reason })
     Object.assign(review, { status: 'posted', approvedBy: c.actor.id, approvedAt: c.now, approvalReason: reason })
     release(c, w.id)
     return bump(w, { coProductPosted: review.id, traceAllocationVersion: 1, output: w.quantity, scrap: '0', status: 'closed', closedAt: c.now })
