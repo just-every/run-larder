@@ -55,6 +55,7 @@ import { supplyChange, supplyChanges } from './supply-changes'
 import { workTransfers } from './work-transfers'
 import { salesAllocation } from './sales-allocation'
 import { nesting } from './scheduling/nesting'
+import { commandTime } from './clock'
 import { lotTrace, traceCsv } from './trace'
 import { serials, serialSearch } from './serials'
 import { resolveScan } from './scan'
@@ -172,7 +173,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   for (let attempt = 0; attempt < 8; attempt++) {
     const before = await load(env.DB), s = structuredClone(before)
     if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
-    const c: Context = { s, actor, commandId, type, now: new Date().toISOString(), attachments: [], ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
+    const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
     if (erasure) c.erasure = erasure
     enforcePayload(c, payload)
     let result: Row | undefined = roleCommand(c, type, payload)

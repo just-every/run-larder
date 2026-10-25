@@ -10,7 +10,15 @@ import { randomUUID, randomBytes } from 'node:crypto'
 import assert from 'node:assert/strict'
 
 let bundle
-async function script() {
+async function script(now) {
+  if (now !== undefined) {
+    assert.equal(new Date(now).toISOString(), now, 'Use an explicit fixed command clock')
+    const fixed = await build({ entryPoints: ['tests/api/worker.ts'], bundle: true, write: false, format: 'esm', platform: 'neutral', target: 'es2022', external: ['node:*', 'cloudflare:*'], loader: { '.css': 'text', '.svg': 'text' },
+      plugins: [{ name: 'fixed-command-clock', setup(builder) {
+        builder.onLoad({ filter: /[/\\]larder[/\\]clock\.ts$/ }, () => ({ contents: `export const commandTime = () => ${JSON.stringify(now)}`, loader: 'ts' }))
+      } }] })
+    return fixed.outputFiles[0].text
+  }
   bundle ??= build({ entryPoints: ['tests/api/worker.ts'], bundle: true, write: false, format: 'esm', platform: 'neutral', target: 'es2022', external: ['node:*', 'cloudflare:*'], loader: { '.css': 'text', '.svg': 'text' } }).then(b => b.outputFiles[0].text)
   return bundle
 }
@@ -21,10 +29,10 @@ export async function migrate(db) {
     await db.batch(unstable_splitSqlQuery(await readFile('migrations/core/' + file, 'utf8')).map(q => db.prepare(q)))
 }
 
-export async function installation() {
+export async function installation({ now } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'larder-api-'))
   let origin = 'http://localhost'
-  const setup = randomBytes(32).toString('hex'), code = await script()
+  const setup = randomBytes(32).toString('hex'), code = await script(now)
   // The mail provider is the network edge: invitations reach this fake Resend.
   const mails = []
   let outboundRequests = 0

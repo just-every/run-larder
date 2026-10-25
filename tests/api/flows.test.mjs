@@ -1214,7 +1214,7 @@ async function nestingWorkshop(h, dates = { manufacturedOn: '2026-10-01', expire
 }
 
 test('CAP-008 three original jobs retain demand and revisions in an inert nesting review with reconciled yield, offcuts and cost shares', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now: '2026-10-25T12:00:00.000Z' }); t.after(() => h.close())
   const f = await nestingWorkshop(h)
   const window = { asOf: '2026-11-01T00:00:00Z', days: 7 }
   const unconfigured = await h.command('nest.prepare', f.prepare)
