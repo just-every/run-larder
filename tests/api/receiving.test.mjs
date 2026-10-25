@@ -272,6 +272,8 @@ test('FLOOR-008 scanned GS1 codes resolve item, lot, expiry and serial for recei
   const unit = await scan('(01)09501101530010(21)PUMP-1', 'receipt', po.id); assert.equal(unit.receive.serial, 'PUMP-1')
   await receive(unit.lineId, { quantity: '1', serials: [unit.receive.serial] })
   await refused('(01)09501101530010(21)PUMP-1', 'receipt', po.id, 'SCAN_DUPLICATE')
+  await receive(unit.lineId, { quantity: '1', serials: ['synthetic-larder-2'] })
+  await refused('(01)09501101530010(21)PUMP-1', 'receipt', po.id, 'SCAN_STALE')
   let w = await h.command('wo.draft', { itemId: kit.id, quantity: '2', requiredBy: day(1), reason: 'Scanned issue' }); w = await h.command('wo.release', { workOrderId: w.id, version: w.version })
   assert.deepEqual((await scan(w.reference)).document, { id: w.id, reference: w.reference, status: 'released' })
   const issued = await scan('(01)09501101530003(10)RES-A', 'issue', w.id); assert.deepEqual([issued.kind, issued.lot.code, issued.lineId], ['lot', 'RES-A', w.components[0].id])
