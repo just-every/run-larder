@@ -9,6 +9,7 @@ import { finitePlan } from './finite'
 
 export function nestingCapacity(c: Context, group: Row, members: any[], sharedSetup: string, input: any) {
   if (input === undefined) return undefined
+  if (!input || typeof input !== 'object' || Array.isArray(input)) fail('INPUT', 'Supply a nesting comparison object with a start and horizon.')
   // This comparison includes displaced work and resource identities. A scoped
   // member cannot use it to learn work outside their current location scope.
   if (scopeOf(c.actor).locations !== null) forbidden('A whole-shop nesting comparison needs unrestricted location scope.')
@@ -34,7 +35,7 @@ export function nestingCapacity(c: Context, group: Row, members: any[], sharedSe
     rank: Math.max(...jobs.map(w => w.rank ?? 1000001)), priority: Math.min(...jobs.map(w => w.priority ?? 0)),
     plannedStart: latest(jobs.map(w => w.plannedStart)), planningMaterialReadyAt: latest(jobs.map(w => w.planningMaterialReadyAt)),
     requiredBy: jobs.map(w => w.requiredBy).sort()[0], demandSources: [],
-    routing: [{ ...operation, sequence: 1, predecessors: [], setupMinutes: setup, runMinutes, minutes: runMinutes, queueMinutes: Math.max(...members.map(m => m.operation.queueMinutes ?? 0)) }],
+    routing: [{ ...operation, sequence: 1, dependsOn: [], setupMinutes: setup, runMinutes, minutes: runMinutes, queueMinutes: Math.max(...members.map(m => m.operation.queueMinutes ?? 0)) }],
     operationStates: [{ sequence: 1, status: 'pending' }], scheduleChoices: { 1: first.scheduleChoices?.[members[0].sequence] } }
   clone.workOrders = [...clone.workOrders.filter(w => !ids.has(w.id)), combined]
   const after = finitePlan(clone, c.people ?? [], asOf, days)

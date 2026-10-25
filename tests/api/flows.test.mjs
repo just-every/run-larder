@@ -1283,7 +1283,7 @@ test('CAP-008 invalid nesting and incompatible or changed jobs leave no partial 
     [{ ...f.report, source: { ...f.report.source, quantity: '11' } }, 'INSUFFICIENT_STOCK'],
   ]
   const before = await h.state(), archive = await (await h.request('/api/larder/archive')).json()
-  for (const capacity of [{ asOf: 'not-a-time', days: 7 }, { asOf: '2026-11-01T00:00:00Z', days: 61 }]) await h.command('nest.import', { groupId: group.id, version: group.version, file: f.file(f.report), capacity }, { error: 'INPUT' })
+  for (const capacity of [null, false, [], { asOf: 'not-a-time', days: 7 }, { asOf: '2026-11-01T00:00:00Z', days: 61 }]) await h.command('nest.import', { groupId: group.id, version: group.version, file: f.file(f.report), capacity }, { error: 'INPUT' })
   for (const [report, error] of invalid) await h.command('nest.import', { groupId: group.id, version: group.version, file: f.file(report) }, { error })
   const after = await h.state()
   for (const key of Object.keys(archive.records)) assert.deepEqual(after[key], before[key], key)
