@@ -26,6 +26,8 @@ export async function load(db: D1Database): Promise<State> {
   const s = { version: out[0].results[0].version, movements: [], reservations: [] } as unknown as State
   for (const k of collections) s[k] = []
   for (const r of out[1].results) if ((collections as readonly string[]).includes(r.kind)) s[r.kind as (typeof collections)[number]].push(JSON.parse(r.data))
+  // Inspection decisions follow atomic commit order even when their timestamps tie.
+  s.inspections.sort((a, b) => (a.recordedVersion ?? 0) - (b.recordedVersion ?? 0) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
   s.movements = out[2].results.map((r: any) => ({ id: r.id, sequence: r.sequence, itemId: r.item_id, locationId: r.location_id, status: r.status, lotId: r.lot_id, quantity: BigInt(r.quantity), unitCost: BigInt(r.unit_cost), kind: r.kind, documentKind: r.document_kind, documentId: r.document_id, reversesId: r.reverses_id, actorId: r.actor_id, commandId: r.command_id, importId: r.import_id, reason: r.reason, createdAt: r.created_at }))
   s.reservations = out[3].results.map((r: any) => ({ id: r.id, demandKind: r.demand_kind, demandId: r.demand_id, lineId: r.line_id, itemId: r.item_id, locationId: r.location_id, quantity: BigInt(r.quantity) }))
   return s

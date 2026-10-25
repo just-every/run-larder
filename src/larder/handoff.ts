@@ -7,7 +7,7 @@ import { shipmentPrice } from './sales-terms'
 import { allow } from './roles'
 import { bump, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Movement, type Row, type State } from './model'
 
-const internal = new Set(['transfer', 'release', 'transfer-reversal', 'release-reversal'])
+const internal = new Set(['transfer', 'release', 'transfer-reversal', 'release-reversal', 'batch-release'])
 const handedOff = (s: State) => new Map(s.handoffs.flatMap(h => h.lines.flatMap((l: any) => l.movementIds.map((id: string) => [id, { handoffId: h.id, reference: h.reference, lineId: l.id }] as const))))
 
 // A shipment line for invoice preparation retains its issued price; `m` is the shipment
@@ -57,7 +57,8 @@ export function pendingHandoffCount(s: State) {
 
 function pendingValuations(s: State) {
   const done = new Set(s.handoffs.flatMap(h => h.lines.flatMap((l: any) => l.valuationIds ?? [])))
-  return s.costValuations.filter(v => v.status === 'approved' && !done.has(v.id))
+  // A batch allocation values its original output movements; it is not a later correcting entry.
+  return s.costValuations.filter(v => v.status === 'approved' && !v.batchAllocation && !done.has(v.id))
 }
 export function handoffLines(s: State) {
   const done = handedOff(s)

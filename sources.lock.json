@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "9b20047ae89d7123113a330414d36e833179ea54a34456ff68367efeee44ea4a",
+      "sha256": "07c8833e1c3faa39f9501f62ed543936c73cf0decc21699ba4dbd17e7b188d2e",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -201,7 +201,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "461f6be4c9f979d893ffe9bf34011ea9f75746f762f38d1ede710f3ebcbbcb87",
+      "sha256": "9fc4912d517634d13965517af84dfd0cf15e4f68b29a50bbf3ddba193a6ccfe1",
       "executable": false
     },
     "DEMO.md": {
@@ -1241,7 +1241,7 @@
       "executable": false
     },
     "src/larder/handoff.ts": {
-      "sha256": "6b7a3c6673879a993db3bd327dfa871e760deb730b9d3f5076edbcf04fcb9fa3",
+      "sha256": "aa391e6260c2eb61e42cec0f500b43f390f0656d259e7fd5230028b1a0eb54d1",
       "executable": false
     },
     "src/larder/history.ts": {
@@ -1417,7 +1417,7 @@
       "executable": false
     },
     "src/larder/quality.ts": {
-      "sha256": "d1319881214d793a2a327aae9ad6066cd0f624fe4afc7f538a9aab52a3931014",
+      "sha256": "ef8df8483a0eb9f3d1eac441c4fc3891f102140a23cd3c98245553751ec0d0d5",
       "executable": false
     },
     "src/larder/recall-policy.ts": {
@@ -1549,7 +1549,7 @@
       "executable": false
     },
     "src/larder/storage.ts": {
-      "sha256": "36a5a5dc40ca6deb16345906957f078e13c59f55b9032e92e7473ef174622caa",
+      "sha256": "1e0322f7b4468705d413d1478885850b52ff33eb4107f73b0835a0b2e1786ed5",
       "executable": false
     },
     "src/larder/subcontract-custody.ts": {
@@ -3965,7 +3965,7 @@
       "executable": false
     },
     "tests/api/work-transfers.test.mjs": {
-      "sha256": "ac6edf2681c399a2f45c581da359aad5e252aaf0f64d428ed4d9ed3c73dda128",
+      "sha256": "2b742927c281d6bee5cfa41d886cc40f1678c7dd99a3bb0ed21d9ab69d8d7611",
       "executable": false
     },
     "tests/api/worker.ts": {
