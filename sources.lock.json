@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "a2427819f8fb1c3d83ec0675b01e446372b1c3cdec39094032478f89371ba956",
+      "sha256": "a3f00aa6230d163bd4daee61440a8b059baf5e10e1877baa27c1d590156d52ee",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -201,7 +201,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "f63fde2551574253377d94492ca50e0b71056852f310fdea566aaf53dba3fefc",
+      "sha256": "d0a9fce702998b8cb3d42b309c4ba7489e2ca447583788bab60a0c9d7bc30036",
       "executable": false
     },
     "DEMO.md": {
@@ -3905,7 +3905,7 @@
       "executable": false
     },
     "tests/api/routing.test.mjs": {
-      "sha256": "8e6e0c38f994adc92d6f3791cd6a85677e3d2a15207b249fbb81f531cc9f8e6f",
+      "sha256": "cf016312f7cb5ac326b05c0f47b748a6588482a387f16f4ef07817c4ceb837e1",
       "executable": false
     },
     "tests/api/schedule-approval.test.mjs": {
@@ -4057,7 +4057,7 @@
       "executable": false
     },
     "tests/browser/trace.spec.ts": {
-      "sha256": "5f277289b2e6eef4d64a7a94c7efb4c930286fe2ee774781f84bd24396781d6a",
+      "sha256": "a37b3c9b60bb3fe469018dde6e6d43e2c4d285fdb735131c4237db0d0b103d06",
       "executable": false
     },
     "tests/browser/wip.spec.ts": {
