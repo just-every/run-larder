@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "7b8022a89384963c3cd9771207a515ed4627487901ba91f3c3ec47cdcaef0067",
+      "sha256": "564b6bfa4dcab889b1005b77790a8ce72f9cc8e5300d4b46f5edf57f1832511d",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -201,7 +201,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "198e4c10712b8b94c0f9270c5ea7921f0e5cd0ce9baeba683486fa8ca72e3805",
+      "sha256": "6a99d118612d551134f9ec51f8091d9a601e8f141806f6312910da2a2d7a25ef",
       "executable": false
     },
     "DEMO.md": {
@@ -1117,7 +1117,7 @@
       "executable": false
     },
     "src/larder/co-products.ts": {
-      "sha256": "f15cc49036080c213930c5dc03b012ce5942efbf922dec886fb805b031bf35ce",
+      "sha256": "ee2c1e5b93a8424816e8e362c0fedd53b5832e51e000885004f4dac5684f74f7",
       "executable": false
     },
     "src/larder/config-expr.ts": {
@@ -3965,7 +3965,7 @@
       "executable": false
     },
     "tests/api/work-transfers.test.mjs": {
-      "sha256": "a7648eca0644d45902f64d9fdb6ccdd0d072e79ec4f89cfc435537fc70cddd96",
+      "sha256": "3fd89d205e797f09146698c1c0db91be83caa258252b6dc3178ade6919d1222a",
       "executable": false
     },
     "tests/api/worker.ts": {

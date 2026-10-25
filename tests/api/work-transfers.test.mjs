@@ -131,7 +131,7 @@ test('TRACE-001 / FLOOR-005 split partly completed work between centers and merg
   assert.deepEqual((await restored.invariant()).positions, s.positions)
 })
 
-async function multiOutputBatch(h) {
+async function multiOutputBatch(h, preparer) {
   const loc = await h.command('location.save', { name: 'synthetic-larder-batch-store' })
   const items = []
   for (const [i, kind] of ['buy', 'make', 'make', 'buy'].entries()) items.push(await h.command('item.save', { sku: `synthetic-larder-${i}`, name: `Batch item ${i}`, kind, baseUnit: 'kg' }))
@@ -141,7 +141,7 @@ async function multiOutputBatch(h) {
   await h.command('bom.revise', { itemId: items[2].id, components: [{ itemId: items[0].id, quantity: '1' }], routing: [] })
   await h.command('bom.revise', { itemId: items[1].id, components: [{ itemId: items[0].id, quantity: '3' }], routing: [] })
   let work = await h.command('wo.draft', { itemId: items[1].id, quantity: '1', requiredBy: '2026-10-25', reason: 'One physical batch' })
-  work = await h.command('batch.plan', { workOrderId: work.id, version: work.version, reason: 'Two co-products and reusable by-product', outputs: items.slice(1).map((item, i) => ({ itemId: item.id, locationId: loc.id, quantity: i === 1 ? '2' : '1', lot: `synthetic-larder-output-${i}`, kind: i === 2 ? 'by-product' : 'co-product' })) })
+  work = await (preparer ? preparer.run.bind(preparer) : h.command.bind(h))('batch.plan', { workOrderId: work.id, version: work.version, reason: 'Two co-products and reusable by-product', outputs: items.slice(1).map((item, i) => ({ itemId: item.id, locationId: loc.id, quantity: i === 1 ? '2' : '1', lot: `synthetic-larder-output-${i}`, kind: i === 2 ? 'by-product' : 'co-product' })) })
   work = await h.command('wo.release', { workOrderId: work.id, version: work.version })
   work = await h.command('wo.issue', { workOrderId: work.id, lines: [{ itemId: items[0].id, locationId: loc.id, quantity: '3' }] })
   const issue = (await h.state()).movements.find(m => m.documentId === work.id && m.kind === 'issue')
@@ -221,13 +221,14 @@ test('FLOOR-006 exact multiple-output batch values, lot consumption, quality rel
 
 test('FLOOR-006 refuses unauthorized, stale, nonconserving and reused input allocations without physical posting', async t => {
   const h = await installation({ now: '2026-10-25T12:00:00.000Z' }); t.after(() => h.close())
-  let { work, review, loc } = await multiOutputBatch(h)
   const planner = await h.person('batch-planner@example.test', 'planner')
+  let { work, review, loc } = await multiOutputBatch(h, planner)
   const manager = await h.person('batch-manager@example.test', 'manager'), agent = await h.person('batch-agent@example.test', 'agent')
   const before = await h.state()
   await agent.run('batch.review', review, { error: 'FORBIDDEN' })
   for (const [change, error] of [
     [outputs => { outputs[0].value = '11' }, 'BATCH_VALUE'],
+    [outputs => { outputs.reverse() }, 'BATCH_OUTPUT'],
     [outputs => { outputs[1].allocations[0].quantity = '2' }, 'TRACE_ALLOCATION'],
     [outputs => { outputs[0].quantity = '3'; outputs[0].value = '10' }, 'BATCH_VALUE'],
     [outputs => { outputs[2].allocations = [] }, 'TRACE_ALLOCATION'],
@@ -238,8 +239,12 @@ test('FLOOR-006 refuses unauthorized, stale, nonconserving and reused input allo
   await h.command('wo.split', { workOrderId: work.id, version: work.version, parts: [{ quantity: '0.5' }], reason: 'Must keep plan' }, { error: 'STATE' })
   work = await planner.run('batch.review', review)
   const post = () => ({ workOrderId: work.id, version: work.version, reviewId: work.coProductReviews.at(-1).id, reason: 'Explicit owner decision' })
+  await planner.run('batch.post', post(), { error: 'FORBIDDEN' })
   await manager.run('batch.post', post(), { error: 'FORBIDDEN' })
   await agent.run('batch.post', post(), { error: 'FORBIDDEN' })
+  work = await planner.run('batch.void', { workOrderId: work.id, version: work.version, reviewId: work.coProductReviews.at(-1).id, reason: 'Changed draft input' })
+  await h.command('batch.post', post(), { error: 'STALE' })
+  work = await manager.run('batch.review', { ...review, version: work.version })
   await h.command('location.save', { name: 'Changed evidence' })
   await h.command('batch.post', post(), { error: 'STALE' })
   work = (await h.state()).workOrders.find(w => w.id === work.id)

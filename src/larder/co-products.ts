@@ -68,7 +68,7 @@ export function coProducts(c: Context, type: string, p: any): Row | undefined {
     const seen = new Set<string>()
     const outputs = inputs.map((x, index) => {
       const plan = w.coProductPlan.outputs.find((o: any) => o.itemId === x.itemId)
-      if (!plan || seen.has(x.itemId)) fail('BATCH_OUTPUT', 'Review each planned item exactly once.')
+      if (!plan || seen.has(x.itemId) || x.itemId !== w.coProductPlan.outputs[index].itemId) fail('BATCH_OUTPUT', 'Review each planned item exactly once.')
       seen.add(x.itemId)
       if (c.s.lots.some(l => l.itemId === plan.itemId && l.code === plan.lot)) fail('BATCH_OUTPUT', 'Use a new output lot.')
       const quantity = decimal(x.quantity, 'actual yield', { positive: true }), value = decimal(x.value, 'allocated output value') + (index === inputs.length - 1 ? residue : 0n), rate = exactDivide(value, quantity) ?? fail('BATCH_VALUE', 'Each output value must have an exact six-place unit cost.')
