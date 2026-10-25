@@ -294,6 +294,16 @@ test('FLOOR-008 scanned GS1 codes resolve item, lot, expiry and serial for recei
   const kitLabel = await scan('(01)09501101530027(10)KIT-B1(17)271130', 'output', w.id); assert.deepEqual(kitLabel.output, { serial: '', lot: 'KIT-B1', expiresOn: '2027-11-30' })
   await refused('(01)09501101530003(10)RES-A', 'output', w.id, 'SCAN_WRONG_ITEM')
   assert.equal(await moved(), afterShipment)
+  await h.command('item.save', { ...kit, tracking: 'serial' })
+  let serialWork = await h.command('wo.draft', { itemId: kit.id, quantity: '1', requiredBy: day(1), reason: 'synthetic-larder-1423 serial output' })
+  serialWork = await h.command('wo.release', { workOrderId: serialWork.id, version: serialWork.version })
+  serialWork = await h.command('wo.issue', { workOrderId: serialWork.id, lines: [{ itemId: resin.id, locationId: dock.id, lotId: issued.lot.id, quantity: '1' }] })
+  const freshOutput = await scan('(01)09501101530027(21)synthetic-larder-1', 'output', serialWork.id)
+  assert.equal(freshOutput.output.serial, 'synthetic-larder-1')
+  serialWork = await h.command('wo.output', { workOrderId: serialWork.id, version: serialWork.version, locationId: dock.id, quantity: '1', serials: [freshOutput.output.serial] })
+  await refused('(01)09501101530027(21)synthetic-larder-1', 'output', w.id, 'SCAN_DUPLICATE')
+  await h.command('wo.close', { workOrderId: serialWork.id, version: serialWork.version })
+  await refused('RESIN', 'issue', serialWork.id, 'SCAN_STALE')
   const planDraft = await h.command('quality.plan.save', { itemId: resin.id, stage: 'receipt', name: 'Scan purity', sampleSize: 1, measurements: [{ name: 'Purity', unit: '%', target: '100', lower: '99', upper: '100' }] })
   const plan = await h.command('quality.plan.approve', { planId: planDraft.id, version: planDraft.version })
   const lot = (await h.state()).lots.find(l => l.code === 'RES-A')
@@ -307,6 +317,12 @@ test('FLOOR-008 scanned GS1 codes resolve item, lot, expiry and serial for recei
   const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
   const outbound = target.outboundCount()
   assert.equal((await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })).status, 200)
+  const csv = await (await h.request('/api/larder/archive.csv')).text(), csvRecords = {}
+  for (const match of csv.matchAll(/^"records\.([^"]+)","(\d+)","((?:[^"]|"")*)"\r?$/gm)) {
+    const [, kind, index, value] = match
+    ;(csvRecords[kind] ??= [])[Number(index)] = JSON.parse(value.replaceAll('""', '"'))
+  }
+  for (const key of ['receipts', 'workOrders', 'shipments', 'lots']) assert.deepEqual(csvRecords[key], archive.records[key], key)
   const restored = await target.state(), original = await h.state()
   for (const key of ['receipts', 'workOrders', 'shipments', 'lots', 'movements']) assert.deepEqual(restored[key], original[key], key)
   assert.equal(target.outboundCount(), outbound)
