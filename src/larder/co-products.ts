@@ -72,7 +72,7 @@ export function coProducts(c: Context, type: string, p: any): Row | undefined {
     for (const x of review.outputs) {
       const batchId = newId(), lot = row(c, 'lots', { itemId: x.itemId, code: x.lot, supplierId: null, source: 'production', documentId: w.id, batchId, coProduct: true, status: 'quarantined', manufacturedOn: c.now.slice(0, 10) })
       const m = move(c, { itemId: x.itemId, locationId: x.locationId, lotId: lot.id, status: 'quarantine', quantity: decimal(x.quantity), unitCost: decimal(x.unitCost), kind: 'output', documentKind: 'workOrders', documentId: w.id, reason })
-      w.outputs = [...(w.outputs ?? []), { id: batchId, itemId: x.itemId, kind: x.kind, locationId: x.locationId, lotId: lot.id, movementId: m.id, allocations: x.allocations, good: x.quantity, scrap: '0', at: c.now, by: c.actor.id }]
+      w.outputs = [...(w.outputs ?? []), { id: batchId, itemId: x.itemId, kind: x.kind, bomRevision: x.bomRevision, locationId: x.locationId, lotId: lot.id, movementId: m.id, allocations: x.allocations, good: x.quantity, scrap: '0', at: c.now, by: c.actor.id }]
       lines.push({ itemId: x.itemId, lotId: lot.id, movementId: m.id, quantity: x.quantity, unitCost: x.unitCost, targetValue: x.value, roundingResidual: '0' })
     }
     row(c, 'costValuations', { workOrderId: w.id, currency: 'USD', status: 'approved', batchAllocation: true, lines, report: review.costReport, approvedBy: c.actor.id, approvedAt: c.now, approvalReason: reason })
@@ -88,7 +88,7 @@ export function coProducts(c: Context, type: string, p: any): Row | undefined {
     if (lot.status !== 'quarantined') fail('STATE', 'Release a quarantined output of this batch once.')
     if (workHolds(c.s, w).length || workRecalls(c.s, w).length || lotBlock(lot, c.now.slice(0, 10))) fail('QUALITY_HOLD', 'Resolve batch holds and lot dates first.')
     approvedCertificates(c.s, output.itemId, lot.id, c.now.slice(0, 10))
-    for (const stage of ['receipt', 'in-process', 'final']) for (const plan of plansFor(c.s, stage, output.itemId, output.itemId === w.itemId ? w.bomRevision : null).filter(p => p.required)) {
+    for (const stage of ['receipt', 'in-process', 'final']) for (const plan of plansFor(c.s, stage, output.itemId, output.bomRevision ?? null).filter(p => p.required)) {
       const latest = c.s.inspections.filter(i => i.subjectId === lot.id && i.planId === plan.id).at(-1)
       if (!latest?.passed || latest.planVersion !== plan.version) fail('RETEST', 'Record passing current inspections for this exact output lot first.')
     }

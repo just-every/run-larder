@@ -5,7 +5,7 @@ import { can, rows, itemName, locationName, byId, type Rec } from './api'
 import { Card, Choose, Field, Area, Form, Table, Details, options, text, fileBase64 } from './controls'
 
 export function CoProducts({ larder, w }: { larder: Larder; w: Rec }) {
-  const s = larder.state!, [count, setCount] = useState(3), owner = s.actor.role === 'owner'
+  const s = larder.state!, [count, setCount] = useState(w.coProductPlan?.outputs.length ?? 3), owner = s.actor.role === 'owner'
   const prepare = can(s, ['manager', 'accounts']) && !(s.actor as any).scope?.costs
   if (!prepare && !w.coProductPlan) return null
   const plan = w.coProductPlan, reviews = w.coProductReviews ?? [], latest = reviews.at(-1)
@@ -36,7 +36,7 @@ export function CoProducts({ larder, w }: { larder: Larder; w: Rec }) {
       {owner && latest.status === 'review' && <Form submit="Approve and post exact batch" busy={larder.busy} onSubmit={d => larder.run('batch.post', { workOrderId: w.id, version: w.version, reviewId: latest.id, reason: text(d, 'reason') })}><Field label="Batch approval reason" name="reason" /></Form>}
     </section>}
     {w.coProductPosted && (w.outputs ?? []).map((x: Rec) => { const lot = byId(s, 'lots', x.lotId); return <section key={x.id} aria-label={`Batch lot ${lot?.code}`}><h3>{lot?.code} · {lot?.status}</h3><p>{itemName(s, x.itemId)} · {x.good} · {locationName(s, x.locationId)}</p><a href="#stock">Inspect lot links</a>
-      {lot && can(s, ['manager', 'production', 'quality']) && rows(s, 'inspectionPlans').filter(p => p.status === 'approved' && p.itemId === x.itemId && (p.revision === null || (x.itemId === w.itemId && p.revision === w.bomRevision))).map(p => <InspectForm key={p.id} larder={larder} plan={p} lotId={lot.id} />)}
+      {lot && can(s, ['manager', 'production', 'quality']) && rows(s, 'inspectionPlans').filter(p => p.status === 'approved' && p.itemId === x.itemId && (p.revision === null || p.revision === x.bomRevision)).map(p => <InspectForm key={p.id} larder={larder} plan={p} lotId={lot.id} />)}
       <InspectionResults s={s} subjectId={x.lotId} title="Output inspection results" />
       {rows(s, 'qualityHolds').filter(h => h.subjectId === x.lotId && h.status === 'open').map(h => <HoldRelease key={h.id} larder={larder} hold={h} />)}
       {owner && lot?.status === 'quarantined' && <Form submit={`Release ${lot.code}`} busy={larder.busy} onSubmit={async d => { const file = d.get('evidence') as File; return larder.run('batch.release', { workOrderId: w.id, version: w.version, lotId: lot.id, reason: text(d, 'reason'), evidence: [{ name: file.name, contentType: file.type, base64: await fileBase64(file) }] }) }}><Field label={`Release reason for ${lot.code}`} name="reason" /><Field label={`Release evidence for ${lot.code}`} name="evidence" type="file" /></Form>}

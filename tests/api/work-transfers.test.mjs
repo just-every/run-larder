@@ -138,6 +138,7 @@ async function multiOutputBatch(h) {
   const policy = await h.command('costing.policy.prepare', { standardLaborRate: '0', machineRate: '0', overheadRate: '0', overtimeAfterHours: '8', overtimeMultiplier: '1', reason: 'Material-only batch' })
   await h.command('costing.policy.approve', { policyId: policy.id, version: policy.version, reason: 'Approved zero time tariffs' })
   await h.command('opening.record', { locationId: loc.id, countedOn: '2026-10-25', valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: items[0].id, quantity: '3', unitCost: '10', lot: 'synthetic-larder-input' }] })
+  await h.command('bom.revise', { itemId: items[2].id, components: [{ itemId: items[0].id, quantity: '1' }], routing: [] })
   await h.command('bom.revise', { itemId: items[1].id, components: [{ itemId: items[0].id, quantity: '3' }], routing: [] })
   let work = await h.command('wo.draft', { itemId: items[1].id, quantity: '1', requiredBy: '2026-10-25', reason: 'One physical batch' })
   work = await h.command('batch.plan', { workOrderId: work.id, version: work.version, reason: 'Two co-products and reusable by-product', outputs: items.slice(1).map((item, i) => ({ itemId: item.id, locationId: loc.id, quantity: i === 1 ? '2' : '1', lot: `synthetic-larder-output-${i}`, kind: i === 2 ? 'by-product' : 'co-product' })) })
@@ -174,6 +175,13 @@ test('FLOOR-006 exact multiple-output batch values, lot consumption, quality rel
     await traceProof(h, s.lots.find(l => l.code === 'synthetic-larder-input').id, 'downstream', work.outputs.map(o => o.lotId))
     assert.equal(s.positions.find(p => p.lotId === output.lotId).status, 'quarantine')
   }
+  const second = work.outputs[1]
+  let finalPlan = await h.command('quality.plan.save', { itemId: items[2].id, revision: 1, stage: 'final', name: 'Co-product final', sampleSize: 1, measurements: [{ name: 'Measure', unit: 'mm', target: '1', lower: '1', upper: '1' }] })
+  finalPlan = await h.command('quality.plan.approve', { planId: finalPlan.id, version: finalPlan.version })
+  const secondRelease = () => ({ workOrderId: work.id, version: work.version, lotId: second.lotId, reason: 'Release pinned revision output', evidence: [evidence()] })
+  await h.command('batch.release', secondRelease(), { error: 'RETEST' })
+  await h.command('quality.inspect', { lotId: second.lotId, planId: finalPlan.id, planVersion: finalPlan.version, samples: { Measure: ['1'] } })
+  work = await h.command('batch.release', secondRelease())
   const byproduct = work.outputs[2]
   await h.command('quarantine.decide', { itemId: byproduct.itemId, locationId: loc.id, lotId: byproduct.lotId, quantity: '1', decision: 'release', reason: 'Bypass' }, { error: 'BATCH_RELEASE' })
   let plan = await h.command('quality.plan.save', { itemId: items[3].id, stage: 'receipt', name: 'Reuse purity', sampleSize: 1, measurements: [{ name: 'Purity', unit: '%', target: '100', lower: '99', upper: '100' }] })
