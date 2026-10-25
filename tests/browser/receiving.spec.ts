@@ -19,6 +19,12 @@ async function shot(page: Page, stage: string, clause = 'BUY-002') {
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
     expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    if (clause === 'FLOOR-008' && /receipt-scanned|issue-scanned|pick-scanned/.test(stage)) {
+      const account = page.getByLabel('Account menu', { exact: true }); await account.focus()
+      await expect(page.getByRole('tooltip', { name: 'Account menu' })).toBeVisible({ timeout: 100 }); await account.blur(); await account.hover()
+      await expect(account.locator('[role=tooltip]')).toHaveCSS('transition-delay', '0.3s, 0.3s')
+      await page.mouse.move(0, 0)
+    }
     await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-${clause}-${stage}.png`), fullPage: true })
   }
 }

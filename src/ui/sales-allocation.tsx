@@ -12,7 +12,7 @@ export function SalesAllocation({ larder, receipt }: { larder: Larder; receipt: 
   const [itemId, locationId] = source.split('|')
   const lines = rows(s, 'salesOrders').filter(o => ['confirmed', 'part shipped'].includes(o.status)).flatMap(o => o.lines.filter((l: any) => l.itemId === itemId).map((l: any) => ({ value: `${o.id}|${l.id}`, label: `${o.reference} · ${itemName(s, itemId)} · promised ${day(o.promiseDate)}` })))
   const reviews = rows(s, 'approvals').filter(a => a.category === 'sales-allocation' && a.receiptId === receipt.id).reverse()
-  const preview = reviews.find(a => a.status === 'preview'), approved = reviews.filter(a => a.status === 'approved')
+  const preview = reviews[0]?.status === 'preview' ? reviews[0] : undefined, approved = reviews.filter(a => a.status === 'approved')
   const stale = preview && (preview.stateVersion !== s.version || preview.day !== new Date().toISOString().slice(0, 10))
   return <section aria-label={`Sales receipt split ${receipt.reference}`}>
     <h3>Split accepted stock between sales orders</h3>
@@ -28,7 +28,7 @@ export function SalesAllocation({ larder, receipt }: { larder: Larder; receipt: 
       <Field label="Split reason" name="reason" />
     </Form>
     {preview && <section aria-label="Reservation split preview">
-      <h3>Review the exact split</h3><p>{preview.reason}</p><p>Usable accepted receipt stock: {qty(preview.acceptedQuantity)} · Reservation total before: {qty(preview.totalBefore)} · Reservation total after: {qty(preview.totalAfter)}</p>
+      <h3>Review the exact split</h3><p>{receipt.reference} · {itemName(s, preview.itemId)} at {locationName(s, preview.locationId)}</p><p>{preview.reason}</p><p>Usable accepted receipt stock: {qty(preview.acceptedQuantity)} · Reservation total before: {qty(preview.totalBefore)} · Reservation total after: {qty(preview.totalAfter)}</p>
       <p>Changed customer promises: {preview.changedPromiseCount}</p><p>{preview.semantics}</p>
       <SplitEffects effects={preview.effects} />
       {stale && <p role="status">Business records or the UTC day changed. Prepare and review the split again.</p>}

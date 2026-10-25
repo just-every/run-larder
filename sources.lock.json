@@ -413,7 +413,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "1520f4baa7e062e1990d6af54e1d61614f13da6e0ed9fe3a412398c6f529babd",
+      "sha256": "c54beafcd18b67a1162b79c2861826bd781d7b4060576b760f857367a92d0f1b",
       "executable": false
     },
     "packaging.json": {
@@ -421,7 +421,7 @@
       "executable": false
     },
     "pnpm-lock.yaml": {
-      "sha256": "ec286f27871058eeb0099e99351010414362f71ee70e2ff028baaf04c8d0939f",
+      "sha256": "94af7f497e954d812f8142a8714603371442a63c519d344e2552b9033f6d2266",
       "executable": false
     },
     "public/apple-touch-icon.png": {
@@ -1441,7 +1441,7 @@
       "executable": false
     },
     "src/larder/sales-allocation.ts": {
-      "sha256": "44472aa251b85855df70edc9595ffd96bf46175a1fee9cb7ccf474d724d6224c",
+      "sha256": "c6360581548feb54d153f484fcbe98278295a6f7e9184b7fb6dfd59b5fbbfac5",
       "executable": false
     },
     "src/larder/sales-schedules.ts": {
@@ -3593,7 +3593,7 @@
       "executable": false
     },
     "src/ui/make.tsx": {
-      "sha256": "4a0aacd909862181034325c8769b7161dd5814304ad605e57a9bfc808fe9ce89",
+      "sha256": "b106e4d99834b99a971498ff21c32a3bdf9b937e19c6ed49a3f14cc82526d355",
       "executable": false
     },
     "src/ui/more.tsx": {
@@ -3656,12 +3656,16 @@
       "sha256": "7780e1f5246fe7fd5434b4c7483b0cc96ed7a82c3c8f5858dd3a84c7e36d0cd8",
       "executable": false
     },
+    "src/ui/sales-allocation.tsx": {
+      "sha256": "d44281abe85e320aefd45016720d9050ed562dd487068b10867645d7de92bb47",
+      "executable": false
+    },
     "src/ui/scan-count.tsx": {
       "sha256": "f86debbf83943ef2c5c84f943d465a21d06da6f25b15541c078efa82672b3f3e",
       "executable": false
     },
     "src/ui/scan.tsx": {
-      "sha256": "813e7978e1d52efb3e512f7e184416e967ebb6f9125bf44f846649bc238526a5",
+      "sha256": "9a235420823644d84c17c3214c055e452f3e61fde92516ab3ca7816e1cc77e29",
       "executable": false
     },
     "src/ui/schedule/capacity.tsx": {
@@ -4013,7 +4017,7 @@
       "executable": false
     },
     "tests/browser/order-amendments.spec.ts": {
-      "sha256": "b975118baf5579d7c5880bfeb8486f3a9d4ec2acb87b7df1f0f23c1ecfc9858a",
+      "sha256": "9837bbdb9aa1190e630103d5445d2e86eed3c7e96e71bf7860353fbaced67af0",
       "executable": false
     },
     "tests/browser/order-status.spec.ts": {
@@ -4029,7 +4033,7 @@
       "executable": false
     },
     "tests/browser/receiving.spec.ts": {
-      "sha256": "00373fb8518c573ca240107680ccaaf1cd06d6c7fea6f0adcd5e5856593e5553",
+      "sha256": "4c126fd6af83c11a0c306cdaa1d4ded0c8f82332164e20b6dc7220c615c8f22d",
       "executable": false
     },
     "tests/browser/rework.spec.ts": {

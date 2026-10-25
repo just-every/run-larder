@@ -67,7 +67,7 @@ export function ScanPanel({ larder, use, doc }: { larder: Larder; use: Use; doc?
       {use === 'transfer' && <Choose label="Move to location" name="scanTo" options={options(bins.filter(l => l.id !== locationId), r => r.name)} value={toId} onChange={(e: any) => setToId(e.target.value)} />}
       {(use === 'receipt' || use === 'transfer') && <Field label={use === 'receipt' ? 'Scanned packing slip' : 'Transfer reason'} name="scanSlip" value={slip} onChange={(e: any) => setSlip(e.target.value)} />}
     </div>
-    {<button type="button" className="button" onClick={() => setCamera(!camera)}>{camera ? 'Stop camera' : 'Scan with camera'}</button>}
+    <button type="button" className="button" onClick={() => setCamera(!camera)}>{camera ? 'Stop camera' : 'Scan with camera'}</button>
     {camera && <CameraScan onCode={code => { setCamera(false); void resolve(code) }} />}
     {refusal && <p className="scan-refusal" role="status">Not accepted: {refusal}</p>}{note && <p className="muted" role="status">{note}</p>}
     {lines.length > 0 && <><Table head={['Item', 'Lot or serial', 'Quantity']} numeric={[2]}>{lines.map(l => <tr key={l.key}><td>{l.item}</td><td>{l.lot || '—'}{l.expiresOn && <small>Expires {l.expiresOn}</small>}</td><td className="num">{l.quantity}</td></tr>)}</Table>
