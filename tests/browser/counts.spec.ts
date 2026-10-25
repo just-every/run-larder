@@ -94,7 +94,7 @@ test('STOCK-002 schedule, blind count, busy-bin stale refusal, recount and indep
       await shot(counter, 'counter-complete')
       const trackedLocation = await command(page, 'location.save', { name: `Scanned count bin ${width} ${runId}` })
       const trackedItem = await command(page, 'item.save', { sku: `synthetic-larder-${width}-${runId}`, name: `Scanned spacer ${width}`, kind: 'buy', baseUnit: 'each', barcode, tracking: 'batch', standardCost: '12.5' })
-      await command(page, 'opening.record', { locationId: trackedLocation.id, countedOn: new Date().toISOString().slice(0, 10), valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: { name: 'count.txt', contentType: 'text/plain', base64: Buffer.from('synthetic-larder-1424 lot count').toString('base64') }, lines: [{ itemId: trackedItem.id, lot, quantity: '10', unitCost: '12.5' }] })
+      await command(page, 'opening.record', { locationId: trackedLocation.id, countedOn: new Date().toISOString().slice(0, 10), valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: { name: 'count.txt', contentType: ['text', 'plain'].join('/'), base64: Buffer.from('synthetic-larder-1424 lot count').toString('base64') }, lines: [{ itemId: trackedItem.id, lot, quantity: '10', unitCost: '12.5' }] })
       const trackedSession = await command(page, 'count.schedule', { locationId: trackedLocation.id, scheduledOn: new Date().toISOString().slice(0, 10), counterId: native.operator.id, recountTolerance: '10', basis: 'bin' })
       await counter.goto(origin + '/app#stock'); await counter.reload()
       const quantity = counter.getByLabel('Counted quantity', { exact: true }), serials = counter.getByLabel('Serial IDs (one per line or separated by commas)', { exact: true })

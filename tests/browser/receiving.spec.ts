@@ -126,7 +126,12 @@ test('FLOOR-008 hardware and camera receipt, issue and pick refuse wrong, held, 
       const canvas = document.createElement('canvas'); canvas.width = canvas.height = 640
       const image = new Image(); image.src = (window as any).__cameraFrame; await image.decode()
       canvas.getContext('2d')!.drawImage(image, 0, 0, 640, 640)
-      return canvas.captureStream(15)
+      const stream = canvas.captureStream(15), track = stream.getVideoTracks()[0]
+      const frames = setInterval(() => {
+        if (track.readyState === 'ended') { clearInterval(frames); return }
+        canvas.getContext('2d')!.drawImage(image, 0, 0, 640, 640)
+      }, 60)
+      return stream
     } })
   })
   for (const mode of ['hardware', 'camera-desktop', 'camera-phone']) {
