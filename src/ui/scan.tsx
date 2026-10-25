@@ -4,7 +4,8 @@ import type { Larder } from './app'
 import { Choose, Field, Table, options } from './controls'
 
 // FLOOR-008: a USB or Bluetooth scanner types its code and Enter into the scan
-// field; a phone or tablet camera decodes frames locally. Each scan is resolved by the server; nothing moves until the person
+// field; a phone or tablet camera decodes frames locally. Each scan is resolved
+// by the server; nothing moves until the person
 // posts the scanned lines as one receipt, issue or pick.
 type Use = 'receipt' | 'issue' | 'pick' | 'transfer'
 type Line = { key: string; lineId: string; itemId: string; item: string; lot: string; lotId: string; serial: boolean; expiresOn: string; quantity: number }
@@ -81,15 +82,13 @@ function CameraScan({ onCode }: { onCode: (code: string) => void }) {
   useEffect(() => {
     let stream: MediaStream | undefined, stopped = false, controls: { stop: () => void } | undefined
     async function start() {
-      const { BrowserMultiFormatReader } = await import('@zxing/browser')
+      const [{ BrowserMultiFormatReader }, { DecodeHintType }] = await Promise.all([import('@zxing/browser'), import('@zxing/library')])
       if (stopped) return
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error('Camera access needs HTTPS or localhost. Use the scanner field instead.')
       const media = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
       stream = media
       if (stopped || !video.current) { media.getTracks().forEach(t => t.stop()); return }
-      video.current.srcObject = media
-      await video.current.play()
-      if (stopped) return
-      controls = await new BrowserMultiFormatReader().decodeFromVideoElement(video.current, (result, _error, scan) => {
+      controls = await new BrowserMultiFormatReader(new Map([[DecodeHintType.TRY_HARDER, true]])).decodeFromStream(media, video.current, (result, _error, scan) => {
         if (!stopped && result?.getText()) { stopped = true; scan.stop(); media.getTracks().forEach(t => t.stop()); onCode(result.getText()) }
       })
       if (stopped) controls.stop()

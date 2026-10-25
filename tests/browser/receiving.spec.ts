@@ -16,17 +16,19 @@ async function settled(page: Page) { await expect(page.locator('main')).toHaveAt
 async function shot(page: Page, stage: string, clause = 'BUY-002') {
   if (!process.env.LARDER_SCREENSHOTS) return
   await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true })
+  const viewport = page.viewportSize()!
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
     expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
     if (clause === 'FLOOR-008' && /receipt-scanned|issue-scanned|pick-scanned/.test(stage)) {
-      const account = page.getByLabel('Account menu', { exact: true }); await account.focus()
+      const account = page.getByLabel('Account menu', { exact: true }); await page.keyboard.press('Tab'); await account.focus()
       await expect(page.getByRole('tooltip', { name: 'Account menu' })).toBeVisible({ timeout: 100 }); await account.blur(); await account.hover()
       await expect(account.locator('[role=tooltip]')).toHaveCSS('transition-delay', '0.3s, 0.3s')
       await page.mouse.move(0, 0)
     }
     await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-${clause}-${stage}.png`), fullPage: true })
   }
+  await page.setViewportSize(viewport)
 }
 
 test('Receiving a short delivery quarantines damaged units, allocates the accepted stock to two jobs and records the late remainder expedite at 1440/390', async ({ page }) => {
@@ -148,7 +150,7 @@ test('FLOOR-008 hardware and camera receipt, issue and pick refuse wrong, held, 
     const resolved = bin ? null : page.waitForResponse(r => r.url().includes('/api/larder/scan?') && new URL(r.url()).searchParams.get('code') === code)
     if (mode === 'hardware') { await panel.getByLabel('Scan code', { exact: true }).focus(); await page.keyboard.type(code); await page.keyboard.press('Enter') }
     else {
-      await page.evaluate(frame => { (window as any).__cameraFrame = frame }, await QRCode.toDataURL(code, { width: 640, margin: 4 }))
+      await page.evaluate(frame => { (window as any).__cameraFrame = frame }, await QRCode.toDataURL(code, { width: 640, margin: 4, errorCorrectionLevel: 'H' }))
       await panel.getByRole('button', { name: 'Scan with camera', exact: true }).click()
       await expect(panel.getByRole('button', { name: 'Scan with camera', exact: true })).toBeVisible()
     }

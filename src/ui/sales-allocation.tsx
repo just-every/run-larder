@@ -24,7 +24,7 @@ export function SalesAllocation({ larder, receipt }: { larder: Larder; receipt: 
       }),
     })}>
       <Choose label="Accepted receipt stock" name="source" value={source} onChange={(e: any) => setSource(e.target.value)} options={sources.map(([value, l]) => ({ value, label: `${itemName(s, l.itemId)} at ${locationName(s, l.locationId)} · accepted ${qty(plus(...receipt.lines.filter((x: any) => x.inspection === 'accept' && x.itemId === l.itemId && x.locationId === l.locationId).map((x: any) => x.quantity)))}` }))} />
-      {[1, 2].map(n => <div className="line" key={n}><Choose label={`Destination sales line ${n}`} name={`line${n}`} options={lines} /><Field label={`Target reservation ${n}`} name={`quantity${n}`} inputMode="decimal" hint="Total reserved here after approval; zero releases it" /></div>)}
+      {[1, 2].map(n => <fieldset className="lines wide" key={n}><legend>Destination {n}</legend><div className="form-grid"><Choose label={`Destination sales line ${n}`} name={`line${n}`} options={lines} /><Field label={`Target reservation ${n}`} name={`quantity${n}`} inputMode="decimal" hint="Total reserved here after approval; zero releases it" /></div></fieldset>)}
       <Field label="Split reason" name="reason" />
     </Form>
     {preview && <section aria-label="Reservation split preview">
@@ -41,5 +41,14 @@ export function SalesAllocation({ larder, receipt }: { larder: Larder; receipt: 
 }
 
 function SplitEffects({ effects }: { effects: any[] }) {
-  return <Table head={['Sales line', 'Unchanged promises', 'Reserved before', 'Reserved after', 'Displaced', 'Estimated margin before', 'Estimated margin after']} numeric={[2, 3, 4, 5, 6]}>{effects.map(e => <tr key={e.lineId}><td><a href={`#orders/${e.orderId}`}>{e.reference}</a></td><td>{day(e.promiseDate)}{e.deliveries.map((d: any, i: number) => <small key={i}>{qty(d.quantity)} on {day(d.date)}</small>)}</td><td className="num">{qty(e.before)}</td><td className="num">{qty(e.after)}</td><td className="num">{qty(e.displaced)}</td><td className="num">{e.estimatedMarginBefore === null ? 'Unknown' : money(e.estimatedMarginBefore)}</td><td className="num">{e.estimatedMarginAfter === null ? 'Unknown' : money(e.estimatedMarginAfter)}</td></tr>)}</Table>
+  return <>{effects.map(e => <article key={e.lineId}>
+    <h3><a href={`#orders/${e.orderId}`}>{e.reference}</a></h3>
+    <p>Unchanged promise: {day(e.promiseDate)}</p>
+    {e.deliveries.map((d: any, i: number) => <p key={i}>{qty(d.quantity)} on {day(d.date)}</p>)}
+    <p>Displaced: {qty(e.displaced)}</p>
+    <Table head={['Review', 'Before', 'After']} numeric={[1, 2]}>
+      <tr><td>Reservation</td><td className="num">{qty(e.before)}</td><td className="num">{qty(e.after)}</td></tr>
+      <tr><td>Estimated margin</td><td className="num">{e.estimatedMarginBefore === null ? 'Unknown' : money(e.estimatedMarginBefore)}</td><td className="num">{e.estimatedMarginAfter === null ? 'Unknown' : money(e.estimatedMarginAfter)}</td></tr>
+    </Table>
+  </article>)}</>
 }
