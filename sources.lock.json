@@ -197,7 +197,7 @@
       "executable": false
     },
     "base-copies.json": {
-      "sha256": "ee696eb07ccfd4b77eff2060b24fe1bb765e73a7bf254fc06786c09e0b7c3ae0",
+      "sha256": "8404e4b26940c7fb76bf3fa55317abb7313aedab37354077bd491f3feea6ca23",
       "executable": false
     },
     "CONTRACT.md": {
@@ -413,7 +413,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "3d34aae4aba6100d662b8f5f4cf53cc70c579e32c43f8128cfee038d8c260390",
+      "sha256": "1520f4baa7e062e1990d6af54e1d61614f13da6e0ed9fe3a412398c6f529babd",
       "executable": false
     },
     "packaging.json": {
@@ -652,8 +652,12 @@
       "sha256": "fcb9a9a9e6cf145ba373404fef36cfa6f3d0165e04fcc4cfbacda24d6d139d61",
       "executable": false
     },
-    "RELEASE.json": {
+    "release-history/0.1.2.json": {
       "sha256": "f8046463c44e5b1a8ee6997b856732ad5bc89ccc29539a1e6a1c16267298f304",
+      "executable": false
+    },
+    "RELEASE.json": {
+      "sha256": "fb1265895dc6a1bd34118c1543acf4805f0296d3f9a40501df6595ab82110002",
       "executable": false
     },
     "rer-project.json": {
@@ -873,7 +877,7 @@
       "executable": false
     },
     "seed.json": {
-      "sha256": "87ccc067c8956f39ac921ea27c7c29e47bf5b413c28d54034984768b77559575",
+      "sha256": "9ef004c584e0ab333524e10554e3fb2d1b18a62f394e6e5498c42d2529794b08",
       "executable": false
     },
     "SOURCE.md": {

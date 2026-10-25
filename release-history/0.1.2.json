@@ -1,0 +1,8 @@
+{
+  "version": "0.1.2",
+  "previousVersion": "0.1.1",
+  "publicReleaseNotes": "Add a release-bound capture of the populated Larder app, the Walnut Workshop demo on its Today screen, and explicit listing, storage and run details. No migrations or runtime changes.",
+  "migrations": [],
+  "breaking": false,
+  "agentUpdateInstructions": "No migrations or runtime configuration changes are required for this patch. Keep the exact rer 0.2.80 pin for native installation, export and restore."
+}

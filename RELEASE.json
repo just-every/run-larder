@@ -1,7 +1,7 @@
 {
-  "version": "0.1.2",
-  "previousVersion": "0.1.1",
-  "publicReleaseNotes": "Add a release-bound capture of the populated Larder app, the Walnut Workshop demo on its Today screen, and explicit listing, storage and run details. No migrations or runtime changes.",
+  "version": "0.1.3",
+  "previousVersion": "0.1.2",
+  "publicReleaseNotes": "Release Larder with the exact rer 0.2.80 pin and refreshed native delivery metadata. Keep local verification state out of the deployment artifact and correct hosted mail configuration for external providers. No database migrations are required.",
   "migrations": [],
   "breaking": false,
   "agentUpdateInstructions": "No migrations or runtime configuration changes are required for this patch. Keep the exact rer 0.2.80 pin for native installation, export and restore."
