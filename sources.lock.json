@@ -1589,7 +1589,7 @@
       "executable": false
     },
     "src/mail.server.mjs": {
-      "sha256": "fb2788852f7ef68e85e1d1eb4bc6514af724f1bb300368552042a7612f0dd683",
+      "sha256": "0f150355572338be1f23c6fc0467b9d61edade1260786c98f780c0e77f468ec5",
       "executable": false
     },
     "src/modules/ai/client.mjs": {
@@ -4065,7 +4065,7 @@
       "executable": false
     },
     "tests/runtime.mjs": {
-      "sha256": "ea23491aa110df6e5d518eadbc793c81633e666982df919cb215e65f6714e4af",
+      "sha256": "3cdce28f36e8577463999f9bd8f73a21e757f0af163d504e056d57db76555a26",
       "executable": false
     },
     "tsconfig.json": {
