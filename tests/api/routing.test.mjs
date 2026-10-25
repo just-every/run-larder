@@ -7,9 +7,22 @@ import { installation, workshop } from './harness.mjs'
 const day = () => new Date().toISOString().slice(0, 10)
 const file = content => ({ name: 'bracket-drawing.txt', contentType: 'text/plain', base64: Buffer.from(content).toString('base64') })
 
-test('ENG-002 pinned executable routing, drawings, acknowledgment, skills and predecessors survive revisions and restore', async t => {
+test('ENG-002 routing definitions fail atomically; pinned execution, drawings, acknowledgment, skills and predecessors survive revisions and restore', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h), operator = await h.person('operator@example.test', 'production'), other = await h.person('other@example.test', 'production'), agent = await h.person('agent@example.test', 'agent')
+  // Validate rejected definitions in this same workshop before releasing its routing.
+  const invalidBefore = await h.state(), input = { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '1' }] }
+  for (const routing of [
+    [{ name: 'Cycle', minutes: 1, dependsOn: [1] }],
+    [{ name: 'Negative setup', minutes: 1, setupMinutes: -1 }],
+    [{ name: 'Wrong primary', minutes: 1, workCentre: 'Router 1', eligibleCentres: ['Router 2'] }],
+    [{ name: 'Bad skills', minutes: 1, requiredSkills: 'Router' }],
+    [{ name: 'Conflicting run', minutes: 1, runMinutes: 2 }],
+    [{ name: 'Forward dependency', minutes: 1, dependsOn: [2] }, { name: 'Second', minutes: 1 }],
+  ]) await h.command('bom.revise', { ...input, routing }, { error: 'INPUT' })
+  await h.command('bom.revise', { ...input, routing: [{ name: 'Forged drawing', minutes: 1, drawings: [{ id: crypto.randomUUID() }] }] }, { error: 'EVIDENCE' })
+  assert.equal((await h.state()).version, invalidBefore.version)
+  assert.deepEqual((await h.state()).boms, invalidBefore.boms)
   const revision = instructions => ({ itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [
     { name: 'Machine', workCentre: 'Router 1', eligibleCentres: ['Router 1', 'Router 2'], runMinutes: 7.5, setupMinutes: 12, queueMinutes: 5, requiredSkills: ['Router setup'], instructions, drawings: [file(instructions + '\nDimension 3 inches')] },
     { name: 'Finish', workCentre: 'Finish bench', minutes: 2, dependsOn: [1], instructions: 'Deburr all edges.' },
@@ -66,20 +79,4 @@ test('ENG-002 pinned executable routing, drawings, acknowledgment, skills and pr
   const r = (await restored.state()).workOrders.find(r => r.id === job.id)
   assert.deepEqual(r.routing, pin); assert.deepEqual(r.operationStates, job.operationStates)
   assert.equal(await (await restored.request(`/api/larder/attachments/${drawing.id}`)).text(), content)
-})
-
-test('ENG-002 invalid routing definitions fail atomically without a revision or attachment', async t => {
-  const h = await installation(); t.after(() => h.close()); const w = await workshop(h)
-  const before = await h.state(), input = { itemId: w.board.id, components: [{ itemId: w.timber.id, quantity: '1' }] }
-  for (const routing of [
-    [{ name: 'Cycle', minutes: 1, dependsOn: [1] }],
-    [{ name: 'Negative setup', minutes: 1, setupMinutes: -1 }],
-    [{ name: 'Wrong primary', minutes: 1, workCentre: 'Router 1', eligibleCentres: ['Router 2'] }],
-    [{ name: 'Bad skills', minutes: 1, requiredSkills: 'Router' }],
-    [{ name: 'Conflicting run', minutes: 1, runMinutes: 2 }],
-    [{ name: 'Forward dependency', minutes: 1, dependsOn: [2] }, { name: 'Second', minutes: 1 }],
-  ]) await h.command('bom.revise', { ...input, routing }, { error: 'INPUT' })
-  await h.command('bom.revise', { ...input, routing: [{ name: 'Forged drawing', minutes: 1, drawings: [{ id: crypto.randomUUID() }] }] }, { error: 'EVIDENCE' })
-  assert.equal((await h.state()).version, before.version)
-  assert.deepEqual((await h.state()).boms, before.boms)
 })
