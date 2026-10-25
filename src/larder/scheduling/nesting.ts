@@ -64,9 +64,9 @@ export function nesting(c: Context, type: string, p: any): Row | undefined {
     return bump(group, { status: 'cancelled', cancelledBy: c.actor.id, cancelledAt: c.now, cancellationReason: text(p.reason, 'cancellation reason') })
   }
   if (type === 'nest.approve') {
-    // Conservative authority pending ct: the owner explicitly approves these
+    // Approved authority: the owner explicitly approves these
     // exact reviewed physical quantities; agents and all other roles refuse.
-    if (c.actor.role !== 'owner') forbidden( 'Only the owner approves nesting consumption and offcut recovery pending policy approval.')
+    if (c.actor.role !== 'owner') forbidden( 'Only the owner approves exact nesting consumption and offcut recovery.')
     if (group.status !== 'review') fail('STATE', 'Approve an unposted nesting review once.')
     if (c.s.version !== group.snapshotVersion + 1 || group.day !== c.now.slice(0, 10)) fail('STALE', 'Business inputs or the UTC day changed; prepare and review a fresh group.')
     currentMembers(c, group)
@@ -96,7 +96,7 @@ export function nesting(c: Context, type: string, p: any): Row | undefined {
       const actual = -movements.filter(m => m.kind === 'issue' && m.documentId === allocation.workOrderId).reduce((n, m) => n + times(m.quantity, m.unitCost), 0n)
       if (actual !== decimal(allocation.materialCost)) fail('ALLOCATION', 'Posted material costs differ from the reviewed allocation; revise the result precision.')
     }
-    return bump(group, { status: 'posted', approvedBy: c.actor.id, approvedAt: c.now, approvalReason: reason, approvalPolicy: 'Owner only pending ct approval; no shared setup booking or output authority.',
+    return bump(group, { status: 'posted', approvedBy: c.actor.id, approvedAt: c.now, approvalReason: reason, approvalPolicy: 'Owner-only exact physical approval; changed nests require fresh approval. No shared setup booking or output authority.',
       offcutLotId, movementIds: movements.map(m => m.id), semantics: 'Approved material consumption and offcut recovery only. Original jobs retain their output, operation, revision, customer and finite schedule authority.' })
   }
   if (type !== 'nest.import') fail('COMMAND', 'Unknown nesting command.')

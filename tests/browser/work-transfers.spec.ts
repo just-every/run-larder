@@ -86,11 +86,36 @@ test('CAP-008 grouped nesting preserves three customer jobs and their allocated 
       jobs.push(await command(page, 'wo.release', { workOrderId: draft.id, version: draft.version }))
     }
     const before = await (await page.request.get(origin + '/api/larder/state')).json(), lot = before.lots.find((l: any) => l.itemId === sheet.id)
-    const group = await command(page, 'nest.prepare', { materialItemId: sheet.id, reason: 'Cut customer jobs together', members: jobs.map(w => ({ workOrderId: w.id, version: w.version, sequence: 1 })) })
+    await open(page, jobs[0].id)
+    const nesting = card(page, 'Grouped nesting')
+    await nesting.getByLabel('Group material', { exact: true }).selectOption(sheet.id)
+    for (const job of jobs.slice(1)) await nesting.getByRole('checkbox', { name: `Include ${job.reference}`, exact: true }).check()
+    await nesting.getByLabel('Grouping reason', { exact: true }).fill('Cut customer jobs together')
+    const prepared = page.waitForResponse(r => r.url() === origin + '/api/larder/commands' && r.request().postDataJSON().type === 'nest.prepare')
+    await nesting.getByRole('button', { name: 'Prepare nesting group', exact: true }).click()
+    const group = (await (await prepared).json()).result
+    expect(group.members.map((m: any) => m.workOrderId)).toEqual(jobs.map(w => w.id))
+    await settled(page)
+
     const report = { format: 'larder-nesting-v1', source: { itemId: sheet.id, locationId: loc.id, lotId: lot.id, quantity: '10' }, offcut: { quantity: '2', code: `synthetic-larder-offcut-${tag}`, locationId: loc.id }, sharedSetupMinutes: '30', jobs: jobs.map((w, i) => ({ workOrderId: w.id, quantity: '1', materialQuantity: i ? '3' : '2', goodMaterialQuantity: i ? '2.5' : '1.5', setupMinutes: '10' })) }
-    const review = await command(page, 'nest.import', { groupId: group.id, version: group.version, file: { name: 'nesting.json', content: JSON.stringify(report) } })
+    const section = nesting.getByRole('region', { name: `Nesting ${group.reference}`, exact: true })
+    await section.getByLabel('Nesting result file', { exact: true }).setInputFiles({ name: 'nesting.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(report)) })
+    const imported = page.waitForResponse(r => r.url() === origin + '/api/larder/commands' && r.request().postDataJSON().type === 'nest.import')
+    await section.getByRole('button', { name: 'Import nesting result', exact: true }).click()
+    const review = (await (await imported).json()).result
+    await settled(page)
+    await expect(section).toContainText('Finite bookings remain unchanged.')
+    await expect(section).toContainText('recoverable offcut 2')
+    for (const order of orders) await expect(section).toContainText(order.reference)
+    if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-CAP-008-nesting-review.png`), fullPage: true })
+
     expect(review.review.materialYield).toBe('0.65')
-    await command(page, 'nest.approve', { groupId: review.id, version: review.version, reason: 'Approve observed cut consumption and reusable offcut' })
+    await section.getByLabel('Nesting approval reason', { exact: true }).fill('Approve observed cut consumption and reusable offcut')
+    await section.getByRole('button', { name: 'Approve exact nesting', exact: true }).click()
+    await expect(section).toContainText('Physical nest approved')
+    await settled(page)
+    if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-CAP-008-nesting-approved.png`), fullPage: true })
+
     for (let i = 0; i < jobs.length; i++) {
       let s = await (await page.request.get(origin + '/api/larder/state')).json(), w = s.workOrders.find((w: any) => w.id === jobs[i].id)
       w = await command(page, 'wo.output', { workOrderId: w.id, version: w.version, locationId: loc.id, quantity: '1', lot: `synthetic-larder-output-${i}-${tag}` })

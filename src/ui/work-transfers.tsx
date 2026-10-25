@@ -1,3 +1,4 @@
+import { WorkNesting } from './work-nesting'
 import type { Larder } from './app'
 import { byId, can, rows, type Rec } from './api'
 import { Card, Choose, Field, Form, text } from './controls'
@@ -7,7 +8,7 @@ export function WorkTransfers({ larder, w }: { larder: Larder; w: Rec }) {
   const s = larder.state!, transfers = rows(s, 'workTransfers').filter(t => t.transfers.some((a: Rec) => a.sourceId === w.id || a.destinationId === w.id))
   const active = ['draft', 'released'].includes(w.status) && Number(w.quantity) > Number(w.output) + Number(w.scrap)
   const others = rows(s, 'workOrders').filter(x => x.id !== w.id && x.itemId === w.itemId && ['draft', 'released'].includes(x.status) && Number(x.quantity) > Number(x.output) + Number(x.scrap))
-  return <Card title="Split and merge work">
+  return <><WorkNesting larder={larder} w={w} /><Card title="Split and merge work">
     <p>Material cost attributed to this job: {money(s.workTransferCosts?.[w.id] ?? '0')}. Original movements and recorded operation time stay on their original job; transferred WIP is counted once.</p>
     {w.quantityAllocations && <p>Original quantity ranges: {w.quantityAllocations.map((a: Rec) => `${byId(s, 'workOrders', a.originId)?.reference}: ${a.start} + ${a.quantity}`).join('; ') || 'All remaining work transferred.'}</p>}
     {w.demandSources?.map((d: Rec, i: number) => <p key={`${d.workOrderId}:${i}`}>Original demand: <a href={`#make/wo/${d.workOrderId}`}>{byId(s, 'workOrders', d.workOrderId)?.reference}</a> · {d.documentKind === 'salesOrders' && d.documentId ? <a href={`#orders/${d.documentId}`}>{d.reference} · {qty(d.quantity)}</a> : d.reason}</p>)}
@@ -21,5 +22,5 @@ export function WorkTransfers({ larder, w }: { larder: Larder; w: Rec }) {
         <Choose label="Other job" name="otherId" options={others.map(x => ({ value: x.id, label: `${x.reference} · revision ${x.bomRevision ?? 'draft'}` }))} /><Field label="Merge reason" name="reason" />
       </Form>}
     </>}
-  </Card>
+  </Card></>
 }
