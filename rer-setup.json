@@ -72,7 +72,7 @@
       "label": "Identity provider",
       "kind": "url",
       "required": false,
-      "help": "Optional Auth install. Leave empty to use email links.",
+      "help": "Optional Auth installation. Leave empty to use email links. Your identity provider and its hosting may charge under their own plans; review those fees before linking. Larder charges no connection or upgrade fee.",
       "default": ""
     },
     {
@@ -102,7 +102,8 @@
           "label": "Local development (no outbound mail)"
         }
       ],
-      "localDefault": "development"
+      "localDefault": "development",
+      "help": "Local development sends no mail and has no provider fee. RER managed mail, Resend, SendGrid and Cloudflare Email Sending may charge for sending or account usage under your provider plan. Review that plan before selecting an outbound provider. Larder charges no connection or upgrade fee."
     },
     {
       "name": "MAIL_FROM",

@@ -81,7 +81,13 @@ export async function authResponse(request: Request, original: Bindings): Promis
   const page = await createSignInHandler(operatorAuth(env), { defaultReturnTo: '/setup' })(request)
   if (page) return fontDocumentResponse(page)
  }
- if (url.pathname.startsWith('/auth/')) return fontDocumentResponse(await createAuthHandler(operatorAuth(env))(request))
+ if (url.pathname.startsWith('/auth/')) {
+  let response = await createAuthHandler(operatorAuth(env))(request)
+  if (response && url.pathname === '/auth/settings/identity' && request.method === 'GET' && response.status === 200 && response.headers.get('content-type')?.includes(['text', 'html'].join('/'))) {
+   response = new Response((await response.text()).replace('<h2>Provider setup</h2>', '<h2>Provider setup</h2><p>Your identity provider and its hosting may charge under their own plans. Review those fees before enabling provider sign-in. Larder charges no connection or upgrade fee.</p>'), response)
+  }
+  return fontDocumentResponse(response)
+ }
  if (url.pathname === '/setup' || url.pathname === '/app' || url.pathname.startsWith('/app/')) {
   const setup = await firstRunResponse(request, env, operatorAuth(env), { theme })
   if (setup) return setup

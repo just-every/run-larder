@@ -27,7 +27,7 @@ export function WorkNesting({ larder, w }: { larder: Larder; w: Rec }) {
       <h3>{g.reference} · {words(g.status)}</h3><p>{g.reason}</p>
       <Table head={['Original job', 'Revision', 'Due', 'Demand']} >{g.members.map((m: Rec) => <tr key={m.workOrderId}><td><a href={`#make/wo/${m.workOrderId}`}>{m.reference}</a></td><td>{m.bomRevision}</td><td>{day(m.requiredBy)}</td><td>{m.reason}{m.demandSources?.map((d: Rec, i: number) => <p key={i}>{d.reference} · {qty(d.quantity)}</p>)}</td></tr>)}</Table>
       {g.status === 'draft' && <Form submit="Import nesting result" busy={larder.busy} note="Choose the documented Larder nesting JSON file. Import reviews allocations without posting stock or booking setup." onSubmit={async d => { const file = d.get('result') as File; return larder.run('nest.import', { groupId: g.id, version: g.version, file: { name: file.name, content: await file.text() } }) }}>
-        <Field label="Nesting result file" name="result" type="file" accept=".json,application/json" />
+        <Field label="Nesting result file" name="result" type="file" accept=".json" />
       </Form>}
       {g.review && <>
         <p>Original file: <a href={`/api/larder/attachments/${g.original.id}`}>{g.original.name}</a></p>

@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "554b69051764a7a03ce9694e758f40a83503ae0fb11a3aecdcb456d72b490276",
+      "sha256": "cf237c4a9f9ce952fbec48aec918f13eaa5a8b9639e12da253bac186fbc7e51a",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -201,7 +201,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "72608ae90108649d401b364a096743a4562b4025adb6d59ebd97b4a4e557056e",
+      "sha256": "7cb1276287f36e2cc2227a82250b50d35edf03698999138ea4e604f175bf2a64",
       "executable": false
     },
     "DEMO.md": {
@@ -669,15 +669,15 @@
       "executable": false
     },
     "rer-project.json": {
-      "sha256": "f0c22421f40eb81741378ef2642c050f203027c28f8698f4903ff8c6e368a01a",
+      "sha256": "5ac9b4f63f748c8bcebabaa0d36e551b4d6148f7618ca52e4ec09e837fdc1aa7",
       "executable": false
     },
     "rer-setup.json": {
-      "sha256": "1e135ef7140a8437aac1c4b903bc28eab20a1e854a377abf160caa9f78b5110c",
+      "sha256": "2c65e734acc272e11d24850a4afd5a6c94b9dbbeb1cfc603b23b9ff880230347",
       "executable": false
     },
     "RUN-LOCALLY.md": {
-      "sha256": "ab1d9664f78e84afc59e365e196dbc0d1ab9cb5c50310d4310de36d61f8ff214",
+      "sha256": "94a616dbb8809513eb1594604ff774d486410a4d9aaea353184c6c89b10c9cb6",
       "executable": false
     },
     "scripts/build-deployment-spec.mjs": {
@@ -853,7 +853,7 @@
       "executable": false
     },
     "scripts/installer/local.mjs": {
-      "sha256": "2686cca0c290116ddc4ba25a6413a4daf082b77eca92610bc4256bd146d011b2",
+      "sha256": "37f34dc75f74902186cede4bea0696da74651cc302949ccc410bd9f6e20f4ae9",
       "executable": false
     },
     "scripts/installer/portability-policy.mjs": {
@@ -893,7 +893,7 @@
       "executable": false
     },
     "src/auth.server.ts": {
-      "sha256": "88451b3fcc312ea701367441c047f2b91384baced3c0b861f37bb8628caec73a",
+      "sha256": "9607ac43d3de49463bda5c3bf441689d67e391006e5bbd8fd8000e25dabaa8a6",
       "executable": false
     },
     "src/base/actor.ts": {
@@ -3805,7 +3805,7 @@
       "executable": false
     },
     "src/ui/work-nesting.tsx": {
-      "sha256": "d8cf74857df799f72b725db596da17ccf9f9ea171497e6b193e7f4d064648d0e",
+      "sha256": "1b49a7e4a4e1d0ac537133e8ffa7b71a657c6671126b2aa8c10d4f1def0f24af",
       "executable": false
     },
     "src/ui/work-operations.tsx": {
@@ -4017,7 +4017,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "c4304c3c84168b0cc1fc1c825ff556b5565a983ddbf14cc7bf6819e72b67431c",
+      "sha256": "8a185ea0b89087768b85622d7ea79407a14416dd3bbf38daefaac344953f854c",
       "executable": false
     },
     "tests/browser/maintenance.spec.ts": {
@@ -4081,7 +4081,7 @@
       "executable": false
     },
     "tests/browser/work-transfers.spec.ts": {
-      "sha256": "2cf9cd86b3560307b1a7ed899d5dc054c0e91afea0d1b5dbb7d5f617f29977d4",
+      "sha256": "e153c81f9325e1bd65a11b42e1ae8dd4f10e066402f8ad49c2050d8d8e77fc51",
       "executable": false
     },
     "tests/runtime.mjs": {

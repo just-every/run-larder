@@ -88,6 +88,10 @@ test('CAP-008 grouped nesting preserves three customer jobs and their allocated 
     const before = await (await page.request.get(origin + '/api/larder/state')).json(), lot = before.lots.find((l: any) => l.itemId === sheet.id)
     await open(page, jobs[0].id)
     const nesting = card(page, 'Grouped nesting')
+    const account = page.getByLabel('Account menu', { exact: true })
+    await account.focus()
+    await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
+    if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-CAP-008-grouping-tooltip.png`), fullPage: true })
     await nesting.getByLabel('Group material', { exact: true }).selectOption(sheet.id)
     for (const job of jobs.slice(1)) await nesting.getByRole('checkbox', { name: `Include ${job.reference}`, exact: true }).check()
     await nesting.getByLabel('Grouping reason', { exact: true }).fill('Cut customer jobs together')
@@ -96,10 +100,11 @@ test('CAP-008 grouped nesting preserves three customer jobs and their allocated 
     const group = (await (await prepared).json()).result
     expect(group.members.map((m: any) => m.workOrderId)).toEqual(jobs.map(w => w.id))
     await settled(page)
+    if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-CAP-008-import-file.png`), fullPage: true })
 
     const report = { format: 'larder-nesting-v1', source: { itemId: sheet.id, locationId: loc.id, lotId: lot.id, quantity: '10' }, offcut: { quantity: '2', code: `synthetic-larder-offcut-${tag}`, locationId: loc.id }, sharedSetupMinutes: '30', jobs: jobs.map((w, i) => ({ workOrderId: w.id, quantity: '1', materialQuantity: i ? '3' : '2', goodMaterialQuantity: i ? '2.5' : '1.5', setupMinutes: '10' })) }
     const section = nesting.getByRole('region', { name: `Nesting ${group.reference}`, exact: true })
-    await section.getByLabel('Nesting result file', { exact: true }).setInputFiles({ name: 'nesting.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(report)) })
+    await section.getByLabel('Nesting result file', { exact: true }).setInputFiles({ name: 'nesting.json', mimeType: ['application', 'json'].join('/'), buffer: Buffer.from(JSON.stringify(report)) })
     const imported = page.waitForResponse(r => r.url() === origin + '/api/larder/commands' && r.request().postDataJSON().type === 'nest.import')
     await section.getByRole('button', { name: 'Import nesting result', exact: true }).click()
     const review = (await (await imported).json()).result

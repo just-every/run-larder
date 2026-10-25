@@ -214,6 +214,16 @@ private settings and transient runtime state are excluded. Remote
 transfer is unsupported by the maintained references and fails visibly.
 
 Real deployment uses the owner-account procedure and its private credentials.
+Cloudflare may charge for Workers requests and compute, D1 storage and queries,
+and custom domains under your account plan. Review those fees before deploying;
+the deploy command displays this disclosure before running its provider work.
+Larder has no license key, seat fee or paid feature tier. Local development
+sends no mail. Before enabling outbound sign-in mail, review the selected RER
+managed relay, Resend, SendGrid or Cloudflare Email Sending plan for sending
+and account charges; setup displays this disclosure beside the provider choice.
+An optional linked Auth installation and its hosting may also charge under their
+own plans; setup and Sign-in settings disclose this before enabling it.
+Future connected-provider clauses inherit this pre-connection fee disclosure.
 `rer deploy --dry-run` validates and builds locally without a
 provider request. The default environment is `production`; select another with
 `--environment NAME`. Local validation does not establish provider acceptance,

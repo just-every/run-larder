@@ -96,6 +96,11 @@ test('HTTP-001 MRP-001 public Lobby, health and docs stay separate from private 
     await page.reload()
     await expect(page.getByText(name, { exact: true })).toBeVisible()
     await shot(page, 'HTTP-001-private-app')
+    await page.goto(origin + '/auth/settings/identity')
+    await expect(page.getByRole('heading', { name: 'Provider setup', exact: true })).toBeVisible()
+    await expect(page.getByRole('checkbox', { name: 'Allow provider sign-in', exact: true })).toBeDisabled()
+    await shot(page, 'OPEN-001-provider-fees')
+
   }
   expect((await context.request.get(origin + '/api/larder/archive')).status()).toBe(200)
   const anonymous = await page.context().browser()!.newContext()
