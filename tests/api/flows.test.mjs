@@ -1370,14 +1370,14 @@ test('CAP-008 nesting cannot recover expired or controlled material as a new usa
   }
 })
 
-async function allocationWorkshop(h) {
+async function allocationWorkshop(h, received = '10') {
   const loc = await h.command('location.save', { name: 'synthetic-larder-1400 receipt rack' })
   const item = await h.command('item.save', { sku: 'synthetic-larder-1401', name: 'Sheet stock', kind: 'buy', baseUnit: 'each', standardCost: '5' })
   const supplier = await h.command('party.save', { name: 'synthetic-larder-1402', kind: 'supplier' })
   const customer = await h.command('party.save', { name: 'synthetic-larder-1403', kind: 'customer' })
-  let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: '2026-11-01', reason: 'synthetic-larder-1404', lines: [{ itemId: item.id, quantity: '10', unitPrice: '5' }] })
+  let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: '2026-11-01', reason: 'synthetic-larder-1404', lines: [{ itemId: item.id, quantity: received, unitPrice: '5' }] })
   po = await h.command('po.approve', { poId: po.id, version: po.version })
-  const receipt = await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-1405', lines: [{ lineId: po.lines[0].id, locationId: loc.id, quantity: '10', lot: 'synthetic-larder-1406' }] })
+  const receipt = await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-1405', lines: [{ lineId: po.lines[0].id, locationId: loc.id, quantity: received, lot: 'synthetic-larder-1406' }] })
   const orders = []
   for (let i = 0; i < 2; i++) {
     let order = await h.command('so.quote', { customerId: customer.id, promiseDate: `2026-11-0${5 + i}`, lines: [{ itemId: item.id, quantity: '8', unitPrice: '12' }] })
@@ -1391,22 +1391,49 @@ async function allocationWorkshop(h) {
 
 test('DEMAND-005 reviewed receipt split shows displacement, both promises and estimated margins, then atomically reserves exact totals without stock or promise changes', async t => {
   const h = await installation(); t.after(() => h.close())
-  const f = await allocationWorkshop(h), before = await h.invariant()
+  const f = await allocationWorkshop(h, '12')
+  const initial = await h.command('so.allocationPreview', { ...f.payload, allocations: f.payload.allocations.map((a, i) => ({ ...a, quantity: i ? '2' : '8' })) })
+  await h.command('so.allocationApprove', { previewId: initial.id, version: initial.version, reason: 'synthetic-larder-1420 retain two for an unnamed order' })
+  let unnamed = await h.command('so.quote', { customerId: f.orders[0].customerId, promiseDate: '2026-11-07', lines: [{ itemId: f.item.id, quantity: '2', unitPrice: '12' }] })
+  unnamed = await h.command('so.confirm', { orderId: unnamed.id, version: unnamed.version })
+  await h.command('so.reserve', { orderId: unnamed.id })
+  await h.command('item.save', { ...f.item, standardCost: '99' })
+  const before = await h.invariant(), protectedReservations = before.reservations.filter(r => r.demandId === unnamed.id)
+  assert.deepEqual(protectedReservations.map(r => r.quantity), ['2'])
+  assert.equal(before.items.find(i => i.id === f.item.id).standardCost, '99')
   const preview = await h.command('so.allocationPreview', f.payload)
   assert.equal(preview.changedPromiseCount, 0)
   assert.deepEqual(preview.effects.map(e => [e.before, e.after, e.displaced, e.promiseDate, e.estimatedMarginBefore, e.estimatedMarginAfter]), [['8', '5', '3', '2026-11-05', '56', '35'], ['2', '5', '0', '2026-11-06', '14', '35']])
-  assert.deepEqual([preview.totalBefore, preview.totalAfter, preview.acceptedQuantity], ['10', '10', '10'])
+  assert.deepEqual([preview.totalBefore, preview.totalAfter, preview.acceptedQuantity], ['10', '10', '12'])
   assert.deepEqual((await h.state()).reservations, before.reservations)
   const payload = { previewId: preview.id, version: preview.version, reason: 'synthetic-larder-1408 owner approves exact split' }
   const approved = await h.command('so.allocationApprove', payload, { commandId: 'synthetic-larder-1409-approve' })
   const after = await h.invariant()
   assert.equal(approved.status, 'approved')
-  assert.deepEqual(after.reservations.map(r => r.quantity).sort(), ['5', '5'])
+  assert.deepEqual(after.reservations.filter(r => r.demandId !== unnamed.id).map(r => r.quantity).sort(), ['5', '5'])
+  assert.deepEqual(after.reservations.filter(r => r.demandId === unnamed.id), protectedReservations)
+  assert.equal(approved.approvedBy, after.actor.id)
+  assert.equal(approved.approvalReason, payload.reason)
+  const audit = await (await h.request('/api/larder/audit?commandId=synthetic-larder-1409-approve')).json()
+  const decision = audit.entries.find(e => e.subjectId === approved.id && e.commandType === 'so.allocationApprove')
+  assert.deepEqual([decision.actorId, decision.actorRole, decision.reason, decision.after.approvedBy, decision.after.approvalReason], [after.actor.id, 'owner', payload.reason, after.actor.id, payload.reason])
   assert.deepEqual(after.salesOrders.map(o => o.promiseDate), before.salesOrders.map(o => o.promiseDate))
   assert.deepEqual(after.movements, before.movements)
   assert.deepEqual(await h.command('so.allocationApprove', payload, { commandId: 'synthetic-larder-1409-approve' }), approved)
   const archived = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
-  assert.equal((await target.request('/api/larder/archive/restore', { method: 'POST', body: archived })).status, 200)
+  const csv = await (await h.request('/api/larder/archive.csv')).text(), decoded = { records: {} }
+  for (const match of csv.matchAll(/^"((?:[^"]|"")*)","((?:[^"]|"")*)","((?:[^"]|"")*)"\r?$/gm)) {
+    const [section, index, value] = match.slice(1).map(v => v.replaceAll('""', '"'))
+    if (section === 'section') continue
+    const root = section.startsWith('records.') ? decoded.records : decoded, key = section.startsWith('records.') ? section.slice(8) : section
+    if (index === '') root[key] = JSON.parse(value); else root[key][Number(index)] = JSON.parse(value)
+  }
+  decoded.exportedAt = archived.exportedAt
+  assert.deepEqual(decoded, archived)
+  assert.deepEqual(decoded.records.approvals.find(a => a.id === approved.id), approved)
+  const outbound = target.outboundCount()
+  assert.equal((await target.request('/api/larder/archive/restore', { method: 'POST', body: decoded })).status, 200)
+  assert.equal(target.outboundCount(), outbound)
   assert.deepEqual((await target.state()).approvals, after.approvals)
   assert.deepEqual((await target.invariant()).reservations, after.reservations)
   await h.restart(); assert.deepEqual((await h.state()).reservations, after.reservations)
@@ -1427,12 +1454,13 @@ test('DEMAND-005 stale, overallocated, duplicated and picked receipt splits refu
 test('DEMAND-005 sales, planners, managers and agents cannot take reservation approval authority through the command API', async t => {
   const h = await installation(); t.after(() => h.close())
   const f = await allocationWorkshop(h)
+  const people = []
   for (const role of ['sales', 'planner', 'manager', 'agent']) {
     const person = await h.person(`synthetic-larder-1411-${role}@example.test`, role)
+    people.push(person)
     await person.run('so.allocationPreview', f.payload, { error: 'FORBIDDEN' })
   }
   const preview = await h.command('so.allocationPreview', f.payload)
-  const sales = await h.person('synthetic-larder-1412@example.test', 'sales')
-  await sales.run('so.allocationApprove', { previewId: preview.id, version: preview.version, reason: 'synthetic-larder-1413' }, { error: 'FORBIDDEN' })
+  for (const person of people) await person.run('so.allocationApprove', { previewId: preview.id, version: preview.version, reason: 'synthetic-larder-1413' }, { error: 'FORBIDDEN' })
   assert.deepEqual((await h.invariant()).reservations.map(r => r.quantity).sort(), ['2', '8'])
 })

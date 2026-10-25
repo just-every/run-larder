@@ -2,7 +2,8 @@ import { test, expect, type Page } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787'
-const date = (days: number) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
+const fixtureNow = Date.now()
+const date = (days: number) => new Date(fixtureNow + days * 86400000).toISOString().slice(0, 10)
 async function command(page: Page, type: string, payload: object) {
   const response = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type, payload } })
   const body = await response.json(); expect(body.ok, JSON.stringify(body.error)).toBe(true); return body.result
@@ -69,6 +70,11 @@ test('DEMAND-002 customer-approved split dates, prospective prices and cancellat
   await expect(impact).toContainText(work.reference); await expect(impact).toContainText('$72.00'); await expect(impact).toContainText(po.reference)
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
+    const review = page.getByRole('region', { name: 'Order revision preview' })
+    const displayed = (value: string) => new Date(value + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+    await expect(review).toContainText('Changed customer promises: 1')
+    await expect(review).toContainText(`Previous dates: ${displayed(date(5))}`)
+    await expect(review).toContainText(`Proposed dates: ${displayed(date(2))}, ${displayed(date(7))}`)
     const account = page.getByLabel('Account menu', { exact: true })
     await page.mouse.move(0, 0); await page.keyboard.press('Tab'); await account.focus()
     await expect(page.getByRole('tooltip', { name: 'Account menu' })).toBeVisible({ timeout: 100 })
@@ -132,6 +138,7 @@ test('DEMAND-005 owner reviews and approves an exact receipt reservation split a
       order = await command(page, 'so.confirm', { orderId: order.id, version: order.version, reserve: false }); orders.push(order)
     }
     for (const order of orders) await command(page, 'so.reserve', { orderId: order.id })
+    await command(page, 'item.save', { ...item, standardCost: '99' })
     const state = async () => (await (await page.request.get(origin + '/api/larder/state')).json())
     const before = await state()
     await open(page, `make/po/${po.id}`)

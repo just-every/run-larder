@@ -3861,7 +3861,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "574c43b150c43cecebb51cccffe57db898588772a51c02c0cc8b6b3373b19d15",
+      "sha256": "a12a8480ce55282b9d5ca3eeaf716aa1cc7907d50d948b43987f6ca0e6e93377",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -3913,7 +3913,7 @@
       "executable": false
     },
     "tests/api/receiving.test.mjs": {
-      "sha256": "3d39ca46f5233503ab9a3f8300acafaebb769615658778d949b705051bd54990",
+      "sha256": "ae97a4a5b22060e5370f49c0188aecf60e70bfcdfb836755185f94017705d326",
       "executable": false
     },
     "tests/api/rework.test.mjs": {
@@ -3973,7 +3973,7 @@
       "executable": false
     },
     "tests/browser/counts.spec.ts": {
-      "sha256": "056d68fc371422480ad1ba2212b44d09960c7d4f13335c707fe2bbae5126ddec",
+      "sha256": "591051b1a8ca720e5a1c00a6e8ccbad8bb429130c1786e61a7f131a79805ecdd",
       "executable": false
     },
     "tests/browser/cutover.spec.ts": {
@@ -4021,7 +4021,7 @@
       "executable": false
     },
     "tests/browser/maintenance.spec.ts": {
-      "sha256": "cce8e180aea51d57ab7b8e0b5e3ed547bee4922e52bb887d6ea528da4f5f4e82",
+      "sha256": "a65343853bcab60c04bb12f41a86dc8c3970125b812461afc2c6ce841d69f307",
       "executable": false
     },
     "tests/browser/multilevel.spec.ts": {
@@ -4029,7 +4029,7 @@
       "executable": false
     },
     "tests/browser/order-amendments.spec.ts": {
-      "sha256": "f5cf5220c5137430696a2eacdf16a038f4526473aa2d1cdad5eefb8fa74a95d1",
+      "sha256": "105bac588af11ba5da5934a471d5e10a5af1fa5e7173014bd39a4d2513dd461e",
       "executable": false
     },
     "tests/browser/order-status.spec.ts": {
@@ -4045,7 +4045,7 @@
       "executable": false
     },
     "tests/browser/receiving.spec.ts": {
-      "sha256": "aa6b702e6f9ea0966c712271532ad90f02b0ddc44622eddc60507322a42f175e",
+      "sha256": "a8d8b459ee2139fb532eb1ba74d7cee6492692934818748712a932f4588d373d",
       "executable": false
     },
     "tests/browser/rework.spec.ts": {

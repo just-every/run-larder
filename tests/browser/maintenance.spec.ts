@@ -332,7 +332,7 @@ test('Qualified alternates compare setup, tools, labor, delivery and cost before
     await expect(review).toContainText(order.reference);await expect(review).toContainText(`retained promise ${order.promiseDate}`)
     const row=review.getByRole('row').filter({hasText:'Fixture cutting'})
     await expect(row).toContainText(alternate===names[1]?'40 labor minutes':'75 labor minutes')
-    for(const width of [1440,390]) { await page.setViewportSize({width,height:1000});await planningShot(page,`CAP-006-${alternate===names[1]?'a':'b'}-review`);if(process.env.LARDER_SCREENSHOTS)await review.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-CAP-006-${alternate===names[1]?'a':'b'}-detail.png`)}) }
+    for(const width of [1440,390]) { await page.setViewportSize({width,height:1000}); await expect(review).toContainText('Changed customer promises: 0'); await expect(review).toContainText(order.reference); await expect(review).toContainText(`retained promise ${order.promiseDate}`); await expect(row).toContainText(alternate===names[1]?'40 labor minutes':'75 labor minutes'); await planningShot(page,`CAP-006-${alternate===names[1]?'a':'b'}-review`);if(process.env.LARDER_SCREENSHOTS)await review.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-CAP-006-${alternate===names[1]?'a':'b'}-detail.png`)}) }
   }
   await planningAct(page,()=>page.getByRole('button',{name:'Approve finite schedule',exact:true}).click())
   await expect(page.getByText('Approved finite schedule',{exact:true})).toBeVisible()
@@ -341,7 +341,7 @@ test('Qualified alternates compare setup, tools, labor, delivery and cost before
   const adopted=current.proposals.filter((p:any)=>p.status==='approved'&&p.context?.capacity?.changes.some((c:any)=>c.workOrderId===w.id)).at(-1)
   expect(adopted.context.capacity.changedPromiseCount).toBe(0)
   expect(adopted.context.capacity.after.jobs.find((j:any)=>j.workOrderId===w.id).late).toBe(false)
-  for(const width of [1440,390]) {await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-006-approved')}
+  for(const width of [1440,390]) {await page.setViewportSize({width,height:1000}); await expect(page.getByText('Approved finite schedule',{exact:true})).toBeVisible(); const retained=await planningState(page); expect(retained.salesOrders.find((o:any)=>o.id===order.id).promiseDate).toBe(order.promiseDate); expect(retained.proposals.find((p:any)=>p.id===adopted.id).context.capacity.changedPromiseCount).toBe(0); await planningShot(page,'CAP-006-approved')}
   await page.goto(origin+'/app#make/wo/'+w.id);await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
   const actor=(await planningState(page)).actor
   await page.getByLabel('Step 1 authorized operator',{exact:true}).selectOption(actor.id)
