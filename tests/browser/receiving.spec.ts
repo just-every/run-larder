@@ -125,11 +125,21 @@ test('FLOOR-008 hardware and camera receipt, issue and pick refuse wrong, held, 
     Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: async () => {
       const canvas = document.createElement('canvas'); canvas.width = canvas.height = 640
       const image = new Image(); image.src = (window as any).__cameraFrame; await image.decode()
-      canvas.getContext('2d')!.drawImage(image, 0, 0, 640, 640)
+      // An identical axis-aligned QR can repeatedly miss ZXing's finder-pattern
+      // checks for some payloads. Supply deterministic camera motion rather
+      // than retrying the same undecodable pixels forever (e.g. HELD-000034).
+      const context = canvas.getContext('2d')!, angles = [0, 0.12, -0.12, 0.25]
+      let frame = 0
+      const draw = () => {
+        context.fillStyle = 'white'; context.fillRect(0, 0, 640, 640)
+        context.save(); context.translate(320, 320); context.rotate(angles[frame++ % angles.length])
+        context.drawImage(image, -260, -260, 520, 520); context.restore()
+      }
+      draw()
       const stream = canvas.captureStream(15), track = stream.getVideoTracks()[0]
       const frames = setInterval(() => {
         if (track.readyState === 'ended') { clearInterval(frames); return }
-        canvas.getContext('2d')!.drawImage(image, 0, 0, 640, 640)
+        draw()
       }, 60)
       return stream
     } })
