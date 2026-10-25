@@ -280,6 +280,9 @@ test('Qualified alternates compare setup, tools, labor, delivery and cost before
   const fixtureNow=Date.now(), suffix=crypto.randomUUID().slice(0,6), day=(n:number)=>new Date(fixtureNow+n*86400000).toISOString().slice(0,10)
   const raw=await call('item.save',{sku:`synthetic-larder-611-${suffix}`,name:'Fixture blank',kind:'buy',baseUnit:'each'})
   const made=await call('item.save',{sku:`synthetic-larder-612-${suffix}`,name:'Fixture bracket',kind:'make',baseUnit:'each'})
+  const coveredSupplier=await call('party.save',{name:`Fixture source ${suffix}`,kind:'supplier'})
+  const coveredInput=await call('po.draft',{supplierId:coveredSupplier.id,expectedDate:day(0),reason:'Recorded material for the qualified alternate job',lines:[{itemId:raw.id,quantity:'1',unitPrice:'8'}]})
+  await call('po.approve',{poId:coveredInput.id,version:coveredInput.version})
   const names=['Primary','Alternate A','Alternate B'].map(n=>`${n} ${suffix}`)
   const calendar=(name:string)=>({name,timeZone:'UTC',effectiveFrom:day(0),effectiveTo:day(60),shifts:[{weekdays:[0,1,2,3,4,5,6],start:0,end:1440,breaks:[]}],closedDates:[],exceptions:[],usHolidays:false,capacity:1,efficiency:100,reason:'synthetic-larder-613 calendar'})
   for (const name of names) {
@@ -360,14 +363,17 @@ test('Qualified alternates compare setup, tools, labor, delivery and cost before
 test('Frozen recovery and isolated outage scenarios retain locks, show displacement and reject stale adoption at 1440/390',async({page})=>{
   await planningEnter(page)
   const call=async(type:string,payload:any)=>{const r=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}});const b=await r.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result}
-  const day=(n:number)=>new Date(Date.now()+n*86400000).toISOString().slice(0,10),suffix=crypto.randomUUID().slice(0,6)
+  const referenceTime=Date.now(),day=(n:number)=>new Date(referenceTime+(n===0?0:n+1)*86400000).toISOString().slice(0,10),suffix=crypto.randomUUID().slice(0,6)
   const runWindow=async()=>{
-    await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(day(1)+'T00:00')
-    const projection=page.waitForResponse(r=>r.url().includes('/api/larder/scheduling/finite?')&&new URL(r.url()).searchParams.get('asOf')===new Date(day(1)+'T00:00').toISOString())
+    await page.getByLabel('Finite plan starts (local time)',{exact:true}).fill(local(new Date(day(1)+'T00:00:00Z')))
+    const projection=page.waitForResponse(r=>r.url().includes('/api/larder/scheduling/finite?')&&new URL(r.url()).searchParams.get('asOf')===new Date(day(1)+'T00:00:00Z').toISOString())
     await page.getByRole('button',{name:'Run finite scheduling',exact:true}).click();expect((await projection).ok()).toBe(true)
     await expect(page.getByText('Calculating finite capacity…',{exact:true})).toHaveCount(0)
   }
   const raw=await call('item.save',{sku:`synthetic-larder-811-${suffix}`,name:'Recovery blank',kind:'buy',baseUnit:'each'})
+  const coveredSupplier=await call('party.save',{name:`Covered recovery supplier ${suffix}`,kind:'supplier'})
+  const coveredPurchase=await call('po.draft',{supplierId:coveredSupplier.id,expectedDate:day(0),reason:'Approved inputs for the three protected jobs',lines:[{itemId:raw.id,quantity:'3',unitPrice:'2'}]})
+  await call('po.approve',{poId:coveredPurchase.id,version:coveredPurchase.version})
   const calendar=(name:string)=>({name,timeZone:'UTC',effectiveFrom:day(0),effectiveTo:day(60),shifts:[{weekdays:[0,1,2,3,4,5,6],start:0,end:1440,breaks:[]}],closedDates:[],exceptions:[],usHolidays:false,capacity:1,efficiency:100,reason:'synthetic-larder-812 calendar'})
   const s=await(await page.request.get(origin+'/api/larder/state')).json(),old=s.laborCalendars.find((l:any)=>l.operatorIds.includes(s.actor.id))
   await call('capacity.labor',{...calendar(old?.name??`Recovery team ${suffix}`),...(old?{id:old.id,version:old.version}:{}),operatorIds:[s.actor.id],skills:old?.skills??[]})
@@ -380,7 +386,7 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   }
   await page.goto(origin+'/app#schedule');await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
   await runWindow()
-  await page.getByLabel('Freeze schedule through (local time)',{exact:true}).fill(day(7)+'T00:00')
+  await page.getByLabel('Freeze schedule through (local time)',{exact:true}).fill(local(new Date(day(7)+'T00:00:00Z')))
   await page.getByLabel('Manual operation lock',{exact:true}).selectOption(jobs[1].id+':1')
   await page.getByLabel('Protection reason',{exact:true}).fill('synthetic-larder-815 freeze this week and keep manual override')
   await planningAct(page,()=>page.getByRole('button',{name:'Save schedule protections',exact:true}).click())
@@ -473,7 +479,7 @@ test('Frozen recovery and isolated outage scenarios retain locks, show displacem
   const applied=page.getByLabel('Schedule review wo.operation.progress recovery',{exact:true}).filter({hasText:'Automatic booking: applied under approved grant'})
   await expect(applied).toHaveCount(1)
   expect((await planningState(page)).scheduleBookings).not.toEqual(beforeLargerGrant)
-  await applied.locator('summary').click()
+  if (!await applied.evaluate(el => (el as HTMLDetailsElement).open)) await applied.locator(':scope > summary').click()
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'CAP-007-automatic');if(process.env.LARDER_SCREENSHOTS)await applied.screenshot({path:join(process.env.LARDER_SCREENSHOTS!,`${width}-CAP-007-automatic-detail.png`)})}
   await grantPanel.getByLabel('Automation grant revocation reason',{exact:true}).fill('synthetic-larder-978 stop delegated booking')
   await planningAct(page,()=>grantPanel.getByRole('button',{name:'Revoke automation grant',exact:true}).click())
@@ -519,4 +525,92 @@ test('Replenishment reviews revised MOQ and uncertain coverage/cash, selectively
   await expect(page.getByText('Approved replenishment decisions',{exact:true})).toBeVisible();await expect(page.getByText('21.6 USD approved; 1 purchase orders. Nothing was sent to a supplier.',{exact:true})).toBeVisible()
   const after=await planningState(page),selected=after.purchaseOrders.filter((p:any)=>!before.purchaseOrders.some((b:any)=>b.id===p.id));expect(selected).toHaveLength(1);expect(selected[0].lines[0].itemId).toBe(items[0].id);expect(selected[0].status).toBe('approved');expect(after.movements).toEqual(before.movements)
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await planningShot(page,'MRP-003-approved')}
+})
+
+
+test('AGENT-001 computed supplier-slip and breakdown recovery preserves the unchanged ship date through stale refusal and exact human adoption at 1440/390', async ({page})=>{
+  await planningEnter(page)
+  const call=(type:string,payload:object)=>command(page,type,payload)
+  const referenceTime=Date.now(),suffix=crypto.randomUUID().slice(0,6),day=(n:number)=>new Date(referenceTime+(n===0?0:n+1)*86400000).toISOString().slice(0,10)
+  const raw=await call('item.save',{sku:`REC-IN-${suffix}`,name:'Recovery source input',kind:'buy',baseUnit:'each'})
+  const made=await call('item.save',{sku:`REC-OUT-${suffix}`,name:'Recovery customer part',kind:'make',baseUnit:'each'})
+  const names=['Recovery primary','Recovery alternate A','Recovery alternate B'].map(name=>`${name} ${suffix}`)
+  const calendar=(name:string)=>({name,timeZone:'UTC',effectiveFrom:day(0),effectiveTo:day(30),shifts:[{weekdays:[0,1,2,3,4,5,6],start:0,end:1440,breaks:[]}],closedDates:[],exceptions:[],usHolidays:false,capacity:1,efficiency:100,reason:'Recorded recovery capacity'})
+  for(const [index,name] of names.entries()) {
+    const m=await call('capacity.machine',{...calendar(name),closedDates:index===0?[day(2),day(3),day(4)]:[]})
+    await call('capacity.sequence',{id:m.id,version:m.version,tools:['Recovery fixture'],initialFamily:'part',changeovers:[],planningHourlyCost:String(60+index*30),reason:'Qualified tooling and public planning estimate'})
+  }
+  const state=await planningState(page),old=state.laborCalendars.find((l:any)=>l.operatorIds.includes(state.actor.id))
+  await call('capacity.labor',{...calendar(old?.name??`Recovery person ${suffix}`),...(old?{id:old.id,version:old.version}:{}),operatorIds:[state.actor.id],skills:[...new Set([...(old?.skills??[]),'recovery'])]})
+  await call('bom.revise',{itemId:made.id,components:[{itemId:raw.id,quantity:'1'}],routing:[{name:'Recover cut',workCentre:names[0],eligibleCentres:names,requiredTools:['Recovery fixture'],requiredSkills:['recovery'],setupFamily:'part',minutes:60}]})
+  const customer=await call('party.save',{name:`Recovery customer ${suffix}`,kind:'customer'})
+  let order=await call('so.quote',{customerId:customer.id,promiseDate:day(3),lines:[{itemId:made.id,quantity:'1',unitPrice:'90'}]})
+  order=await call('so.confirm',{orderId:order.id,version:order.version,reserve:false})
+  let w=await call('plan.draft',{itemId:made.id,reason:'Recorded customer recovery demand'})
+  w=await call('wo.release',{workOrderId:w.id,version:w.version})
+  const pinned=await call('proposal.prepare',{kind:'reschedule',summary:'Primary assignment before supplier slip',evidence:['Pinned qualified routing'],plan:{changes:[{workOrderId:w.id,plannedStart:day(1),scheduleChoices:{1:names[0]}}],capacity:{asOf:day(1)+'T00:00:00Z',days:14}}})
+  await call('proposal.approve',{proposalId:pinned.id,version:pinned.version})
+  await page.goto(origin+'/app#schedule');await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  const supplier=await call('party.save',{name:`Recovery supplier ${suffix}`,kind:'supplier'})
+  let supply=await call('po.draft',{supplierId:supplier.id,expectedDate:day(1),reason:'Actual approved recovery input',lines:[{itemId:raw.id,quantity:'1',unitPrice:'8'}]})
+  supply=await call('po.approve',{poId:supply.id,version:supply.version})
+  const oldPolicy=(await planningState(page)).schedulePolicies[0]
+  await call('schedule.protect',{...(oldPolicy?{version:oldPolicy.version}:{}),asOf:day(1)+'T00:00:00Z',days:14,freezeUntil:day(1)+'T00:00:00Z',manualLocks:[],reason:'Review continuous supplier and equipment recovery'})
+  await call('po.revise',{poId:supply.id,version:supply.version,expectedDate:day(2),note:'Supplier now arrives one day later'})
+  let computed=(await planningState(page)).schedulePlans.filter((p:any)=>p.event?.type==='po.revise').at(-1)
+  expect(computed.recoveryOptions, JSON.stringify(computed.recoverySearch).slice(0, 4000)).toHaveLength(2)
+  expect(computed.recoverySearch.sources.purchaseOrderIds).toContain(supply.id)
+  await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  let eventReview=page.getByLabel('Schedule review po.revise recovery',{exact:true}).filter({hasText:order.reference}).last()
+  for(const width of [1440,390]) {
+    await page.setViewportSize({width,height:1000})
+    for(const candidate of computed.recoveryOptions) {
+      const option=eventReview.getByRole('region',{name:candidate.name,exact:true})
+      await expect(option).toContainText(`retained ship date ${order.promiseDate} → ${order.promiseDate}`)
+      await expect(option).toContainText(candidate.movedOperations[0].machine)
+      await expect(option).toContainText('Changed customer promises: 0')
+      await option.getByRole('heading', { name: candidate.name, exact: true }).evaluate(el => el.scrollIntoView({ block: 'start' }))
+      if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-AGENT-001-${candidate.id}-viewport.png`) })
+      expect(candidate.after.operations.find((o:any)=>o.workOrderId===w.id).startsAt>=day(2)+'T00:00:00.000Z').toBe(true)
+    }
+    await planningShot(page,'AGENT-001-two-options')
+  }
+  // An equipment update invalidates the supplier review and immediately retains
+  // a new two-option comparison using the same delayed source material.
+  await call('maintenance.create',{workCentre:names[0],kind:'breakdown',expectedReturnAt:day(6)+'T00:00:00Z',repairOwner:'Machine supervisor',note:'Spindle stopped after supplier slip'})
+  const stale=eventReview.getByRole('region',{name:'Alternate recovery 1',exact:true})
+  await stale.getByLabel('Decision reason for Alternate recovery 1',{exact:true}).fill('Supplier comparison before equipment update')
+  const refusal=page.waitForResponse(r=>r.url()===origin+'/api/larder/commands'&&r.request().method()==='POST')
+  await stale.getByRole('button',{name:'Adopt Alternate recovery 1',exact:true}).click()
+  expect((await(await refusal).json()).error.code).toBe('STALE')
+  await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  computed=(await planningState(page)).schedulePlans.filter((p:any)=>p.event?.type==='maintenance.create').at(-1)
+  expect(computed.recoveryOptions, JSON.stringify(computed.recoverySearch).slice(0, 4000)).toHaveLength(2)
+  eventReview=page.getByLabel('Schedule review maintenance.create recovery',{exact:true}).filter({hasText:order.reference}).last()
+  const selected=computed.recoveryOptions[0], candidate=eventReview.getByRole('region',{name:selected.name,exact:true})
+  for(const width of [1440,390]) {
+    await page.setViewportSize({width,height:1000})
+    await expect(candidate).toContainText(`retained ship date ${order.promiseDate} → ${order.promiseDate}`)
+    await expect(candidate).toContainText(selected.movedOperations[0].machine)
+    await expect(candidate).toContainText(selected.movedOperations[0].startsAt)
+    await planningShot(page,'AGENT-001-breakdown-options')
+  }
+  await candidate.getByLabel('Decision reason for Alternate recovery 1',{exact:true}).fill('Approve this exact eligible alternate and unchanged ship date')
+  await planningAct(page,()=>candidate.getByRole('button',{name:'Adopt Alternate recovery 1',exact:true}).click())
+  await expect(candidate.getByRole('heading',{name:'Alternate recovery 1 · Adopted',exact:true})).toBeVisible()
+  const adoptedRecovery=(await planningState(page)).schedulePlans.find((p:any)=>p.id===computed.id)
+  expect(adoptedRecovery.selectedOptionId).toBe(selected.id)
+  expect((await planningState(page)).salesOrders.find((o:any)=>o.id===order.id).promiseDate).toBe(order.promiseDate)
+  expect((await planningState(page)).scheduleBookings.find((b:any)=>b.id===adoptedRecovery.bookingId).operations).toEqual(selected.after.operations)
+  await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
+  for(const width of [1440,390]) {
+    await page.setViewportSize({width,height:1000})
+    const retained=page.getByLabel('Schedule review maintenance.create recovery',{exact:true}).filter({hasText:order.reference}).last()
+    await expect(retained).toContainText('Alternate recovery 1 · Adopted')
+    await expect(retained).toContainText(`retained ship date ${order.promiseDate} → ${order.promiseDate}`)
+    expect((await planningState(page)).salesOrders.find((o:any)=>o.id===order.id).promiseDate).toBe(order.promiseDate)
+    await planningShot(page,'AGENT-001-adopted')
+    await retained.getByRole('heading', { name: 'Alternate recovery 1 · Adopted', exact: true }).evaluate(el => el.scrollIntoView({ block: 'start' }))
+    if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-AGENT-001-adopted-viewport.png`) })
+  }
 })

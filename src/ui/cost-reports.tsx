@@ -1,7 +1,8 @@
 import './styles/costing.css'
+import { VarianceExplanations } from './variance-explanations'
 // Uses Larder's existing cards, forms and responsive table; monetary reports
 // stay behind their own live API permission check, never computed in a browser.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { can, rows, type Rec } from './api'
 import type { Larder } from './app'
 import { Card, Choose, Details, Empty, Field, Form, fileBase64, options, text, Table } from './controls'
@@ -49,12 +50,14 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
   const s = larder.state!,
     [query, setQuery] = useState(''),
     [data, setData] = useState<any>(null),
-    [error, setError] = useState('')
+    [error, setError] = useState(''),
+    selectionRef = useRef('')
   const permitted = can(s, ['manager', 'accounts']),
     restricted = (s.actor as any).scope?.costs === true
   useEffect(() => {
     let active = true
-    setData(null)
+    const selection = JSON.stringify([report, query, (s.actor as any).scope, permitted])
+    if (selectionRef.current !== selection) { setData(null); selectionRef.current = selection }
     setError('')
     if (permitted)
       fetch(`/api/larder/costing/${report}${query}`, { cache: 'no-store' })
@@ -76,7 +79,7 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
         <p className="eyebrow">Handoff</p>
         <h1>{reportNames[report]}</h1>
         <p className="meta">
-          USD operational evidence. Unknown values require source records. No payroll, journals or external messages are
+          USD operational evidence. Unknown values require source records. No payroll, journals or customer messages are
           posted.
         </p>
       </header>
@@ -305,6 +308,7 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
                       )}
                     </Table>
                   </Card>
+                  <VarianceExplanations larder={larder} />
                   <Card title="Sales order cost reconciliation">
                     <Table head={['Order', 'Quoted cost / margin', 'Actual cost', 'Cost variance', 'Actual margin']}>
                       {data.orders.map((r: any) =>

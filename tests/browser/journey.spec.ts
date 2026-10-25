@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { mkdir, readdir } from 'node:fs/promises'
+import { mkdir, readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 
 // The owner's first-release journey through the built app: move in from Odoo,
@@ -405,4 +405,80 @@ test('COST reports retain shipment margins, job source drills and missing perfor
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'COST-scheduled-report')}
   await page.goto(origin+'/app#handoff');await expect(page.getByRole('heading',{name:'Accountant handoff',exact:true})).toBeVisible()
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});for(const name of ['Order margins','Job cost variances','Production performance'])await expect(page.getByRole('link',{name,exact:true})).toBeVisible();expect(await page.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await shot(page,'COST-handoff')}
+})
+
+
+test('Owner reviews exact variance sources and destination, then inspects the live cited explanation and approved improvement at both widths', async ({ page }) => {
+  const archivePath = process.env.LARDER_LIVE_VARIANCE_ARCHIVE
+  test.skip(!archivePath, 'Explicit generated-job live-model archive is required; no model fixture substitutes for this journey.')
+  await enter(page)
+  const archive = JSON.parse(await readFile(archivePath!, 'utf8'))
+  const restored = await page.request.post(origin + '/api/larder/archive/restore', { headers: { origin }, data: archive })
+  expect(restored.ok(), await restored.text()).toBe(true)
+  await page.goto(origin + '/app#handoff/variances'); await page.reload()
+  const s = await state(page), completed = s.varianceAnalyses.find((a: any) => a.status === 'complete'), order = s.salesOrders.find((o: any) => o.id === completed.orderId)
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const account = page.locator('.account > summary')
+    await page.keyboard.press('Tab'); await account.focus(); await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
+    await page.getByRole('heading', { name: 'Job cost variances', exact: true }).click()
+    await account.hover(); await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
+    const explanation = page.locator(`[data-analysis-id="${completed.id}"]`)
+    await explanation.locator('summary').first().click()
+    await expect(explanation).toContainText(`${completed.evidence.sourceCount} distinct cited source records`)
+    if (width === 1440 && !completed.followups.length) {
+      const approvedChange = s.engineeringChanges.find((c: any) => c.status === 'approved')
+      const nextJob = s.workOrders.find((w: any) => w.itemId === approvedChange.itemId && w.bomRevision === approvedChange.approvedBom.revision && w.status === 'closed')
+      await explanation.getByText('Compare an approved improvement', { exact: true }).click()
+      await explanation.getByLabel('Proposed experiment', { exact: true }).selectOption('0')
+      await explanation.getByLabel('Approved engineering change', { exact: true }).selectOption(approvedChange.id)
+      await explanation.getByLabel('Completed next job', { exact: true }).selectOption(nextJob.id)
+      await explanation.getByLabel('Improvement comparison reason', { exact: true }).fill('synthetic-larder-814 approved controlled routing experiment')
+      await act(page, () => explanation.getByRole('button', { name: 'Record next-job comparison', exact: true }).click())
+    }
+    await expect(explanation).toContainText('Historical variances unchanged')
+    const improvement = explanation.getByRole('button', { name: 'Improvement measures', exact: true }).last()
+    if (await improvement.getAttribute('aria-expanded') !== 'true') await improvement.click()
+    await expect(improvement.locator('..')).toContainText('$190.00')
+    await expect(improvement.locator('..')).toContainText('$50.00')
+    await expect(explanation).toContainText('Hypothesis 1')
+    const factSummary = explanation.getByText('Review exact numeric records', { exact: true })
+    if (!await factSummary.evaluate(el => (el.parentElement as HTMLDetailsElement).open)) await factSummary.click()
+    const link = explanation.locator('a[href*="/sources/"]').first(), response = await page.request.get(new URL((await link.getAttribute('href'))!, origin).href)
+    expect(response.status()).toBe(200); expect((await response.json()).key).toBe(completed.evidence.facts[0].sourceKeys[0])
+    const measures = explanation.getByRole('button', { name: 'Measures F1', exact: true })
+    if (await measures.getAttribute('aria-expanded') !== 'true') await measures.click()
+    await shot(page, 'AGENT-003-live-explanation')
+    await explanation.getByRole('heading', { name: 'Hypothesis 1', exact: true }).scrollIntoViewIfNeeded()
+    if (shots) await page.screenshot({ path: join(shots, `${width}-AGENT-003-result-viewport.png`) })
+    expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    await explanation.locator('summary').first().click()
+    const section = card(page, 'Explain an order variance')
+    await section.getByText('Prepare a cited explanation', { exact: true }).click()
+    await page.getByLabel('Explanation order', { exact: true }).selectOption(order.id)
+    await page.getByLabel('Explanation reason', { exact: true }).fill('synthetic-larder-814 review at each width')
+    const prepared = await act(page, () => page.getByRole('button', { name: 'Prepare evidence review', exact: true }).click())
+    const review = page.locator(`[data-analysis-id="${prepared.id}"]`)
+    await review.locator('summary').first().click()
+    await review.getByText('Review exact numeric records', { exact: true }).click()
+    await expect(review).toContainText('OpenRouter to Anthropic only')
+    await expect(review).toContainText('Causal explanations still need a controlled experiment.')
+    await shot(page, 'AGENT-003-exact-consent')
+    await review.getByRole('checkbox').scrollIntoViewIfNeeded()
+    if (shots) await page.screenshot({ path: join(shots, `${width}-AGENT-003-consent-viewport.png`) })
+    await review.getByRole('checkbox').check()
+    await review.getByLabel('Model consent reason', { exact: true }).fill('synthetic-larder-814 exact numeric records approved')
+    const approved = await act(page, () => review.getByRole('button', { name: 'Approve exact model destination', exact: true }).click())
+    expect(approved.status).toBe('approved')
+    await review.getByRole('button', { name: 'Run approved explanation once', exact: true }).scrollIntoViewIfNeeded()
+    if (shots) await page.screenshot({ path: join(shots, `${width}-AGENT-003-approved-viewport.png`) })
+    await review.getByLabel('Revoke explanation reason', { exact: true }).fill('synthetic-larder-814 do not send from browser proof')
+    await act(page, () => review.getByRole('button', { name: 'Revoke unsent explanation', exact: true }).click())
+    await expect(review).toContainText('Revoked')
+    await shot(page, 'AGENT-003-revoked')
+    await review.locator('summary').first().evaluate(el => el.scrollIntoView({ block: 'start' }))
+    if (shots) await page.screenshot({ path: join(shots, `${width}-AGENT-003-revoked-viewport.png`) })
+    await review.locator('summary').first().click()
+    await section.getByText('Prepare a cited explanation', { exact: true }).click()
+  }
 })

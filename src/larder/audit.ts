@@ -88,6 +88,7 @@ export function auditEntries(c: Context, before: State, type: string, payload: a
   const reason = reasonOf(payload)
   const out: AuditEntry[] = []
   const add = (kind: string, subjectId: string, subjectVersion: number, op: AuditEntry['op'], was: unknown, now: unknown, full: unknown = now) => {
+    if (kind === 'varianceAnalyses') { was = digest(was); now = digest(now); full = { subjectId } }
     out.push({
       id: `${c.commandId}:${out.length}`, at: c.now, actorId: c.actor.id, actorName: c.actor.name, actorRole: c.actor.role, source, commandId: c.commandId, commandType: type,
       domain: source === 'agent' && type === 'proposal.prepare' ? 'agent' : domainOf(c, kind, type, payload), subjectKind: kind, subjectId, subjectVersion, op,

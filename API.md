@@ -764,3 +764,57 @@ and new requests. JSON and CSV archives retain all records; restore posts nothin
 The owner-only batch allocation default awaits ct approval; FLOOR-006 is partial.
 
 Batch allocation reviews use `batch.plan` and `batch.review` for owner, manager, accounts or planner preparation; `batch.post` and `batch.release` remain owner-only. Each six-place rounding residue, bounded by USD 0.000001 per output, is assigned to the final planned output and retained with the rule in the review and valuation. Larger differences and inexact unit costs are refused. Any intervening business write permanently voids a pending review; changing page review inputs removes approval until a fresh review. A void draft cannot be revived by restoring earlier inputs.
+
+## Cited variance explanations (AGENT-003, partial)
+
+The native owner uses the ordinary command transport. `variance.prepare` takes
+`{orderId, provider, usdCap, tokenCap, reason}`. `provider` is `anthropic` or
+`openrouter`; each review declares the exact destination. Private Worker bindings
+supply `ANTHROPIC_API_KEY` or `OPENROUTER_API_KEY`, never the browser or archive.
+The review retains only cited numeric records and identifiers, source counts,
+missing evidence and pinned job estimates. Names, customer identities, free text
+and evidence files are excluded from the request. The routed destination is
+Anthropic Haiku 5.5 only, with fallback disabled, data collection denied and
+maximum input and output prices. Each run is bounded by the selected total token
+and USD caps, no more than 44000 tokens and USD 0.02.
+
+`variance.consent` takes `{analysisId, version, digest, destination,
+acceptProviderRetention:true, reason}` from that exact review. It acknowledges
+the selected provider's retention terms. `variance.run` takes
+`{analysisId, version, reason}` and requires the consenting owner. It durably
+reserves one attempt before sending; repeats, concurrent commands and restarts
+never send it twice. A changed source needs a new review. Failed or uncertain
+attempts stay visible. `variance.revoke` with the same identity, version and a
+reason revokes an unsent review. Every operation is owner-only under the adopted
+default pending ct approval.
+
+`GET /api/larder/costing/explanations/<analysisId>/sources/<encoded-source-key>`
+opens a cited minimized source snapshot for the owner. All numeric measures use
+the existing cost reports; model hypotheses cite their fact IDs and never
+establish causality or change a standard. `variance.followup` takes
+`{analysisId, version, proposalIndex, changeId, workOrderId, reason}` after a human
+has approved a later engineering revision and completed its next job. It retains
+the comparison and refuses to claim unchanged history if old cost sources changed.
+The business archive includes the review, model result, usage and decisions
+without provider credentials. Restore revokes unsent consent and performs no send.
+
+## Computed recovery options (AGENT-001)
+
+Within the explicit schedule-protection window, relevant recorded demand,
+material, progress, breakdown and calendar commands retain one review per event.
+Each event recomputes material readiness from the current shared allocation.
+`schedulePlans[].recoveryOptions` contains up to two feasible qualified alternate
+machine plans, with source identities and counts, named machine and person
+intervals, sequence, displacement, unchanged linked ship dates, public planning
+USD estimates, zero new purchasing cash and explicit uncertainty. Search is
+bounded and never claims that an unsearched recovery is impossible.
+
+`schedule.adopt` additionally accepts `optionId` alongside `planId`, `version`
+and `reason`. It adopts only the exact retained option under existing independent
+CAP-005 authority and GOV-009 signatures. Signatures for different options cannot
+combine. All current inputs and live people are rechecked before atomic booking.
+A new demand, stock or calendar trigger remains a human review even when an
+automatic grant exists; alternate machine choices always require human approval.
+Customer promise amendments and spending retain their separate sales and buyer
+authorities. JSON and CSV archives retain every option, selection and booking;
+restore executes nothing.

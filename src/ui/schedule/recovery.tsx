@@ -3,6 +3,35 @@ import { can, rows } from '../api'
 import type { Larder } from '../app'
 import { Area, Card, Choose, Field, Form, Table, text } from '../controls'
 
+function RecoveryOptions({larder,review,approver}:{larder:Larder;review:any;approver:boolean}) {
+  if(!review.recoverySearch)return null
+  const sources=review.recoverySearch.sources
+  return <section aria-label="Computed recovery options">
+    <h3>Computed recovery options</h3>
+    <p>{review.recoverySearch.reason} Compared {review.recoverySearch.evaluated} candidates{review.recoverySearch.truncated?' within the bounded search':''}.</p>
+    <details><summary>Recorded planning sources</summary>
+      <p>{sources.workOrderIds.length} affected jobs · {sources.purchaseOrderIds.length} purchase orders · {sources.reservationCount} hard reservations · {sources.operationProgressCount} progress records · {sources.machineCalendarIds.length} machine calendars · {sources.laborCalendarIds.length} labor calendars.</p>
+      <p>Demand IDs: {sources.demandIds.join(', ')||'No recorded demand link'}. Work IDs: {sources.workOrderIds.join(', ')||'None'}. Purchase IDs: {sources.purchaseOrderIds.join(', ')||'None'}. Maintenance IDs: {sources.maintenanceIds.join(', ')||'None'}.</p>
+      <p>Machine calendars: {sources.machineCalendarIds.join(', ')||'None'}. Labor calendars: {sources.laborCalendarIds.join(', ')||'None'}.</p>
+    </details>
+    {review.recoveryOptions.map((option:any)=><section key={option.id} aria-label={option.name}>
+      <h4>{option.name}{review.selectedOptionId===option.id?' · Adopted':''}</h4>
+      <p>Feasible finite plan · Changed customer promises: {option.changedPromiseCount}. Planning estimate: {option.planningCostUsd??'Unknown tariff'} USD. New purchase cash: {option.cashExposureUsd} USD. Responsible approval: planner.</p>
+      <p>{option.uncertainty}</p>
+      {option.promiseEffects.length===0&&<p>No linked customer promise; this comparison proves no customer ship date.</p>}
+      {option.promiseEffects.map((promise:any)=><p key={`${promise.orderId}:${promise.lineId}:${promise.promiseDate}`}>{promise.reference}: retained ship date {promise.beforeDate} → {promise.afterDate} · {promise.feasible?'Production fits unchanged promise':'Unproven'}.</p>)}
+      <Table head={['New sequence','Operation / machine / person','Occupied intervals']}>
+        {option.sequence.map((op:any)=><tr key={op.key}><td>{op.position} · {op.reference}</td><td>{op.name} · {op.machine} · {op.person}</td><td>{op.intervals.map((span:any)=><p key={span.startsAt}><time dateTime={span.startsAt}>{span.startsAt}</time> → <time dateTime={span.endsAt}>{span.endsAt}</time></p>)}</td></tr>)}
+      </Table>
+      <Table head={['Displaced job','Previous finish','Proposed finish']}>
+        {option.effects.map((effect:any)=><tr key={effect.workOrderId}><td>{effect.reference}</td><td>{effect.before??'Unscheduled'}</td><td>{effect.after??'Unscheduled'}</td></tr>)}
+      </Table>
+      {review.status==='review'&&approver&&<Form submit={`Adopt ${option.name}`} busy={larder.busy} onSubmit={d=>larder.run('schedule.adopt',{planId:review.id,version:review.version,optionId:option.id,reason:text(d,'reason')})}><Area label={`Decision reason for ${option.name}`} name="reason" /></Form>}
+    </section>)}
+    {review.recoverySearch.rejected.length>0&&<details><summary>Infeasible comparisons</summary>{review.recoverySearch.rejected.map((r:any,index:number)=><p key={index}>Comparison {index+1}: {r.unscheduled.length} unscheduled operations; {r.protectedKeys.length} protected conflicts; {r.lateWorkOrderIds.length} newly late jobs; {r.latePromiseIds.length} missed customer promises. {r.unscheduled.map((u:any)=>`${u.reference}: ${u.reason}`).join('; ')}</p>)}</details>}
+  </section>
+}
+
 export function ScheduleRecovery({larder,plan}:{larder:Larder;plan:any}) {
   const s=larder.state!, policy=rows(s,'schedulePolicies')[0], plans=[...rows(s,'schedulePlans')].reverse()
   const protectors=can(s,['manager','planner']), approvers=can(s,['manager','production','planner']), preparers=can(s,['manager','planner','agent'])
@@ -30,12 +59,13 @@ export function ScheduleRecovery({larder,plan}:{larder:Larder;plan:any}) {
         </div><p>Only explicit adoption creates added draft work or calendar overtime. It releases no work, pays no wages, changes no stock and sends no purchase. Speculative inventory or supplier assumptions require their existing approved doors.</p></details>
         <Area label="Scenario reason" name="reason" />
       </Form>}
-      {plans.length===0?<p>No scenario or event proposal yet. After protections are saved, progress, material ETA, machine breakdown and priority events record a durable reflow proposal.</p>:plans.map(p=><details key={p.id} open={p.status==='review'} aria-label={`Schedule review ${p.name}`}><summary>{p.name} · {p.kind} · {p.status}</summary>
+      {plans.length===0?<p>No scenario or event proposal yet. After protections are saved, progress, material ETA, machine breakdown and priority events record a durable reflow proposal.</p>:plans.map(p=><details key={p.id} open={p.status==='review'||p.status==='adopted'} aria-label={`Schedule review ${p.name}`}><summary>{p.name} · {p.kind} · {p.status}</summary>
         <p>{p.reason} · Changed customer promises: {p.changedPromiseCount}. Frozen/manual conflicts: {p.protectionConflicts.length}. Unscheduled operations: {p.after.unscheduled.length}.</p>
         <p>Additional draft jobs: {p.extraWork?.length??0}; inventory assumptions: {p.inventoryUnavailable?.length??0}; supplier assumptions: {p.alternateSuppliers?.length??0}; bounded overtime windows: {p.overtime?.length??0}.</p>
         {p.alternateSuppliers?.map((q:any,i:number)=><p key={i}>Supplier estimate: {q.quantity} base units · {q.exposure} USD · latest {q.latestDate} · {q.robustFeasible?'within bound':'late at bound'} · speculative; no order sent.</p>)}
         {p.materialEffects?.map((m:any)=><p key={m.workOrderId}>{m.reference} · material not before {m.notBefore??'current stock / unknown'} · {m.missing.length} uncovered input lines. {m.basis}</p>)}
         {p.automation&&<p>Automatic booking: {p.automation.status==='applied'?'applied under approved grant':p.automation.reason}. {p.autoApplication&&`Grant version ${p.autoApplication.grantVersion}; accountable approver ${rows(s,'people').find(x=>x.id===p.autoApplication.approverId)?.name??p.autoApplication.approverId}.`}</p>}
+        <RecoveryOptions larder={larder} review={p} approver={approvers&&(s.actor.role==='owner'||s.actor.id!==p.preparedBy)}/>
         {p.event&&<p>Event: {p.event.type} at {p.event.at}; one durable proposal per recorded event.</p>}
         <Table head={['Displaced job','Before finish','After finish','Risk']}>{p.effects.map((e:any)=><tr key={e.workOrderId}><td>{e.reference}</td><td>{e.before??'Unscheduled'}</td><td>{e.after??'Unscheduled'}</td><td>{e.unscheduled?'Unscheduled':e.lateAfter?'Late':'On time'}</td></tr>)}</Table>
         {p.after.unscheduled.map((u:any,i:number)=><p key={i}>{u.reference}: {u.reason}</p>)}

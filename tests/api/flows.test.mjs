@@ -1,3 +1,4 @@
+import { varianceFixture } from './variance-fixture.mjs'
 // One test per first-release clause (ACCEPTANCE.md LARDER-001 to LARDER-013), through the public
 // HTTP door of a real Worker with D1.
 import test from 'node:test'
@@ -1494,4 +1495,77 @@ test('DEMAND-005 sales, planners, managers and agents cannot take reservation ap
   const preview = await h.command('so.allocationPreview', f.payload)
   for (const person of people) await person.run('so.allocationApprove', { previewId: preview.id, version: preview.version, reason: 'synthetic-larder-1413' }, { error: 'FORBIDDEN' })
   assert.deepEqual((await h.invariant()).reservations.map(r => r.quantity).sort(), ['2', '8'])
+})
+
+
+test('Cited variance explanations require exact owner consent and capped single sends, retain repeat causes and compare approved future work without rewriting history', async t => {
+  const requests = []
+  let invalid = false
+  const h = await installation({ now: '2026-10-25T12:00:00.000Z', modelEdge: async request => {
+    const payload = await request.json(); requests.push(payload)
+    const evidence = JSON.parse(payload.messages.find(m => m.role === 'user').content)
+    const observations = [{ factIds: invalid ? ['UNKNOWN'] : evidence.facts.filter(f => f.label.includes('Job actual') || f.label.includes('Comparable')).map(f => f.id), hypothesis: 'Repeated scrap and overtime are associated with higher allocated costs; the cause needs investigation.', experiment: 'Engineer reviews a future routing trial and measures its next completed job.' }]
+    return payload.provider ? Response.json({ id: 'synthetic-larder-814-router', usage: { prompt_tokens: 2400, completion_tokens: 300, cost: 0.00039 }, choices: [{ finish_reason: 'tool_calls', message: { tool_calls: [{ function: { name: 'explain_variance', arguments: JSON.stringify({ observations }) } }] } }] }) : Response.json({ id: 'synthetic-larder-814-model', stop_reason: 'tool_use', usage: { input_tokens: 2400, output_tokens: 300 }, content: [{ type: 'tool_use', name: 'explain_variance', input: { observations } }] })
+  } }); t.after(() => h.close())
+  const fixture = await varianceFixture(h), reason = 'synthetic-larder-814 exact source analysis'
+  const prepare = () => h.command('variance.prepare', { orderId: fixture.order.id, tokenCap: 44000, usdCap: '0.02', reason })
+  let a = await prepare()
+  const agent = await h.person('synthetic-larder-814-agent@example.test', 'agent'), accounts = await h.person('synthetic-larder-814-accounts@example.test', 'accounts')
+  for (const who of [agent, accounts]) {
+    await who.run('variance.prepare', { orderId: fixture.order.id, tokenCap: 44000, usdCap: '0.02', reason }, { error: 'FORBIDDEN' })
+    assert.deepEqual((await h.state(who.cookie)).varianceAnalyses, [])
+    assert.equal((await h.request(`/api/larder/costing/explanations/${a.id}/sources/${encodeURIComponent(a.evidence.sources[0].key)}`, { as: who.cookie })).status, 403)
+  }
+  await h.command('variance.run', { analysisId: a.id, version: a.version, reason }, { error: 'CONSENT' })
+  await h.command('variance.prepare', { orderId: fixture.order.id, tokenCap: 20, usdCap: '0.02', reason }, { error: 'CAP' })
+  await h.command('variance.prepare', { orderId: fixture.order.id, tokenCap: 44000, usdCap: '0.000001', reason }, { error: 'CAP' })
+  await h.command('variance.consent', { analysisId: a.id, version: a.version, digest: a.evidence.digest, destination: 'synthetic-larder-814 unauthorized destination', acceptProviderRetention: true, reason }, { error: 'CONSENT' })
+  assert.equal(requests.length, 0)
+  const consent = a => h.command('variance.consent', { analysisId: a.id, version: a.version, digest: a.evidence.digest, destination: a.destination, acceptProviderRetention: true, reason })
+  a = await consent(a)
+  const changed = await h.command('costing.orderCharge', { orderId: fixture.order.id, lineId: fixture.order.lines[0].id, kind: 'fee', amount: '1', refundable: false, evidence: evidence('synthetic-larder-814 actual charge'), reason })
+  await h.command('variance.run', { analysisId: a.id, version: a.version, reason }, { error: 'STALE' })
+  assert.equal(requests.length, 0)
+  a = await consent(await prepare())
+  const payload = { analysisId: a.id, version: a.version, reason }, commandId = 'synthetic-larder-814-single-send'
+  a = await h.command('variance.run', payload, { commandId })
+  assert.equal(a.status, 'complete', a.error); assert.equal(requests.length, 1)
+  await h.command('variance.run', payload, { commandId }); assert.equal(requests.length, 1)
+  assert.equal(a.evidence.sourceCount, new Set(a.evidence.facts.flatMap(f => f.sourceKeys)).size)
+  assert.equal(a.evidence.facts.find(f => f.label === 'Comparable production observations').values.jobsWithScrap, 2)
+  const job = a.evidence.baselines[0]
+  assert.equal(job.materialCost, '30'); assert.equal(job.laborCost, '110'); assert.equal(job.overheadCost, '30'); assert.equal(job.actualCost, '190'); assert.equal(job.costVariance, '140')
+  assert.equal(a.evidence.facts.find(f => f.label === 'Order line quoted to actual').values.actualCost, '191.00')
+  const sent = JSON.stringify(requests[0])
+  assert.doesNotMatch(sent, /synthetic-larder-814 buyer|owner@example|Olive|operatorId|customerId|base64|Synthetic serving/)
+  assert.ok(Number(a.usage.usd) <= Number(a.usdCap))
+  for (const source of a.evidence.sources) {
+    const res = await h.request(`/api/larder/costing/explanations/${a.id}/sources/${encodeURIComponent(source.key)}`)
+    assert.equal(res.status, 200); assert.deepEqual(await res.json(), source)
+  }
+  const before = await (await h.request(`/api/larder/costing/variances?orderId=${fixture.order.id}`)).json()
+  const { change, next } = await fixture.improve()
+  a = await h.command('variance.followup', { analysisId: a.id, version: a.version, proposalIndex: 0, changeId: change.id, workOrderId: next.id, reason })
+  assert.equal(a.followups[0].historicalUnchanged, true); assert.equal(a.followups[0].comparison.after.actualCost, '50')
+  assert.deepEqual((await (await h.request(`/api/larder/costing/variances?orderId=${fixture.order.id}`)).json()).jobs, before.jobs)
+  const missingOrder = await h.command('so.quote', { customerId: (await h.state()).parties.find(p => p.kind === 'customer').id, promiseDate: '2026-12-01', lines: [{ itemId: fixture.item.id, quantity: '1', unitPrice: '100' }] })
+  let incomplete = await h.command('wo.draft', { itemId: fixture.item.id, quantity: '1', requiredBy: '2026-12-01', reason }); incomplete = await h.command('wo.release', { workOrderId: incomplete.id, version: incomplete.version })
+  await h.command('costing.link', { orderId: missingOrder.id, lineId: missingOrder.lines[0].id, workOrderId: incomplete.id, quantity: '1', reason })
+  const absent = await h.command('variance.prepare', { orderId: missingOrder.id, tokenCap: 44000, usdCap: '0.02', reason })
+  assert.ok(absent.evidence.missing.includes('No completed labor or operation time'))
+  invalid = true
+  let bad = await consent(await prepare()); bad = await h.command('variance.run', { analysisId: bad.id, version: bad.version, reason })
+  assert.equal(bad.status, 'failed'); assert.match(bad.error, /unknown citation/)
+  invalid = false
+  let routed = await h.command('variance.prepare', { provider: 'openrouter', orderId: fixture.order.id, tokenCap: 44000, usdCap: '0.02', reason })
+  routed = await consent(routed); routed = await h.command('variance.run', { analysisId: routed.id, version: routed.version, reason })
+  assert.equal(routed.status, 'complete', routed.error); assert.equal(routed.providerRequestId, 'synthetic-larder-814-router')
+  assert.deepEqual(requests.at(-1).provider.only, ['anthropic']); assert.equal(requests.at(-1).provider.allow_fallbacks, false)
+  const pending = await consent(await prepare())
+  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  assert.equal((await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })).status, 200)
+  const restored = await target.state()
+  assert.equal(restored.varianceAnalyses.find(r => r.id === a.id).followups[0].historicalUnchanged, true)
+  assert.equal(restored.varianceAnalyses.find(r => r.id === pending.id).status, 'revoked')
+  assert.match(await (await h.request('/api/larder/archive.csv')).text(), /varianceAnalyses/)
 })

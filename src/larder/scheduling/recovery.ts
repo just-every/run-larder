@@ -2,7 +2,6 @@ import { scheduleGrant, grantLapsed, grantRefusal, suspendGrant } from './grants
 import { adoptionProblem, bookIntervals } from './booking'
 import { planningDigest } from './fingerprint'
 export { planningDigest } from './fingerprint'
-import { orderStatuses } from '../order-status'
 import { draftWork } from '../production'
 import { supplierQuote } from '../supplier-terms'
 import { draftPurchase } from '../purchasing'
@@ -11,7 +10,7 @@ import { move, balance } from '../stock'
 // Durable event proposals and isolated schedule scenarios. No observer may
 // approve execution, change a customer date, buy, or perform an external action.
 // Internal interval booking alone may be delegated by a bounded human grant.
-import { canonicalJson } from '../../modules/import-kit/src/d1/index'
+import { canonicalJson, sha256 } from '../../modules/import-kit/src/d1/index'
 import { bump, fresh, get, list, row, text, type Context, type State, type Row } from '../model'
 import { allow, approver } from '../roles'
 import { authorize, gate } from '../approval-policy'
@@ -20,6 +19,7 @@ import { fail } from '../problem'
 import { finitePlan } from './finite'
 import { instant, integer } from './calendars'
 import { capacityPreview } from './reschedule'
+import { recoveryProjection, recoveryOptions, recoveryEffects, protectedConflicts, recoveryInputsChanged } from './recovery-options'
 
 const policy = (s:State) => s.schedulePolicies[0]
 const currentWindow = (c:Context,p:any) => {
@@ -27,32 +27,13 @@ const currentWindow = (c:Context,p:any) => {
   if(Date.parse(asOf)<Math.floor(Date.parse(c.now)/60000)*60000) fail('INPUT','Choose a current or future planning window.')
   return {asOf,days}
 }
-const consequences = (before:any,after:any) => after.jobs.map((j:any)=>{
-  const old=before.jobs.find((o:any)=>o.workOrderId===j.workOrderId)
-  return {workOrderId:j.workOrderId,reference:j.reference,before:old?.endsAt ?? null,after:j.endsAt,lateBefore:old?.late ?? false,lateAfter:j.late,unscheduled:j.unscheduled}
-}).filter((j:any)=>j.before!==j.after||j.unscheduled||j.lateBefore!==j.lateAfter)
-
-function materialProjection(s:State,people:Context['people'],asOf:string,days:number,itemIds?:string[]) {
-  const clone=structuredClone(s), statuses=orderStatuses(clone).work
-  const materialEffects:any[]=[]
-  for(const w of clone.workOrders.filter(w=>['draft','released'].includes(w.status))) {
-    const status=statuses.find(o=>o.id===w.id)
-    if(itemIds && !status?.lines.some(l=>itemIds.includes(l.itemId)))continue
-    const missing=status?.lines.filter(l=>decimal(l.missing)>0n||l.ingredientStatus==='Not available'||l.ingredientStatus==='No BOM')??[]
-    const supplies=status?.lines.flatMap(l=>l.supplies)??[]
-    const notBefore=supplies.map(p=>p.date).filter(Boolean).sort().at(-1)
-    if(missing.length || status?.ingredientStatus==='No BOM')w.planningMaterialBlock='Current shared material allocation has uncovered or unproved inputs; review the dated material sources.'
-    if(notBefore)w.planningMaterialReadyAt=notBefore+'T00:00:00.000Z'
-    materialEffects.push({workOrderId:w.id,reference:w.reference,notBefore:notBefore??null,missing:missing.map(l=>({itemId:l.itemId,quantity:l.missing})),supplies,basis:'Shared indicative physical/reserved/approved purchase allocations; future work remains subject to its own dependency and execution gates.'})
-  }
-  return {plan:finitePlan(clone,people??[],asOf,days,{releaseBookings:true}),materialEffects}
-}
 
 function scenario(c:Context,p:any,kind='scenario',event?:any) {
   // The observer uses the configured, bounded planning window; expired windows
   // yield a visible pending proposal rather than an implicit approval.
   const window=event ? {asOf:policy(c.s).asOf,days:policy(c.s).days} : currentWindow(c,p)
-  const before=event ? finitePlan(event.before,c.people??[],window.asOf,window.days) : finitePlan(c.s,c.people??[],window.asOf,window.days)
+  const prior=recoveryProjection(event?.before??c.s,c.people,window.asOf,window.days)
+  const before=finitePlan(prior.state,c.people??[],window.asOf,window.days)
   const clone=structuredClone(c.s)
   const outages=(p.outages===undefined?[]:list<any>(p.outages,'scenario outages',20)).map(o=>{
     const machine=get(clone,'machineCalendars',o.machineId),startsAt=instant(o.startsAt,'outage start'),endsAt=instant(o.endsAt,'outage end')
@@ -92,16 +73,13 @@ function scenario(c:Context,p:any,kind='scenario',event?:any) {
     changes=capacityPreview({...c,s:clone},{changes:p.changes,capacity:{asOf:window.asOf,days:window.days}}).changes
     for(const ch of changes)Object.assign(get(clone,'workOrders',ch.workOrderId),ch)
   }
-  const changedPo=event&&['po.revise','po.confirm'].includes(event.type)?c.s.purchaseOrders.find(po=>po.id===event.payload?.poId):null
-  const projection = (extraWork.length||inventoryUnavailable.length||alternateSuppliers.length||changedPo) ? materialProjection(clone,c.people,window.asOf,window.days,changedPo?.lines.map((l:any)=>l.itemId)) : null
-  const after=projection?.plan??finitePlan(clone,c.people??[],window.asOf,window.days,{releaseBookings:true})
-  const protections=policy(c.s)?.protectedOperations ?? []
-  const protectionConflicts=protections.filter((old:any)=>{
-    const next=after.operations.find((o:any)=>o.key===old.key)
-    return !next||canonicalJson(next.intervals)!==canonicalJson(old.intervals)||next.machineId!==old.machineId||next.operatorId!==old.operatorId
-  }).map((o:any)=>o.key)
+  const projection = recoveryProjection(clone,c.people,window.asOf,window.days)
+  const after=projection.plan
+  const protectionConflicts=protectedConflicts(c.s,after)
+  const computed=event ? recoveryOptions(c,before,projection,event,window.asOf,window.days) : null
   return row(c,'schedulePlans',{kind,status:'review',name:text(p.name??`${event?.type} recovery`,'plan name',200),reason:text(p.reason??'Event-driven review; explicit human approval required.','plan reason'),
-    preparedBy:c.actor.id,preparedRole:c.actor.role,...window,before,after,changes,outages,extraWork,inventoryUnavailable,alternateSuppliers,overtime,materialEffects:projection?.materialEffects??[],effects:consequences(before,after),protectionConflicts,
+    preparedBy:c.actor.id,preparedRole:c.actor.role,...window,before,after,changes,outages,extraWork,inventoryUnavailable,alternateSuppliers,overtime,materialEffects:projection.materialEffects,effects:recoveryEffects(before,after),protectionConflicts,
+    ...(computed ? {recoveryOptions:computed.options,recoverySearch:computed.search} : {}),
     event:event?{type:event.type,commandId:c.commandId,at:c.now,version:c.s.version+1}:null,changedPromiseCount:0,
     inputDigest:planningDigest(c.s,c.people),day:c.now.slice(0,10),semantics:'Proposal only. Customer dates, purchases, stock and execution remain unchanged. No automatic sequencing or outbound effects.'})
 }
@@ -138,12 +116,16 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
   if(['promises','spend','automatic'].some(k=>p[k]!==undefined))fail('AUTHORITY','Customer dates and spending require their separate recorded authority.')
   const note=text(p.reason,'decision reason')
   if(type==='schedule.reject')return bump(plan,{status:'rejected',decidedBy:c.actor.id,decidedAt:c.now,note})
-  const problem=adoptionProblem(c,plan)
+  const option=p.optionId===undefined?undefined:plan.recoveryOptions?.find((o:any)=>o.id===p.optionId)
+  if(p.optionId!==undefined&&!option)fail('INPUT','Choose an exact retained recovery option.')
+  const reviewed=option?{...plan,after:option.after,changes:option.changes,effects:option.effects,protectionConflicts:option.protectionConflicts}:plan
+  const problem=adoptionProblem(c,reviewed)
   if(problem)fail(problem.code,problem.message)
   // GOV-009: a plan whose largest per-job delay is at or above the schedule threshold needs the policy signatures on its exact changes.
-  const signed=gate(c,{category:'schedule',subjectKind:'schedulePlans',subject:plan,measure:()=>largestJobDelay(plan.effects),permitted:['manager','production','planner'],preparedBy:plan.preparedBy,p})
+  const signed=gate(c,{category:'schedule',subjectKind:'schedulePlans',subject:plan,measure:()=>largestJobDelay(reviewed.effects),permitted:['manager','production','planner'],preparedBy:plan.preparedBy,...(option?{terms:{optionId:option.id,optionDigest:sha256(canonicalJson(option))}}:{}),p})
   if(signed&&'pending' in signed)return signed.pending
   signed?.consume(plan.id)
+  if(option)Object.assign(plan,{after:option.after,changes:option.changes,effects:option.effects,protectionConflicts:option.protectionConflicts,selectedOptionId:option.id,promiseEffects:option.promiseEffects})
   // A schedule approval carries no authority to bypass each adopted piece's door.
   if(plan.extraWork?.length)allow(c,['manager','production','planner'])
   for(const change of plan.overtime??[])allow(c,change.kind==='labor'?['manager']:['manager','planner'])
@@ -161,12 +143,20 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
 
 const events=['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected']
 export function observeRecovery(c:Context,before:State,type:string,payload:any) {
-  if(!events.includes(type)||!policy(c.s)||c.s.schedulePlans.some(p=>p.event?.commandId===c.commandId))return
+  if(type==='schedule.adopt'||(type==='proposal.approve'&&c.s.proposals.find(p=>p.id===payload.proposalId)?.kind==='reschedule'))return
+  if((!events.includes(type)&&!recoveryInputsChanged(before,c.s))||!policy(c.s)||c.s.schedulePlans.some(p=>p.event?.commandId===c.commandId))return
   const plan=scenario(c,{name:`${type} recovery`,reason:'Recorded event; preserve frozen/manual intervals and review displacement.'},'reflow',{type,before,payload})
+  if(!events.includes(type)){plan.automation={status:'review',reason:'Changed demand, stock or capacity requires a new exact human review.'};return}
   const grants=c.s.scheduleGrants.filter(g=>g.status==='active')
   const grant=grants.at(-1)
   if(!grant){plan.automation={status:'review',reason:'No active automatic booking grant.'};return}
-  const refusal=adoptionProblem(c,plan)?.message??grantRefusal(c,grant,plan)
+  const alternateChange=plan.after.operations.some((op:any)=>{
+    const previous=plan.before.operations.find((old:any)=>old.key===op.key)
+    const work=c.s.workOrders.find(w=>w.id===op.workOrderId)
+    const original=previous?.machine??work?.scheduleChoices?.[op.sequence]??work?.routing?.find((step:any)=>step.sequence===op.sequence)?.workCentre
+    return original&&original!==op.machine
+  })
+  const refusal=adoptionProblem(c,plan)?.message??(alternateChange?'Alternate-machine changes require exact human approval.':grantRefusal(c,grant,plan))
   if(refusal){
     plan.automation={status:'review',grantId:grant.id,grantVersion:grant.version,reason:refusal}
     if(grantLapsed(c,grant))suspendGrant(c,grant,refusal)

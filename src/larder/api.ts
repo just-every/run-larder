@@ -1,3 +1,6 @@
+import { recoveryInputsChanged } from './scheduling/recovery-options'
+import { variance } from './costing/variance'
+import { finishVariance } from './costing/variance-model'
 import { coProducts, voidBatchReviews } from './co-products'
 import { performanceReport, reportScheduling } from './costing/performance'
 import { costing, costingReaders } from './costing/commands'
@@ -98,7 +101,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version, scope: effectiveScope(member, custom) }
 }
 
-const handlers = [coProducts, salesAllocation, nesting, reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, serials, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [variance, coProducts, salesAllocation, nesting, reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, serials, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -127,6 +130,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (!target) fail('NOT_FOUND', 'Choose an invited person.')
     if (target!.role === 'owner') fail('OWNER_ROLE', 'The owner keeps owner authority.')
   }
+  if (type.startsWith('variance.') && actor.role !== 'owner') forbidden('Only the owner may review model evidence or authorize a run.')
   gateCommand(actor, type, payload)
   if ((type.startsWith('costing.') || type.startsWith('reports.')) && !costingReaders.includes(actor.role)) forbidden('Only accounts or managers may use costing.')
   if (blindSessions(await load(env.DB), actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
@@ -181,6 +185,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
     enforceScope(c, before)
+    if (!c.people && s.schedulePolicies.length && recoveryInputsChanged(before, s)) c.people = (await people(env, actor)).people as any
     observeRecovery(c, before, type, payload)
     observeFollowUps(c)
     voidBatchReviews(c)
@@ -190,7 +195,11 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
       await publishImport(env, c, before, type, digest, result!, audit)
       return respond((await saved(env.DB, commandId, digest, actor)) ?? fail('IMPORT_PUBLICATION', 'The import did not finish. Send the same command again to resume it.'))
     }
-    try { return respond(await commit(env.DB, c, before, type, digest, result, audit, erasure)) }
+    try {
+      const recorded = await commit(env.DB, c, before, type, digest, result, audit, erasure)
+      if (type === 'variance.run') return respond(await finishVariance(env, actor, result!))
+      return respond(recorded)
+    }
     catch (error) {
       const replay = await saved(env.DB, commandId, digest, actor)
       if (replay) return respond(replay)
@@ -224,6 +233,14 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     // imports and attachment doors need an unscoped person.
     const scope = scopeOf(actor), scoped = isScoped(actor), read = async <T>(compute: (s: any) => T | Promise<T>) => scopedRead(await load(env.DB), scope, compute)
     if (scoped && (path.startsWith('/audit') || path.startsWith('/archive') || path.startsWith('/handoffs/') || path.startsWith('/imports/'))) forbidden('This download needs an unscoped owner or manager.')
+    const sourcePath = /^\/costing\/explanations\/([^/]+)\/sources\/([^/]+)$/.exec(path)
+    if (sourcePath) {
+      if (actor.role !== 'owner') forbidden('Only the owner may read model source snapshots.')
+      const analysis = get(await load(env.DB), 'varianceAnalyses', sourcePath[1])
+      const source = analysis.evidence.sources.find((s: any) => s.key === decodeURIComponent(sourcePath[2]))
+      if (!source) fail('NOT_FOUND', 'That cited source was not found.')
+      return json(source)
+    }
     if (/^\/costing\/(margins|variances|performance)(\.csv)?$/.test(path)) {
       if (!costingReaders.includes(actor.role)) forbidden('Only accounts or managers may read cost reports.')
       const report = await read(s => path.startsWith('/costing/margins') ? marginReport(s, url.searchParams) : path.startsWith('/costing/performance') ? performanceReport(s,url.searchParams) : varianceReport(s, url.searchParams))

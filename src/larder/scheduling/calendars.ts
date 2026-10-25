@@ -48,7 +48,7 @@ export function calendars(c: Context, type: string, p: any): Row | undefined {
     const rate = format(decimal(p.hourlyRate, 'hourly wage')), burden = format(decimal(p.burdenRate, 'hourly burden'))
     const old = c.s.laborRates.find(r => r.laborId === labor.id)
     const data = { laborId: labor.id, hourlyRate: rate, burdenRate: burden, currency: 'USD', reason: text(p.reason, 'rate reason'), updatedBy: c.actor.id, updatedAt: c.now }
-    if (old) { fresh(old, p.version); return bump(old, { ...data, history: [...(old.history ?? []), { ...old, history: undefined }] }) }
+    if (old) { fresh(old, p.version); return bump(old, { ...data, history: [...(old.history ?? []), (({ history, ...definition }) => definition)(old)] }) }
     return row(c, 'laborRates', data)
   }
   if (type === 'capacity.sequence') {
@@ -80,7 +80,7 @@ export function calendars(c: Context, type: string, p: any): Row | undefined {
     data = { ...common, operatorIds, skills: strings(p.skills ?? [], 'skills'), capacity: integer(p.capacity, 'simultaneous-task limit per person', 1, 10) }
   }
   // Immutable prior definitions are retained as evidence, never used as hidden defaults.
-  if (old) return bump(old, { ...data, history: [...(old.history ?? []), { ...old, history: undefined }] })
+  if (old) return bump(old, { ...data, history: [...(old.history ?? []), (({ history, ...definition }) => definition)(old)] })
   return row(c, collection, data)
 }
 

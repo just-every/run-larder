@@ -29,7 +29,7 @@ export async function migrate(db) {
     await db.batch(unstable_splitSqlQuery(await readFile('migrations/core/' + file, 'utf8')).map(q => db.prepare(q)))
 }
 
-export async function installation({ now } = {}) {
+export async function installation({ now, modelEdge, modelKey } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'larder-api-'))
   let origin = 'http://localhost'
   const setup = randomBytes(32).toString('hex'), code = await script(now)
@@ -38,6 +38,7 @@ export async function installation({ now } = {}) {
   let outboundRequests = 0
   const outboundService = async request => {
     outboundRequests++
+    if (['https://api.anthropic.com/v1/messages', 'https://openrouter.ai/api/v1/chat/completions'].includes(request.url) && modelEdge) return modelEdge(request)
     if (request.url !== 'https://api.resend.com/emails') return new Response('Unexpected outbound request', { status: 599 })
     mails.push(await request.json())
     return Response.json({ id: `test-${mails.length}` })
@@ -46,7 +47,7 @@ export async function installation({ now } = {}) {
   const options = port => ({
     ...convertV4MiniflareOptions({
       host: '127.0.0.1', port, modules: true, script: code, compatibilityDate: '2026-09-08', compatibilityFlags: ['nodejs_compat'], d1Databases: ['DB'],
-      bindings: { AUTH_LOCAL: 'true', AUTH_ORIGIN: origin, OWNER_EMAIL: 'owner@example.test', SESSION_SECRET: sessionSecret, SETUP_TOKEN: setup, MAIL_PROVIDER: 'resend', MAIL_API_KEY: 'test-only-resend-key', MAIL_FROM: 'auth@example.test', RER_DEV_KEY: devKey },
+      bindings: { ...(modelEdge ? { ANTHROPIC_API_KEY: modelKey ?? 'synthetic-larder-814', OPENROUTER_API_KEY: modelKey ?? 'synthetic-larder-814' } : {}), AUTH_LOCAL: 'true', AUTH_ORIGIN: origin, OWNER_EMAIL: 'owner@example.test', SESSION_SECRET: sessionSecret, SETUP_TOKEN: setup, MAIL_PROVIDER: 'resend', MAIL_API_KEY: 'test-only-resend-key', MAIL_FROM: 'auth@example.test', RER_DEV_KEY: devKey },
       outboundService,
     }),
     resourcePersistencePath: root,
