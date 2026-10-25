@@ -1215,10 +1215,20 @@ async function nestingWorkshop(h, dates = { manufacturedOn: '2026-10-01', expire
 
 test('CAP-008 three original jobs retain demand and revisions in an inert nesting review with reconciled yield, offcuts and cost shares', async t => {
   const h = await installation(); t.after(() => h.close())
-  const f = await nestingWorkshop(h), before = await h.invariant()
+  const f = await nestingWorkshop(h)
+  const window = { asOf: '2026-11-01T00:00:00Z', days: 7 }
+  const unconfigured = await h.command('nest.prepare', f.prepare)
+  const noCapacity = await h.command('nest.import', { groupId: unconfigured.id, version: unconfigured.version, file: f.file(f.report), capacity: window })
+  assert.equal(noCapacity.review.capacity.feasible, false)
+  assert.equal(noCapacity.review.capacity.combinedOperation, null)
+  assert.ok(noCapacity.review.capacity.conflicts.some(c => /machine/.test(c.reason)))
+  const owner = (await h.state()).actor
+  await h.command('capacity.machine', capacityCalendar('Laser'))
+  await h.command('capacity.labor', capacityCalendar('Nesting operator', { operatorIds: [owner.id], skills: [] }))
+  const before = await h.invariant()
   const group = await h.command('nest.prepare', f.prepare)
   assert.deepEqual(group.members.map(m => [m.workOrderId, m.bomId, m.bomRevision, m.requiredBy, m.reason]), f.jobs.map(w => [w.id, w.bomId, w.bomRevision, w.requiredBy, w.reason]))
-  const payload = { groupId: group.id, version: group.version, file: f.file(f.report) }
+  const payload = { groupId: group.id, version: group.version, file: f.file(f.report), capacity: window }
   const imported = await h.send('nest.import', payload)
   assert.equal(imported.res.status, 200, JSON.stringify(imported.body))
   const reviewed = imported.body.result, r = reviewed.review
@@ -1226,6 +1236,16 @@ test('CAP-008 three original jobs retain demand and revisions in an inert nestin
   assert.deepEqual([r.materialYield, r.scrapQuantity, r.materialCost, r.offcut.materialCost, r.source.materialCost], ['0.65', '1.5', '80', '20', '100'])
   assert.deepEqual(r.jobs.map(j => [j.materialCost, j.setupMinutes]), [['20', '10'], ['30', '10'], ['30', '10']])
   assert.deepEqual([r.baselineSetupMinutes, r.sharedSetupMinutes], ['60', '30'])
+  assert.equal(r.capacity.feasible, true)
+  assert.equal(r.capacity.bookingEnabled, false)
+  assert.equal(r.capacity.changedPromiseCount, 0)
+  assert.equal(r.capacity.before.operations.reduce((n, o) => n + o.occupiedMinutes, 0), 63)
+  assert.equal(r.capacity.combinedOperation.occupiedMinutes, 33)
+  assert.equal(r.capacity.combinedOperation.setupMinutes, 30)
+  assert.equal(r.capacity.combinedOperation.operatorId, owner.id)
+  assert.equal(r.capacity.combinedOperation.machine, 'Laser')
+  assert.deepEqual(r.capacity.allocations.map(a => [a.workOrderId, a.bomRevision, a.requiredBy]), f.jobs.map(w => [w.id, w.bomRevision, w.requiredBy]))
+  assert.ok(r.capacity.allocations.every(a => a.after === r.capacity.combinedOperation.endsAt))
   assert.equal(await (await h.request(`/api/larder/attachments/${reviewed.original.id}`)).text(), payload.file.content)
   assert.deepEqual((await h.send('nest.import', payload, { commandId: imported.commandId })).body, imported.body)
   await h.command('nest.import', { ...payload, file: f.file({ ...f.report, sharedSetupMinutes: '31' }) }, { commandId: imported.commandId, error: 'IDEMPOTENCY' })
@@ -1239,6 +1259,12 @@ test('CAP-008 three original jobs retain demand and revisions in an inert nestin
   assert.deepEqual((await target.state()).movements, after.movements)
   assert.equal(await (await target.request(`/api/larder/attachments/${reviewed.original.id}`)).text(), payload.file.content)
   await h.restart(); assert.deepEqual((await h.state()).workGroups, after.workGroups)
+  const protectedGroup = await h.command('nest.prepare', f.prepare)
+  await h.command('schedule.protect', { asOf: window.asOf, days: window.days, freezeUntil: window.asOf, manualLocks: [{ workOrderId: f.jobs[0].id, sequence: 1 }], reason: 'synthetic-larder-7 retain existing lock' })
+  const protectedBefore = await h.state()
+  await h.command('nest.import', { groupId: protectedGroup.id, version: protectedGroup.version, file: f.file(f.report), capacity: window }, { error: 'PROTECTED' })
+  const protectedAfter = await h.state()
+  for (const key of ['workGroups', 'scheduleBookings', 'schedulePolicies', 'movements', 'version']) assert.deepEqual(protectedAfter[key], protectedBefore[key], key)
 })
 
 test('CAP-008 invalid nesting and incompatible or changed jobs leave no partial review or attachment', async t => {
@@ -1257,6 +1283,7 @@ test('CAP-008 invalid nesting and incompatible or changed jobs leave no partial 
     [{ ...f.report, source: { ...f.report.source, quantity: '11' } }, 'INSUFFICIENT_STOCK'],
   ]
   const before = await h.state(), archive = await (await h.request('/api/larder/archive')).json()
+  for (const capacity of [{ asOf: 'not-a-time', days: 7 }, { asOf: '2026-11-01T00:00:00Z', days: 61 }]) await h.command('nest.import', { groupId: group.id, version: group.version, file: f.file(f.report), capacity }, { error: 'INPUT' })
   for (const [report, error] of invalid) await h.command('nest.import', { groupId: group.id, version: group.version, file: f.file(report) }, { error })
   const after = await h.state()
   for (const key of Object.keys(archive.records)) assert.deepEqual(after[key], before[key], key)
@@ -1278,6 +1305,10 @@ test('CAP-008 nesting preparation obeys live roles, location scope and cost rest
   assert.equal(prepared.res.status, 200, JSON.stringify(prepared.body))
   await outsider.run('nest.cancel', { groupId: prepared.body.result.id, version: 1, reason: 'Not my review' }, { error: 'FORBIDDEN' })
   const other = await h.command('location.save', { name: 'Other site' })
+  await h.command('member.scope', { operatorId: planner.id, locations: [f.loc.id] })
+  const scopedBefore = await h.state()
+  await planner.run('nest.import', { groupId: prepared.body.result.id, version: 1, file: f.file(f.report), capacity: { asOf: '2026-11-01T00:00:00Z', days: 7 } }, { error: 'FORBIDDEN' })
+  assert.deepEqual((await h.state()).workGroups, scopedBefore.workGroups)
   await h.command('member.scope', { operatorId: planner.id, locations: [other.id] })
   await planner.run('nest.prepare', f.prepare, { error: 'FORBIDDEN' })
   await planner.run('nest.prepare', f.prepare, { commandId: prepared.commandId, error: 'FORBIDDEN' })

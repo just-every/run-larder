@@ -678,7 +678,7 @@ is refused. The original UTF-8 file is retained with a digest. Import posts no
 movement, reservation, output, booking or promise change.
 
 The owner alone calls `nest.approve` with `{groupId, version, reason}` under the
-conservative default awaiting ct approval. Any intervening business write or
+ct-approved exact physical authority. Any intervening business write or
 changed UTC day requires a fresh group and import. The same atomic command
 issues the reviewed material to original jobs through `wo.issue`, recovers the
 offcut into a new lot with its source dates and value, and records approval and
@@ -693,8 +693,8 @@ only its preparer or the owner may cancel it.
 All group records, original files, physical links and recorded outcomes survive
 the complete JSON and CSV archive and restore; restore never executes them.
 Location scope and cost restrictions apply to preparation, results and replay.
-Grouping and import page controls, combined finite setup booking, broader batch
-stages and ct approval of the default remain CAP-008 gaps. CONN-012 will supply
+Grouping and import page controls ship. Combined finite setup booking, broader batch
+stages and quality-controlled source recovery remain CAP-008 gaps. CONN-012 will supply
 vendor-specific nesting imports and inherits these review and posting guards.
 
 ## Reviewed sales reservation splits (DEMAND-005)
@@ -706,3 +706,31 @@ vendor-specific nesting imports and inherits these review and posting guards.
 Under ct approval of 23 October 2026, both commands are owner-only, including command replay. A customer date change still uses `so.changePreview` and `so.changeApprove` with recorded customer attestation. That preview includes `impact.changedPromiseCount` (affected customer orders) and `impact.promiseChanges` (each changed line with previous and proposed delivery dates). Each accepted receipt on its purchase-order page offers the owner a two-line split form, the exact review and a reasoned approval; changed business records or UTC day require a fresh review. The existing qualified-alternate API and browser journeys now assert customer-linked outage recovery with sufficient alternate capacity, zero changed promises and unchanged order dates.
 
 Archive restore currently accepts only an explicit `USD` functional-currency declaration. Missing, malformed or non-USD declarations answer `CURRENCY_MIGRATION` before any write. This prevents silent relabelling; it does not implement the US-001 versioned AUD conversion. Original currencies of source-history evidence remain separate from functional money.
+
+
+### Optional finite nesting comparison
+
+`nest.import` also accepts `capacity: {asOf, days}` outside the original file.
+This is an isolated comparison for compatible single-operation pending jobs,
+using the latest material-ready and planned-start dates of all members. It
+reserves no live capacity. One virtual operation includes the imported shared
+setup exactly once and the full pinned run effort of every original job, on
+one named machine slot and one live qualified person. The preview keeps the
+original job, revision, demand and due-date links in `review.capacity.allocations`.
+It shows separate and combined plans, displacement, explicit infeasibility and
+zero changed customer promises. Missing joint capacity yields `feasible: false`.
+Existing bookings or protected grouped operations refuse the comparison rather
+than releasing them. Broader routings, fractional setup minutes and scoped
+whole-shop comparisons are refused. The optional preview, like the original
+file and allocations, survives archive restore as inert review evidence.
+`bookingEnabled` is always false; the existing ct ruling grants no shared
+setup-booking authority. A later booking door must revalidate live people,
+calendars, protections and business inputs under its own recorded authority.
+
+USD archive export and restore refuse a conflicting root `currency` or
+`functionalCurrency` on native items, sales orders, purchase orders, work
+orders, labor rates, job charges, cost links, cost valuations, margin charges
+and handoffs before any write or new USD export label. Original source-history
+currencies and supplier-quote currencies remain independent and unchanged.
+This refusal does not implement legacy AUD migration or complete per-amount
+currency declarations.

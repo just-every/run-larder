@@ -148,8 +148,24 @@ test('US-001 restore refuses undeclared or non-USD functional money without rela
     const empty = await target.invariant()
     assert.equal(empty.version, 0); assert.equal(empty.salesOrders.length, 0); assert.equal(empty.movements.length, 0)
   }
+  // A USD envelope is not permission to relabel a conflicting native record.
+  for (const [kind, field] of [['salesOrders', 'currency'], ['items', 'functionalCurrency'], ['purchaseOrders', 'currency'], ['workOrders', 'functionalCurrency'], ['laborRates', 'currency'], ['jobCharges', 'currency'], ['costLinks', 'currency'], ['costValuations', 'currency'], ['marginCharges', 'currency'], ['handoffs', 'currency']]) {
+    const altered = structuredClone(archive)
+    if (!altered.records[kind].length) altered.records[kind].push({ id: 'synthetic-larder-1', version: 1 })
+    altered.records[kind][0][field] = 'AUD'
+    const { exportedAt, checksum, ledger, ...content } = altered
+    altered.checksum = createHash('sha256').update(JSON.stringify(stable(content))).digest('hex')
+    const response = await target.request('/api/larder/archive/restore', { method: 'POST', body: altered })
+    assert.equal((await response.json()).error.code, 'CURRENCY_MIGRATION', kind)
+    assert.equal((await target.state()).version, 0)
+  }
   assert.equal((await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })).status, 200)
   const exported = await (await target.request('/api/larder/archive')).json()
+  // Existing database corruption must not acquire a new USD export label.
+  const native = archive.records.salesOrders[0]
+  await h.db.prepare("UPDATE larder_records SET data=? WHERE kind='salesOrders' AND id=?").bind(JSON.stringify({ ...native, currency: 'AUD' }), native.id).run()
+  const invalidExport = await (await h.request('/api/larder/archive')).json()
+  assert.equal(invalidExport.error.code, 'CURRENCY_MIGRATION')
   assert.equal(exported.currency, 'USD')
   assert.deepEqual(exported.records.salesOrders, archive.records.salesOrders)
   assert.deepEqual(exported.movements, archive.movements)

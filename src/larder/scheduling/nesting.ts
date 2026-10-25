@@ -13,6 +13,7 @@ import { requiredTypes } from '../certificate-policy'
 import { lotBlock } from '../lot-dates'
 import { workHolds, plansFor, openHolds } from '../quality-holds'
 import { workRecalls } from '../recall-policy'
+import { nestingCapacity } from './nesting-capacity'
 
 function reachable(c: Context, ids: unknown) {
   const scope = scopeOf(c.actor)
@@ -137,11 +138,12 @@ export function nesting(c: Context, type: string, p: any): Row | undefined {
   if (decimal(jobs.at(-1)!.materialCost, 'allocated cost', { signed: true }) < 0n) fail('ALLOCATION', 'This precision cannot represent the cost shares; revise the allocations.')
   const offcutRecord = offcut > 0n ? { quantity: format(offcut), code: text(report.offcut.code, 'offcut lot code', 80), locationId: get(c.s, 'locations', report.offcut.locationId).id, materialCost: format(offcutCost) } : { quantity: '0', materialCost: '0' }
   reachable(c, offcutRecord)
+  const capacity = nestingCapacity(c, group, members, format(setupMinutes), p.capacity)
   let binary = ''
   for (const byte of new TextEncoder().encode(p.file.content)) binary += String.fromCharCode(byte)
   const original = attach(c, { name, contentType: ['text', 'plain'].join('/'), base64: btoa(binary) })
   return bump(group, { status: 'review', importedBy: c.actor.id, importedAt: c.now, original, inputDigest: sha256(canonicalJson({ members, source, day: c.now.slice(0, 10), version: c.s.version })),
     review: { source: { itemId: material.id, locationId: location.id, lotId: lot.id, quantity: format(gross), unitCost: format(unitCost), materialCost: format(grossCost) }, jobs, offcut: offcutRecord,
       materialYield: format(divide(good, gross)), scrapQuantity: format(consumed - good), materialCost: format(consumedCost), sharedSetupMinutes: format(setupMinutes),
-      baselineSetupMinutes: format(members.reduce((n: bigint, m: any) => n + decimal(String(m.operation.setupMinutes ?? 0)), 0n)), approvalEnabled: true }, snapshotVersion: c.s.version, day: c.now.slice(0, 10) })
+      ...(capacity ? { capacity } : {}), baselineSetupMinutes: format(members.reduce((n: bigint, m: any) => n + decimal(String(m.operation.setupMinutes ?? 0)), 0n)), approvalEnabled: true }, snapshotVersion: c.s.version, day: c.now.slice(0, 10) })
 }
