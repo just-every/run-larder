@@ -244,7 +244,13 @@ test('FLOOR-008 scanned GS1 codes resolve item, lot, expiry and serial for recei
   await h.command('bom.revise', { itemId: kit.id, components: [{ itemId: resin.id, quantity: '1' }] })
   let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: day(0), reason: 'Scanned delivery', lines: [{ itemId: resin.id, quantity: '6', unitPrice: '9' }, { itemId: pump.id, quantity: '2', unitPrice: '80' }] }); po = await h.command('po.approve', { poId: po.id, version: po.version })
   const scan = async (code, use, id) => (await h.request(`/api/larder/scan?code=${encodeURIComponent(code)}${use ? `&use=${use}&id=${id}` : ''}`)).json()
-  const refused = async (code, use, id, error) => assert.equal((await scan(code, use, id)).error?.code, error)
+  const refused = async (code, use, id, error) => {
+    const before = (await h.state()).movements
+    const result = await scan(code, use, id)
+    assert.equal(result.error?.code, error)
+    assert.ok(result.error.message.length > 10)
+    assert.deepEqual((await h.state()).movements, before)
+  }
   const moved = async () => (await h.state()).movements.length, before = await moved()
   // Human-readable and raw GS1 (symbology prefix, FNC1 sent as GS) carry the same identifier, expiry and lot.
   const label = await scan('(01)09501101530003(17)271231(10)RES-A', 'receipt', po.id), raw = await scan(']C1010950110153000317271231' + '10RES-A', 'receipt', po.id)
