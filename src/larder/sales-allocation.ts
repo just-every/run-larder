@@ -11,7 +11,7 @@ import { lotBlock } from './lot-dates'
 
 export function salesAllocation(c: Context, type: string, p: any): Row | undefined {
   if (!['so.allocationPreview', 'so.allocationApprove'].includes(type)) return
-  if (c.actor.role !== 'owner') forbidden('Only the owner reviews and approves sales reservation splits pending policy approval.')
+  if (c.actor.role !== 'owner') forbidden('Only the owner reviews and approves sales reservation splits.')
   if (type === 'so.allocationPreview') {
     const receipt = get(c.s, 'receipts', p.receiptId, 'receipt')
     const item = get(c.s, 'items', p.itemId, 'item'), location = get(c.s, 'locations', p.locationId, 'location')

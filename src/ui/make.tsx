@@ -25,6 +25,7 @@ import { WorkOperations } from './work-operations'
 import { WorkLedger } from './work-ledger'
 import { QualityPlans, WorkQuality } from './quality'
 import { SupplyChanges, ReceiptAllocation } from './supply-changes'
+import { SalesAllocation } from './sales-allocation'
 import { ReceiptJobAllocation } from './receipt-job-allocation'
 import { OrderRank, OrderStatusActions, OrderStatusDisplay, useOrderStatusList } from './order-status'
 
@@ -95,7 +96,7 @@ function Purchase({ larder, po }: { larder: Larder; po: Rec }) {
         <Choose label="Inspection" name="inspection" options={[{ value: 'accept', label: 'Accept into stock' }, { value: 'quarantine', label: 'Hold in quarantine' }]} />
         {po.lines.filter((l: any) => positive(minus(l.quantity, l.received))).map((l: any) => <div className="line" key={l.id}><Field label={`${itemName(s, l.itemId)} (outstanding ${qty(minus(l.quantity, l.received))})${po.lines.filter((x: any) => x.itemId === l.itemId).length > 1 ? ` · delivery ${day(l.expectedDate ?? po.expectedDate)}` : ""}`} name={`q.${l.id}`} inputMode="decimal" required={false} /><Field label="Supplier lot" name={`lot.${l.id}`} required={false} />{serialTracked(s, l.itemId) && <Field label="Serials" name={`serials.${l.id}`} hint={serialHint} required={false} />}<Field label="Damaged units (quarantined)" name={`dmg.${l.id}`} inputMode="decimal" required={false} /><Field label="Damage reason" name={`why.${l.id}`} required={false} /><LotDateFields prefix={`dates.${l.id}.`} /></div>)}
       </Form>}
-      {rows(s, 'receipts').filter(r => r.poId === po.id).map(r => <div key={r.id}><p className="muted">{r.reference} · {r.supplierReference} · {when(r.createdAt)} · {words(r.status)}{(r.documents ?? []).length > 0 && ` · ${r.documents.map((x: any) => x.name).join(', ')}`}{r.lines.filter((l: any) => l.damageReason).map((l: any) => <small key={l.movementId}> {qty(l.quantity)} damaged: {l.damageReason}.</small>)} <ReceiptAllocation larder={larder} receipt={r} /></p><ReceiptJobAllocation larder={larder} receipt={r} /></div>)}
+      {rows(s, 'receipts').filter(r => r.poId === po.id).map(r => <div key={r.id}><p className="muted">{r.reference} · {r.supplierReference} · {when(r.createdAt)} · {words(r.status)}{(r.documents ?? []).length > 0 && ` · ${r.documents.map((x: any) => x.name).join(', ')}`}{r.lines.filter((l: any) => l.damageReason).map((l: any) => <small key={l.movementId}> {qty(l.quantity)} damaged: {l.damageReason}.</small>)} <ReceiptAllocation larder={larder} receipt={r} /></p><ReceiptJobAllocation larder={larder} receipt={r} /><SalesAllocation larder={larder} receipt={r} /></div>)}
       {open && <SupplyChanges larder={larder} po={po} />}
       {!open && po.status !== 'draft' && <Empty>{po.status === 'cancelled' ? 'Cancelled: nothing is still expected.' : 'Fully received.'}</Empty>}
     </Card>

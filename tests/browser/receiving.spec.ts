@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import QRCode from 'qrcode'
 
 // BUY-002, BUY-008 and MRP-002 through the built app: a short delivery with damaged units and a delivery note, allocation of the
 // accepted stock to two jobs, and the late remainder's expedite recorded as a request, at desktop and phone widths.
@@ -109,7 +110,19 @@ test('A person allocates a receipt\'s accepted stock to a released job by hand a
 
 // FLOOR-008: a USB or Bluetooth scanner types its code and Enter; GS1 labels carry identifier, lot, expiry and serial.
 const gtin = (body: string) => body + (10 - body.split('').reverse().map(Number).reduce((n, d, i) => n + d * (i % 2 === 0 ? 3 : 1), 0) % 10) % 10
-test('FLOOR-008 hardware-scanner receipt, issue and pick refuse a wrong item, held lot and duplicate scan without an extra movement at 1440/390', async ({ page }) => {
+test('FLOOR-008 hardware and camera receipt, issue and pick refuse wrong, held, stale and duplicate scans without an extra movement at 1440/390', async ({ page }) => {
+  test.setTimeout(240_000)
+  await page.addInitScript(() => {
+    // A deterministic camera supplies real QR pixels to the production decoder.
+    Object.defineProperty(navigator.mediaDevices, 'getUserMedia', { value: async () => {
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 640
+      const image = new Image(); image.src = (window as any).__cameraFrame; await image.decode()
+      canvas.getContext('2d')!.drawImage(image, 0, 0, 640, 640)
+      return canvas.captureStream(15)
+    } })
+  })
+  for (const mode of ['hardware', 'camera-desktop', 'camera-phone']) {
+  await page.setViewportSize({ width: mode === 'camera-phone' ? 390 : 1440, height: 1000 })
   if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
@@ -123,15 +136,28 @@ test('FLOOR-008 hardware-scanner receipt, issue and pick refuse a wrong item, he
   await command(page, 'bom.revise', { itemId: kit.id, components: [{ itemId: resin.id, quantity: '1' }] })
   let po = await command(page, 'po.draft', { supplierId: supplier.id, expectedDate: day(0), reason: 'Scanned delivery', lines: [{ itemId: resin.id, quantity: '6', unitPrice: '9' }, { itemId: pump.id, quantity: '1', unitPrice: '80' }] }); po = await command(page, 'po.approve', { poId: po.id, version: po.version })
   const movements = async () => (await (await page.request.get(origin + '/api/larder/state')).json()).movements.length
-  const scan = async (panel: ReturnType<Page['getByRole']>, code: string) => { await panel.getByLabel('Scan code', { exact: true }).focus(); await page.keyboard.type(code); await page.keyboard.press('Enter') }
+  const scan = async (panel: ReturnType<Page['getByRole']>, code: string) => {
+    const before = await movements()
+    const bin = code.startsWith('Scan dock ') || code.startsWith('Scan shelf ')
+    const resolved = bin ? null : page.waitForResponse(r => r.url().includes('/api/larder/scan?') && new URL(r.url()).searchParams.get('code') === code)
+    if (mode === 'hardware') { await panel.getByLabel('Scan code', { exact: true }).focus(); await page.keyboard.type(code); await page.keyboard.press('Enter') }
+    else {
+      await page.evaluate(frame => { (window as any).__cameraFrame = frame }, await QRCode.toDataURL(code, { width: 640, margin: 4 }))
+      await panel.getByRole('button', { name: 'Scan with camera', exact: true }).click()
+      await expect(panel.getByRole('button', { name: 'Scan with camera', exact: true })).toBeVisible()
+    }
+    if (resolved) await resolved
+    await expect(panel.getByRole('status')).not.toHaveCount(0)
+    expect(await movements()).toBe(before)
+  }
   await page.goto(origin + `/app#make/po/${po.id}`); await page.reload(); await settled(page)
   let panel = page.getByRole('region', { name: 'Scan this delivery', exact: true })
   await panel.getByLabel('Scan into location', { exact: true }).selectOption(dock.id); await panel.getByLabel('Scanned packing slip', { exact: true }).fill(`Slip ${tag}`)
-  await scan(panel, hardenerCode); await expect(panel).toContainText(`Not accepted: Hardener ${tag} is not expected on ${po.reference}`)
+  await scan(panel, hardenerCode); await expect(panel).toContainText(`Not accepted: Hardener ${tag} is not expected on ${po.reference}`); await shot(page, `wrong-${mode}`, 'FLOOR-008')
   for (let i = 0; i < 2; i++) { await scan(panel, `(01)${resinCode}(17)271231(10)RES-${tag}`); await expect(panel).toContainText(`Scanned Epoxy resin ${tag} · lot RES-${tag}.`) }
   await scan(panel, `(01)${pumpCode}(21)SN-${tag}`); await scan(panel, `(01)${pumpCode}(21)SN-${tag}`); await expect(panel).toContainText(`Duplicate scan: serial SN-${tag} is already on this list.`)
   await expect(panel.locator('tr').filter({ hasText: `RES-${tag}` })).toContainText('2'); await expect(panel.locator('tr').filter({ hasText: `RES-${tag}` })).toContainText('Expires 2027-12-31')
-  await shot(page, 'receipt-scanned', 'FLOOR-008')
+  await shot(page, `receipt-scanned-${mode}`, 'FLOOR-008')
   let before = await movements()
   await panel.getByRole('button', { name: 'Receive scanned', exact: true }).click(); await settled(page)
   let s = await (await page.request.get(origin + '/api/larder/state')).json()
@@ -143,12 +169,14 @@ test('FLOOR-008 hardware-scanner receipt, issue and pick refuse a wrong item, he
   await page.goto(origin + `/app#make/wo/${w.id}`); await page.reload(); await settled(page)
   panel = page.getByRole('region', { name: 'Scan materials to issue', exact: true })
   await panel.getByLabel('Scan from location', { exact: true }).selectOption(dock.id)
-  await scan(panel, `HELD-${tag}`); await expect(panel).toContainText(`Not accepted: Lot HELD-${tag} is in quarantine`)
+  await scan(panel, `HELD-${tag}`); await expect(panel).toContainText(`Not accepted: Lot HELD-${tag} is in quarantine`); await shot(page, `held-${mode}`, 'FLOOR-008')
   await scan(panel, `RES-${tag}`); await scan(panel, `RES-${tag}`); await expect(panel.locator('tr').filter({ hasText: `RES-${tag}` })).toContainText('2')
-  await shot(page, 'issue-scanned', 'FLOOR-008')
+  await shot(page, `issue-scanned-${mode}`, 'FLOOR-008')
   await panel.getByRole('button', { name: 'Issue scanned', exact: true }).click(); await settled(page)
   s = await (await page.request.get(origin + '/api/larder/state')).json()
   expect(s.movements.filter((m: any) => m.kind === 'issue' && m.documentId === w.id).map((m: any) => [m.quantity, s.lots.find((x: any) => x.id === m.lotId).code])).toEqual([['-2', `RES-${tag}`]])
+  await scan(panel, `RES-${tag}`); await expect(panel).toContainText(`Lot RES-${tag} has no stock left`)
+  await shot(page, `stale-${mode}`, 'FLOOR-008')
   // The job's own GS1 label fills the output batch and expiry.
   const output = page.locator('form').filter({ has: page.getByRole('heading', { name: 'Record output', exact: true }) })
   await output.getByLabel('Scan output label', { exact: true }).focus(); await page.keyboard.type(`(01)${resinCode}(10)WRONG-${tag}`); await page.keyboard.press('Enter')
@@ -178,8 +206,11 @@ test('FLOOR-008 hardware-scanner receipt, issue and pick refuse a wrong item, he
   await panel.getByLabel('Scan from location', { exact: true }).selectOption(dock.id)
   before = await movements()
   await scan(panel, `(01)${pumpCode}(21)SN-${tag}`); await scan(panel, `(01)${pumpCode}(21)SN-${tag}`); await expect(panel).toContainText(`Duplicate scan: serial SN-${tag} is already on this list.`)
-  await shot(page, 'pick-scanned', 'FLOOR-008')
+  await shot(page, `pick-scanned-${mode}`, 'FLOOR-008')
   await panel.getByRole('button', { name: 'Pick scanned', exact: true }).click(); await settled(page)
   await expect(page.locator('article.shipment')).toContainText(`1 Bilge pump ${tag} from Scan dock ${tag}, serial SN-${tag}`)
   expect(await movements()).toBe(before)
+  await scan(panel, `(01)${pumpCode}(21)SN-${tag}`); await expect(panel).toContainText(`Serial SN-${tag} is already picked`)
+  await shot(page, `picked-refusal-${mode}`, 'FLOOR-008')
+  }
 })

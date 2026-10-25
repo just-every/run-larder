@@ -36,6 +36,7 @@
   "dependencies": {
     "@tanstack/react-router": "1.170.41",
     "@tanstack/react-start": "1.168.60",
+    "@zxing/browser": "0.1.5",
     "hono": "4.13.7",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -46,12 +47,14 @@
     "@playwright/test": "1.63.0",
     "@runeditrun/rer": "0.2.80",
     "@types/node": "22.18.6",
+    "@types/qrcode": "1.5.6",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.7",
     "@vitejs/plugin-react": "6.1.1",
     "esbuild": "0.28.1",
     "marked": "18.1.1",
     "miniflare": "5.20260907.0-alpha",
+    "qrcode": "1.5.4",
     "typescript": "5.9.3",
     "vite": "8.2.2",
     "wrangler": "4.129.1"

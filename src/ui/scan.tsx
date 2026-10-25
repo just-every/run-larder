@@ -4,8 +4,7 @@ import type { Larder } from './app'
 import { Choose, Field, Table, options } from './controls'
 
 // FLOOR-008: a USB or Bluetooth scanner types its code and Enter into the scan
-// field; a phone or tablet camera reads codes where the browser can decode
-// them. Each scan is resolved by the server; nothing moves until the person
+// field; a phone or tablet camera decodes frames locally. Each scan is resolved by the server; nothing moves until the person
 // posts the scanned lines as one receipt, issue or pick.
 type Use = 'receipt' | 'issue' | 'pick' | 'transfer'
 type Line = { key: string; lineId: string; itemId: string; item: string; lot: string; lotId: string; serial: boolean; expiresOn: string; quantity: number }
@@ -68,7 +67,7 @@ export function ScanPanel({ larder, use, doc }: { larder: Larder; use: Use; doc?
       {use === 'transfer' && <Choose label="Move to location" name="scanTo" options={options(bins.filter(l => l.id !== locationId), r => r.name)} value={toId} onChange={(e: any) => setToId(e.target.value)} />}
       {(use === 'receipt' || use === 'transfer') && <Field label={use === 'receipt' ? 'Scanned packing slip' : 'Transfer reason'} name="scanSlip" value={slip} onChange={(e: any) => setSlip(e.target.value)} />}
     </div>
-    {typeof window !== 'undefined' && 'BarcodeDetector' in window && <button type="button" className="button" onClick={() => setCamera(!camera)}>{camera ? 'Stop camera' : 'Scan with camera'}</button>}
+    {<button type="button" className="button" onClick={() => setCamera(!camera)}>{camera ? 'Stop camera' : 'Scan with camera'}</button>}
     {camera && <CameraScan onCode={code => { setCamera(false); void resolve(code) }} />}
     {refusal && <p className="scan-refusal" role="status">Not accepted: {refusal}</p>}{note && <p className="muted" role="status">{note}</p>}
     {lines.length > 0 && <><Table head={['Item', 'Lot or serial', 'Quantity']} numeric={[2]}>{lines.map(l => <tr key={l.key}><td>{l.item}</td><td>{l.lot || '—'}{l.expiresOn && <small>Expires {l.expiresOn}</small>}</td><td className="num">{l.quantity}</td></tr>)}</Table>
@@ -76,23 +75,27 @@ export function ScanPanel({ larder, use, doc }: { larder: Larder; use: Use; doc?
   </section>
 }
 
-// The camera reads codes with the browser's BarcodeDetector where one exists.
+// Decode locally with the bundled reader; camera frames never leave this device.
 function CameraScan({ onCode }: { onCode: (code: string) => void }) {
   const video = useRef<HTMLVideoElement>(null), [error, setError] = useState('')
   useEffect(() => {
-    let stream: MediaStream | undefined, stopped = false
-    const Detector = (window as any).BarcodeDetector
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(async media => {
-      stream = media; if (!video.current || stopped) return
-      video.current.srcObject = media; await video.current.play()
-      const detector = new Detector({ formats: ['code_128', 'data_matrix', 'qr_code', 'ean_13', 'ean_8', 'upc_a', 'upc_e'] })
-      while (!stopped) {
-        const [found] = await detector.detect(video.current)
-        if (found?.rawValue) { onCode(found.rawValue); return }
-        await new Promise(r => setTimeout(r, 250))
-      }
-    }).catch(e => setError(e?.message ?? 'The camera could not start.'))
-    return () => { stopped = true; stream?.getTracks().forEach(t => t.stop()) }
+    let stream: MediaStream | undefined, stopped = false, controls: { stop: () => void } | undefined
+    async function start() {
+      const { BrowserMultiFormatReader } = await import('@zxing/browser')
+      if (stopped) return
+      const media = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+      stream = media
+      if (stopped || !video.current) { media.getTracks().forEach(t => t.stop()); return }
+      video.current.srcObject = media
+      await video.current.play()
+      if (stopped) return
+      controls = await new BrowserMultiFormatReader().decodeFromVideoElement(video.current, (result, _error, scan) => {
+        if (!stopped && result?.getText()) { stopped = true; scan.stop(); media.getTracks().forEach(t => t.stop()); onCode(result.getText()) }
+      })
+      if (stopped) controls.stop()
+    }
+    void start().catch(e => { stream?.getTracks().forEach(t => t.stop()); if (!stopped) setError(e?.message ?? 'The camera could not start.') })
+    return () => { stopped = true; controls?.stop(); stream?.getTracks().forEach(t => t.stop()) }
   }, [])
   return <div className="scan-camera">{error ? <p role="status">{error}</p> : <video ref={video} aria-label="Camera scan" muted playsInline />}</div>
 }

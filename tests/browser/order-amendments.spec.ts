@@ -111,3 +111,66 @@ test('DEMAND-002 customer-approved split dates, prospective prices and cancellat
     await shot(page, 'issued-order-value')
   }
 })
+
+test('DEMAND-005 owner reviews and approves an exact receipt reservation split at 1440/390', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const tag = crypto.randomUUID().slice(0, 6)
+    const item = await command(page, 'item.save', { sku: `synthetic-larder-${tag}`, name: `Split sheet ${tag}`, kind: 'buy', baseUnit: 'each', standardCost: '5' })
+    const location = await command(page, 'location.save', { name: `Split rack ${tag}` })
+    const supplier = await command(page, 'party.save', { name: `Split supplier ${tag}`, kind: 'supplier' })
+    const customer = await command(page, 'party.save', { name: `Split customer ${tag}`, kind: 'customer' })
+    let po = await command(page, 'po.draft', { supplierId: supplier.id, expectedDate: '2027-01-01', reason: 'Receipt split journey', lines: [{ itemId: item.id, quantity: '10', unitPrice: '5' }] })
+    po = await command(page, 'po.approve', { poId: po.id, version: po.version })
+    const receipt = await command(page, 'receipt.create', { poId: po.id, supplierReference: `synthetic-larder-${tag}`, lines: [{ lineId: po.lines[0].id, locationId: location.id, quantity: '10', lot: `synthetic-larder-${tag}` }] })
+    const orders = []
+    for (const promiseDate of ['2027-01-05', '2027-01-06']) {
+      let order = await command(page, 'so.quote', { customerId: customer.id, promiseDate, lines: [{ itemId: item.id, quantity: '8', unitPrice: '12' }] })
+      order = await command(page, 'so.confirm', { orderId: order.id, version: order.version, reserve: false }); orders.push(order)
+    }
+    for (const order of orders) await command(page, 'so.reserve', { orderId: order.id })
+    const state = async () => (await (await page.request.get(origin + '/api/larder/state')).json())
+    const before = await state()
+    await open(page, `make/po/${po.id}`)
+    const panel = page.getByRole('region', { name: `Sales receipt split ${receipt.reference}`, exact: true })
+    await expect(panel.getByLabel('Accepted receipt stock')).toContainText('accepted 10')
+    async function prepare() {
+      for (let n = 1; n <= 2; n++) {
+        await panel.getByLabel(`Destination sales line ${n}`, { exact: true }).selectOption(`${orders[n - 1].id}|${orders[n - 1].lines[0].id}`)
+        await panel.getByLabel(`Target reservation ${n}`, { exact: true }).fill('5')
+      }
+      await panel.getByLabel('Split reason', { exact: true }).fill('Share this accepted receipt equally')
+      await submit(page, 'Preview reservation split', 'so.allocationPreview')
+    }
+    await prepare()
+    const preview = panel.getByRole('region', { name: 'Reservation split preview', exact: true })
+    await expect(preview).toContainText('Reservation total before: 10'); await expect(preview).toContainText('Reservation total after: 10')
+    await expect(preview).toContainText('Changed customer promises: 0')
+    const first = preview.getByRole('row').filter({ has: page.getByRole('link', { name: orders[0].reference, exact: true }) })
+    const second = preview.getByRole('row').filter({ has: page.getByRole('link', { name: orders[1].reference, exact: true }) })
+    await expect(first).toContainText('Jan 5, 2027'); await expect(first).toContainText('$56.00'); await expect(first).toContainText('$35.00')
+    await expect(first.locator('td').nth(4)).toHaveText('3')
+    await expect(second).toContainText('Jan 6, 2027'); await expect(second).toContainText('$14.00'); await expect(second).toContainText('$35.00')
+    expect((await state()).reservations).toEqual(before.reservations)
+    const account = page.getByLabel('Account menu', { exact: true }); await account.focus()
+    await expect(page.getByRole('tooltip', { name: 'Account menu' })).toBeVisible({ timeout: 100 }); await account.blur(); await account.hover()
+    await expect(account.locator('[role=tooltip]')).toHaveCSS('transition-delay', '0.3s, 0.3s')
+    await shot(page, 'receipt-split-review')
+    await command(page, 'party.save', { name: `Unrelated split customer ${tag}`, kind: 'customer' })
+    await page.reload(); await expect(panel).toContainText('Business records or the UTC day changed.')
+    await expect(panel.getByRole('button', { name: 'Approve exact reservation split', exact: true })).toBeDisabled()
+    await prepare()
+    await panel.getByLabel('Split approval reason', { exact: true }).fill('Owner approves the reviewed equal split')
+    await submit(page, 'Approve exact reservation split', 'so.allocationApprove')
+    const after = await state()
+    expect(after.reservations.filter((r: any) => orders.some(o => o.id === r.demandId)).map((r: any) => r.quantity)).toEqual(['5', '5'])
+    expect(after.movements).toEqual(before.movements)
+    expect(after.salesOrders.filter((o: any) => orders.some(order => order.id === o.id)).map((o: any) => o.promiseDate)).toEqual(['2027-01-05', '2027-01-06'])
+    await page.reload(); await expect(panel.getByRole('region', { name: 'Approved reservation splits' })).toContainText('Owner approves the reviewed equal split')
+    expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    await shot(page, 'receipt-split-approved')
+  }
+})
