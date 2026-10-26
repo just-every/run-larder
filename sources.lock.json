@@ -1533,11 +1533,11 @@
       "executable": false
     },
     "src/larder/scheduling/recovery-options.ts": {
-      "sha256": "611205483523a211f54994e835871a46351ceb712fd387e520eaca66026acf53",
+      "sha256": "861203c34e6b553184c7c4f4bf663fb35bbfdf2a0a9cc761af4ffd73d12d75fa",
       "executable": false
     },
     "src/larder/scheduling/recovery.ts": {
-      "sha256": "2ca16209e6c03deb9adbbae9d2cc9a086b90b83fcd913a5399f06c93a4f0d54d",
+      "sha256": "1cbaad8a435f2758d9872af54b592c1fa6368f4112347de95a8e6331353d7ae1",
       "executable": false
     },
     "src/larder/scheduling/reschedule.ts": {
@@ -3901,7 +3901,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "35edde4e8a0e4e7440dd55e276b5712b4217718cf6f17ffd19148752632cef84",
+      "sha256": "9f49bbe8d2fa85a2cc1e7e4079da672183a81586e88509c3ef75a3b2a0b85a4e",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -4065,7 +4065,7 @@
       "executable": false
     },
     "tests/browser/maintenance.spec.ts": {
-      "sha256": "26ab5b219602a4a17864b2a0970a08a5d4ec8c4821efde351f85b0d4fb3a0099",
+      "sha256": "284cd16b3196bb32c76e2f6848f9aba4ac7885e759a97197cdfcd8dabf65872c",
       "executable": false
     },
     "tests/browser/multilevel.spec.ts": {

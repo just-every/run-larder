@@ -91,7 +91,7 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
     const window=currentWindow(c,p),freezeUntil=instant(p.freezeUntil,'freeze until')
     if(freezeUntil<window.asOf||Date.parse(freezeUntil)>Date.parse(window.asOf)+window.days*86400000)fail('INPUT','The frozen fence must be inside the planning window.')
     if(p.automatic!==undefined&&p.automatic!==false)fail('POLICY','Use a separately prepared and independently approved bounded grant; this flag cannot enable automation.')
-    const before=finitePlan(c.s,c.people??[],window.asOf,window.days)
+    const before=recoveryProjection(c.s,c.people,window.asOf,window.days,false).plan
     const keys=(p.manualLocks??[]).map((x:any)=>{
       const op=before.operations.find((o:any)=>o.key===`${x.workOrderId}:${x.sequence}`)
       if(!op)fail('INPUT','A manual lock needs a currently feasible operation.');return op!.key

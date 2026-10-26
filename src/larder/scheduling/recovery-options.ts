@@ -22,7 +22,7 @@ export function recoveryInputsChanged(before: State, after: State) {
   })
   return inputs(before) !== inputs(after)
 }
-export function recoveryProjection(s: State, people: Context['people'], asOf: string, days: number) {
+export function recoveryProjection(s: State, people: Context['people'], asOf: string, days: number, releaseBookings = true) {
   const state = structuredClone(s), statuses = orderStatuses(state).work, materialEffects: any[] = []
   for (const w of state.workOrders.filter(w => ['draft', 'released'].includes(w.status))) {
     delete w.planningMaterialBlock; delete w.planningMaterialReadyAt
@@ -34,7 +34,7 @@ export function recoveryProjection(s: State, people: Context['people'], asOf: st
     if (notBefore) w.planningMaterialReadyAt = notBefore + 'T00:00:00.000Z'
     materialEffects.push({ workOrderId: w.id, reference: w.reference, notBefore: notBefore ?? null, missing: missing.map(l => ({ itemId: l.itemId, quantity: l.missing })), supplies, basis: 'Shared indicative physical, reserved and approved purchase allocations; future work remains subject to its own dependency and execution gates.' })
   }
-  return { state, plan: finitePlan(state, people ?? [], asOf, days, { releaseBookings: true }), materialEffects }
+  return { state, plan: finitePlan(state, people ?? [], asOf, days, { releaseBookings }), materialEffects }
 }
 
 export const recoveryEffects = (before: Plan, after: Plan) => after.jobs.map(j => {

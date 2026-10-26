@@ -771,6 +771,20 @@ test('Event recovery persists once after restart, preserves frozen and manual wo
 })
 
 test('Isolated outage scenarios protect this week and manual locks, atomically book next week and reject an ETA-stale adoption without a partial schedule', async t=>{
+  const uncoveredCase=await installation({now:'2026-10-25T12:00:00.000Z'});t.after(()=>uncoveredCase.close())
+  const uncoveredShop=await workshop(uncoveredCase),uncoveredOwner=(await uncoveredCase.state()).actor
+  const missingInput=await uncoveredCase.command('item.save',{sku:'synthetic-larder-814-missing',name:'Uncovered input',kind:'buy',baseUnit:'each'})
+  await uncoveredCase.command('bom.revise',{itemId:uncoveredShop.board.id,components:[{itemId:missingInput.id,quantity:'1'}],routing:[{name:'Awaiting input',workCentre:'Bench',minutes:60}]})
+  await uncoveredCase.command('capacity.machine',capacityCalendar('Bench'))
+  await uncoveredCase.command('capacity.labor',capacityCalendar('Material-aware protection',{operatorIds:[uncoveredOwner.id],skills:[]}))
+  let unsupported=await uncoveredCase.command('wo.draft',{itemId:uncoveredShop.board.id,quantity:'1',requiredBy:'2026-11-26',reason:'Uncovered material is not a feasible frozen interval'})
+  unsupported=await uncoveredCase.command('wo.release',{workOrderId:unsupported.id,version:unsupported.version})
+  assert.ok((await finite(uncoveredCase,'2026-11-25T00:00:00Z',14)).operations.some(o=>o.workOrderId===unsupported.id),'raw machine capacity alone is insufficient evidence')
+  const materialFence=await uncoveredCase.command('schedule.protect',{asOf:'2026-11-25T00:00:00Z',days:14,freezeUntil:'2026-12-01T00:00:00Z',manualLocks:[],reason:'Protect only material-feasible work'})
+  assert.equal(materialFence.protectedOperations.length,0)
+  const materialReview=await uncoveredCase.command('schedule.scenario',{asOf:'2026-11-25T00:00:00Z',days:14,name:'Material-aware fence',reason:'Retain the explicit material conflict without a phantom frozen interval'})
+  assert.equal(materialReview.protectionConflicts.length,0)
+  assert.ok(materialReview.after.unscheduled.some(o=>o.workOrderId===unsupported.id&&o.reason.includes('material allocation')))
   const h=await installation();t.after(()=>h.close());const w=await workshop(h),owner=(await h.state()).actor
   await h.command('capacity.machine',capacityCalendar('Bench'))
   await h.command('capacity.machine',capacityCalendar('Finish'))
