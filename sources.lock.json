@@ -473,7 +473,7 @@
       "executable": false
     },
     "public/fonts/fonts.css": {
-      "sha256": "21f478fa2eccc08f5d40ca305c610fa21dab7570ea7c6d8cddc3959aff7dd761",
+      "sha256": "59fdd2885d080300fadb6f7152a0e2e8a2af82a7bde5d37a1aa317a5c4eed23e",
       "executable": false
     },
     "public/fonts/inter/inter-latin-ext-opsz-normal.woff2": {
@@ -764,6 +764,10 @@
       "sha256": "4bfc30fa75029db2727a9d1fb095d4969dc756c5317ac55ce768202bb869e2b7",
       "executable": false
     },
+    "scripts/delivery/base/schema/generate-business-role.mjs": {
+      "sha256": "068be9d59f173647463d983e47b759e108849274d4fa4af5818721f6fe6ab518",
+      "executable": false
+    },
     "scripts/delivery/base/schema/json-schema.mjs": {
       "sha256": "f964a1f8bab23bfad0c8b6552d8e717091619fa438e0d6e65a9801e1d97782bc",
       "executable": false
@@ -838,6 +842,10 @@
     },
     "scripts/edition-authoring/release.mjs": {
       "sha256": "40acdb670edbde2eafa731f535bbe7403360a3327b576ed47355936bcc4a543a",
+      "executable": false
+    },
+    "scripts/edition-authoring/runtime-dependencies.mjs": {
+      "sha256": "3eb81d0de3c236281f05187d4b6f426e5301f49ba0e6008cf422b34f57e24162",
       "executable": false
     },
     "scripts/edition-authoring/sources.mjs": {
@@ -944,6 +952,10 @@
       "sha256": "55abc935a78085735ae5b7f2d441ee7a5a67d9c797417f9b5ac3c2449f8c91a8",
       "executable": false
     },
+    "src/base/hosting-page.ts": {
+      "sha256": "f8c00b4a1d4f21dc36971b784da747ffffc6428c28b15fc7d35f6ab2317d2cf5",
+      "executable": false
+    },
     "src/base/hydration/intro-guard.ts": {
       "sha256": "abc289d53537b631ad6de323b9123c843aea7498aa50d429a4786d7819194fcd",
       "executable": false
@@ -978,6 +990,10 @@
     },
     "src/base/rejected-response.ts": {
       "sha256": "4aa9861a20497b9dde6f95951dcbecf60cee69e8dad1923c1110ef35abc10686",
+      "executable": false
+    },
+    "src/base/run-chooser-style.ts": {
+      "sha256": "32660bfa589de3752e6558a1aac846585be97df0af6d236c839a6bb3f41d59b3",
       "executable": false
     },
     "src/base/run-site.ts": {
@@ -3481,7 +3497,7 @@
       "executable": false
     },
     "src/site/run.json": {
-      "sha256": "07e860639aa89cb45ca3a96c9289ed0754b5db9ae174a7dd61f12566e5e1050c",
+      "sha256": "1ce7b21afa2961b5014b406b17ef9e1336d185423b79303a98ada4e277be3647",
       "executable": false
     },
     "src/site/shell/Actions.tsx": {

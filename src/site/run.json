@@ -2,9 +2,9 @@
   "name": "Larder",
   "repository": "https://github.com/just-every/run-larder",
   "clone": "npx -y @runeditrun/rer dev just-every/run-larder",
-  "folder": "run-larder",
-  "requirements": "Needs Node 22 or later and pnpm 10.12.4, on macOS, Linux or Windows with WSL2.",
   "licence": "MIT",
   "docs": true,
-  "hosted": []
+  "paths": {
+    "product": null
+  }
 }

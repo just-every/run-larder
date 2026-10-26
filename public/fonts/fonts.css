@@ -91,18 +91,10 @@ html[data-state] .btn { background: var(--rer-accent); color: var(--rer-accent-t
    under them on charcoal, so keep their last lines clear of it. */
 body > .bar .brand { font-weight: 800; letter-spacing: -.035em; }
 body > .bar .brand img { width: 38px; height: 40px; }
-body > main > :is(.intro, .hero) h1, body > main .step h2 { font-weight: 850; letter-spacing: -.04em; }
+body > main > :is(.intro, .hero) h1 { font-weight: 850; letter-spacing: -.04em; }
 body > main > :is(.intro, .hero) h1 { font-weight: 900; letter-spacing: -.045em; }
-body > main :is(.step, .step.option) { border: 1px solid var(--rer-rule); border-radius: 16px; background: var(--rer-surface); box-shadow: var(--shadow-card); backdrop-filter: none; }
-body > main .num { border-radius: 12px; font-weight: 800; }
 body > main .code { border-radius: 12px; }
 body:has(> .art) { background: var(--rer-page); }
 .art { background: var(--charcoal); }
 body > .art img { object-fit: cover; object-position: 50% 0; }
 .art ~ main { padding-bottom: calc(var(--art) + 64px) !important; }
-/* Base's code cards keep the command on one line beside Copy down to 760 px; the install line no longer fits beside the
-   button under 900, so from there the command wraps under it (letters, not words, so no line starts with "|"). */
-@media (max-width: 900px) {
-  body > main .code pre { padding: 46px 14px 14px; white-space: pre-wrap; word-break: break-all; }
-  body > main .copy { top: 8px; right: 8px; transform: none; }
-}
