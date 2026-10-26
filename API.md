@@ -843,7 +843,8 @@ separate audited owner decision; a hold never expires automatically.
 `erasure.contact {partyId, reviewedVersion, consent: true, reason}` replaces only
 the contact's name and email, replaces cached human contact labels in command outcomes
 and the audit through the existing audit-erasure mechanism, and retains record
-IDs, quantities, prices, movements, documents and their bytes. A stale preview,
+IDs, quantities, prices, movements, documents and their bytes. Personal values in
+the decision reason and its audit reason are replaced regardless of capitalization. A stale preview,
 a held contact or missing explicit consent refuses the whole transaction. Names
 shorter than three characters require a separate field-specific audit review and
 are refused by this limited door.
@@ -855,10 +856,12 @@ outside control. No provider deletion request is made.
 
 This is a contact-only foundation. Former operators, eligible document and model
 context deletion, configured US retention periods and page controls remain
-unimplemented. The conservative adopted default awaits ct approval: owner-only
-explicit consent, indefinite production and financial trace and document
+unimplemented. CT approves the interim policy with riders: native-owner explicit current-review
+consent, indefinite production and financial trace and document
 retention, no automatic deletion or outbound request, and explicit audited hold
-release. GOV-005 remains partial.
+release without deletion. Indefinite retention means no configured expiry or automatic purge;
+it guarantees neither permanent storage nor legal compliance. Consent authorizes no outbound
+disclosure. GOV-005 remains partial.
 
 ## Versioned integration reads (CONN-014, partial)
 
@@ -884,7 +887,7 @@ the bounded grant while its native session remains live. Credential material is
 hashed in a separate table and excluded from audit, command outcomes and business
 archives; restored grant metadata is revoked and grants no authority.
 
-The conservative adopted default awaits ct approval: owner-only issuance,
+CT approves the interim policy with riders: owner-only explicit issuance for a named integration or export,
 read-only resource scopes, restricted costs and a live native issuing session.
 Scoped service writes, other resource families, outbound signed events with
 stable identities and durable retries, provider-confirmed follow-up closure and

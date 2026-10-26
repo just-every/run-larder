@@ -1,7 +1,7 @@
 // Explicit owner decisions only. Production and financial history remain intact.
 import { bump, fresh, get, oneOf, row, text, type Context, type Row, type State } from './model'
 import { fail, forbidden } from './problem'
-import { tombstone } from './audit-erasure'
+import { scrubPersonalValues, tombstone } from './audit-erasure'
 
 export const retentionKinds = ['parties', 'certificates', 'sourceHistory', 'receipts', 'handoffs'] as const
 
@@ -47,8 +47,7 @@ export function retention(c: Context, type: string, p: any): Row | undefined {
   if (String(party.name).trim().length < 3) fail('INPUT', 'Short contact names need a field-specific audit review before erasure.')
   if (party.contactErasedAt) fail('STATE', 'This contact has already been anonymized.')
   const plan = c.erasure ?? fail('INPUT', 'Review the contact erasure first.')
-  const scrub = (v: string) => plan.values.reduce((out, value) => out.split(value).join(tombstone), v)
-  const reason = scrub(text(p.reason, 'reason', 400))
+  const reason = scrubPersonalValues(text(p.reason, 'reason', 400), plan.values)
   bump(party, { name: tombstone, email: '', contactErasedAt: c.now })
   return row(c, 'contactErasures', { id: c.commandId, subjectId: party.id, scope: 'contact name and email', reason, consent: true, reviewedVersion: p.reviewedVersion, outcomes: preview.outcomes, retained: preview.retained })
 }

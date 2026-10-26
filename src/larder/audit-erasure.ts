@@ -14,7 +14,7 @@ export type ErasurePlan = { kind: 'operator' | 'party'; id: string; values: stri
 const unique = (values: unknown[]) => [...new Set(values.filter((v): v is string => typeof v === 'string').map(v => v.trim()).filter(v => v.length >= 3))].sort((a, b) => b.length - a.length)
 const encoded = (v: string) => JSON.stringify(v).slice(1, -1)
 // The request record is retained without the erased values: the owner's free text is scrubbed of them.
-const scrub = (value: string, values: string[]) => values.reduce((t, v) => t.replace(new RegExp(v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), tombstone), value)
+export const scrubPersonalValues = (value: string, values: string[]) => values.reduce((t, v) => t.replace(new RegExp(v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), tombstone), value)
 
 // Resolved before the command runs: the personal values live in the identity tables and the
 // party record, never in the command's result or its audit entry.
@@ -46,7 +46,7 @@ export function erasureCommand(c: Context, type: string, p: any): Row | undefine
   if (type !== 'erasure.audit') return
   if (c.actor.role !== 'owner') forbidden('Only the owner passes an erasure request.')
   const plan = c.erasure ?? fail('INPUT', 'Name one data subject: an operatorId or a partyId.')
-  return row(c, 'auditErasures', { id: c.commandId, subjectKind: plan.kind, subjectId: plan.id, scope: erasureScope, entries: plan.entries, tombstone, request: scrub(optionalText(p.request, 'request reference', 200), plan.values), reason: scrub(text(p.reason, 'reason', 400), plan.values), requestedBy: c.actor.id })
+  return row(c, 'auditErasures', { id: c.commandId, subjectKind: plan.kind, subjectId: plan.id, scope: erasureScope, entries: plan.entries, tombstone, request: scrubPersonalValues(optionalText(p.request, 'request reference', 200), plan.values), reason: scrubPersonalValues(text(p.reason, 'reason', 400), plan.values), requestedBy: c.actor.id })
 }
 
 // The statements that record the request and then replace the values, in the command's own batch.
@@ -69,7 +69,7 @@ export function erasureStatements(db: D1Database, c: Context, plan: ErasurePlan)
 export async function contactOutcomes(db: D1Database, plan: ErasurePlan) {
   const fields = new Set(['name', 'email', 'party', 'customerName', 'supplierName', 'displayName', 'actorName', 'reason', 'note'])
   const replace = (value: any, key = ''): any => {
-    if (typeof value === 'string') return fields.has(key) ? scrub(value, plan.values) : value
+    if (typeof value === 'string') return fields.has(key) ? scrubPersonalValues(value, plan.values) : value
     if (Array.isArray(value)) return value.map(v => replace(v, key))
     if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, replace(v, k)]))
     return value

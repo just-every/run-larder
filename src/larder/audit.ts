@@ -4,6 +4,7 @@
 // credentials, no document bodies, only digests of long text.
 import { sha256 } from '../modules/import-kit/src/d1/index'
 import { format } from './decimal'
+import { scrubPersonalValues } from './audit-erasure'
 import { collections, type Context, type State } from './model'
 
 export const auditDomains = ['stock', 'revisions', 'time', 'quality', 'schedules', 'roles', 'integrations', 'agent', 'commercial', 'records'] as const
@@ -85,7 +86,7 @@ const bulkAbove = 40
 export function auditEntries(c: Context, before: State, type: string, payload: any, imported = false): AuditEntry[] {
   const source = c.actor.role === 'agent' ? 'agent' : imported ? 'import' : 'person'
   const evidence = c.attachments.map(a => ({ id: a.id, name: scrubText(a.name).slice(0, 120), sha256: a.sha256, size: a.size }))
-  const reason = reasonOf(payload)
+  const reason = c.erasure ? scrubPersonalValues(reasonOf(payload), c.erasure.values) : reasonOf(payload)
   const out: AuditEntry[] = []
   const add = (kind: string, subjectId: string, subjectVersion: number, op: AuditEntry['op'], was: unknown, now: unknown, full: unknown = now) => {
     if (kind === 'varianceAnalyses') { was = digest(was); now = digest(now); full = { subjectId } }
