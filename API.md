@@ -895,3 +895,75 @@ the draft-only MCP server remain unimplemented. CONN-014 remains partial.
 
 CONN-015 inherits resource scope and revocation at its own connection door; this
 read-only slice does not prove its future Zapier draft journey.
+
+
+## Supplier accounting preparation
+
+All commands below use `poId`, the current PO `version` and a required `reason`.
+Every command uses the native session, atomic role and location scope guards,
+append-only audit and command replay. Records are nested on the original PO and
+included in the existing complete business archive. No command sends a document
+or calls a ledger provider. Financial decisions below use an adopted owner-only
+default awaiting ct approval; the contract gaps remain partial.
+
+- `po.bill.capture` (accounts) takes `reference`, explicit `currency`, `lines`
+  containing `lineId`, `quantity`, `unitPrice`, optional `freight` and `tax`, and
+  `evidence`. Supplier invoice references are unique for that supplier.
+- `po.bill.resolve` (independent accounts, owner exception) takes `billId` and
+  `evidence`, retaining current accepted receipt and prior approved bill quantities.
+  Resolve again if another PO change invalidates that decision.
+- `po.bill.approve` (owner) takes `billId`; it approves only the resolved version,
+  refusing cross-currency approval without a connected ledger conversion. Billing
+  quantity states are recorded on the PO; payment stays `not connected`.
+- `po.claim.open` (warehouse or manager) takes `receiptId`, original `movementId`,
+  `quantity`, `purpose` (`rejected` or `excess`), `supplierRma`, `dueDate`, `evidence`.
+  The initiator owns the claim. Claims never exceed that original receipt quantity.
+- `po.claim.ship` (owner) takes `claimId`, `quantity`, `stockStatus`, `reference`,
+  `evidence`. Rejected units leave quarantine only. Reserved stock, recall and
+  nonconformance protections remain enforced. Dispatch is recorded locally.
+- `po.claim.replace` (owner) takes `claimId`, `quantity`, `lot`, `reference`,
+  `evidence`; replacement is quarantined and linked to the original receipt. For a
+  serialized item `lot` names one new unique serial and `quantity` is one.
+- `po.claim.credit` (owner) takes `claimId`, `quantity`, `billId`, `amount`,
+  `reference`, `evidence`. Credit must match an approved original bill and the
+  original receipt cost exactly. Replacement plus credit cannot exceed dispatch.
+- `po.claim.close` (owner) takes `claimId`, requiring full dispatch and settlement,
+  and matching accountant acknowledgements for every credit. This acknowledges
+  recorded ledger references without claiming provider verification.
+- `po.landed.prepare` (accounts) takes `kind` (`freight`, `duty`, `insurance`,
+  `handling`), `policy` (`quantity`, `value`, `weight`), signed `amount`, `reference`,
+  `evidence`, `sources` containing exact receipt `movementId` and a positive
+  `weight` for that policy. Negative corrections also name approved `correctsId`.
+  Allocation conserves the six-place amount across stock, open WIP and direct COGS;
+  completed production or unsupported return attribution refuses with `LANDED_TRACE`.
+- `po.landed.approve` (owner) takes `chargeId`, requiring unchanged state since
+  preparation. This prepares correction lines without applying valuation changes.
+
+Approved credits and landed charges enter the existing accountant handoff once.
+Each line retains `purchasingCorrectionIds` and `sourceMovementIds`; quantities
+are zero. Credits correct payables, while dispatch movements account for physical
+stock. Landed lines label their destination as stock, WIP or COGS. The CSV and
+acknowledgement door retain exact amounts and ledger references.
+
+
+## Recorded material WIP
+
+`GET /api/larder/costing/wip?from=2026-02-01&to=2026-02-28` and
+`GET /api/larder/costing/wip.csv?from=2026-02-01&to=2026-02-28` require a live
+owner, manager or accounts session. Both real calendar dates are required and
+inclusive in UTC. Optional `workOrderId` selects one document. Location and cost
+restrictions apply before results and CSV are returned. This read writes nothing.
+
+Rows retain opening, additions, output transfers, scrap and closing material
+values, transaction IDs and aging from the first recorded addition. Transactions
+name their original movement IDs. Exact output-batch allocations reduce material
+WIP; split and merge responsibility transfers conserve the total. Repair and
+received owned subcontract postings retain their recorded input, labor or service,
+output and scrap values; unconsumed vendor custody stays inventory and customer
+property is excluded from owned WIP. Legacy output without exact allocations is
+listed in `missing`, never proportionally guessed.
+
+This is a recorded-material bridge, not complete actual WIP: production labor,
+overhead, later valuations, operation allocation, screens and external control
+account reconciliation remain COST-002 gaps. The response labels that basis and
+its external state as not connected and not reconciled. No journals are posted.

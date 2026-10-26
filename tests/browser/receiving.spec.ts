@@ -251,3 +251,63 @@ test('FLOOR-008 hardware and camera receipt, issue and pick refuse wrong, held, 
   }
   }
 })
+
+
+test('Supplier credit and landed-cost corrections reach the accountant handoff with source links at 1440 and 390', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('Private local entry required.')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/setup', '/app'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  const tag = crypto.randomUUID().slice(0, 6)
+  const item = await command(page, 'item.save', { sku: `synthetic-larder-${tag}`, name: `Supplier claim ${tag}`, kind: 'buy', baseUnit: 'each' })
+  const location = await command(page, 'location.save', { name: `Claim dock ${tag}` }), supplier = await command(page, 'party.save', { name: `Claim supplier ${tag}`, kind: 'supplier' })
+  let po = await command(page, 'po.draft', { supplierId: supplier.id, expectedDate: day(3), reason: 'Claim journey', lines: [{ itemId: item.id, quantity: '10', unitPrice: '2' }] })
+  po = await command(page, 'po.approve', { poId: po.id, version: po.version })
+  const receipt = await command(page, 'receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-460', lines: [{ lineId: po.lines[0].id, locationId: location.id, quantity: '10', lot: `synthetic-larder-${tag}-lot`, inspection: 'quarantine' }] })
+  const current = async () => (await (await page.request.get(origin + '/api/larder/state')).json()).purchaseOrders.find((x: any) => x.id === po.id)
+  const run = async (type: string, payload: object) => command(page, type, { poId: po.id, version: (await current()).version, reason: 'Reviewed supplier document', ...payload })
+  po = await run('po.bill.capture', { reference: `synthetic-larder-${tag}-bill`, currency: 'USD', evidence: { name: 'bill.txt', contentType: 'text/plain', base64: Buffer.from('Supplier bill').toString('base64') }, lines: [{ lineId: po.lines[0].id, quantity: '10', unitPrice: '2' }] })
+  const billId = po.bills[0].id, evidence = { name: 'claim.txt', contentType: 'text/plain', base64: Buffer.from('Reviewed RMA evidence').toString('base64') }
+  await run('po.bill.resolve', { billId, evidence }); await run('po.bill.approve', { billId })
+  po = await run('po.claim.open', { receiptId: receipt.id, movementId: receipt.lines[0].movementId, quantity: '4', purpose: 'rejected', supplierRma: `synthetic-larder-${tag}-rma`, dueDate: day(20), evidence })
+  const claimId = po.supplierClaims[0].id
+  await run('po.claim.ship', { claimId, quantity: '4', stockStatus: 'quarantine', reference: 'synthetic-larder-461', evidence })
+  await run('po.claim.replace', { claimId, quantity: '2', lot: `synthetic-larder-${tag}-replacement`, reference: 'synthetic-larder-462', evidence })
+  await run('po.claim.credit', { claimId, quantity: '2', amount: '4', billId, reference: 'synthetic-larder-463', evidence })
+  // The existing handoff screen is the public review and reconciliation door.
+  await page.goto(origin + '/app'); await settled(page); await page.goto(origin + '/app#handoff')
+  await expect(page.getByRole('heading', { name: 'Accountant handoff', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Prepare handoff batch', exact: true }).click(); await settled(page)
+  await expect(page.getByRole('cell', { name: 'Supplier credit (payable correction; no stock quantity)', exact: true })).toBeVisible()
+  await expect(page.getByText('Supplier return stock correction', { exact: true })).toBeVisible()
+  await expect(page.getByText('Supplier replacement receipt', { exact: true })).toBeVisible()
+  const batch = (await (await page.request.get(origin + '/api/larder/state')).json()).handoffs.at(-1)
+  const credit = batch.lines.find((l: any) => l.claimId === claimId)
+  await page.getByLabel('Acknowledged lines', { exact: true }).fill(`${credit.id},synthetic-larder-464,-4.00`)
+  await page.getByRole('button', { name: 'Reconcile', exact: true }).click(); await settled(page)
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const account = page.getByLabel('Account menu', { exact: true }), tooltip = account.locator('[role=tooltip]')
+    await account.focus(); await page.keyboard.press('Shift+Tab'); await page.keyboard.press('Tab')
+    await expect(account).toBeFocused(); await expect(tooltip).toHaveText('Account menu'); expect(await tooltip.isVisible()).toBe(true)
+    if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-BUY-006-tooltip.png`), fullPage: true })
+    await page.getByLabel('Acknowledged lines', { exact: true }).focus(); await expect(tooltip).toBeHidden()
+    await account.hover(); await page.waitForTimeout(100); await expect(tooltip).toBeHidden(); await expect(tooltip).toBeVisible()
+    await page.mouse.move(0, 900)
+    await expect(page.getByText('synthetic-larder-464', { exact: true })).toBeVisible()
+    await expect(page.getByText('undefined: $0.00', { exact: true })).toHaveCount(0)
+  }
+  await shot(page, 'credit-reconciled', 'BUY-006')
+  await run('po.claim.close', { claimId })
+
+  // A late charge on another exact receipt remains distinct from its physical cost.
+  let late = await command(page, 'po.draft', { supplierId: supplier.id, expectedDate: day(3), reason: 'Late freight', lines: [{ itemId: item.id, quantity: '5', unitPrice: '2' }] })
+  late = await command(page, 'po.approve', { poId: late.id, version: late.version })
+  const second = await command(page, 'receipt.create', { poId: late.id, supplierReference: 'synthetic-larder-465', lines: [{ lineId: late.lines[0].id, locationId: location.id, quantity: '5', lot: `synthetic-larder-${tag}-freight` }] })
+  late = (await (await page.request.get(origin + '/api/larder/state')).json()).purchaseOrders.find((x: any) => x.id === late.id)
+  late = await command(page, 'po.landed.prepare', { poId: late.id, version: late.version, reason: 'Late freight reviewed', kind: 'freight', policy: 'value', amount: '3', reference: 'synthetic-larder-466', evidence, sources: [{ movementId: second.lines[0].movementId }] })
+  await command(page, 'po.landed.approve', { poId: late.id, version: late.version, chargeId: late.landedCharges[0].id, reason: 'Owner approved exact allocation' })
+  await page.reload(); await settled(page); await page.goto(origin + '/app#handoff')
+  await page.getByRole('button', { name: 'Prepare handoff batch', exact: true }).click(); await settled(page)
+  await expect(page.getByText('Landed cost STOCK correction (no stock quantity)', { exact: true })).toBeVisible()
+  await shot(page, 'landed-cost', 'BUY-005')
+})

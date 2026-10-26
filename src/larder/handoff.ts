@@ -24,7 +24,7 @@ function describe(s: State, m: Movement) {
   const base = { itemSku: item?.sku ?? '', itemName: item?.name ?? '', party: '', document: '', partyReference: '', unitAmount: format(m.unitCost), amount: times(m.quantity, m.unitCost) }
   if (m.documentKind === 'receipts') {
     const r = s.receipts.find(x => x.id === m.documentId), po = s.purchaseOrders.find(x => x.id === r?.poId)
-    return { ...base, type: 'Supplier receipt', party: s.parties.find(p => p.id === po?.supplierId)?.name ?? '', document: `${r?.reference} / ${po?.reference}`, partyReference: r?.supplierReference ?? '' }
+    return { ...base, type: m.kind === 'supplier-return' ? 'Supplier return stock correction' : m.kind === 'supplier-replacement' ? 'Supplier replacement receipt' : 'Supplier receipt', party: s.parties.find(p => p.id === po?.supplierId)?.name ?? '', document: `${r?.reference} / ${po?.reference}`, partyReference: r?.supplierReference ?? '' }
   }
   if (m.documentKind === 'shipments') return { ...base, ...invoiced(s, m, m), type: 'Customer shipment (invoice preparation)' }
   if (m.documentKind === 'reworkOrders') return { ...base, type: m.kind, document: s.reworkOrders.find(x => x.id === m.documentId)?.reference ?? '' }
@@ -52,7 +52,7 @@ function describe(s: State, m: Movement) {
 
 export function pendingHandoffCount(s: State) {
   const done = handedOff(s)
-  return s.movements.filter(m => !done.has(m.id) && !internal.has(m.kind)).length + pendingValuations(s).length
+  return s.movements.filter(m => !done.has(m.id) && !internal.has(m.kind)).length + pendingValuations(s).length + purchasingCorrections(s).length
 }
 
 function pendingValuations(s: State) {
@@ -67,7 +67,7 @@ export function handoffLines(s: State) {
     return { id: newId(), movementIds: [m.id], ...d, quantity: format(m.quantity), amount: format(d.amount), amountCents: cents(d.amount), corrects, date: m.createdAt.slice(0, 10) }
   })
   const valuationLines = pendingValuations(s).flatMap(v => v.lines.map((l: any) => ({ id:newId(),movementIds:[],valuationIds:[v.id],sourceMovementIds:[l.movementId],itemSku:s.items.find(i=>i.id===l.itemId)?.sku??'',itemName:s.items.find(i=>i.id===l.itemId)?.name??'',type:'Production valuation correction (no stock quantity)',party:'',partyReference:'',document:s.workOrders.find(w=>w.id===v.workOrderId)?.reference??'',unitAmount:l.unitCost,quantity:'0',amount:l.valueChange,amountCents:cents(decimal(l.valueChange,'valuation correction',{signed:true})),corrects:null,date:v.approvedAt.slice(0,10) })))
-  return [...movementLines,...valuationLines]
+  return [...movementLines,...valuationLines,...purchasingCorrections(s)]
 }
 
 export const handoffColumns = ['line', 'date', 'type', 'document', 'party', 'party_reference', 'sku', 'item', 'quantity', 'unit_amount', 'amount', 'corrects_batch', 'corrects_line']
@@ -112,3 +112,22 @@ export function handoff(c: Context, type: string, p: any): Row | undefined {
   }
 }
 
+
+// Credit and landed-cost decisions are separate financial lines, never stock movements.
+function purchasingCorrections(s: State) {
+  const done = new Set(s.handoffs.flatMap(h => h.lines.flatMap((l: any) => l.purchasingCorrectionIds ?? [])))
+  return s.purchaseOrders.flatMap(po => {
+    const base = { movementIds: [], quantity: '0', unitAmount: '0', itemSku: '', itemName: '', party: s.parties.find(p => p.id === po.supplierId)?.name ?? '', document: po.reference, corrects: null }
+    const credits = (po.supplierClaims ?? []).flatMap((r: any) => r.credits.filter((x: any) => !done.has(x.id)).map((x: any) => ({ ...base, id: newId(), purchasingCorrectionIds: [x.id], sourceMovementIds: [r.movementId], billId: x.billId, claimId: r.id, type: 'Supplier credit (payable correction; no stock quantity)', partyReference: x.reference, amount: format(-decimal(x.amount)), amountCents: cents(-decimal(x.amount)), date: x.at.slice(0, 10) })))
+    const landed = (po.landedCharges ?? []).filter((x: any) => x.status === 'approved').flatMap((x: any) => {
+      let cumulative = 0n, presented = 0n
+      return x.lines.flatMap((l: any) => ['stock', 'wip', 'cogs'].filter(k => decimal(l[k], 'correction', { signed: true }) !== 0n).map(k => {
+        cumulative += decimal(l[k], 'correction', { signed: true })
+        const through = decimal(cents(cumulative), 'rounded correction', { signed: true }), amountCents = cents(through - presented)
+        presented = through
+        return { ...base, id: newId(), purchasingCorrectionIds: [`${x.id}:${l.movementId}:${k}`], sourceMovementIds: [l.movementId], type: `Landed cost ${k.toUpperCase()} correction (no stock quantity)`, partyReference: x.reference, amount: l[k], amountCents, date: x.approval.at.slice(0, 10), correctsChargeId: x.correctsId, allocationPolicy: x.policy }
+      })).filter((l: any) => !done.has(l.purchasingCorrectionIds[0]))
+    })
+    return [...credits, ...landed]
+  })
+}

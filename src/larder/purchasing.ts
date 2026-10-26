@@ -10,7 +10,7 @@ import { toBase } from './catalogue'
 import { SCALE, decimal, format, times } from './decimal'
 import { isSerial, newSerials } from './serials'
 import { fail } from './problem'
-import { allow } from './roles'
+import { allow, approver } from './roles'
 import { authorize, gate } from './approval-policy'
 import { averageCost, balance, move } from './stock'
 import { lotDates } from './lot-dates'
@@ -32,7 +32,7 @@ export function draftPurchase(c: Context, p: any, preparedBy?: string): Row {
   return row(c, 'purchaseOrders', {
     reference: nextReference(c.s.purchaseOrders, 'PO'), supplierId: supplier.id, lines, supplierSnapshot: structuredClone({ id: supplier.id, name: supplier.name, terms: supplier.terms }), currency: 'USD', expectedDate: lines.map(l => l.expectedDate).sort()[0],
     requiredBy: p.requiredBy ? date(p.requiredBy, 'required-by date') : '', reason: text(p.reason, 'reason', 1000), exposure: format(exposure),
-    status: 'draft', preparedBy: preparedBy ?? c.actor.id, history: [], supplierReference: '', confirmedDate: '',
+    billingStatus: 'Not billed', paymentState: 'not connected', status: 'draft', preparedBy: preparedBy ?? c.actor.id, history: [], supplierReference: '', confirmedDate: '',
   })
 }
 
@@ -42,6 +42,7 @@ export const confirmationSources = ['phone', 'email', 'portal', 'in person', 'ot
 export const status = (po: Row) => po.lines.every((l: any) => decimal(l.quantity) === 0n) ? 'cancelled' : po.lines.every((l: any) => decimal(l.received) >= decimal(l.quantity)) ? 'received' : po.lines.some((l: any) => decimal(l.received) > 0n) ? 'part received' : po.supplierReference ? 'confirmed' : 'approved'
 
 export function purchasing(c: Context, type: string, p: any): Row | undefined {
+  if (/^po\.(bill|claim|landed)\./.test(type)) return purchaseAccounting(c, type, p)
   switch (type) {
     case 'supplier.terms': return supplierTerms(c, p)
     case 'po.selectQuote':
@@ -172,4 +173,165 @@ function deliveryTargets(po: Row, lineId: unknown): any[] {
   const targets = po.lines.filter((l: any) => (!lineId || l.id === lineId) && decimal(l.received) < decimal(l.quantity))
   if (!targets.length) fail('NOT_FOUND', 'Choose an outstanding delivery line.')
   return targets
+}
+
+// Financial records stay on their original PO and travel in the existing archive.
+// Decisions below prepare accountant handoffs; they never contact a provider.
+function purchaseAccounting(c: Context, type: string, p: any): Row {
+  if (c.actor.scope?.costs) fail('FORBIDDEN', 'This door requires unrestricted cost access.')
+  const po = get(c.s, 'purchaseOrders', p.poId, 'purchase order')
+  fresh(po, p.version)
+  const reason = text(p.reason, 'reason', 400)
+  const stamp = () => ({ id: newId(), at: c.now, by: c.actor.id, reason })
+  const bills = po.bills ??= [], claims = po.supplierClaims ??= [], charges = po.landedCharges ??= []
+  const bill = () => bills.find((b: any) => b.id === p.billId) ?? fail('NOT_FOUND', 'Choose a bill on this purchase order.')
+  const claim = () => claims.find((r: any) => r.id === p.claimId) ?? fail('NOT_FOUND', 'Choose a claim on this purchase order.')
+  const saved = () => bump(po, {})
+  if (type === 'po.bill.capture') {
+    allow(c, ['accounts'])
+    if (po.status === 'draft') fail('STATE', 'Approve the purchase order before capturing a bill.')
+    const reference = text(p.reference, 'invoice reference', 120)
+    if (c.s.purchaseOrders.some(o => o.supplierId === po.supplierId && (o.bills ?? []).some((b: any) => b.reference === reference))) fail('DUPLICATE_BILL', 'That supplier invoice is already captured.')
+    const currency = text(p.currency, 'invoice currency', 3)
+    if (!/^[A-Z]{3}$/.test(currency)) fail('INPUT', 'Invoice currency needs three uppercase letters.')
+    const seen = new Set<string>()
+    const lines = list(p.lines).map((x: any) => {
+      const line = po.lines.find((l: any) => l.id === x.lineId) ?? fail('NOT_FOUND', 'Choose a purchase order line.')
+      if (seen.has(line.id)) fail('INPUT', 'List each purchase order line once.'); seen.add(line.id)
+      const quantity = decimal(x.quantity, 'billed quantity', { positive: true }), unitPrice = decimal(x.unitPrice, 'invoice unit price')
+      const accepted = c.s.receipts.filter(r => r.poId === po.id).flatMap(r => r.lines).filter((l: any) => l.lineId === line.id && l.inspection === 'accept').reduce((n: bigint, l: any) => n + decimal(l.quantity), 0n)
+      const prior = bills.filter((b: any) => b.status === 'ready for handoff').flatMap((b: any) => b.lines).filter((l: any) => l.lineId === line.id).reduce((n: bigint, l: any) => n + decimal(l.quantity), 0n)
+      return { lineId: line.id, itemId: line.itemId, quantity: format(quantity), unitPrice: format(unitPrice), acceptedQuantity: format(accepted), priorBilledQuantity: format(prior), quantityVariance: format(quantity + prior - accepted), priceVariance: format(unitPrice - decimal(line.unitPrice)) }
+    })
+    const freight = decimal(p.freight ?? '0', 'freight'), tax = decimal(p.tax ?? '0', 'tax')
+    bills.push({ ...stamp(), reference, currency, lines, freight: format(freight), tax: format(tax), amount: format(lines.reduce((n: bigint, l: any) => n + times(decimal(l.quantity), decimal(l.unitPrice)), freight + tax)), evidence: attach(c, p.evidence), preparedBy: c.actor.id, status: 'captured', paymentState: 'not connected' })
+    return saved()
+  }
+  if (type === 'po.bill.resolve') {
+    allow(c, ['accounts'])
+    const b = bill(); approver(c, ['accounts'], b.preparedBy)
+    if (!['captured', 'resolved'].includes(b.status)) fail('STATE', 'Resolve a captured invoice before approval.')
+    // Recompute against current receipts and approved bills at decision time.
+    for (const l of b.lines) {
+      const accepted = c.s.receipts.filter(r => r.poId === po.id).flatMap(r => r.lines).filter((x: any) => x.lineId === l.lineId && x.inspection === 'accept').reduce((n: bigint, x: any) => n + decimal(x.quantity), 0n)
+      const prior = bills.filter((x: any) => x.status === 'ready for handoff').flatMap((x: any) => x.lines).filter((x: any) => x.lineId === l.lineId).reduce((n: bigint, x: any) => n + decimal(x.quantity), 0n)
+      l.acceptedQuantity = format(accepted); l.priorBilledQuantity = format(prior); l.quantityVariance = format(decimal(l.quantity) + prior - accepted)
+    }
+    Object.assign(b, { resolution: { ...stamp(), evidence: attach(c, p.evidence) }, resolutionPoVersion: po.version + 1, status: 'resolved' })
+    return saved()
+  }
+  if (type === 'po.bill.approve') {
+    allow(c, [])
+    const b = bill()
+    if (b.status !== 'resolved') fail('STATE', 'Resolve the exact invoice before owner approval.')
+    if (b.resolutionPoVersion !== po.version) fail('STALE', 'Receipt or bill inputs changed after resolution; resolve the invoice again.')
+    if (b.currency !== po.currency) fail('CURRENCY', 'Cross-currency bills need the connected ledger and a recorded conversion; no USD handoff is inferred.')
+    Object.assign(b, { status: 'ready for handoff', approval: stamp() })
+    po.billingStatus = po.lines.every((l: any) => bills.filter((b: any) => b.status === 'ready for handoff').flatMap((b: any) => b.lines).filter((b: any) => b.lineId === l.id).reduce((n: bigint, b: any) => n + decimal(b.quantity), 0n) >= decimal(l.quantity)) ? 'Billed' : 'Partially billed'
+    po.paymentState = 'not connected'
+    return saved()
+  }
+  if (type === 'po.claim.open') {
+    allow(c, ['warehouse', 'manager'])
+    const receipt = get(c.s, 'receipts', p.receiptId, 'receipt')
+    if (receipt.poId !== po.id) fail('INPUT', 'The receipt belongs to another purchase order.')
+    const source = receipt.lines.find((l: any) => l.movementId === p.movementId) ?? fail('NOT_FOUND', 'Choose an original receipt movement.')
+    const lot = get(c.s, 'lots', source.lotId, 'received lot'), item = get(c.s, 'items', source.itemId, 'item')
+    requireCatalogLot(item, lot.code)
+    const quantity = toBase(item, p.quantity, p.unit), dueDate = date(p.dueDate, 'claim due date')
+    if (dueDate < c.now.slice(0, 10)) fail('INPUT', 'Choose a current or future due date.')
+    const committed = claims.filter((r: any) => r.movementId === source.movementId).reduce((n: bigint, r: any) => n + decimal(r.quantity), 0n)
+    if (quantity + committed > decimal(source.quantity)) fail('CLAIM_QUANTITY', 'Claims cannot exceed the original receipt quantity.')
+    const original = c.s.movements.find(m => m.id === source.movementId)!
+    claims.push({ ...stamp(), receiptId: receipt.id, movementId: source.movementId, itemId: item.id, lotId: lot.id, locationId: source.locationId, quantity: format(quantity), unitCost: format(original.unitCost), purpose: oneOf(p.purpose, ['rejected', 'excess'] as const, 'return reason'), supplierRma: text(p.supplierRma, 'supplier RMA reference', 120), ownerId: c.actor.id, dueDate, evidence: attach(c, p.evidence), shipments: [], replacements: [], credits: [], status: 'open' })
+    return saved()
+  }
+  if (type === 'po.claim.ship') {
+    allow(c, [])
+    const r = claim(), quantity = decimal(p.quantity, 'return quantity', { positive: true })
+    const sent = r.shipments.reduce((n: bigint, x: any) => n + decimal(x.quantity), 0n)
+    if (quantity + sent > decimal(r.quantity)) fail('CLAIM_QUANTITY', 'Return only the unshipped claim quantity.')
+    const stockStatus = oneOf(p.stockStatus, ['available', 'quarantine'] as const, 'stock status')
+    if (stockStatus === 'available') assertLotNotHeld(c.s, r.lotId, 'returned to the supplier')
+    if (r.purpose === 'rejected' && stockStatus !== 'quarantine') fail('STATE', 'Rejected returns ship only from quarantine.')
+    const m = move(c, { itemId: r.itemId, lotId: r.lotId, locationId: r.locationId, status: stockStatus, quantity: -quantity, kind: 'supplier-return', documentKind: 'receipts', documentId: r.receiptId, reason: `${r.supplierRma}: ${reason}` })
+    r.shipments.push({ ...stamp(), quantity: format(quantity), movementId: m.id, reference: text(p.reference, 'dispatch reference', 120), evidence: attach(c, p.evidence) })
+    return saved()
+  }
+  if (type === 'po.claim.replace' || type === 'po.claim.credit') {
+    allow(c, [])
+    const r = claim(), quantity = decimal(p.quantity, 'settled quantity', { positive: true })
+    const sent = r.shipments.reduce((n: bigint, x: any) => n + decimal(x.quantity), 0n), settled = [...r.replacements, ...r.credits].reduce((n: bigint, x: any) => n + decimal(x.quantity), 0n)
+    if (settled + quantity > sent) fail('CLAIM_QUANTITY', 'Replacement and credit together cannot exceed the shipped quantity.')
+    const reference = text(p.reference, 'supplier document reference', 120), evidence = attach(c, p.evidence)
+    if (type === 'po.claim.replace') {
+      const item = get(c.s, 'items', r.itemId)
+      const code = text(p.lot, 'replacement lot', 80)
+      if (isSerial(item)) newSerials(c.s, item, [code], quantity)
+      const lot = row(c, 'lots', { itemId: r.itemId, code, ...(isSerial(item) ? { serial: true } : {}), supplierId: po.supplierId, source: 'receipt', documentId: r.receiptId, status: 'quarantined', replacementFor: r.lotId, claimId: r.id })
+      const m = move(c, { itemId: r.itemId, lotId: lot.id, locationId: r.locationId, status: 'quarantine', quantity, unitCost: decimal(r.unitCost), kind: 'supplier-replacement', documentKind: 'receipts', documentId: r.receiptId, reason })
+      r.replacements.push({ ...stamp(), quantity: format(quantity), lotId: lot.id, movementId: m.id, reference, evidence })
+    } else {
+      const b = bills.find((b: any) => b.id === p.billId && b.status === 'ready for handoff') ?? fail('STATE', 'Match the credit to an approved original bill.')
+      const lineId = c.s.receipts.find(x => x.id === r.receiptId)!.lines.find((l: any) => l.movementId === r.movementId).lineId
+      const billed = b.lines.find((l: any) => l.lineId === lineId) ?? fail('INPUT', 'The bill does not include this receipt line.')
+      const credited = claims.filter((x: any) => c.s.receipts.find(y => y.id === x.receiptId)?.lines.some((l: any) => l.movementId === x.movementId && l.lineId === lineId)).flatMap((x: any) => x.credits).filter((x: any) => x.billId === b.id).reduce((n: bigint, x: any) => n + decimal(x.quantity), 0n)
+      if (credited + quantity > decimal(billed.quantity)) fail('CREDIT_QUANTITY', 'Credits cannot exceed the original billed quantity.')
+      if (c.s.purchaseOrders.some(o => o.supplierId === po.supplierId && (o.supplierClaims ?? []).some((r: any) => r.credits.some((x: any) => x.reference === reference)))) fail('DUPLICATE_CREDIT', 'That supplier credit is already matched.')
+      const amount = decimal(p.amount, 'credit amount', { positive: true })
+      if (amount !== times(quantity, decimal(r.unitCost))) fail('CREDIT_VARIANCE', 'Resolve a credit price variance in the connected ledger; this handoff matches the original receipt basis exactly.')
+      r.credits.push({ ...stamp(), quantity: format(quantity), amount: format(amount), billId: b.id, reference, evidence })
+    }
+    return saved()
+  }
+  if (type === 'po.claim.close') {
+    allow(c, [])
+    const r = claim()
+    if (r.status !== 'open') fail('STATE', 'Close an open claim once.')
+    const sent = r.shipments.reduce((n: bigint, x: any) => n + decimal(x.quantity), 0n), settled = [...r.replacements, ...r.credits].reduce((n: bigint, x: any) => n + decimal(x.quantity), 0n)
+    if (sent !== decimal(r.quantity) || settled !== sent) fail('CLAIM_OPEN', 'Ship and settle every claimed unit before closure.')
+    for (const credit of r.credits) if (!c.s.handoffs.some(h => h.lines.some((l: any) => (l.purchasingCorrectionIds ?? []).includes(credit.id) && h.reconciliation?.some((x: any) => x.lineId === l.id && x.state === 'matched')))) fail('CLAIM_OPEN', 'Reconcile every credit with an accountant acknowledgement first.')
+    Object.assign(r, { status: 'closed', closure: stamp(), reconciliation: 'accountant acknowledged; not provider verified' })
+    return saved()
+  }
+  if (type === 'po.landed.prepare') {
+    allow(c, ['accounts'])
+    const policy = oneOf(p.policy, ['quantity', 'value', 'weight'] as const, 'allocation policy'), amount = decimal(p.amount, 'landed charge', { signed: true })
+    if (amount === 0n) fail('INPUT', 'A landed charge must be nonzero.')
+    if ((amount < 0n || p.correctsId) && !charges.some((x: any) => x.id === p.correctsId && x.status === 'approved')) fail('INPUT', 'A negative correction must name an approved charge.')
+    const seen = new Set<string>()
+    const sources = list(p.sources).map((x: any) => {
+      if (seen.has(x.movementId)) fail('INPUT', 'List each receipt movement once.'); seen.add(x.movementId)
+      const m = c.s.movements.find(m => m.id === x.movementId && m.kind === 'receipt' && m.lotId && c.s.receipts.some(r => r.id === m.documentId && r.poId === po.id)) ?? fail('INPUT', 'Choose an exact lotted receipt on this purchase order.')
+      const weight = policy === 'quantity' ? m.quantity : policy === 'value' ? times(m.quantity, m.unitCost) : decimal(x.weight, 'allocation weight', { positive: true })
+      if (weight <= 0n) fail('INPUT', 'Allocation bases must be positive.')
+      const movements = c.s.movements.filter(x => x.lotId === m.lotId)
+      // Completed production needs exact downstream value attribution: never guess it from a job-level total.
+      const out = movements.filter(x => x.quantity < 0n && !['transfer', 'release'].includes(x.kind))
+      if (out.some(x => !['issue', 'shipment'].includes(x.kind) || (x.kind === 'issue' && c.s.workOrders.some(w => w.id === x.documentId && (decimal(w.output) > 0n || w.status === 'closed'))))) fail('LANDED_TRACE', 'This receipt needs downstream production or return cost attribution before allocation.')
+      const stock = movements.reduce((n, x) => n + x.quantity, 0n), wip = -out.filter(x => x.kind === 'issue').reduce((n, x) => n + x.quantity, 0n), cogs = -out.filter(x => x.kind === 'shipment').reduce((n, x) => n + x.quantity, 0n)
+      if (stock + wip + cogs !== m.quantity) fail('LANDED_TRACE', 'The receipt quantity does not reconcile to stock, open WIP and direct COGS.')
+      return { movementId: m.id, itemId: m.itemId, lotId: m.lotId, weight, stock, wip, cogs, quantity: m.quantity }
+    })
+    const total = sources.reduce((n, x) => n + x.weight, 0n)
+    let assigned = 0n, cumulative = 0n
+    const lines = sources.map(x => {
+      cumulative += x.weight
+      const through = amount * cumulative / total, allocation = through - assigned; assigned = through
+      const stock = allocation * x.stock / x.quantity, wip = allocation * (x.stock + x.wip) / x.quantity - stock
+      return { movementId: x.movementId, itemId: x.itemId, lotId: x.lotId, weight: format(x.weight), quantity: format(x.quantity), amount: format(allocation), stock: format(stock), wip: format(wip), cogs: format(allocation - stock - wip) }
+    })
+    charges.push({ ...stamp(), kind: oneOf(p.kind, ['freight', 'duty', 'insurance', 'handling'] as const, 'charge kind'), policy, amount: format(amount), reference: text(p.reference, 'charge reference', 120), evidence: attach(c, p.evidence), correctsId: p.correctsId ?? '', lines, stateVersion: c.s.version + 1, status: 'draft' })
+    return saved()
+  }
+  if (type === 'po.landed.approve') {
+    allow(c, [])
+    const charge = charges.find((x: any) => x.id === p.chargeId) ?? fail('NOT_FOUND', 'Choose a landed charge.')
+    if (charge.status !== 'draft') fail('STATE', 'Approve a draft charge once.')
+    if (c.s.purchaseOrders.some(o => o.supplierId === po.supplierId && (o.landedCharges ?? []).some((x: any) => x.status === 'approved' && x.reference === charge.reference))) fail('DUPLICATE_CHARGE', 'That supplier charge is already approved.')
+    if (charge.stateVersion !== c.s.version) fail('STALE', 'Stock or financial records changed; prepare a fresh allocation.')
+    Object.assign(charge, { status: 'approved', approval: stamp() })
+    return saved()
+  }
+  return fail('COMMAND', 'Unknown purchasing accounting command.')
 }

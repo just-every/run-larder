@@ -9,6 +9,7 @@ import { coProducts, voidBatchReviews } from './co-products'
 import { performanceReport, reportScheduling } from './costing/performance'
 import { costing, costingReaders } from './costing/commands'
 import { marginReport, varianceReport, reportCsv } from './costing/margins'
+import { wipReport } from './costing/wip'
 import { newBookings } from './scheduling/booking-guards'
 import { replenishment } from './replenishment'
 import { recovery, observeRecovery } from './scheduling/recovery'
@@ -254,9 +255,9 @@ export async function larderResponse(request: Request, original: Bindings): Prom
       if (!source) fail('NOT_FOUND', 'That cited source was not found.')
       return json(source)
     }
-    if (/^\/costing\/(margins|variances|performance)(\.csv)?$/.test(path)) {
+    if (/^\/costing\/(margins|variances|performance|wip)(\.csv)?$/.test(path)) {
       if (!costingReaders.includes(actor.role)) forbidden('Only accounts or managers may read cost reports.')
-      const report = await read(s => path.startsWith('/costing/margins') ? marginReport(s, url.searchParams) : path.startsWith('/costing/performance') ? performanceReport(s,url.searchParams) : varianceReport(s, url.searchParams))
+      const report = await read(s => path.startsWith('/costing/wip') ? wipReport(s, url.searchParams) : path.startsWith('/costing/margins') ? marginReport(s, url.searchParams) : path.startsWith('/costing/performance') ? performanceReport(s,url.searchParams) : varianceReport(s, url.searchParams))
       return path.endsWith('.csv') ? new Response(reportCsv(report), { headers: { ...headers, 'content-type':'text/csv; charset=utf-8', 'content-disposition':'attachment; filename="larder-costs.csv"' } }) : json(report)
     }
     if (path === '/scheduling/labor-costs') {
@@ -328,7 +329,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const file = /^\/attachments\/([-0-9a-f]{36})$/.exec(path)
     if (file) {
       const financialState = await load(env.DB)
-      const financialFile = names([...financialState.marginCharges, ...financialState.jobCharges, ...financialState.costValuations], new Set([file[1]]))
+      const financialFile = names([...financialState.marginCharges, ...financialState.jobCharges, ...financialState.costValuations, ...financialState.purchaseOrders.flatMap(o => [o.bills, o.landedCharges, ...(o.supplierClaims ?? []).map((r: any) => r.credits)])], new Set([file[1]]))
       if (financialFile && (!costingReaders.includes(actor.role) || scope.costs)) forbidden('This evidence requires unrestricted costing authority.')
       // A supplier's bill is a cost document: a member restricted from costs never opens it.
       if (scope.costs && names(financialState.subcontractOrders.map(o => [o.bill, o.bills]), new Set([file[1]]))) forbidden('This evidence requires unrestricted costing authority.')
