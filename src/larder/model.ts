@@ -1,7 +1,7 @@
 import { fail } from './problem'
 
 export const collections = [
-  'sites', 'pickWaves', 'varianceAnalyses',
+  'integrationGrants', 'retentionHolds', 'contactErasures', 'sites', 'pickWaves', 'varianceAnalyses',
   'workGroups', 'costPolicies', 'jobCharges', 'costLinks', 'marginCharges', 'costValuations', 'reportSchedules', 'scheduleGrants', 'replenishmentPlans', 'schedulePolicies', 'schedulePlans', 'scheduleBookings', 'machineCalendars', 'laborCalendars', 'laborRates', 'sourceHistory', 'historyImports', 'items', 'locations', 'parties', 'partyItems', 'boms', 'salesOrders', 'purchaseOrders', 'workOrders',
   'receipts', 'lots', 'shipments', 'returns', 'transfers', 'counts', 'openings', 'reversals', 'handoffs',
   'inventoryPolicies', 'inventoryPlans', 'certificates', 'certificatePolicies', 'maintenance', 'forecasts', 'productionPlans', 'proposals', 'approvals', 'orderChanges', 'bomChanges', 'catalogChanges', 'engineeringChanges', 'countSessions', 'followUps', 'resolutions', 'imports', 'roles', 'workTransfers', 'reworkOrders', 'subcontractOrders', 'subcontractCustody', 'inspectionPlans', 'inspections', 'qualityHolds', 'nonconformances', 'recalls', 'approvalPolicies', 'approvalDelegations', 'approvalSignatures', 'cutovers', 'auditErasures', 'customRoles', 'configModels', 'kits', 'kitSales', 'timeEntries', 'timeLocks', 'serialEvents',
@@ -19,7 +19,7 @@ export type Reservation = { id: string; demandKind: 'sales' | 'work'; demandId: 
 export type Attachment = { id: string; name: string; contentType: string; size: number; sha256: string; bytes: Uint8Array; createdBy: string; createdAt: string }
 export type State = Record<Collection, Row[]> & { version: number; movements: Movement[]; reservations: Reservation[] }
 export type Actor = { id: string; name: string; role: string; sessionId: string; operatorVersion: number; scope?: import('./scope').Scope }
-export type Context = { s: State; actor: Actor; commandId: string; type?: string; now: string; attachments: Attachment[]; preparedBy?: string; people?: { id: string; name: string; role: string }[]; erasure?: { kind: string; id: string; entries: number; values: string[] } }
+export type Context = { s: State; actor: Actor; commandId: string; type?: string; now: string; attachments: Attachment[]; serviceSecret?: string; preparedBy?: string; people?: { id: string; name: string; role: string }[]; erasure?: { kind: string; id: string; entries: number; values: string[] } }
 
 export const newId = () => crypto.randomUUID()
 

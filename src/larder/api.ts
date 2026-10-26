@@ -1,3 +1,6 @@
+import { serviceActor, serviceKeys } from './service-keys'
+import { publicPage } from './public-api'
+import { enforceRetention, retention, retentionPreview } from './retention'
 import { wavePicking } from './wave-picking'
 import { recoveryInputsChanged } from './scheduling/recovery-options'
 import { variance } from './costing/variance'
@@ -23,7 +26,7 @@ import { approvalCommand } from './approval-policy'
 import { cutover } from './cutover'
 import { cutoverGuard } from './cutover-guard'
 import { auditEntries } from './audit'
-import { erasureCommand, erasurePlan } from './audit-erasure'
+import { contactOutcomes, erasureCommand, erasurePlan } from './audit-erasure'
 import { receiptJobAllocation } from './receipt-job-allocation'
 import { auditCsv, auditExport, auditQuery, retentionLine } from './audit-read'
 import { archiveCsv } from './archive-csv'
@@ -94,6 +97,8 @@ const headers = { 'cache-control': 'no-store', 'x-content-type-options': 'nosnif
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers })
 
 async function current(request: Request, env: Bindings): Promise<Actor> {
+  const integration = await serviceActor(env.DB, request)
+  if (integration) return integration
   const session = await operatorAuth(env).getSession(request)
   if (!session) throw new Problem('AUTH', 'Sign in with a current session.', null, 401)
   const r = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=?`).bind(session.operator.id).first<{ role: string }>()
@@ -102,7 +107,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version, scope: effectiveScope(member, custom, (await env.DB.prepare("SELECT data FROM larder_records WHERE kind='locations'").all<{ data: string }>()).results.map(r => JSON.parse(r.data))) }
 }
 
-const handlers = [wavePicking, variance, coProducts, salesAllocation, nesting, reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, serials, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [serviceKeys, retention, wavePicking, variance, coProducts, salesAllocation, nesting, reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, serials, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -154,7 +159,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (scopeOf(actor).locations !== null && names(previous.result, hiddenLocations(await load(env.DB), scopeOf(actor)))) forbidden('This outcome involves a location outside your location scope.')
     return respond(previous)
   }
-  const erasure = type === 'erasure.audit' ? await erasurePlan(env.DB, await load(env.DB), actor, payload) : undefined
+  let erasure = ['erasure.audit', 'erasure.contact'].includes(type) ? await erasurePlan(env.DB, await load(env.DB), actor, payload) : undefined
   if (type === 'exception.assign' || type === 'exception.escalate') {
     if (!['owner', 'manager'].includes(actor.role)) forbidden('Only an owner or manager assigns or escalates cases.')
     const existing = type === 'exception.escalate' ? (await load(env.DB)).followUps.find(f => f.key === payload.key) : undefined
@@ -178,6 +183,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   // A command that loses a concurrent write is recomputed against the new state.
   for (let attempt = 0; attempt < 8; attempt++) {
     const before = await load(env.DB), s = structuredClone(before)
+    if (type === 'erasure.contact') erasure = await contactOutcomes(env.DB, await erasurePlan(env.DB, before, actor, payload))
     if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
     const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
     if (erasure) c.erasure = erasure
@@ -185,6 +191,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
+    enforceRetention(before, s)
     enforceScope(c, before)
     if (!c.people && s.schedulePolicies.length && recoveryInputsChanged(before, s)) c.people = (await people(env, actor)).people as any
     observeRecovery(c, before, type, payload)
@@ -199,6 +206,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     try {
       const recorded = await commit(env.DB, c, before, type, digest, result, audit, erasure)
       if (type === 'variance.run') return respond(await finishVariance(env, actor, result!))
+      if (c.serviceSecret) return respond({ ...recorded, result: { ...result, serviceCredential: c.serviceSecret } })
       return respond(recorded)
     }
     catch (error) {
@@ -229,6 +237,9 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (request.method !== 'GET') throw new Problem('METHOD', 'Use GET to read or POST /api/larder/commands to act.', null, 405)
     const ok = await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>()
     if (ok?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
+    const versionedResource = /^\/v1\/(catalog|orders|operations|trace)$/.exec(path)
+    if (versionedResource) return json(publicPage(await load(env.DB), actor, versionedResource[1], url.searchParams))
+    if (path === '/retention/contact') return json(retentionPreview(await load(env.DB), actor, url.searchParams.get('partyId')))
     if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, await people(env, actor))) }
     // GOV-001: a scoped member reads these through their scope (see scope-view.ts); the audit, archive, handoff,
     // imports and attachment doors need an unscoped person.

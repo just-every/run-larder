@@ -9,7 +9,7 @@ import { get, optionalText, row, text, type Context, type Row, type State } from
 
 export const tombstone = '[erased]'
 export const erasureScope = 'audit'
-export type ErasurePlan = { kind: 'operator' | 'party'; id: string; values: string[]; entries: number }
+export type ErasurePlan = { kind: 'operator' | 'party'; id: string; values: string[]; entries: number; outcomes?: { id: string; result: string }[] }
 
 const unique = (values: unknown[]) => [...new Set(values.filter((v): v is string => typeof v === 'string').map(v => v.trim()).filter(v => v.length >= 3))].sort((a, b) => b.length - a.length)
 const encoded = (v: string) => JSON.stringify(v).slice(1, -1)
@@ -58,7 +58,26 @@ export function erasureStatements(db: D1Database, c: Context, plan: ErasurePlan)
   const whereBinds = plan.values.flatMap(v => [encoded(v), encoded(v), v, encoded(v), v])
   return [
     db.prepare('INSERT INTO larder_audit_erasures(id,at,actor_id,subject_kind,subject_id,entries,scope) VALUES(?,?,?,?,?,?,?)').bind(id, c.now, c.actor.id, plan.kind, plan.id, plan.entries, erasureScope),
+    ...(c.type === 'erasure.contact' ? (plan.outcomes ?? []).map(outcome => db.prepare('UPDATE larder_commands SET result=? WHERE id=?').bind(outcome.result, outcome.id)) : []),
     db.prepare(`UPDATE larder_audit SET actor_name=CASE WHEN ${plan.kind === 'operator' ? 'actor_id=?' : '0'} THEN '${tombstone}' ELSE ${name.sql} END, before=${before.sql}, after=${after.sql}, reason=${reason.sql}, evidence=${evidence.sql}, erasure_id=? WHERE ${plan.kind === 'operator' ? 'actor_id=? OR ' : ''}${where.join(' OR ')}`)
       .bind(...(plan.kind === 'operator' ? [plan.id] : []), ...name.binds, ...before.binds, ...after.binds, ...reason.binds, ...evidence.binds, id, ...(plan.kind === 'operator' ? [plan.id] : []), ...whereBinds),
   ]
+}
+
+// Replace human contact labels in cached outcomes without touching IDs, decimal
+// fields, digests or original financial and evidence records.
+export async function contactOutcomes(db: D1Database, plan: ErasurePlan) {
+  const fields = new Set(['name', 'email', 'party', 'customerName', 'supplierName', 'displayName', 'actorName', 'reason', 'note'])
+  const replace = (value: any, key = ''): any => {
+    if (typeof value === 'string') return fields.has(key) ? scrub(value, plan.values) : value
+    if (Array.isArray(value)) return value.map(v => replace(v, key))
+    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, replace(v, k)]))
+    return value
+  }
+  const commands = (await db.prepare('SELECT id,result FROM larder_commands').all<{ id: string; result: string }>()).results
+  plan.outcomes = commands.flatMap(command => {
+    const result = JSON.stringify(replace(JSON.parse(command.result)))
+    return result !== command.result ? [{ id: command.id, result }] : []
+  })
+  return plan
 }

@@ -51,6 +51,11 @@ test('LARDER-016 Odoo move-in: preview rejects with source IDs, commit journals 
   assert.equal(again.counts.contacts, 0); assert.ok(again.rejected.every(r => /Already moved in/.test(r.reason)))
   // Undo before any live work removes the whole batch.
   const committed = (await h.state()).imports.find(i => i.id === preview.id)
+  const heldParty = s.parties[0]
+  const hold = await h.command('retention.hold', { kind: 'parties', recordId: heldParty.id, reason: 'Retain source contact during legal review' })
+  await h.command('import.undo', { importId: preview.id, version: committed.version, reason: 'Wrong count date' }, { error: 'LEGAL_HOLD' })
+  assert.equal((await h.state()).parties.some(p => p.id === heldParty.id), true)
+  await h.command('retention.release', { holdId: hold.id, version: hold.version, reason: 'Review complete' })
   await h.command('import.undo', { importId: preview.id, version: committed.version, reason: 'Wrong count date' })
   s = await h.invariant()
   assert.equal(s.items.length, 0); assert.equal(s.movements.length, 0); assert.equal(s.imports.find(i => i.id === preview.id).status, 'undone')

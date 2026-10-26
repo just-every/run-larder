@@ -827,3 +827,63 @@ restore executes nothing.
 The owner creates a named site with `site.save {name}`. A location may name its `siteId`, unique `binCode` and nonnegative integer `binSequence`. An assigned bin cannot move to another site. `member.scope` accepts `sites: [siteId]` or null; the current bins in those sites intersect any explicit location scope, including bins added after the scope was saved.
 
 Managers and warehouse staff call `wave.prepare {reason, orders: [{orderId, lines: [{lineId, locationId, quantity, lotId?, serials?}]}]}` for two to thirty distinct orders. It reviews current reservations through the ordinary pick rules, retaining one site-grouped and bin-sequenced list without physical movement or shipment creation. `wave.pick {waveId, version, reason}` confirms the collected quantities sorted to each order and creates the separate order picks atomically. Physical stock and reservations remain until shipment; open picks prevent re-picking those quantities. A business change expires the review. Both doors and replay use current site scope, role and native session authority.
+
+## Retention and contact erasure (GOV-005, partial)
+
+The native owner calls `GET /api/larder/retention/contact?partyId=<id>` to review
+eligible fields, legal holds, linked sales and purchase records, retained
+categories and search, cache, archive and provider outcomes. The preview is
+read-only and carries the exact business `version`.
+
+`retention.hold {kind, recordId, reason}` holds a party, certificate, receipt,
+source-history record or handoff. Every business command refuses a change or
+deletion of that held record. `retention.release {holdId, version, reason}` is a
+separate audited owner decision; a hold never expires automatically.
+
+`erasure.contact {partyId, reviewedVersion, consent: true, reason}` replaces only
+the contact's name and email, replaces cached human contact labels in command outcomes
+and the audit through the existing audit-erasure mechanism, and retains record
+IDs, quantities, prices, movements, documents and their bytes. A stale preview,
+a held contact or missing explicit consent refuses the whole transaction.
+Replaying the same command returns the recorded result. Future JSON and CSV
+business archives retain the anonymized contact, hold and decision; restore
+preserves them without executing erasure again. Earlier downloaded archives,
+other record text and uncontrolled client copies are explicitly retained or
+outside control. No provider deletion request is made.
+
+This is a contact-only foundation. Former operators, eligible document and model
+context deletion, configured US retention periods and page controls remain
+unimplemented. The conservative adopted default awaits ct approval: owner-only
+explicit consent, indefinite production and financial trace and document
+retention, no automatic deletion or outbound request, and explicit audited hold
+release. GOV-005 remains partial.
+
+## Versioned integration reads (CONN-014, partial)
+
+Native-session `GET /api/larder/v1/catalog`, `/api/larder/v1/orders`,
+`/api/larder/v1/operations` and `/api/larder/v1/trace` return
+`{apiVersion: "1", version, data, nextCursor}`. `limit` is 1 to 100 (default 50).
+Follow the opaque `cursor` with URL encoding; the next cursor is null at the end.
+Records are ordered by ID and use the app's current role, location and cost
+filters. A changed business version refuses the next page with `STALE`; restart
+at the first page. Invalid cursors and bounds return the ordinary `INPUT` refusal.
+
+The owner can issue `integration.key.issue {name, resources, minutes, consent:
+true}` through the native command door. Resources are catalog, orders,
+operations and trace; expiry is 1 to 60 minutes. The response returns
+`serviceCredential` once. Save it privately: command replay returns metadata
+only. Send it as an Authorization Bearer credential on the permitted versioned
+GET routes. Every write, broader read, archive and state request is refused.
+All credential reads redact costs even when the issuing owner can see them.
+
+`integration.key.revoke {keyId, version, reason}` revokes immediately. Signing
+out, session expiry or identity deactivation also stops access. Restart preserves
+the bounded grant while its native session remains live. Credential material is
+hashed in a separate table and excluded from audit, command outcomes and business
+archives; restored grant metadata is revoked and grants no authority.
+
+The conservative adopted default awaits ct approval: owner-only issuance,
+read-only resource scopes, restricted costs and a live native issuing session.
+Scoped service writes, other resource families, outbound signed events with
+stable identities and durable retries, provider-confirmed follow-up closure and
+the draft-only MCP server remain unimplemented. CONN-014 remains partial.

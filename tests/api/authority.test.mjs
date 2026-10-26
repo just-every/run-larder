@@ -812,3 +812,69 @@ test('a deputy holds a delegated approval only while the principal\'s custom rol
   assert.equal((await approve(engineer, small)).approvedBy, engineer.id)
   assert.deepEqual((await h.state()).purchaseOrders.find(p => p.id === large.id).status, 'draft')
 })
+
+test('Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h), warehouse = await h.person('synthetic-larder-818@example.test', 'warehouse')
+  const page = async (query = '', as = h.owner(), resource = 'catalog') => {
+    const response = await h.request('/api/larder/v1/' + resource + query, { as })
+    return { status: response.status, body: await response.json() }
+  }
+  assert.equal((await page('', '')).status, 401)
+  await h.command('member.scope', { operatorId: warehouse.id, locations: null, costsRestricted: true })
+  const first = await page('?limit=1', warehouse.cookie)
+  assert.equal(first.body.apiVersion, '1')
+  const all = [...first.body.data]
+  let next = first.body.nextCursor
+  while (next) {
+    const current = await page('?limit=1&cursor=' + encodeURIComponent(next), warehouse.cookie)
+    assert.equal(current.status, 200)
+    all.push(...current.body.data); next = current.body.nextCursor
+  }
+  const full = (await h.state()).items
+  assert.deepEqual(all.map(r => r.id).sort(), full.map(r => r.id).sort())
+  assert.equal(new Set(all.map(r => r.id)).size, all.length)
+  assert.equal(all.find(r => r.id === w.timber.id).standardCost, 'restricted')
+  assert.equal((await page()).body.data.find(r => r.id === w.timber.id).standardCost, '9.5')
+  for (const query of ['?limit=0', '?limit=101', '?limit=1.5', '?cursor=bad', '?cursor=' + encodeURIComponent(btoa('null'))]) assert.equal((await page(query)).status, 409)
+  assert.equal((await page('?cursor=' + encodeURIComponent(first.body.nextCursor), warehouse.cookie, 'trace')).status, 409)
+  await h.command('item.save', { sku: 'synthetic-larder-818', name: 'Later item', kind: 'buy', baseUnit: 'each' })
+  assert.equal((await page('?cursor=' + encodeURIComponent(first.body.nextCursor), warehouse.cookie)).body.error.code, 'STALE')
+  await h.restart()
+  assert.equal((await page()).body.data.length, full.length + 1)
+})
+
+test('Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore', async t => {
+  const h = await installation(); t.after(() => h.close())
+  const w = await workshop(h), manager = await h.person('synthetic-larder-819@example.test', 'manager')
+  const payload = { name: 'Stock reader', resources: ['catalog'], minutes: 60, consent: true }
+  await manager.run('integration.key.issue', payload, { error: 'FORBIDDEN' })
+  await h.command('integration.key.issue', { ...payload, consent: false }, { error: 'INPUT' })
+  await h.command('integration.key.issue', { ...payload, resources: ['costs'] }, { error: 'INPUT' })
+  const id = 'synthetic-larder-key-819', grant = await h.command('integration.key.issue', payload, { commandId: id })
+  assert.equal(typeof grant.serviceCredential, 'string')
+  assert.equal((await h.command('integration.key.issue', payload, { commandId: id })).serviceCredential, undefined)
+  const use = async (key, path = '/api/larder/v1/catalog', method = 'GET', origin = h.origin) => fetch(origin + path, { method, headers: { authorization: 'Bearer ' + key } })
+  const response = await use(grant.serviceCredential)
+  assert.equal(response.status, 200)
+  assert.equal((await response.json()).data.find(r => r.id === w.timber.id).standardCost, 'restricted')
+  for (const [path, method] of [['/api/larder/v1/orders', 'GET'], ['/api/larder/state', 'GET'], ['/api/larder/archive', 'GET'], ['/api/larder/commands', 'POST'], ['/api/larder/v1/catalog', 'POST']]) assert.equal((await use(grant.serviceCredential, path, method)).status, 403)
+  const exported = await (await h.request('/api/larder/archive')).json()
+  assert.equal(JSON.stringify(exported).includes(grant.serviceCredential), false)
+  assert.equal(JSON.stringify(await h.state()).includes(grant.serviceCredential), false)
+  assert.equal(JSON.stringify(await (await h.request('/api/larder/audit.json')).json()).includes(grant.serviceCredential), false)
+  const destination = await installation(); t.after(() => destination.close())
+  assert.equal((await destination.request('/api/larder/archive/restore', { method: 'POST', body: exported })).status, 200)
+  assert.equal((await destination.state()).integrationGrants[0].status, 'revoked')
+  assert.equal((await use(grant.serviceCredential, undefined, undefined, destination.origin)).status, 401)
+  await h.restart()
+  assert.equal((await use(grant.serviceCredential)).status, 200)
+  await h.command('integration.key.revoke', { keyId: grant.id, version: grant.version, reason: 'Stop this reader' })
+  assert.equal((await use(grant.serviceCredential)).status, 401)
+  const expiring = await h.command('integration.key.issue', payload)
+  await h.db.prepare('UPDATE larder_service_keys SET expires_at=0 WHERE id=?').bind(expiring.id).run()
+  assert.equal((await use(expiring.serviceCredential)).status, 401)
+  const final = await h.command('integration.key.issue', payload)
+  await h.request('/auth/signout', { method: 'POST', body: {} })
+  assert.equal((await use(final.serviceCredential)).status, 401)
+})
