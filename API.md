@@ -86,7 +86,7 @@ and the usual audit entries.
 | Command | Payload | Who |
 | --- | --- | --- |
 | `item.save` | `{id?, version?, sku, name, kind: make\|buy, baseUnit, conversions?: [{unit, factor}], template?, attributes?: {name: value}, standardCost?, salePrice?, archived?}` | manager, buyer |
-| `location.save` | `{id?, version?, name, note?, archived?}` | manager, warehouse |
+| `location.save` | `{id?, version?, name, note?, archived?, siteId?, binCode?, binSequence?}` | manager, warehouse |
 | `party.save` | `{id?, version?, name, kind: customer\|supplier\|both, email?, abn?, terms?, minShelfLifeDays?}` | manager, buyer, sales |
 | `partyItem.save` | `{id?, version?, partyId, itemId, partyCode, unit?, price?, leadDays?, preferred?}` | manager, buyer, sales |
 | `opening.record` | `{locationId, countedOn, valuationBasis: supplier-invoice\|last-purchase\|standard-cost\|owner-estimate, countedBy, evidence: {name, contentType, base64}, lines: [{itemId, quantity, unit?, unitCost, lot?, dates?}]}` | manager, warehouse |
@@ -818,3 +818,12 @@ automatic grant exists; alternate machine choices always require human approval.
 Customer promise amendments and spending retain their separate sales and buyer
 authorities. JSON and CSV archives retain every option, selection and booking;
 restore executes nothing.
+
+
+### Exact batch variance and pick waves
+
+`batch.review` accepts each output's `standardValue` as an expected USD value at its actual yield. With standards supplied for every output, the server computes standard cost, signed variance and proportional actual values. Values round down to exact six-place unit-cost increments; the final planned output receives the remaining residue, bounded to USD 0.000001 per output. Zero total standards, excess residue or an inexact final unit cost refuse. Fixed reviewed `value` allocation remains available when no standard values are supplied. `batch.post` and `batch.release` retain separate explicit owner decisions, current review and evidenced quality gates.
+
+The owner creates a named site with `site.save {name}`. A location may name its `siteId`, unique `binCode` and nonnegative integer `binSequence`. An assigned bin cannot move to another site. `member.scope` accepts `sites: [siteId]` or null; the current bins in those sites intersect any explicit location scope, including bins added after the scope was saved.
+
+Managers and warehouse staff call `wave.prepare {reason, orders: [{orderId, lines: [{lineId, locationId, quantity, lotId?, serials?}]}]}` for two to thirty distinct orders. It reviews current reservations through the ordinary pick rules, retaining one site-grouped and bin-sequenced list without physical movement or shipment creation. `wave.pick {waveId, version, reason}` confirms the collected quantities sorted to each order and creates the separate order picks atomically. Physical stock and reservations remain until shipment; open picks prevent re-picking those quantities. A business change expires the review. Both doors and replay use current site scope, role and native session authority.

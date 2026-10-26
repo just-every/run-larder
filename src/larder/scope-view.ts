@@ -25,6 +25,7 @@ export type Visible = { state: State; hidden: Set<string> }
 export function visibleState(s: State, scope: Scope): Visible {
   if (scope.locations === null) return { state: s, hidden: new Set() }
   const places = hiddenLocations(s, scope), hidden = new Set(places)
+  for (const site of s.sites) { const bins = s.locations.filter(l => l.siteId === site.id); if (!bins.length || bins.some(l => !scope.locations!.includes(l.id))) hidden.add(site.id) }
   const keep = (r: unknown) => !names(r, hidden)
   for (const m of s.movements) if (names(m, places)) { hidden.add(m.id) }
   for (const r of s.reservations) if (names(r, places)) hidden.add(r.id)

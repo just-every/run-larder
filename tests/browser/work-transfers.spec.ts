@@ -178,12 +178,14 @@ test('FLOOR-006 plan, review and approve two co-products and a reusable by-produ
     const before = await state()
     await open(page, work.id)
     for (let i = 0; i < 3; i++) {
-      await batch.getByLabel(`Output ${i + 1} allocated USD value`, { exact: true }).fill(['10', '15', '5'][i])
+      await batch.getByLabel(`Output ${i + 1} standard USD value`, { exact: true }).fill(['8', '12', '4'][i])
       await batch.getByLabel(`Output ${i + 1} input synthetic-larder-input-${tag}`, { exact: true }).fill(['1', '1.5', '0.5'][i])
     }
     await batch.getByLabel('Batch allocation policy', { exact: true }).fill('Fixed batch values USD 10, 15 and 5, explicitly approved by owner')
     await batch.getByLabel('Allocation review reason', { exact: true }).fill('Measured actual consumption')
     await batch.getByRole('button', { name: 'Review batch allocation', exact: true }).click(); await expect(batch.getByRole('heading', { name: 'Exact batch review', exact: true })).toBeVisible(); await settled(page)
+    await expect(batch).toContainText('Standard cost USD 24 · Variance USD 6.000003')
+    await expect(batch).toContainText('Allocate actual cost in proportion')
     expect((await state()).movements).toEqual(before.movements)
     await expect(batch).toContainText('Actual cost USD 30')
     await batch.getByRole('button', { name: 'Exact input lots and cost sources', exact: true }).click()
@@ -192,7 +194,7 @@ test('FLOOR-006 plan, review and approve two co-products and a reusable by-produ
     await account.hover(); await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
     await page.mouse.move(0, 0); await page.keyboard.press('Tab'); await account.focus()
     await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
-    await expect(batch).toContainText('Assigned rounding residue USD 0.000003')
+    await expect(batch).toContainText('Variance allocation rounding residue USD 0.000002')
     await expect(batch).toContainText('final planned output')
     await screenshot('review')
     await batch.getByLabel('Batch allocation policy', { exact: true }).fill('Changed policy requires fresh owner approval')
@@ -201,7 +203,7 @@ test('FLOOR-006 plan, review and approve two co-products and a reusable by-produ
     await screenshot('edited-draft-void')
     await settled(page)
     for (let i = 0; i < 3; i++) {
-      await batch.getByLabel(`Output ${i + 1} allocated USD value`, { exact: true }).fill(['10', '15', '5'][i])
+      await batch.getByLabel(`Output ${i + 1} standard USD value`, { exact: true }).fill(['8', '12', '4'][i])
       await batch.getByLabel(`Output ${i + 1} input synthetic-larder-input-${tag}`, { exact: true }).fill(['1', '1.5', '0.5'][i])
     }
     await batch.getByLabel('Allocation review reason', { exact: true }).fill('Fresh edited policy review')
@@ -213,7 +215,7 @@ test('FLOOR-006 plan, review and approve two co-products and a reusable by-produ
     await expect(batch.getByRole('button', { name: 'Approve and post exact batch', exact: true })).toHaveCount(0)
     await screenshot('business-change-void')
     for (let i = 0; i < 3; i++) {
-      await batch.getByLabel(`Output ${i + 1} allocated USD value`, { exact: true }).fill(['10', '15', '5'][i])
+      await batch.getByLabel(`Output ${i + 1} standard USD value`, { exact: true }).fill(['8', '12', '4'][i])
       await batch.getByLabel(`Output ${i + 1} input synthetic-larder-input-${tag}`, { exact: true }).fill(['1', '1.5', '0.5'][i])
     }
     await batch.getByLabel('Batch allocation policy', { exact: true }).fill('Fresh exact batch policy')
@@ -229,7 +231,7 @@ test('FLOOR-006 plan, review and approve two co-products and a reusable by-produ
       expect(trace.rows.some((r: any) => r.kind === 'output' && r.itemId === output.itemId)).toBe(true)
       expect(trace.rows.some((r: any) => r.kind === 'component consumed' && r.quantity === output.allocations[0].quantity)).toBe(true)
     }
-    await expect(batch).toContainText('Assigned rounding residue USD 0.000003')
+    await expect(batch).toContainText('Variance allocation rounding residue USD 0.000002')
     await screenshot('quarantined')
     const lot = `synthetic-larder-output-2-${tag}`
     let inspection = await command(page, 'quality.plan.save', { itemId: items[3].id, stage: 'receipt', name: `Reuse purity ${tag}`, sampleSize: 1, measurements: [{ name: 'Purity', unit: '%', target: '100', lower: '99', upper: '100' }] })
@@ -244,9 +246,65 @@ test('FLOOR-006 plan, review and approve two co-products and a reusable by-produ
     await batch.getByLabel(`Release evidence for ${lot}`, { exact: true }).setInputFiles({ name: 'release.txt', mimeType: ['text', 'plain'].join('/'), buffer: Buffer.from('Output is reusable and free from contamination') })
     await batch.getByRole('button', { name: `Release ${lot}`, exact: true }).click(); await expect(batch.getByRole('heading', { name: `${lot} · released`, exact: true })).toBeVisible(); await settled(page)
     const after = await state(), valuation = after.costValuations.find((v: any) => v.workOrderId === work.id && v.batchAllocation)
-    expect(valuation.lines.map((l: any) => l.targetValue)).toEqual(['10', '15', '5.000003'])
+    expect(valuation.lines.map((l: any) => l.targetValue)).toEqual(['10.000001', '15', '5.000002'])
     expect(after.positions.find((p: any) => p.lotId === work.outputs[2].lotId && p.status === 'available').quantity).toBe('1')
     await screenshot('reusable')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  }
+})
+
+test('STOCK-004 review a bin-sequenced three-order wave and sort exact picks at both widths', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('Private entry required')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  await settled(page)
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    const tag = `${width}-${crypto.randomUUID().slice(0, 6)}`, state = async () => (await (await page.request.get(origin + '/api/larder/state')).json())
+    const shot = async (name: string) => { if (process.env.LARDER_SCREENSHOTS) await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-STOCK-004-${name}.png`), fullPage: true }) }
+    await page.goto(origin + '/app#' + ['more', 'setup'].join('/')); await settled(page)
+    const sites = card(page, 'Sites'); await sites.getByLabel('Site name', { exact: true }).fill(`Site ${tag}`); await sites.getByRole('button', { name: 'Add site', exact: true }).click(); await settled(page)
+    const site = (await state()).sites.find((x: any) => x.name === `Site ${tag}`), bins: any[] = [], orders: any[] = []
+    const item = await command(page, 'item.save', { sku: `synthetic-larder-wave-${tag}`, name: `Wave item ${tag}`, kind: 'buy', baseUnit: 'each' })
+    const customer = await command(page, 'party.save', { name: `Wave customer ${tag}`, kind: 'customer' })
+    for (let i = 0; i < 3; i++) {
+      const locations = card(page, 'Locations')
+      await locations.getByLabel('Name', { exact: true }).fill(`Bin ${i} ${tag}`)
+      await locations.getByLabel('Site', { exact: true }).selectOption(site.id)
+      await locations.getByLabel('Bin code', { exact: true }).fill(`B${i}`)
+      await locations.getByLabel('Bin sequence', { exact: true }).fill(String(3 - i))
+      await locations.getByRole('button', { name: 'Add location', exact: true }).click(); await settled(page)
+      bins.push((await state()).locations.find((x: any) => x.name === `Bin ${i} ${tag}`))
+      await command(page, 'opening.record', { locationId: bins[i].id, countedOn: today, valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: { name: 'count.txt', contentType: ['text', 'plain'].join('/'), base64: Buffer.from('Counted stock').toString('base64') }, lines: [{ itemId: item.id, quantity: '4', unitCost: '1' }] })
+      let order = await command(page, 'so.quote', { customerId: customer.id, promiseDate: today, lines: [{ itemId: item.id, quantity: '4', unitPrice: '5' }] })
+      orders.push(await command(page, 'so.confirm', { orderId: order.id, version: order.version }))
+    }
+    await page.reload(); await settled(page)
+    await shot('site-bin-settings')
+    await page.goto(origin + '/app#' + ['more', 'people'].join('/')); await settled(page)
+    await expect(page.getByLabel('Sites including future bins', { exact: true })).toBeVisible(); await shot('site-scope-settings')
+    await page.goto(origin + '/app#orders'); await settled(page)
+    const waves = card(page, 'Wave picking')
+    for (const [i, order] of orders.entries()) { await waves.getByLabel(`Include ${order.reference}`, { exact: true }).check(); await waves.getByLabel(`Pick quantity ${order.reference} ${bins[i].name}`, { exact: true }).fill('2') }
+    await waves.getByLabel('Wave review reason', { exact: true }).fill('Collect three orders in one walk')
+    await waves.getByRole('button', { name: 'Review pick wave', exact: true }).click(); await settled(page)
+    const wave = (await state()).pickWaves.at(-1), section = waves.getByRole('region', { name: `Wave ${wave.reference}`, exact: true })
+    expect(wave.lines.map((l: any) => l.locationId)).toEqual([...bins].reverse().map(b => b.id))
+    for (const order of orders) await expect(section).toContainText(order.reference)
+    const before = await state(); expect(before.shipments.some((s: any) => orders.some(o => o.id === s.orderId))).toBe(false)
+    const account = page.getByLabel('Account menu', { exact: true }); await account.hover(); await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible(); await account.focus(); await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
+    await shot('bin-list')
+    await section.getByLabel(`Sort confirmation reason for ${wave.reference}`, { exact: true }).fill('Collected and sorted exact quantities to each order')
+    await section.getByRole('button', { name: 'Confirm picked and sorted wave', exact: true }).click(); await settled(page)
+    await expect(section.getByRole('heading', { name: `${wave.reference} · picked`, exact: true })).toBeVisible()
+    const after = await state(); expect(after.movements).toEqual(before.movements)
+    for (const order of orders) {
+      const shipment = after.shipments.find((s: any) => s.orderId === order.id)
+      expect(shipment.lines[0].quantity).toBe('2')
+      expect(after.reservations.find((r: any) => r.demandId === order.id).quantity).toBe('4')
+      await expect(section).toContainText('reservation retained until shipment')
+      await expect(section).toContainText('unpicked reserved 2')
+    }
+    await shot('sorted-orders')
   }
 })

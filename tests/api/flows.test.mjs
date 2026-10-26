@@ -1583,3 +1583,57 @@ test('Cited variance explanations require exact owner consent and capped single 
   assert.equal(restored.varianceAnalyses.find(r => r.id === pending.id).status, 'revoked')
   assert.match(await (await h.request('/api/larder/archive.csv')).text(), /varianceAnalyses/)
 })
+
+
+test('STOCK-004 exact bin-sequenced wave sorts three orders and carries current site scope', async t => {
+  const h = await installation({ now: '2026-10-26T12:00:00.000Z' }); t.after(() => h.close())
+  const site = await h.command('site.save', { name: 'synthetic-larder-site' }), other = await h.command('site.save', { name: 'synthetic-larder-other' })
+  const warehouse = await h.person('synthetic-larder-warehouse@example.test', 'warehouse'), agent = await h.person('synthetic-larder-agent@example.test', 'agent')
+  await h.command('member.scope', { operatorId: warehouse.id, sites: [site.id] })
+  const bins = []
+  for (let i = 0; i < 3; i++) bins.push(await h.command('location.save', { name: `synthetic-larder-bin-${i}`, siteId: site.id, binCode: `B${i}`, binSequence: 3 - i }))
+  const excluded = await h.command('location.save', { name: 'synthetic-larder-excluded', siteId: other.id, binCode: 'X', binSequence: 1 })
+  const item = await h.command('item.save', { sku: 'synthetic-larder-wave', name: 'Wave item', kind: 'buy', baseUnit: 'each' })
+  const customer = await h.command('party.save', { name: 'synthetic-larder-customer', kind: 'customer' })
+  const orders = []
+  for (const location of [...bins, excluded]) {
+    await h.command('opening.record', { locationId: location.id, countedOn: '2026-10-26', valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: item.id, quantity: '4', unitCost: '1' }] })
+    let order = await h.command('so.quote', { customerId: customer.id, promiseDate: '2026-10-26', lines: [{ itemId: item.id, quantity: '4', unitPrice: '5' }] })
+    order = await h.command('so.confirm', { orderId: order.id, version: order.version, locationId: location.id })
+    orders.push(order)
+  }
+  const input = { reason: 'Collect and sort three orders', orders: orders.slice(0, 3).map((o, i) => ({ orderId: o.id, lines: [{ lineId: o.lines[0].id, locationId: bins[i].id, quantity: '2' }] })) }
+  const excludedInput = { ...input, orders: [input.orders[0], { orderId: orders[3].id, lines: [{ lineId: orders[3].lines[0].id, locationId: excluded.id, quantity: '2' }] }] }
+  assert.equal((await h.state(warehouse.cookie)).locations.length, 3)
+  await warehouse.run('wave.prepare', excludedInput, { error: 'FORBIDDEN' })
+  await agent.run('wave.prepare', input, { error: 'FORBIDDEN' })
+  const before = await h.state()
+  let wave = await warehouse.run('wave.prepare', input)
+  assert.deepEqual(wave.lines.map(l => l.locationId), [...bins].reverse().map(l => l.id))
+  assert.deepEqual((await h.state()).movements, before.movements)
+  assert.equal((await h.state()).shipments.length, 0)
+  await h.command('location.save', { name: 'synthetic-larder-change' })
+  await warehouse.run('wave.pick', { waveId: wave.id, version: wave.version, reason: 'Changed review' }, { error: 'STALE' })
+  wave = await warehouse.run('wave.prepare', input)
+  const commandId = crypto.randomUUID(), payload = { waveId: wave.id, version: wave.version, reason: 'Exact quantities sorted to their orders' }
+  const picked = await warehouse.run('wave.pick', payload, { commandId })
+  assert.deepEqual(await warehouse.run('wave.pick', payload, { commandId }), picked)
+  const state = await h.invariant()
+  assert.equal(picked.shipmentIds.length, 3)
+  for (const [i, id] of picked.shipmentIds.entries()) {
+    const shipment = state.shipments.find(s => s.id === id)
+    assert.equal(shipment.orderId, orders[i].id); assert.equal(shipment.lines[0].quantity, '2')
+    assert.equal(state.reservations.find(r => r.demandId === orders[i].id).quantity, '4')
+    assert.equal(parse(state.reservations.find(r => r.demandId === orders[i].id).quantity) - parse(shipment.lines[0].quantity), parse('2'))
+  }
+  assert.deepEqual(state.movements, before.movements)
+  await warehouse.run('wave.pick', { ...payload, version: picked.version }, { error: 'STATE' })
+  await warehouse.run('wave.prepare', { ...input, orders: input.orders.map(o => ({ ...o, lines: o.lines.map(l => ({ ...l, quantity: '3' })) })) }, { error: 'NOT_RESERVED' })
+  // Narrowing applies to existing outcomes and their idempotent replay.
+  await h.command('member.scope', { operatorId: warehouse.id, sites: [other.id] })
+  await warehouse.run('wave.pick', payload, { commandId, error: 'FORBIDDEN' })
+  assert.equal((await h.state(warehouse.cookie)).pickWaves.length, 0)
+  const archive = await (await h.request('/api/larder/archive')).json(), restored = await installation(); t.after(() => restored.close())
+  assert.equal((await restored.request('/api/larder/archive/restore', { method: 'POST', body: archive })).status, 200)
+  assert.deepEqual((await restored.state()).pickWaves, state.pickWaves)
+})

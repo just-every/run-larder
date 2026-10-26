@@ -33,8 +33,9 @@ export function Setup({ larder }: { larder: Larder }) {
           <label className="check"><input type="checkbox" name="preferred" /> Preferred supplier</label></Form>}
       </Card>
     </div>
+    {s.actor.role === 'owner' && <Card title="Sites"><Form submit="Add site" busy={busy} onSubmit={d => run('site.save', { name: text(d, 'name') })}><Field label="Site name" name="name" /></Form></Card>}
     <Card title="Locations">{rows(s, 'locations').length === 0 ? <Empty>No locations yet.</Empty> : <ul className="pills">{rows(s, 'locations').map(l => <li key={l.id}>{l.name}</li>)}</ul>}
-      {can(s, ['manager', 'warehouse']) && <Form title="Add a location" submit="Add location" busy={busy} onSubmit={d => run('location.save', { name: text(d, 'name'), note: text(d, 'note') })}><Field label="Name" name="name" placeholder="Shop floor, Shipping shelf" /><Field label="Note" name="note" required={false} /></Form>}
+      {can(s, ['manager', 'warehouse']) && <Form title="Add a location" submit="Add location" busy={busy} onSubmit={d => run('location.save', { name: text(d, 'name'), note: text(d, 'note'), ...(text(d, 'siteId') ? { siteId: text(d, 'siteId'), binCode: text(d, 'binCode'), binSequence: Number(text(d, 'binSequence')) } : {}) })}><Field label="Name" name="name" placeholder="Shop floor, Shipping shelf" /><Field label="Note" name="note" required={false} /><Choose label="Site" name="siteId" required={false} options={rows(s, 'sites').map(x => ({ value: x.id, label: x.name }))} /><Field label="Bin code" name="binCode" required={false} /><Field label="Bin sequence" name="binSequence" type="number" required={false} /></Form>}
     </Card>
   </>
 }

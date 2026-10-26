@@ -2,7 +2,7 @@
 import { batchAllocation, workMaterialPool } from './production-trace'
 import { costFingerprint } from './costing/commands'
 import { jobCosts } from './costing/jobs'
-import { decimal, exactDivide, format, times } from './decimal'
+import { decimal, exactDivide, format, times, SCALE } from './decimal'
 import { attach } from './attachments'
 import { approvedCertificates } from './certificate-policy'
 import { assertLotNotHeld } from './quality'
@@ -14,6 +14,8 @@ import { isSerial } from './serials'
 import { allow } from './roles'
 import { fail } from './problem'
 import { bump, fresh, get, list, newId, oneOf, row, text, type Context, type Row } from './model'
+
+export const batchVarianceRule = 'Allocate actual cost in proportion to the reviewed standard output values, truncate each output value to an exact six-place unit-cost increment, and assign the remaining rounding residue (at most USD 0.000001 per output) to the final planned output. Refuse an inexact six-place unit cost.'
 
 export const batchResidueRule = 'Assign a six-place rounding residue of at most USD 0.000001 per output to the final planned output; refuse larger differences or an inexact unit cost.'
 
@@ -61,6 +63,23 @@ export function coProducts(c: Context, type: string, p: any): Row | undefined {
     const report = jobCosts(c.s, w)
     if (report.actualCost === null) fail('COST_INCOMPLETE', 'Resolve actual cost evidence before reviewing output allocation.')
     const inputs = list(p.outputs, 'actual outputs', 20)
+    const standardMode = inputs.some(x => x.standardValue !== undefined)
+    const standards = standardMode ? inputs.map(x => decimal(x.standardValue, 'standard output value')) : []
+    const standardCost = standards.reduce((n, x) => n + x, 0n)
+    if (standardMode && standardCost === 0n) fail('BATCH_VALUE', 'Total standard cost must be positive for proportional allocation.')
+    const actualCost = decimal(report.actualCost)
+    const gcd = (a: bigint, b: bigint): bigint => b === 0n ? a : gcd(b, a % b)
+    const allocated = standards.map((x, i) => {
+      const quantity = decimal(inputs[i].quantity, 'actual yield', { positive: true })
+      const increment = quantity / gcd(quantity, SCALE)
+      return (actualCost * x / standardCost) / increment * increment
+    })
+    const allocationResidue = standardMode ? actualCost - allocated.reduce((n, x) => n + x, 0n) : 0n
+    if (standardMode) {
+      if (allocationResidue > BigInt(inputs.length)) fail('BATCH_VALUE', 'Proportional allocation exceeds the permitted six-place rounding residue; revise the standard values or yields.')
+      allocated[allocated.length - 1] += allocationResidue
+      inputs.forEach((x, i) => { x.value = format(allocated[i]) })
+    }
     if (inputs.length !== w.coProductPlan.outputs.length) fail('BATCH_OUTPUT', 'Review every planned output exactly once.')
     const residue = decimal(report.actualCost) - inputs.reduce((n, x) => n + decimal(x.value, 'allocated output value'), 0n)
     if (residue > BigInt(inputs.length) || residue < -BigInt(inputs.length)) fail('BATCH_VALUE', 'Allocation differs by more than the permitted six-place rounding residue.')
@@ -81,10 +100,10 @@ export function coProducts(c: Context, type: string, p: any): Row | undefined {
       }
       const allocations = batchAllocation(copy, shadow, { allocations: x.allocations ?? [] }, index === inputs.length - 1)
       shadow.outputs = [...(shadow.outputs ?? []), { allocations }]
-      return { ...plan, quantity: format(quantity), value: format(value), roundingResidueValue: format(index === inputs.length - 1 ? residue : 0n), unitCost: format(rate), allocations }
+      return { ...plan, ...(standardMode ? { standardValue: format(standards[index]), varianceValue: format(value - standards[index]) } : {}), quantity: format(quantity), value: format(value), roundingResidueValue: format(index === inputs.length - 1 ? (standardMode ? allocationResidue : residue) : 0n), unitCost: format(rate), allocations }
     })
     if (outputs.reduce((n, x) => n + decimal(x.value), 0n) !== decimal(report.actualCost)) fail('BATCH_VALUE', 'Total output value must equal the exact actual batch cost.')
-    const review = { id: newId(), outputs, actualCost: report.actualCost, costReport: report, residueRule: batchResidueRule, roundingResidueValue: format(residue), policy: text(p.policy, 'allocation policy', 1000), reason, preparedBy: c.actor.id, at: c.now, stateVersion: c.s.version + 1, digest: costFingerprint(c.s, w), status: 'review' }
+    const review = { id: newId(), outputs, ...(standardMode ? { standardCost: format(standardCost), varianceCost: format(actualCost - standardCost), varianceRule: batchVarianceRule, varianceResidueValue: format(allocationResidue) } : {}), actualCost: report.actualCost, costReport: report, residueRule: standardMode ? batchVarianceRule : batchResidueRule, roundingResidueValue: format(standardMode ? allocationResidue : residue), policy: text(p.policy, 'allocation policy', 1000), reason, preparedBy: c.actor.id, at: c.now, stateVersion: c.s.version + 1, digest: costFingerprint(c.s, w), status: 'review' }
     return bump(w, { coProductReviews: [...(w.coProductReviews ?? []), review] })
   }
   if (type === 'batch.post') {

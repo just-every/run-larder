@@ -57,7 +57,7 @@ const digestOf = (s: State, kind: string, r: Row, terms: unknown, people?: Perso
 // Whether the principal may still use this door themselves: a door their custom role removed, or a cost door while
 // they are restricted from costs, is closed to their deputy too (GOV-001).
 function principalHolds(s: State, principalId: string, door: string | undefined) {
-  const member = s.roles.find(r => r.id === principalId), scope = effectiveScope(member, s.customRoles.find(r => r.id === member?.customRoleId))
+  const member = s.roles.find(r => r.id === principalId), scope = effectiveScope(member, s.customRoles.find(r => r.id === member?.customRoleId), s.locations)
   return !door || (!scope.removed.includes(door) && !(scope.costs && costDoors.test(door)))
 }
 

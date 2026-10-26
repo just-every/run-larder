@@ -48,7 +48,9 @@ export function roleCommand(c: Context, type: string, p: any): Row | undefined {
   }
   const places = p.locations === null || p.locations === undefined ? null : [...new Set<string>(list<string>(p.locations, 'locations'))]
   for (const id of places ?? []) get(c.s, 'locations', id, 'location')
-  const next = { locations: places, costsRestricted: p.costsRestricted === true }
+  const sites = p.sites === undefined || p.sites === null ? null : [...new Set<string>(list<string>(p.sites, 'sites'))]
+  for (const id of sites ?? []) get(c.s, 'sites', id, 'site')
+  const next = { sites, locations: places, costsRestricted: p.costsRestricted === true }
   if (existing) return bump(existing, next)
   return row(c, 'roles', { id: p.operatorId, role: 'viewer', ...next })
 }

@@ -13,8 +13,9 @@ export const isScoped = (a: Pick<Actor, 'scope'>) => scopeOf(a).locations !== nu
 
 // What a member holds: the role row, narrowed by an owner-named custom role. Narrowing only: lists intersect, a
 // restriction on either side applies, and removed doors are a deny list so they stay removed when the base role changes.
-export function effectiveScope(member: Row | undefined, custom: Row | undefined): Scope {
-  const lists = [member?.locations, custom?.locations].filter(Array.isArray) as string[][]
+export function effectiveScope(member: Row | undefined, custom: Row | undefined, locationsAtRequest: Row[] = []): Scope {
+  const siteLocations = member?.sites ? locationsAtRequest.filter(l => member.sites.includes(l.siteId)).map(l => l.id) : undefined
+  const lists = [member?.locations, custom?.locations, siteLocations].filter(Array.isArray) as string[][]
   const locations = lists.length ? lists.reduce((a, b) => a.filter(id => b.includes(id))) : null
   return { locations, costs: Boolean(member?.costsRestricted || custom?.costsRestricted), removed: [...(custom?.removedDoors ?? [])], version: member?.version ?? 0, customId: custom?.id ?? '', customVersion: custom?.version ?? 0 }
 }
@@ -60,7 +61,7 @@ export function enforceScope(c: Context, before: State) {
   if (c.preparedBy && c.preparedBy !== c.actor.id) {
     const prepared = c.s.roles.find(r => r.id === c.preparedBy)
     if (prepared) {
-      const theirs = effectiveScope(prepared, c.s.customRoles.find(r => r.id === prepared.customRoleId))
+      const theirs = effectiveScope(prepared, c.s.customRoles.find(r => r.id === prepared.customRoleId), c.s.locations)
       if (theirs.locations !== null) {
         const theirHidden = hiddenLocations(c.s, theirs)
         if (touched.some(r => names(r, theirHidden))) forbidden('The person who prepared this is outside the location scope it needs.')

@@ -1,3 +1,4 @@
+import { WavePicking } from './wave-picking'
 import { ShipmentCertificates } from './certificates'
 import { ScanPanel } from './scan'
 import { serialHint, serialTracked } from './serials'
@@ -25,6 +26,7 @@ export function Orders({ larder, id }: { larder: Larder; id?: string }) {
   const list = statuses.list(rows(s, 'salesOrders'))
   return <div className="page">
     <header className="page-head"><p className="eyebrow">Orders</p><h1>Sales orders</h1></header>
+    <WavePicking larder={larder} />
     <Card title="Open and recent orders">{statuses.controls}{list.length === 0 ? <Empty>{rows(s, 'salesOrders').length ? 'No orders match these filters.' : 'No orders yet. Enter a quote below, or move open orders in from Odoo.'}</Empty> :
       <Table head={['Order', 'Customer', 'Promised', 'Status', 'Materials / production', 'Value']} numeric={[5]}>{list.map(o => <tr key={o.id}><td><a href={`#orders/${o.id}`}>{o.reference}</a>{o.sourceReference && <small>Odoo {o.sourceReference}</small>}<OrderRank status={statuses.status(o.id)} /><OrderStatusActions larder={larder} kind="sales" order={o} status={statuses.status(o.id)} /></td><td>{partyName(s, o.customerId)}</td><td>{day(o.promiseDate)}</td><td><Chip tone={statusTone(o.status)}>{words(o.status)}</Chip></td><td><OrderStatusDisplay s={s} status={statuses.status(o.id)} /></td><td className="num">{commercialValue(s, o)}</td></tr>)}</Table>}
     </Card>

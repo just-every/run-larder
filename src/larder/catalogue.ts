@@ -81,13 +81,22 @@ export function catalogue(c: Context, type: string, p: any): Row | undefined {
     case 'item.save':
       allow(c, ['manager', 'buyer'])
       return saveItem(c, p)
+    case 'site.save': {
+      allow(c, [])
+      const name = text(p.name, 'site name', 120)
+      if (c.s.sites.some(s => s.name.toLowerCase() === name.toLowerCase())) fail('DUPLICATE_SITE', 'Choose a distinct site name.')
+      return row(c, 'sites', { name })
+    }
     case 'location.save': {
       allow(c, ['manager', 'warehouse'])
       const name = text(p.name, 'location name', 120)
       if (c.s.locations.some(l => l.id !== p.id && l.name.toLowerCase() === name.toLowerCase())) fail('DUPLICATE_LOCATION', `A location called ${name} already exists.`)
-      if (!p.id) return row(c, 'locations', { name, note: optionalText(p.note, 'note', 400), archived: false })
+      const bin = p.siteId ? { siteId: get(c.s, 'sites', p.siteId, 'site').id, binCode: text(p.binCode, 'bin code', 80), binSequence: Number.isSafeInteger(p.binSequence) && p.binSequence >= 0 ? p.binSequence : fail('INPUT', 'Bin sequence must be a nonnegative whole number.') } : {}
+      if (p.siteId && c.s.locations.some(l => l.id !== p.id && l.siteId === p.siteId && l.binCode === bin.binCode)) fail('DUPLICATE_BIN', 'That site already has this bin code.')
+      if (!p.id) return row(c, 'locations', { ...bin, name, note: optionalText(p.note, 'note', 400), archived: false })
       const l = get(c.s, 'locations', p.id, 'location'); fresh(l, p.version)
-      return bump(l, { name, note: optionalText(p.note, 'note', 400), archived: p.archived === true })
+      if (p.siteId && l.siteId && l.siteId !== p.siteId) fail('STATE', 'An assigned bin cannot change sites.')
+      return bump(l, { ...bin, name, note: optionalText(p.note, 'note', 400), archived: p.archived === true })
     }
     case 'party.save': {
       allow(c, ['manager', 'buyer', 'sales'])
