@@ -844,7 +844,9 @@ separate audited owner decision; a hold never expires automatically.
 the contact's name and email, replaces cached human contact labels in command outcomes
 and the audit through the existing audit-erasure mechanism, and retains record
 IDs, quantities, prices, movements, documents and their bytes. A stale preview,
-a held contact or missing explicit consent refuses the whole transaction.
+a held contact or missing explicit consent refuses the whole transaction. Names
+shorter than three characters require a separate field-specific audit review and
+are refused by this limited door.
 Replaying the same command returns the recorded result. Future JSON and CSV
 business archives retain the anonymized contact, hold and decision; restore
 preserves them without executing erasure again. Earlier downloaded archives,
@@ -887,3 +889,6 @@ read-only resource scopes, restricted costs and a live native issuing session.
 Scoped service writes, other resource families, outbound signed events with
 stable identities and durable retries, provider-confirmed follow-up closure and
 the draft-only MCP server remain unimplemented. CONN-014 remains partial.
+
+CONN-015 inherits resource scope and revocation at its own connection door; this
+read-only slice does not prove its future Zapier draft journey.

@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "842a6a844b9517b49a31137057517327b2cd1b0d189a2b4c61ed18fa14daa067",
+      "sha256": "8bb3ede22d88f7a23841b2dcfb6fa295dd25e4b238aabb5c7033d6c667257bca",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -193,7 +193,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "220a2541a8e810fd7b8d5029f87fb0a58cf7b11428adefe0e48732d314e1099e",
+      "sha256": "7893a8897c0ee1e1724a526226755acc9be2d4d023ac884dbbad8a79d9c43878",
       "executable": false
     },
     "base-copies.json": {
@@ -1041,7 +1041,7 @@
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "d57055e8908a3a9331d9e5be5160ddea4bf492e637b8b61779560ac6376b12ff",
+      "sha256": "41e62c7fe155f0f424f1eeb7324cfa96cd4527ad483c38d420f23f75502339fb",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -1345,7 +1345,7 @@
       "executable": false
     },
     "src/larder/odoo/imports.ts": {
-      "sha256": "8fe271258ba5ba7c8ff1ffe7416e6e6bfbd4141fc211846d395d1ce0150d1f29",
+      "sha256": "eeaaf83ff9549a8c1e4b22f14f440401f0a0c214f9ec69ff4ac390d9413fc659",
       "executable": false
     },
     "src/larder/odoo/map.ts": {
@@ -1465,7 +1465,7 @@
       "executable": false
     },
     "src/larder/retention.ts": {
-      "sha256": "d1ce10e21a7b4046f88b922326e91c6db6c2ca8dcd2b7a6239d648c6d8340fd9",
+      "sha256": "82e4c9b64c2d3ea7732c109c5f5a3f70c0107d535d3282131d0773b694c0618a",
       "executable": false
     },
     "src/larder/reversal.ts": {

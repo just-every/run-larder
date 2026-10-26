@@ -54,12 +54,12 @@ export function retention(c: Context, type: string, p: any): Row | undefined {
 }
 
 // Holds fence every business command, including import undo and record editors.
-export function enforceRetention(before: State, next: State) {
+export function enforceRetention(before: State, next: State, undoId?: unknown) {
   for (const hold of before.retentionHolds.filter(h => h.active)) {
     if (!next.retentionHolds.some(h => h.id === hold.id && h.active)) continue
     if (!(retentionKinds as readonly string[]).includes(hold.kind)) fail('LEGAL_HOLD', 'Unknown held category requires owner review.')
     const kind = hold.kind as typeof retentionKinds[number]
-    for (const batch of next.imports.filter(b => b.status === 'undone' && before.imports.some(old => old.id === b.id && old.status === 'committed'))) {
+    for (const batch of next.imports.filter(b => (b.id === undoId && b.status === 'committed') || (b.status === 'undone' && before.imports.some(old => old.id === b.id && old.status === 'committed')))) {
       if ((batch.created ?? []).some((r: any) => r.kind === kind && r.id === hold.recordId) || (batch.changed ?? []).some((r: any) => r.kind === kind && r.data?.id === hold.recordId)) fail('LEGAL_HOLD', 'A held record belongs to this move-in. Release the hold explicitly before undo.')
     }
     const previous = before[kind].find(r => r.id === hold.recordId)

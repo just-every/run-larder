@@ -188,6 +188,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
     if (erasure) c.erasure = erasure
     enforcePayload(c, payload)
+    if (type === 'import.undo') enforceRetention(before, s, payload.importId)
     let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')

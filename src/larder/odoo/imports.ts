@@ -66,7 +66,7 @@ export function undoDependencies(s: State, batch: Row) {
   for (const h of s.handoffs) if (h.lines.some((l: any) => l.movementIds.some((id: string) => moved.has(id)))) out.push(`${h.reference} handed moved-in stock to the accountant`)
   for (const x of [...batch.created, ...batch.changedVersions]) { const r = s[x.kind as (typeof collections)[number]]?.find(y => y.id === x.id); if (r && r.version !== x.version) out.push(`${r.reference ?? r.sku ?? r.name ?? x.kind} was changed after the move-in`) }
   const refers = (v: unknown): boolean => typeof v === 'string' ? created.has(v) : Array.isArray(v) ? v.some(refers) : !!v && typeof v === 'object' && Object.values(v).some(refers)
-  for (const kind of collections) if (kind !== 'imports') for (const r of s[kind]) if (!created.has(r.id) && refers(r)) out.push(`${r.reference ?? r.name ?? kind} refers to moved-in records`)
+  for (const kind of collections) if (kind !== 'imports') for (const r of s[kind]) if ((kind !== 'retentionHolds' || r.active) && !created.has(r.id) && refers(r)) out.push(`${r.reference ?? r.name ?? kind} refers to moved-in records`)
   return [...new Set(out)]
 }
 
