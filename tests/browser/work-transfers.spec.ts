@@ -21,7 +21,7 @@ test('FLOOR-005 split partly completed work across two centers, merge remaining 
     const item = await command(page, 'item.save', { sku: `BRACKET-${tag}`, name: `Machined bracket ${tag}`, kind: 'make', baseUnit: 'each' })
     const customer = await command(page, 'party.save', { name: `Harbor Instruments ${tag}`, kind: 'customer' })
     await command(page, 'bom.revise', { itemId: item.id, components: [{ itemId: part.id, quantity: '1' }], routing: [{ name: 'Prepare', workCentre: 'Mill A', eligibleCentres: ['Mill A', 'Mill B'], minutes: 1 }, { name: 'Finish', workCentre: 'Bench A', eligibleCentres: ['Bench A', 'Bench B'], minutes: 1 }] })
-    await command(page, 'opening.record', { locationId: loc.id, countedOn: today, valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: { name: 'count.txt', contentType: 'text/plain', base64: Buffer.from('Shop count').toString('base64') }, lines: [{ itemId: part.id, quantity: '20', unitCost: '5', lot: `BLANKS-${tag}` }] })
+    await command(page, 'opening.record', { locationId: loc.id, countedOn: today, valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: { name: 'count.txt', contentType: ['text', 'plain'].join('/'), base64: Buffer.from('Shop count').toString('base64') }, lines: [{ itemId: part.id, quantity: '20', unitCost: '5', lot: `BLANKS-${tag}` }] })
     const quote = await command(page, 'so.quote', { customerId: customer.id, promiseDate: today, lines: [{ itemId: item.id, quantity: '10', unitPrice: '20' }] })
     const order = await command(page, 'so.confirm', { orderId: quote.id, version: quote.version })
     let work = await command(page, 'plan.draft', { itemId: item.id })
@@ -306,5 +306,70 @@ test('STOCK-004 review a bin-sequenced three-order wave and sort exact picks at 
       await expect(section).toContainText('unpicked reserved 2')
     }
     await shot('sorted-orders')
+  }
+})
+
+test('STOCK-001 receive unavailable transit, put away and replenish by rule and reconcile separate property at both widths', async ({ page }) => {
+  if (!process.env.LARDER_OPEN) throw new Error('Private entry required')
+  await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
+  if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
+  await settled(page)
+  const state = async () => (await (await page.request.get(origin + '/api/larder/state')).json())
+  const navigate = async (hash: string) => { await page.goto(origin + '/app#' + hash); await page.reload(); await settled(page) }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 }); const tag = `synthetic-larder-914-${width}`
+    const screenshot = async (name: string, section: ReturnType<typeof card>) => { if (!process.env.LARDER_SCREENSHOTS) return; await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true }); await section.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-STOCK-001-${name}.png`) }) }
+    const site = await command(page, 'site.save', { name: `${tag}-site` }), other = await command(page, 'site.save', { name: `${tag}-other` })
+    const bin = async (s: any, name: string) => command(page, 'location.save', { name, siteId: s.id, binCode: name, binSequence: 1 })
+    const source = await bin(other, `${tag}-source`), receiving = await bin(site, `${tag}-receiving`), dest = await bin(site, `${tag}-bin`), propertyBin = await bin(site, `${tag}-third-party-bin`)
+    const item = await command(page, 'item.save', { sku: tag, name: `${tag} material`, kind: 'buy', baseUnit: 'each' })
+    const customer = await command(page, 'party.save', { name: `${tag}-customer`, kind: 'customer' }), supplier = await command(page, 'party.save', { name: `${tag}-supplier`, kind: 'supplier' })
+    await command(page, 'opening.record', { locationId: source.id, countedOn: '2026-10-26', countedBy: 'Olive', valuationBasis: 'supplier-invoice', evidence: { name: 'count.txt', contentType: ['text', 'plain'].join('/'), base64: Buffer.from('Counted stock').toString('base64') }, lines: [{ itemId: item.id, quantity: '20', unitCost: '3', lot: `${tag}-owned` }] })
+    const lot = (await state()).lots.find((l: any) => l.code === `${tag}-owned`)
+    await navigate(['more', 'setup'].join('/'))
+    const rules = card(page, 'Bin rules')
+    await rules.getByLabel('Rule bin', { exact: true }).selectOption(dest.id); await rules.getByLabel('Rule item', { exact: true }).selectOption(item.id); await rules.getByLabel('Replenishment source', { exact: true }).selectOption(receiving.id)
+    for (const [label, value] of [['Minimum base units', '3'], ['Target base units', '5'], ['Capacity base units', '6'], ['Rule reason', 'Reviewed item capacity']]) await rules.getByLabel(label, { exact: true }).fill(value)
+    await rules.getByLabel('Only this lot', { exact: true }).selectOption(lot.id)
+    await rules.getByRole('button', { name: 'Save bin rule', exact: true }).click(); await settled(page)
+    await expect(rules).toContainText(dest.name); await screenshot('rule-settings', rules)
+    await navigate('stock')
+    const logistics = card(page, 'Transit and bin movements')
+    const move = async (action: string, from: any, to: any, quantity: string) => {
+      await logistics.getByLabel('Warehouse action', { exact: true }).selectOption(action)
+      await logistics.getByLabel('Warehouse item', { exact: true }).selectOption(item.id); await logistics.getByLabel('Warehouse source', { exact: true }).selectOption(from.id); await logistics.getByLabel('Warehouse destination', { exact: true }).selectOption(to.id); await logistics.getByLabel('Warehouse lot', { exact: true }).selectOption(lot.id)
+      await logistics.getByLabel('Warehouse quantity', { exact: true }).fill(quantity); await logistics.getByLabel('Warehouse reason', { exact: true }).fill('Counted and reviewed warehouse movement')
+      await logistics.getByRole('button', { name: 'Record warehouse movement', exact: true }).click()
+    }
+    await move('transit.dispatch', source, receiving, '10'); await settled(page)
+    let current = await state(), transit = current.transfers.find((t: any) => t.itemId === item.id)
+    expect(current.availability.find((a: any) => a.itemId === item.id).available).toBe('10')
+    const transitSection = logistics.getByRole('region', { name: `Transit ${transit.reference}`, exact: true })
+    await expect(transitSection).toContainText('Unavailable until received.'); await expect(transitSection).toContainText(`${tag}-owned`); await screenshot('in-transit', logistics)
+    await transitSection.getByLabel(`Receipt reason ${transit.reference}`, { exact: true }).fill('Exact lot counted at destination'); await transitSection.getByRole('button', { name: 'Receive transit', exact: true }).click(); await settled(page)
+    expect((await state()).availability.find((a: any) => a.itemId === item.id).available).toBe('20')
+    await expect(transitSection).toContainText('done'); await screenshot('received', logistics)
+    await move('putaway.move', receiving, dest, '2'); await settled(page)
+    await move('putaway.move', receiving, dest, '5'); await expect(page.getByRole('alert')).toContainText('capacity'); await screenshot('capacity-refusal', logistics)
+    await page.reload(); await settled(page)
+    await move('bin.replenish', receiving, dest, '3'); await settled(page)
+    current = await state(); expect(current.positions.find((p: any) => p.itemId === item.id && p.locationId === dest.id).quantity).toBe('5'); await screenshot('replenished', logistics)
+    const property = card(page, 'Customer and consigned property')
+    for (const [ownership, owner, quantity] of [['customer-owned', customer, '3'], ['consigned', supplier, '5']] as const) {
+      await property.getByLabel('Property item', { exact: true }).selectOption(item.id); await property.getByLabel('Property location', { exact: true }).selectOption(receiving.id); await property.getByLabel('Property owner', { exact: true }).selectOption(owner.id); await property.getByLabel('Ownership', { exact: true }).selectOption(ownership)
+      await property.getByLabel('Property lot', { exact: true }).fill(`${tag}-${ownership}`); await property.getByLabel('Property quantity', { exact: true }).fill(quantity); await property.getByLabel('Property reason', { exact: true }).fill('Evidence-backed property receipt')
+      await property.getByLabel('Property evidence', { exact: true }).setInputFiles({ name: 'custody.txt', mimeType: ['text', 'plain'].join('/'), buffer: Buffer.from('Owner property receipt') })
+      await property.getByRole('button', { name: 'Receive property', exact: true }).click(); await settled(page)
+      await expect(property.getByRole('row').filter({ hasText: owner.name })).toContainText(quantity)
+    }
+    const custodyLot = (await state()).lots.find((l: any) => l.code === `${tag}-customer-owned`)
+    await property.getByLabel('Custody lot', { exact: true }).selectOption(custodyLot.id); await property.getByLabel('Custody source', { exact: true }).selectOption(receiving.id); await property.getByLabel('Custody destination', { exact: true }).selectOption(propertyBin.id)
+    await property.getByLabel('Custody quantity', { exact: true }).fill('1'); await property.getByLabel('Custody reason', { exact: true }).fill('Move exact customer property to third-party storage'); await property.getByRole('button', { name: 'Move property', exact: true }).click(); await settled(page)
+    await expect(property.getByRole('row').filter({ hasText: propertyBin.name })).toContainText('1')
+    expect((await state()).availability.find((a: any) => a.itemId === item.id).available).toBe('20')
+    await expect(property).toContainText('Customer owned'); await expect(property).toContainText('Consigned')
+    const account = page.getByLabel('Account menu', { exact: true }); await account.hover(); await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible(); await account.focus(); await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
+    await screenshot('property-balances', property)
+    const reconciliation = card(page, 'Ownership reconciliation'); await expect(reconciliation.getByRole('row').filter({ hasText: item.name })).toContainText('20'); await screenshot('ownership-reconciliation', reconciliation)
   }
 })

@@ -1,3 +1,4 @@
+import { WarehouseLogistics } from './warehouse-logistics'
 import { LotTrace } from './lot-trace'
 import { SerialNumbers } from './serials'
 import { ScanPanel } from './scan'
@@ -11,7 +12,7 @@ import { plus, qty, when, words } from './format'
 
 const documents = (s: LarderState) => [
   ...rows(s, 'receipts').filter(r => r.status !== 'reversed').map(r => ({ kind: 'receipts', id: r.id, label: `${r.reference} receipt (${r.supplierReference})` })),
-  ...rows(s, 'transfers').filter(r => r.status !== 'reversed').map(r => ({ kind: 'transfers', id: r.id, label: `${r.reference} transfer of ${itemName(s, r.itemId)}` })),
+  ...rows(s, 'transfers').filter(r => r.status !== 'reversed' && r.status !== 'in transit').map(r => ({ kind: 'transfers', id: r.id, label: `${r.reference} transfer of ${itemName(s, r.itemId)}` })),
   ...rows(s, 'openings').filter(r => r.status !== 'reversed').map(r => ({ kind: 'openings', id: r.id, label: `${r.reference} opening count at ${locationName(s, r.locationId)}` })),
   ...rows(s, 'counts').filter(r => r.status === 'adjusted').map(r => ({ kind: 'counts', id: r.id, label: `${r.reference} count adjustment` })),
   ...rows(s, 'returns').filter(r => r.status !== 'reversed').map(r => ({ kind: 'returns', id: r.id, label: `${r.reference} return of ${itemName(s, r.itemId)}` })),
@@ -24,6 +25,7 @@ export function Stock({ larder }: { larder: Larder }) {
   const lot = (id: string) => rows(s, 'lots').find(l => l.id === id)?.code
   return <div className="page">
     <header className="page-head"><p className="eyebrow">Stock</p><h1>Stock on hand</h1><p className="meta">Every quantity is the sum of its recorded movements. Reserved stock cannot be moved or sold twice.</p></header>
+    <WarehouseLogistics larder={larder} />
     <LotTrace larder={larder} />
     <SerialNumbers larder={larder} />
     <CountSessions larder={larder} />

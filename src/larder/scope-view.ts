@@ -30,7 +30,8 @@ export function visibleState(s: State, scope: Scope): Visible {
   for (const m of s.movements) if (names(m, places)) { hidden.add(m.id) }
   for (const r of s.reservations) if (names(r, places)) hidden.add(r.id)
   // A lot whose every movement is out of scope is itself out of scope.
-  for (const l of s.lots) { const moved = s.movements.filter(m => m.lotId === l.id); if (moved.length && moved.every(m => hidden.has(m.id))) hidden.add(l.id) }
+  for (const m of s.custodyLedger) if (names(m, places)) hidden.add(m.id)
+  for (const l of s.lots) { const moved = [...s.movements, ...s.custodyLedger].filter(m => m.lotId === l.id); if (moved.length && moved.every(m => hidden.has(m.id))) hidden.add(l.id) }
   for (const k of collections) if (!base.has(k)) for (const r of s[k]) if (names(r, places)) hidden.add(r.id)
   // Anything that names a hidden record is hidden too, so no identifier of one survives.
   for (let pass = 0; pass < 6; pass++) {

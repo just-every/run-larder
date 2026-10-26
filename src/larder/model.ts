@@ -1,7 +1,7 @@
 import { fail } from './problem'
 
 export const collections = [
-  'integrationGrants', 'retentionHolds', 'contactErasures', 'sites', 'pickWaves', 'varianceAnalyses',
+  'binRules', 'custodyLedger', 'integrationGrants', 'retentionHolds', 'contactErasures', 'sites', 'pickWaves', 'varianceAnalyses',
   'workGroups', 'costPolicies', 'jobCharges', 'costLinks', 'marginCharges', 'costValuations', 'reportSchedules', 'scheduleGrants', 'replenishmentPlans', 'schedulePolicies', 'schedulePlans', 'scheduleBookings', 'machineCalendars', 'laborCalendars', 'laborRates', 'sourceHistory', 'historyImports', 'items', 'locations', 'parties', 'partyItems', 'boms', 'salesOrders', 'purchaseOrders', 'workOrders',
   'receipts', 'lots', 'shipments', 'returns', 'transfers', 'counts', 'openings', 'reversals', 'handoffs',
   'inventoryPolicies', 'inventoryPlans', 'certificates', 'certificatePolicies', 'maintenance', 'forecasts', 'productionPlans', 'proposals', 'approvals', 'orderChanges', 'bomChanges', 'catalogChanges', 'engineeringChanges', 'countSessions', 'followUps', 'resolutions', 'imports', 'roles', 'workTransfers', 'reworkOrders', 'subcontractOrders', 'subcontractCustody', 'inspectionPlans', 'inspections', 'qualityHolds', 'nonconformances', 'recalls', 'approvalPolicies', 'approvalDelegations', 'approvalSignatures', 'cutovers', 'auditErasures', 'customRoles', 'configModels', 'kits', 'kitSales', 'timeEntries', 'timeLocks', 'serialEvents',

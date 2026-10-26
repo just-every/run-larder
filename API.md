@@ -967,3 +967,46 @@ This is a recorded-material bridge, not complete actual WIP: production labor,
 overhead, later valuations, operation allocation, screens and external control
 account reconciliation remain COST-002 gaps. The response labels that basis and
 its external state as not connected and not reconciled. No journals are posted.
+
+### Warehouse transit, bin rules and property
+
+`bin.rule` is owner-controlled configuration in Settings. Supply `locationId`
+(a named site bin), `itemId`, `sourceLocationId`, decimal-string `minimum`,
+`target`, `capacity`, optional exact `lotId` and `reason`. Updating the same
+item and bin requires the current rule `version`; prior definitions remain in
+its history. Capacity is per item in base units and includes quarantined and
+third-party property. Minimum is below target, which cannot exceed capacity.
+
+Managers and warehouse members use these commands with their current site
+scope, including every named source and destination. Agents cannot post them.
+
+- `transit.dispatch`: `itemId`, `fromLocationId`, `toLocationId`, `quantity`,
+  optional `unit` and `lotId`, and `reason`. Dispatch withdraws only released,
+  usable, unreserved owned stock and retains exact lot quantities and costs.
+  Its transfer stays `in transit` and cannot be reserved, issued or shipped.
+- `transit.receive`: `transferId`, current `version`, `reason`. Explicit receipt
+  posts the retained sources once at the recorded destination, rechecking its
+  current capacity and lot rule and the lot's current quality and date gates.
+  An outstanding transit cannot be reversed; receive it before a compensating
+  reversal. No automatic receipt or provider confirmation is claimed.
+- `putaway.move`: the dispatch payload, with a configured destination bin rule.
+  Quality, dates, exact lot restrictions, capacity and site permissions apply.
+- `bin.replenish`: the same payload, using the rule's source, only below its
+  minimum, for exactly the quantity needed to reach its target. The same
+  putaway refusals apply. Existing immediate transfers also enforce bin limits.
+- `custody.receive`: `itemId`, `locationId`, `ownerId` (the customer or supplier
+  contact), `ownership` (`customer-owned` or `consigned`), a new `lot` reference,
+  `quantity`, optional `unit`, `reason` and `evidence` attachment. This records
+  separate property, with no owned stock movement or automatic title transfer.
+- `custody.move`: `lotId`, `fromLocationId`, `toLocationId`, `quantity`, optional
+  `unit` and `reason`. Append-only entries move that owner's exact property,
+  checking source quantity, destination capacity, lot and quality, and scope.
+
+State includes `custodyBalances` and `ownershipBalances`, with owned stock on
+site, owned stock in transit, total owned stock, customer property and consigned
+property kept separate. Property never enters owned availability or valuation.
+Derived balances that include locations outside a member's reach read
+`restricted (includes other locations)` rather than displaying a partial total.
+Rules, transfers, custody entries and original evidence travel in the complete
+JSON and CSV business archive. Restore retains them as records, never repeating
+a dispatch, receipt, movement or external action.

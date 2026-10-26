@@ -1,3 +1,4 @@
+import { custodyBalances, ownershipBalances } from './warehouse-balances'
 import { rateReaders } from './scheduling/calendars'
 import { supplierPerformance } from './supplier-terms'
 // What a signed-in person or agent reads: records, formatted ledger, positions,
@@ -37,9 +38,14 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
   let out: Record<string, any>
   if (scope.locations === null) out = fullView(s, actor, extra) as Record<string, any>
   else {
-    const full = fullView(s, actor, extra) as Record<string, any>, seen = fullView(visibleState(s, scope).state, actor, extra) as Record<string, any>
+    const visible = visibleState(s, scope)
+    const full = fullView(s, actor, extra) as Record<string, any>, seen = fullView(visible.state, actor, extra) as Record<string, any>
     const records = new Set<string>([...collections, 'actor', 'version', 'movements', 'reservations'])
     out = Object.fromEntries(Object.entries(seen).map(([k, v]) => [k, records.has(k) || k in extra ? v : reconcile(full[k], v)]))
+    // Cancelling hidden entries can leave the same numeric total. These balances
+    // still depend on hidden sources, so equality alone cannot authorize them.
+    out.ownershipBalances = seen.ownershipBalances.map((r: any) => [...s.movements, ...s.transfers, ...s.custodyLedger].some(source => source.itemId === r.itemId && names(source, visible.hidden)) ? { itemId: r.itemId, restricted: 'restricted (includes other locations)' } : r)
+    out.custodyBalances = seen.custodyBalances.map((r: any) => s.custodyLedger.some(source => source.lotId === r.lotId && source.locationId === r.locationId && names(source, visible.hidden)) ? { itemId: r.itemId, restricted: 'restricted (includes other locations)' } : r)
   }
   if (scope.costs) { const { actor: me, version, ...rest } = out; out = { version, actor: me, ...redactCosts(rest) } }
   return out
@@ -71,6 +77,8 @@ function fullView(s: State, actor: Actor, extra: Record<string, unknown>) {
     movements: s.movements.map(m => wages.movements.has(m.id) ? { ...movementView(m), unitCost: restricted } : movementView(m)),
     reservations: s.reservations.map(r => ({ ...r, quantity: format(r.quantity) })),
     positions: positions(s),
+    custodyBalances: custodyBalances(s),
+    ownershipBalances: ownershipBalances(s),
     availability: s.items.map(i => availability(s, i.id)),
     kitAvailability: kitAvailability(s),
     shortages: shortages(s),
