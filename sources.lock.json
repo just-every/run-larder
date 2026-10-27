@@ -3953,7 +3953,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "2e92328847c4456a2cf08efd9a0e514b564a1235ccfee57ded821e5bab7819f2",
+      "sha256": "3edcd81d96f9f30e165e49da43e2fd41aaa0cb3c5910a5ad56c36f1bdb58b43e",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -4113,7 +4113,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "54f709802f9b957b5d91e5901ff40be7da8961880d6de3c17245af448183bbad",
+      "sha256": "ca5bad22b458ba815265937b1a09f37136c27710479e9d43481587d8f6649d52",
       "executable": false
     },
     "tests/browser/maintenance.spec.ts": {

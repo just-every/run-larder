@@ -403,7 +403,7 @@ test('COST reports retain shipment margins, job source drills and missing perfor
   const scheduled=await act(page,()=>page.getByRole('button',{name:'Schedule this report',exact:true}).click());expect(scheduled.filters.itemId).toBe(product.id);expect(scheduled.filters.from).toBe(today);expect(scheduled.filters.site).toBe(location.id);expect(scheduled.filters.ownerId).toBe(ownerId)
   await page.setViewportSize({width:1440,height:1000});await expect(card(page,'Save a daily in-app report')).toContainText('Snapshots stop at sign-out, session expiry, revocation or owner change.');await expect(card(page,'Scheduled in-app reports')).toContainText('Consenting owner:')
   const opened=await act(page,()=>card(page,'Scheduled in-app reports').getByRole('button',{name:'Open due report',exact:true}).last().click())
-  expect(opened.snapshots[0].by).toBe((await state(page)).actor.id);await expect(card(page,'Scheduled in-app reports')).toContainText(`Owner: ${opened.snapshots[0].ownerName}`)
+  expect(opened.snapshots[0].generation).toBe('manual');expect(opened.snapshots[0].by).toBe((await state(page)).actor.id);await expect(card(page,'Scheduled in-app reports')).toContainText(`Owner: ${opened.snapshots[0].ownerName}`)
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'COST-scheduled-report')}
   const email=`synthetic-larder-1113-${suffix}@example.test`
   expect((await page.request.post(origin+'/auth/invite',{headers:{Origin:origin},data:{email,displayName:'Restricted report manager',role:'member'}})).status()).toBe(202)

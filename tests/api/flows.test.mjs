@@ -1159,6 +1159,7 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   assert.equal(filtered.metrics.downtime.milliseconds,'120000');assert.equal(filtered.metrics.availability.percent,'90');assert.equal(filtered.metrics.performance.percent,'222.222222');assert.equal(filtered.metrics.oee.percent,'100')
   assert.deepEqual(filtered.metrics.onTimeDelivery.sources.map(r=>r.workOrderId),[job.id])
   for(const metric of Object.values(filtered.metrics)){assert.ok(Object.hasOwn(metric,'denominator'));assert.ok(Array.isArray(metric.missing));assert.ok(Array.isArray(metric.sources))}
+  assert.equal((await h.request('/api/larder/costing/performance',{as:''})).status,401)
   const filterManager=await h.person('synthetic-larder-1111@example.test','manager')
   for(const [filter,yes,no] of [['site',w.loc.id,w.store.id],['ownerId',me.id,filterManager.id],['itemId',w.board.id,w.oil.id],['center','Bench','Finishing']]){
     const base=`?from=${today}&to=${today}`+(filter==='itemId'?'':`&itemId=${w.board.id}`)
@@ -1260,6 +1261,8 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   await manager.run('reports.run',{scheduleId:unattended.id,version:retained.version},{error:'FORBIDDEN'})
   await runner.command('reports.run',{scheduleId:unattended.id,version:retained.version-1},{error:'STALE'})
   await runner.command('reports.cancel',{scheduleId:unattended.id,version:retained.version,reason:'synthetic-larder-1102 revoke consent'})
+  const cancellations=await(await runner.request('/api/larder/audit?type=reports.cancel')).json();const cancellation=cancellations.entries.filter(e=>e.subjectId===unattended.id);assert.equal(cancellation.length,1);assert.equal(cancellation[0].after.status,'cancelled')
+  const issuances=await(await runner.request('/api/larder/audit?type=reports.schedule')).json();assert.equal(issuances.entries.filter(e=>e.subjectId===unattended.id).length,1)
   await runner.advanceClock('2027-01-12T12:00:00.000Z');await tick(runner)
   assert.equal((await runner.state()).reportSchedules.find(r=>r.id===unattended.id).snapshots.length,2)
   for(const termination of ['signout','expiry','revocation','owner change','deactivation','review','dev']){
