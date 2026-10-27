@@ -387,6 +387,7 @@ test('COST reports retain shipment margins, job source drills and missing perfor
           const row=metrics.getByRole('row').filter({has:metrics.getByRole('button',{name:'Metric sources '+name,exact:true})}),cells=row.getByRole('cell')
           expect(await cells.nth(1).evaluate(el=>el.childNodes[0].textContent)).toBe(numerator);expect(await cells.nth(2).evaluate(el=>el.childNodes[0].textContent)).toBe(denominator);await expect(cells.nth(3)).toHaveText(result)
         }
+        const oee=metrics.getByRole('row').filter({has:metrics.getByRole('button',{name:'Metric sources Overall equipment effectiveness',exact:true})});await expect(oee.getByRole('cell').nth(3)).toHaveText('Unknown')
         const sourceButtons=metrics.getByRole('button',{name:/^Metric sources /});expect(await sourceButtons.count()).toBe(11);for(const button of await sourceButtons.all()){await button.click();await expect(button).toHaveAttribute('aria-expanded','true');await button.click()}const metric=metrics.getByRole('button',{name:'Metric sources Yield',exact:true});await metric.click();await expect(metrics).toContainText('Output')
       }
       if(width===390) {
