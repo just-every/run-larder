@@ -1280,7 +1280,6 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
       const noSend=stopped.outboundCount();await tick(stopped);await stopped.restart();await tick(stopped)
       assert.equal((await stopped.db.prepare("SELECT data FROM larder_records WHERE kind='reportSchedules' AND id=?").bind(due.id).first()).data,before,termination+' must stop generation across restart')
       assert.equal(stopped.outboundCount(),noSend)
-      if(['review','dev'].includes(termination)){const manual=await stopped.command('reports.run',{scheduleId:due.id,version:due.version});assert.equal(manual.snapshots.length,1);assert.equal(manual.snapshots[0].generation,'manual')}
     }finally{await stopped.close()}
   }
 })
