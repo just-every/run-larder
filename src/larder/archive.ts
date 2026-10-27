@@ -12,11 +12,17 @@ import { collections, type Actor } from './model'
 const FORMAT = 'larder-archive-v1'
 // These are native USD records. Original source history and supplier quote
 // currencies are independent declarations and must never be rewritten here.
-const functionalMoney = ['items', 'salesOrders', 'purchaseOrders', 'workOrders', 'laborRates', 'jobCharges', 'costLinks', 'costValuations', 'marginCharges', 'handoffs'] as const
+const functionalMoney = ['businessProfiles', 'items', 'salesOrders', 'purchaseOrders', 'workOrders', 'laborRates', 'jobCharges', 'costLinks', 'costValuations', 'marginCharges', 'handoffs'] as const
 function checkFunctionalMoney(records: Partial<Record<(typeof functionalMoney)[number], any[]>>) {
   for (const kind of functionalMoney) for (const record of records[kind] ?? []) {
     if ((record.currency !== undefined && record.currency !== 'USD') || (record.functionalCurrency !== undefined && record.functionalCurrency !== 'USD')) fail('CURRENCY_MIGRATION', 'A native monetary record conflicts with the declared USD functional currency. Supply a versioned recorded-rate migration; original amounts cannot be relabelled.')
   }
+}
+
+// Per-record declarations cover every nested monetary value unless that value
+// carries its own explicit original currency (for example source evidence).
+function declarations(records: Record<string, any[]>) {
+  return Object.fromEntries(Object.entries(records).map(([kind, rows]) => [kind, rows.map(r => ({ id: r.id, currency: kind === 'sourceHistory' ? r.currency : 'USD' }))]))
 }
 
 const base64 = (bytes: ArrayBuffer | Uint8Array) => { let s = ''; for (const b of new Uint8Array(bytes)) s += String.fromCharCode(b); return btoa(s) }
@@ -35,6 +41,7 @@ export async function archive(env: Bindings, actor: Actor) {
   const content = {
     format: FORMAT, version: s.version, currency: 'USD', precision: 6,
     records: Object.fromEntries(collections.map(k => [k, s[k]])),
+    currencyDeclarations: { version: 1, records: declarations(Object.fromEntries(collections.map(k => [k, s[k]]))), movements: 'USD' },
     movements: s.movements.map(m => ({ ...m, quantity: m.quantity.toString(), unitCost: m.unitCost.toString() })),
     reservations: s.reservations.map(r => ({ ...r, quantity: r.quantity.toString() })),
     commands: commands.results, people: [...new Map([...historicalPeople.results.flatMap((r: any) => JSON.parse(r.data)), ...people.results].map((p: any) => [p.id, p])).values()].map((p: any) => s.contactErasures.some(e => e.subjectKind === 'operator' && e.subjectId === p.id) ? { ...p, name: '[erased]' } : p),
@@ -59,6 +66,7 @@ export async function restore(env: Bindings, actor: Actor, request: Request) {
   // archive is safer than restoring its amounts and later exporting them as USD.
   if (content.currency !== 'USD') fail('CURRENCY_MIGRATION', 'Restore requires an explicitly declared USD functional currency. Legacy non-USD amounts need a versioned migration with recorded rates and reconciliation; they cannot be relabelled.')
   checkFunctionalMoney(content.records ?? {})
+  if (content.currencyDeclarations !== undefined && canonicalJson(content.currencyDeclarations) !== canonicalJson({ version: 1, records: declarations(content.records ?? {}), movements: 'USD' })) fail('CURRENCY_MIGRATION', 'Per-record currency declarations conflict with the archived records.')
   const empty = await env.DB.prepare('SELECT (SELECT version FROM larder_meta WHERE id=1)=0 AND NOT EXISTS(SELECT 1 FROM larder_records) AND NOT EXISTS(SELECT 1 FROM larder_movements) AND NOT EXISTS(SELECT 1 FROM larder_commands) AS empty').first<{ empty: number }>()
   if (empty?.empty !== 1) fail('NOT_EMPTY', 'Restore only into an empty installation. This one already has records.')
   const db = env.DB, guard = authority(actor)

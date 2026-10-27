@@ -1,3 +1,4 @@
+import { BusinessSettings } from './business-settings'
 import type { Larder } from './app'
 import { MoveIn } from './move-in'
 import { Setup } from './setup'
@@ -23,6 +24,7 @@ export function More({ larder, section }: { larder: Larder; section?: string }) 
   const current = sections.find(x => x.id === section)
   return <div className="page">
     <header className="page-head"><p className="eyebrow">{current ? <a href="#settings">Settings</a> : 'Settings'}</p><h1>{current?.title ?? 'Settings'}</h1></header>
+    {!current && <BusinessSettings larder={larder} />}
     {!current && <ul className="tiles">{sections.map(x => <li key={x.id}><a href={`#settings/${x.id}`}><strong>{x.title}</strong><span>{x.blurb}</span></a></li>)}</ul>}
     {section === 'retention' && <RetentionSettings larder={larder} />}
     {section === 'move-in' && <MoveIn larder={larder} />}

@@ -50,7 +50,7 @@ function fullView(s: State, actor: Actor, extra: Record<string, unknown>) {
   const blind = blindView(s, actor, extra)
   if (blind) return blind
   const today = commandTime().slice(0, 10), followUpCases = followUpView(s, today)
-  const records = Object.fromEntries(collections.map(k => [k, ((k === 'laborRates' || ['costPolicies','jobCharges','costLinks','marginCharges','costValuations','reportSchedules'].includes(k)) && !rateReaders.includes(actor.role)) || (['retentionPolicies', 'integrationGrants', 'auditErasures', 'retentionHolds', 'contactErasures'].includes(k) && actor.role !== 'owner') ? [] : s[k]]))
+  const records = Object.fromEntries(collections.map(k => [k, ((k === 'laborRates' || ['costPolicies','jobCharges','costLinks','marginCharges','costValuations','reportSchedules'].includes(k)) && !rateReaders.includes(actor.role)) || (['businessProfiles', 'retentionPolicies', 'integrationGrants', 'auditErasures', 'retentionHolds', 'contactErasures'].includes(k) && actor.role !== 'owner') ? [] : s[k]]))
   // Scopes and custom roles are the owner's to read; everyone else sees only who holds which role.
   if (actor.role !== 'owner') { records.varianceAnalyses = []; records.roles = s.roles.map(({ id, version, role }) => ({ id, version, role })); records.customRoles = [] }
   records.approvalSignatures = s.approvalSignatures.map(x => ({ ...x, status: signatureStatus(s, x, new Date().toISOString(), extra.people as { id: string; role: string }[] | undefined) }))

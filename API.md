@@ -1030,3 +1030,22 @@ consent evidence, remains audited, and authorizes no model call or erasure.
 CT retains explicit native-owner consent to the exact current contact-erasure review, indefinite preservation of production and financial trace records and documents, and explicit audited owner release of a current legal hold without erasure. Credential replacement, credential revocation and link expiry grant no erasure authority and perform no deletion. Operational staff retain document access under their current native roles. Configurable lawful retention and complete eligible erasure remain required. This ruling adopts no Mallet credential or customer-media policy and accepts no completion.
 
 Gap — GOV-005: configurable US retention periods; lawful subject erasure, including former-operator live anonymization and eligible document, message and model-context erasure; complete legal-hold lifecycle coverage; controlled search, cache and provider deletion outcomes; and the page journey. Actual provider deletion and legal sufficiency of retention remain unestablished.
+
+## US business identity
+
+The owner opens Settings from the account menu. `business.save` takes the current
+profile `version` (0 before first save), `legalName`, `einReference`,
+`billingAddress` and `shippingAddress` (each `street`, `city`, two-letter US
+`state`, `postalCode`, `country: US`), `timeZone` (US IANA identifier),
+`workingWeek` (distinct weekday numbers, Sunday 0), and `fiscalYearStart`
+(recurring `MM-DD`). Functional currency defaults to USD; another currency is
+refused, never used to relabel history. The business calendar describes the
+business; existing production calendar definitions and recorded dates stay intact.
+The command checks owner authority before replay and again at atomic commit,
+refuses stale versions, and records audit history. Only the owner sees the
+profile in ordinary state reads; existing authorized business archive access
+retains the profile. This is an identity reference, not tax validation.
+
+Customer and supplier `party.save` uses separate `ein` and legacy `abn` fields.
+Existing Australian and imported tax identities are retained without reclassification.
+An omitted field does not reinterpret an ABN as an EIN.
