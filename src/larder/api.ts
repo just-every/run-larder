@@ -1,6 +1,6 @@
 import { serviceActor, serviceKeys } from './service-keys'
 import { publicPage } from './public-api'
-import { enforceRetention, retention, retentionPreview } from './retention'
+import { enforceRetention, retention, retentionPreview, operatorRetentionPreview } from './retention'
 import { wavePicking } from './wave-picking'
 import { recoveryInputsChanged } from './scheduling/recovery-options'
 import { variance } from './costing/variance'
@@ -160,7 +160,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (scopeOf(actor).locations !== null && names(previous.result, hiddenLocations(await load(env.DB), scopeOf(actor)))) forbidden('This outcome involves a location outside your location scope.')
     return respond(previous)
   }
-  let erasure = ['erasure.audit', 'erasure.contact'].includes(type) ? await erasurePlan(env.DB, await load(env.DB), actor, payload) : undefined
+  let erasure = ['erasure.audit', 'erasure.contact', 'erasure.operator'].includes(type) ? await erasurePlan(env.DB, await load(env.DB), actor, payload) : undefined
   if (type === 'exception.assign' || type === 'exception.escalate') {
     if (!['owner', 'manager'].includes(actor.role)) forbidden('Only an owner or manager assigns or escalates cases.')
     const existing = type === 'exception.escalate' ? (await load(env.DB)).followUps.find(f => f.key === payload.key) : undefined
@@ -184,7 +184,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   // A command that loses a concurrent write is recomputed against the new state.
   for (let attempt = 0; attempt < 8; attempt++) {
     const before = await load(env.DB), s = structuredClone(before)
-    if (type === 'erasure.contact') erasure = await contactOutcomes(env.DB, await erasurePlan(env.DB, before, actor, payload))
+    if (['erasure.contact', 'erasure.operator'].includes(type)) erasure = await contactOutcomes(env.DB, await erasurePlan(env.DB, before, actor, payload))
     if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
     const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
     if (erasure) c.erasure = erasure
@@ -241,7 +241,8 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (ok?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
     const versionedResource = /^\/v1\/(catalog|orders|operations|trace)$/.exec(path)
     if (versionedResource) return json(publicPage(await load(env.DB), actor, versionedResource[1], url.searchParams))
-    if (path === '/retention/contact') return json(retentionPreview(await load(env.DB), actor, url.searchParams.get('partyId')))
+    if (path === '/retention/operator') return json(await operatorRetentionPreview(env.DB, await load(env.DB), actor, url.searchParams.get('operatorId')))
+    if (path === '/retention/contact') return json(retentionPreview(await load(env.DB), actor, url.searchParams.get('partyId'), commandTime()))
     if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, await people(env, actor))) }
     // GOV-001: a scoped member reads these through their scope (see scope-view.ts); the audit, archive, handoff,
     // imports and attachment doors need an unscoped person.

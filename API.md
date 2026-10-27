@@ -854,14 +854,35 @@ preserves them without executing erasure again. Earlier downloaded archives,
 other record text and uncontrolled client copies are explicitly retained or
 outside control. No provider deletion request is made.
 
-This is a contact-only foundation. Former operators, eligible document and model
-context deletion, configured US retention periods and page controls remain
-unimplemented. CT approves the interim policy with riders: native-owner explicit current-review
-consent, indefinite production and financial trace and document
-retention, no automatic deletion or outbound request, and explicit audited hold
-release without deletion. Indefinite retention means no configured expiry or automatic purge;
-it guarantees neither permanent storage nor legal compliance. Consent authorizes no outbound
-disclosure. GOV-005 remains partial.
+`retention.configure {category, minimumDays, version?, reason}` records owner-only US
+minimum preservation floors for contacts, production and financial trace, or documents.
+The period is 0 to 36500 whole days from contact creation; a contact review reports
+its eligibility timestamp and commands refuse early erasure. An elapsed floor never
+executes anything. Production trace, financial evidence and all document bytes stay
+indefinitely preserved regardless of their recorded minimum floor. No statutory period,
+expiry, purge schedule or legal compliance is supplied by this setting.
+
+Holds can now preserve any native business-record category except retention decisions,
+hold metadata and audit erasure requests. Native identity tables and attachment bytes
+are not independently editable business records; document bytes remain retained.
+
+The owner reviews `GET /api/larder/retention/operator?operatorId=<id>` and submits
+`erasure.operator {operatorId, operatorVersion, reviewedVersion, consent: true, reason}`.
+Only an inactive identity is eligible, and any active legal hold conservatively refuses
+this wider subject decision. The atomic write checks the current native identity version
+and status again, replaces its display name and email, invalidates its old version,
+replaces cached human labels and reuses the append-only audit replacement boundary.
+Movement IDs, quantities, costs, original immutable text and document bytes are unchanged.
+Future archives use the anonymized name even for historical people; restore is inert.
+Native security records and external identity values remain retained and are explicitly
+reported; this is not complete identity erasure. The operator policy awaits ct approval.
+
+Business archive settings expose retention periods, hold creation and explicit release,
+current-subject review, retained categories, controlled-copy outcomes and exact consent.
+The review is invalidated when business state changes. Provider outcomes explicitly say
+not attempted; consent sends no outbound request. Eligible document, message and model
+context erasure and complete controlled-copy deletion remain unimplemented. GOV-005
+remains partial under the approved indefinite-document policy.
 
 ## Versioned integration reads (CONN-014, partial)
 

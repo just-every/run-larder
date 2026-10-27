@@ -37,7 +37,7 @@ export async function archive(env: Bindings, actor: Actor) {
     records: Object.fromEntries(collections.map(k => [k, s[k]])),
     movements: s.movements.map(m => ({ ...m, quantity: m.quantity.toString(), unitCost: m.unitCost.toString() })),
     reservations: s.reservations.map(r => ({ ...r, quantity: r.quantity.toString() })),
-    commands: commands.results, people: [...new Map([...historicalPeople.results.flatMap((r: any) => JSON.parse(r.data)), ...people.results].map((p: any) => [p.id, p])).values()],
+    commands: commands.results, people: [...new Map([...historicalPeople.results.flatMap((r: any) => JSON.parse(r.data)), ...people.results].map((p: any) => [p.id, p])).values()].map((p: any) => s.contactErasures.some(e => e.subjectKind === 'operator' && e.subjectId === p.id) ? { ...p, name: '[erased]' } : p),
     unmappedRoles: historicalRoles.results.flatMap((r: any) => JSON.parse(r.data)),
     attachments: attachments.results.map((a: any) => ({ ...a, bytes: base64(a.bytes) })),
     reconciliation: positions(s),
