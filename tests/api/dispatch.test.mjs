@@ -71,6 +71,7 @@ test('FLOOR-001 assigned dispatch gates, station/reason history, authority, repl
   const restoredOwner = (await restored.state()).actor
   const restoredOther = await restored.person('legacy-other@example.test')
   archive.records.roles.push({ id: restoredOther.id, version: 1, role: 'production' })
+  archive.currencyDeclarations.records.roles.push({ id: restoredOther.id, currency: 'USD' })
   const legacy = archive.records.workOrders.find(w => w.id === second.id)
   const originalStart = '2026-10-01T09:00:00.000Z'
   legacy.operationStates[0] = { sequence: 1, status: 'running', acknowledgments: [], startedBy: restoredOwner.id, startedAt: originalStart, workCentre: 'Dispatch mill' }
