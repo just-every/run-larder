@@ -382,7 +382,12 @@ test('COST reports retain shipment margins, job source drills and missing perfor
         await page.getByRole('button',{name:`Cost sources ${jobs[0].reference}`,exact:true}).click();await expect(card(page,'Job costs and variances')).toContainText('Usage variance')
       }else{
         await expect(card(page,'Performance metrics')).toContainText('Unknown');await expect(card(page,'Performance metrics')).toContainText('No recorded operation clocks')
-        const metrics=card(page,'Performance metrics');const sourceButtons=metrics.getByRole('button',{name:/^Metric sources /});expect(await sourceButtons.count()).toBe(11);for(const button of await sourceButtons.all()){await button.click();await expect(button).toHaveAttribute('aria-expanded','true');await button.click()}const metric=metrics.getByRole('button',{name:'Metric sources Yield',exact:true});await metric.click();await expect(metrics).toContainText('Output')
+        const metrics=card(page,'Performance metrics')
+        for(const [name,numerator,denominator,result]of [['Yield','4','5','80%'],['On-time job delivery','0','2','0%']]){
+          const row=metrics.getByRole('row').filter({has:metrics.getByRole('button',{name:'Metric sources '+name,exact:true})}),cells=row.getByRole('cell')
+          expect(await cells.nth(1).evaluate(el=>el.childNodes[0].textContent)).toBe(numerator);expect(await cells.nth(2).evaluate(el=>el.childNodes[0].textContent)).toBe(denominator);await expect(cells.nth(3)).toHaveText(result)
+        }
+        const sourceButtons=metrics.getByRole('button',{name:/^Metric sources /});expect(await sourceButtons.count()).toBe(11);for(const button of await sourceButtons.all()){await button.click();await expect(button).toHaveAttribute('aria-expanded','true');await button.click()}const metric=metrics.getByRole('button',{name:'Metric sources Yield',exact:true});await metric.click();await expect(metrics).toContainText('Output')
       }
       if(width===390) {
         const readable=page.locator('.cost-reports .details-body').first()
