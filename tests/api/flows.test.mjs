@@ -1152,7 +1152,7 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   assert.equal((await costReport(h,'performance',`?from=${today}&to=${today}&itemId=${w.timber.id}`)).metrics.supplierOtif.percent,'0')
   const released=await h.command('quarantine.decide',{itemId:w.timber.id,locationId:w.loc.id,lotId:acceptedLot.id,quantity:'2',decision:'release',reason:'synthetic-larder-527 accepted by due date'})
   const otif=await costReport(h,'performance',`?from=${today}&to=${today}&itemId=${w.timber.id}`);assert.equal(otif.metrics.supplierOtif.percent,'100');assert.equal(otif.metrics.supplierOtif.sources[0].onTimeAccepted,'2');assert.ok(otif.metrics.supplierOtif.sources[0].sources[0].qualityDecisionIds.includes(released.id))
-  const filtered=await costReport(h,'performance',`?from=${today}&to=${today}&center=Bench&itemId=${w.board.id}`)
+  const filtered=await costReport(h,'performance',`?from=${today}&to=${today}&center=Bench&itemId=${w.board.id}&site=${w.loc.id}&ownerId=${me.id}`)
   assert.equal(filtered.metrics.onTimeDelivery.percent,'0');assert.equal(filtered.metrics.yield.percent,'50');assert.equal(filtered.metrics.quality.percent,'50');assert.equal(filtered.metrics.quality.denominator,'2');assert.equal(filtered.metrics.utilization.percent,null);assert.match(filtered.metrics.utilization.missing.join(' '),/calendar/)
   assert.equal(filtered.metrics.scheduleAdherence.percent,null);assert.match(filtered.metrics.scheduleAdherence.missing.join(' '),/booked end/)
   assert.equal(filtered.metrics.downtime.sources[0].workOrderId,job.id);assert.ok(BigInt(filtered.metrics.downtime.milliseconds)>0n)
@@ -1169,7 +1169,7 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   }
   const outside=await costReport(h,'performance',`?from=2026-10-28&to=2026-10-28`);assert.deepEqual(outside.metrics.onTimeDelivery.sources,[]);assert.equal(outside.metrics.oee.percent,null)
   const absent=await costReport(h,'performance',`?from=${today}&to=${today}&center=Finishing&itemId=${w.board.id}`);assert.equal(absent.metrics.oee.percent,null);assert.match(absent.metrics.oee.missing.join(' '),/clock/)
-  const csv=await(await h.request(`/api/larder/costing/performance.csv?from=${today}&to=${today}&center=Bench&itemId=${w.board.id}`)).text();assert.match(csv,/denominator/);assert.match(csv,/Bench/);assert.match(csv,new RegExp(job.id))
+  const csv=await(await h.request(`/api/larder/costing/performance.csv?from=${today}&to=${today}&center=Bench&itemId=${w.board.id}&site=${w.loc.id}&ownerId=${me.id}`)).text();assert.match(csv,/denominator/);assert.match(csv,/Bench/);assert.match(csv,new RegExp(job.id));const csvRows=csv.trim().split('\r\n').slice(1).map(line=>[...line.matchAll(/"((?:[^"]|"")*)"/g)].map(m=>m[1].replaceAll('""','"')));assert.deepEqual(JSON.parse(csvRows.find(r=>r[0]==='filters')[2]),filtered.filters);assert.deepEqual(JSON.parse(csvRows.find(r=>r[0]==='metrics')[2]),filtered.metrics)
   await h.command('reports.schedule',{filters:filtered.filters,consent:false,reason:'synthetic-larder-467 no consent'},{error:'CONSENT'})
   const schedule=await h.command('reports.schedule',{filters:filtered.filters,consent:true,reason:'synthetic-larder-468 daily in-app report'})
   const snapshot=await h.command('reports.run',{scheduleId:schedule.id,version:schedule.version});assert.deepEqual(snapshot.snapshots[0].report,filtered)
@@ -1209,7 +1209,7 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   const tick=async installation=>assert.equal((await (await installation.mf.getWorker()).scheduled()).outcome,'ok')
   const paused=(await runner.state()).reportSchedules
   await tick(runner);assert.deepEqual((await runner.state()).reportSchedules,paused,'Restore grants no background authority')
-  const expected=await costReport(runner,'performance',`?from=${today}&to=${today}&center=Bench&itemId=${w.board.id}`)
+  const expected=await costReport(runner,'performance',`?from=${today}&to=${today}&center=Bench&itemId=${w.board.id}&site=${w.loc.id}&ownerId=${me.id}`)
   const owner=(await runner.state()).actor, scheduleArgs={filters:filtered.filters,consent:true,reason:'synthetic-larder-1100 native session scheduling'}
   const manager=await runner.person('synthetic-larder-1101@example.test','manager')
   await manager.run('reports.schedule',scheduleArgs,{error:'FORBIDDEN'})
@@ -1238,6 +1238,15 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   const privateBinding=await runner.db.prepare('SELECT actor FROM larder_report_sessions WHERE schedule_id=?').bind(unattended.id).first()
   const sessionId=JSON.parse(privateBinding.actor).sessionId
   assert.equal(JSON.stringify(portable).includes(sessionId),false);assert.equal(JSON.stringify(audit).includes(sessionId),false)
+  await runner.command('member.scope',{operatorId:manager.id,costsRestricted:true,locations:null})
+  const privateState=await runner.state(manager.cookie)
+  assert.equal(privateState.movements.find(m=>m.itemId===w.timber.id).unitCost,'restricted')
+  assert.deepEqual(privateState.reportSchedules.find(r=>r.id===unattended.id).snapshots[0].report,expected)
+  const restrictedQuery=`?from=${today}&to=${today}&center=Bench&itemId=${w.board.id}&site=${w.loc.id}&ownerId=${me.id}`
+  assert.deepEqual(await costReport(runner,'performance',restrictedQuery,manager.cookie),expected)
+  const restrictedCsv=await(await runner.request('/api/larder/costing/performance.csv'+restrictedQuery,{as:manager.cookie})).text()
+  assert.deepEqual(JSON.parse([...restrictedCsv.trim().split('\r\n').find(line=>line.startsWith('"metrics"')).matchAll(/"((?:[^"]|"")*)"/g)][2][1].replaceAll('""','"')),expected.metrics)
+  await manager.run('reports.run',{scheduleId:unattended.id,version:retained.version},{error:'FORBIDDEN'})
   await runner.command('reports.run',{scheduleId:unattended.id,version:retained.version-1},{error:'STALE'})
   await runner.command('reports.cancel',{scheduleId:unattended.id,version:retained.version,reason:'synthetic-larder-1102 revoke consent'})
   await runner.advanceClock('2027-01-12T12:00:00.000Z');await tick(runner)

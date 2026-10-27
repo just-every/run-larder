@@ -327,7 +327,7 @@ test('BUY-001 buyers maintain two suppliers, select feasible scheduled terms and
 
 test('COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390', async ({page})=>{
   await enter(page)
-  const suffix=crypto.randomUUID().slice(0,8),today=new Date().toISOString().slice(0,10)
+  const suffix=crypto.randomUUID().slice(0,8),today=new Date().toISOString().slice(0,10),ownerId=(await state(page)).actor.id
   const command=async(type:string,payload:any)=>{const res=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}});const b=await res.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result}
   await page.goto(origin+'/app#handoff/variances');await page.reload()
   await expect(page.getByRole('heading',{name:'Job cost variances',exact:true})).toBeVisible()
@@ -370,7 +370,7 @@ test('COST reports retain shipment margins, job source drills and missing perfor
       await page.goto(origin+`/app#handoff/${report}`)
       await expect(page.getByRole('heading',{name:report==='margins'?'Order margins':report==='variances'?'Job cost variances':'Production performance',exact:true})).toBeVisible()
       if(report==='performance'){
-        await page.getByLabel('Product',{exact:true}).selectOption(product.id);await page.getByLabel('From date',{exact:true}).fill(today);await page.getByLabel('To date',{exact:true}).fill(today)
+        await page.getByLabel('Site location',{exact:true}).selectOption(location.id);await page.getByLabel('Report owner',{exact:true}).selectOption(ownerId);await page.getByLabel('Product',{exact:true}).selectOption(product.id);await page.getByLabel('From date',{exact:true}).fill(today);await page.getByLabel('To date',{exact:true}).fill(today)
       }else await page.getByLabel('Sales order',{exact:true}).selectOption(order.id)
       const ready=page.waitForResponse(r=>r.url().includes(`/api/larder/costing/${report}?`)&&r.request().method()==='GET')
       await page.getByRole('button',{name:'Apply report filters',exact:true}).click();await ready
@@ -382,7 +382,7 @@ test('COST reports retain shipment margins, job source drills and missing perfor
         await page.getByRole('button',{name:`Cost sources ${jobs[0].reference}`,exact:true}).click();await expect(card(page,'Job costs and variances')).toContainText('Usage variance')
       }else{
         await expect(card(page,'Performance metrics')).toContainText('Unknown');await expect(card(page,'Performance metrics')).toContainText('No recorded operation clocks')
-        const metric=card(page,'Performance metrics').getByRole('button',{name:'Metric sources Yield',exact:true});await metric.click();await expect(card(page,'Performance metrics')).toContainText('Output')
+        const metrics=card(page,'Performance metrics');const sourceButtons=metrics.getByRole('button',{name:/^Metric sources /});expect(await sourceButtons.count()).toBe(11);for(const button of await sourceButtons.all()){await button.click();await expect(button).toHaveAttribute('aria-expanded','true');await button.click()}const metric=metrics.getByRole('button',{name:'Metric sources Yield',exact:true});await metric.click();await expect(metrics).toContainText('Output')
       }
       if(width===390) {
         const readable=page.locator('.cost-reports .details-body').first()
@@ -400,7 +400,7 @@ test('COST reports retain shipment margins, job source drills and missing perfor
   }
   await expect(card(page,'Performance metrics')).toContainText('Unknown')
   await page.getByLabel('I consent to saving this filtered report in the app').check();await page.getByLabel('Schedule reason',{exact:true}).fill('synthetic-larder-487 daily in-app snapshot')
-  const scheduled=await act(page,()=>page.getByRole('button',{name:'Schedule this report',exact:true}).click());expect(scheduled.filters.itemId).toBe(product.id);expect(scheduled.filters.from).toBe(today)
+  const scheduled=await act(page,()=>page.getByRole('button',{name:'Schedule this report',exact:true}).click());expect(scheduled.filters.itemId).toBe(product.id);expect(scheduled.filters.from).toBe(today);expect(scheduled.filters.site).toBe(location.id);expect(scheduled.filters.ownerId).toBe(ownerId)
   await page.setViewportSize({width:1440,height:1000});await expect(card(page,'Save a daily in-app report')).toContainText('Snapshots stop at sign-out, session expiry, revocation or owner change.');await expect(card(page,'Scheduled in-app reports')).toContainText('Consenting owner:')
   const opened=await act(page,()=>card(page,'Scheduled in-app reports').getByRole('button',{name:'Open due report',exact:true}).last().click())
   expect(opened.snapshots[0].by).toBe((await state(page)).actor.id);await expect(card(page,'Scheduled in-app reports')).toContainText(`Owner: ${opened.snapshots[0].ownerName}`)
