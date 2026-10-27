@@ -472,7 +472,7 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 
 ## Status
 
-Judged from the code and tests at commit `14e631a27870d6e2cd4b24df8907d410b63eac0b` (27 October 2026). This is the prior local proof checkpoint; the current COST-006 evidence additionally asserts malformed-run validation and non-owner refusal before private schedule lookup. Its original metric and screen proofs remain unchanged. Exact-candidate CI, publication scan and landing receipts are checked separately before integration.
+Judged from the code and tests at commit `5ecb585f883aae83052f60f9c189359a3b357427` (27 October 2026). COST-006 implementation, tests and screens are byte-identical to that local proof checkpoint; this candidate synchronizes the generated deployment specification, documentation and source lock. Exact-candidate CI, publication scan and landing receipts are checked separately before integration.
 
 HTTP-001, ENG-004, STOCK-002, DEMAND-006, ENG-001, ENG-002, ENG-007, DEMAND-002 and DEMAND-003 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
 
