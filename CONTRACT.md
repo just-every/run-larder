@@ -477,7 +477,7 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 
 ## Status
 
-Current evidence and status are recorded per clause below. Exact-candidate Verify, publication scan and landing gates are required before integration.
+Judged from the code and tests at commit `130fdb38504ebabb50714846defd7542cd168b36` (27 October 2026). Clause rows carry subsequent candidate evidence; exact-SHA Verify, publication scan and landing gates are required before integration.
 
 HTTP-001, ENG-004, STOCK-002, DEMAND-006, ENG-001, ENG-002, ENG-007, DEMAND-002 and DEMAND-003 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
 

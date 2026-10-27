@@ -1200,6 +1200,17 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   const quote=await h.command('so.quote',{customerId:w.customer.id,promiseDate:monday,lines:[{itemId:measured.id,quantity:'4',unitPrice:'50'}]});await h.command('so.confirm',{orderId:quote.id,version:quote.version,reserve:false})
   await h.command('forecast.import',{stateVersion:(await h.state()).version,file:{name:'synthetic-larder-519.csv',content:`sku,week,quantity,seasonality\n${measured.sku},${monday},6,1\n`},reason:'synthetic-larder-520 exact forecast'})
   const forecast=await costReport(h,'performance',`?from=${monday}&to=${today}&itemId=${measured.id}`);assert.equal(forecast.metrics.forecastError.numerator,'2');assert.equal(forecast.metrics.forecastError.denominator,'4');assert.equal(forecast.metrics.forecastError.percent,'50');assert.equal(forecast.metrics.forecastError.sources[0].forecast,'6')
+  // An ETA revision cannot rewrite the first receipt's promised-date baseline.
+  let pinned=await h.command('po.draft',{supplierId:w.supplier.id,expectedDate:'2026-10-26',reason:'synthetic-larder-1114 original promise',lines:[{itemId:w.oil.id,quantity:'2',unitPrice:'18'}]});pinned=await h.command('po.approve',{poId:pinned.id,version:pinned.version})
+  await h.command('receipt.create',{poId:pinned.id,supplierReference:'synthetic-larder-1115 first delivery',lines:[{lineId:pinned.lines[0].id,quantity:'1',locationId:w.loc.id,inspection:'accept',lot:'synthetic-larder-1116'}]})
+  pinned=(await h.state()).purchaseOrders.find(r=>r.id===pinned.id);await h.command('po.revise',{poId:pinned.id,version:pinned.version,expectedDate:'2026-10-28',note:'synthetic-larder-1117 later promise'})
+  const pinnedReport=await costReport(h,'performance',`?from=2026-10-26&to=2026-10-28&itemId=${w.oil.id}`)
+  assert.equal(pinnedReport.metrics.supplierOtif.sources[0].promised,'2026-10-26');assert.equal(pinnedReport.metrics.supplierOtif.percent,'0')
+  let crossing=await h.command('wo.draft',{itemId:measured.id,quantity:'1',requiredBy:'2026-10-28',reason:'synthetic-larder-1118 crossing UTC midnight'});crossing=await h.command('wo.release',{workOrderId:crossing.id,version:crossing.version});crossing=await h.command('wo.operation.assign',{workOrderId:crossing.id,version:crossing.version,sequence:1,operatorId:me.id})
+  await h.advanceClock('2026-10-27T23:50:00.000Z');crossing=await h.command('wo.operation.start',{workOrderId:crossing.id,version:crossing.version,sequence:1,workCentre:'Bench',station:'synthetic-larder-1119',reason:'synthetic-larder-1120 actual clock'})
+  await h.advanceClock('2026-10-28T00:10:00.000Z');await h.command('wo.operation.complete',{workOrderId:crossing.id,version:crossing.version,sequence:1,reason:'synthetic-larder-1121 complete clock'})
+  const clipped=await costReport(h,'performance',`?from=2026-10-28&to=2026-10-28&itemId=${measured.id}`)
+  assert.deepEqual(clipped.metrics.availability.sources.map(r=>r.workOrderId),[crossing.id]);assert.equal(clipped.metrics.availability.denominator,'600000');assert.equal(clipped.metrics.oee.percent,null);assert.match(clipped.metrics.oee.missing.join(' '),/interval output quantities/)
   const archive=await(await h.request('/api/larder/archive')).json(),target=await installation();t.after(()=>target.close());assert.equal((await target.request('/api/larder/archive/restore',{method:'POST',body:archive})).status,200)
   assert.deepEqual((await target.state()).reportSchedules[0].filters,filtered.filters);assert.equal((await target.state()).reportSchedules[0].status,'paused')
 
@@ -1269,6 +1280,7 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
       const noSend=stopped.outboundCount();await tick(stopped);await stopped.restart();await tick(stopped)
       assert.equal((await stopped.db.prepare("SELECT data FROM larder_records WHERE kind='reportSchedules' AND id=?").bind(due.id).first()).data,before,termination+' must stop generation across restart')
       assert.equal(stopped.outboundCount(),noSend)
+      if(['review','dev'].includes(termination)){const manual=await stopped.command('reports.run',{scheduleId:due.id,version:due.version});assert.equal(manual.snapshots.length,1);assert.equal(manual.snapshots[0].generation,'manual')}
     }finally{await stopped.close()}
   }
 })
