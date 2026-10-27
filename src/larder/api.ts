@@ -134,7 +134,6 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
   const { commandId, type, payload = {} } = body ?? {}
   if (typeof commandId !== 'string' || !/^[-a-zA-Z0-9_]{8,100}$/.test(commandId) || typeof type !== 'string') throw new Problem('COMMAND', 'Send a unique commandId and a command type.', null, 400)
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Problem('INPUT', 'The payload must be an object.', null, 400)
-  const reportAuthority = type === 'reports.run' ? await liveReportOwner(env.DB, payload.scheduleId, automaticReport) : undefined
   if (actor.role === 'viewer') forbidden('Viewers can read but not change records.')
   if (type.startsWith('audit.')) forbidden('The audit is append-only: no role, including the owner, edits or deletes an entry.')
   if (['role.set', 'role.assign', 'member.scope'].includes(type) && actor.role === 'owner') {
@@ -158,6 +157,8 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
       if (!target || !['owner','manager','production','operator'].includes(target.role)) fail('INPUT', 'Calendar members must be active production people, operators or managers.')
     }
   }
+  if (type.startsWith('reports.') && actor.role !== 'owner') forbidden('Only the owner manages report schedules.')
+  const reportAuthority = type === 'reports.run' ? await liveReportOwner(env.DB, payload.scheduleId, automaticReport) : undefined
   const digest = sha256(canonicalJson({ type, payload }))
   const previous = await saved(env.DB, commandId, digest, actor)
   if (previous) {
@@ -236,6 +237,7 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
 // Trusted Worker cron only: no HTTP route accepts a scheduled actor. The
 // original session reference grants no authority beyond its live native owner.
 async function liveReportOwner(db: D1Database, scheduleId: string, automatic: boolean): Promise<Actor> {
+  if (typeof scheduleId !== 'string' || !scheduleId) fail('INPUT', 'Choose a report schedule.')
   const binding = await db.prepare('SELECT actor FROM larder_report_sessions WHERE schedule_id=?').bind(scheduleId).first<{ actor: string }>()
   if (!binding) throw new Problem('AUTH', 'This schedule needs fresh owner consent.', null, 401)
   const actor: Actor = JSON.parse(binding.actor), fence = authority(actor)
