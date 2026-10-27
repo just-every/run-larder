@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "262f0798a6b78c510dfffcbcd566f031bdef26b205436fae9d424860045d79fc",
+      "sha256": "31ab39dd862946801cf52d5d396975ad5303b2c4549c93db9c1d266d4aced386",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -201,7 +201,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "186c92decdf2f0d1655c2248d158f7b6f5166af9a2cbed2f83fbf95e5ed1562c",
+      "sha256": "c48de1d1f4eb3b56553280b9b1d82a188a6eac57a42d6f4bb094f32cff01d11b",
       "executable": false
     },
     "DEMO.md": {
@@ -4113,7 +4113,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "6e9d57049b83aa07fe7861c5461a605e581a15b8d8fa7dc6278943a46e27e121",
+      "sha256": "54f709802f9b957b5d91e5901ff40be7da8961880d6de3c17245af448183bbad",
       "executable": false
     },
     "tests/browser/maintenance.spec.ts": {

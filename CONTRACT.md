@@ -477,7 +477,7 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 
 ## Status
 
-Judged from the code and tests at commit `a1abaed928ae730ca0466c2f8ddfbb9434b0f1da` (21 October 2026).
+Current evidence and status are recorded per clause below. Exact-candidate Verify, publication scan and landing gates are required before integration.
 
 HTTP-001, ENG-004, STOCK-002, DEMAND-006, ENG-001, ENG-002, ENG-007, DEMAND-002 and DEMAND-003 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
 
@@ -486,8 +486,8 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 59 | 24 | 40 | 123 |
-| All | 75 | 24 | 40 | 139 |
+| Target and push further | 60 | 23 | 40 | 123 |
+| All | 76 | 23 | 40 | 139 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |

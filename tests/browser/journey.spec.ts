@@ -325,7 +325,7 @@ test('BUY-001 buyers maintain two suppliers, select feasible scheduled terms and
   }
 })
 
-test('COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390', async ({page})=>{
+test('COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390', async ({page,browser})=>{
   await enter(page)
   const suffix=crypto.randomUUID().slice(0,8),today=new Date().toISOString().slice(0,10),ownerId=(await state(page)).actor.id
   const command=async(type:string,payload:any)=>{const res=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}});const b=await res.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result}
@@ -405,6 +405,23 @@ test('COST reports retain shipment margins, job source drills and missing perfor
   const opened=await act(page,()=>card(page,'Scheduled in-app reports').getByRole('button',{name:'Open due report',exact:true}).last().click())
   expect(opened.snapshots[0].by).toBe((await state(page)).actor.id);await expect(card(page,'Scheduled in-app reports')).toContainText(`Owner: ${opened.snapshots[0].ownerName}`)
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'COST-scheduled-report')}
+  const email=`synthetic-larder-1113-${suffix}@example.test`
+  expect((await page.request.post(origin+'/auth/invite',{headers:{Origin:origin},data:{email,displayName:'Restricted report manager',role:'member'}})).status()).toBe(202)
+  const context=await browser.newContext({storageState:await page.context().storageState()}),member=await context.newPage()
+  try{
+    await member.goto(origin+'/auth/dev/enter?as='+encodeURIComponent(email));await member.waitForURL(u=>u.pathname==='/app')
+    const memberId=(await(await member.request.get(origin+'/auth/session')).json()).operator.id
+    await command('role.set',{operatorId:memberId,role:'manager'});await command('member.scope',{operatorId:memberId,costsRestricted:true,locations:null})
+    for(const width of [1440,390]){
+      await member.setViewportSize({width,height:1000});await member.goto(origin+'/app#handoff/performance');await member.reload()
+      await expect(member.getByRole('status',{name:''}).filter({hasText:'Costs and wages restricted'})).toBeVisible()
+      await expect(card(member,'Performance metrics')).toContainText('Yield')
+      const scoped=await state(member);expect(scoped.items.find((r:any)=>r.id===product.id).standardCost).toBe('restricted')
+      expect(scoped.reportSchedules.find((r:any)=>r.id===scheduled.id).snapshots[0].report).toEqual(opened.snapshots[0].report)
+      await expect(card(member,'Scheduled in-app reports').getByRole('button',{name:'Open due report',exact:true})).toHaveCount(0)
+      expect(await member.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await shot(member,'COST-restricted-performance')
+    }
+  }finally{await context.close()}
   await page.goto(origin+'/app#handoff');await expect(page.getByRole('heading',{name:'Accountant handoff',exact:true})).toBeVisible()
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});for(const name of ['Order margins','Job cost variances','Production performance'])await expect(page.getByRole('link',{name,exact:true})).toBeVisible();expect(await page.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await shot(page,'COST-handoff')}
 })

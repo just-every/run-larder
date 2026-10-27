@@ -1,6 +1,6 @@
 # Larder acceptance record
 
-Target edition: 17 October 2026. This record matches every named clause in [CONTRACT.md](CONTRACT.md). Status is `done`, `partial` or `missing`, judged from code and tests at landing main `a1abaed928ae730ca0466c2f8ddfbb9434b0f1da` (21 October 2026). A target journey below is a build requirement, not an invented passing test. `done` means the whole clause is implemented and exercised by the cited existing public-door tests; `partial` means the cited implementation covers only the foundation named in the contract's Gap column. Neither status proves a live provider, physical inventory, regulatory certification or a real owner's export.
+Target edition: 17 October 2026. This record matches every named clause in [CONTRACT.md](CONTRACT.md). Status is `done`, `partial` or `missing`, recorded with current code and public-door evidence in each clause row. A target journey below is a build requirement, not an invented passing test. `done` means the whole clause is implemented and exercised by the cited existing public-door tests; `partial` means the cited implementation covers only the foundation named in the contract's Gap column. Neither status proves a live provider, physical inventory, regulatory certification or a real owner's export.
 
 Keep the existing form: one clause per row, the person's acceptance journey, its Test/evidence and its status. Implement new tests only when a build changes that public flow; use real Worker/D1/UI and fakes only at the paid/network boundary. No pin tests or mirror tests.
 
