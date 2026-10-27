@@ -22,8 +22,8 @@ export function recoveryInputsChanged(before: State, after: State) {
   })
   return inputs(before) !== inputs(after)
 }
-export function recoveryProjection(s: State, people: Context['people'], asOf: string, days: number, releaseBookings = true) {
-  const state = structuredClone(s), statuses = orderStatuses(state).work, materialEffects: any[] = []
+export function recoveryProjection(s: State, people: Context['people'], asOf: string, days: number, releaseBookings = true, materialOn?: string) {
+  const state = structuredClone(s), statuses = orderStatuses(state, materialOn).work, materialEffects: any[] = []
   for (const w of state.workOrders.filter(w => ['draft', 'released'].includes(w.status))) {
     delete w.planningMaterialBlock; delete w.planningMaterialReadyAt
     const status = statuses.find(o => o.id === w.id)

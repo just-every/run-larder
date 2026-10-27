@@ -13,7 +13,7 @@ const due = (r: Row) => r.promiseDate ? firstPromise(r) : r.requiredBy ?? ''
 const remaining = (w: Row) => max(0n, decimal(w.quantity) - decimal(w.output) - decimal(w.scrap))
 const incomplete = (status: IngredientStatus) => status === 'Not available' || status === 'No BOM'
 
-export function orderStatuses(s: State): { sales: OrderStatus[]; work: OrderStatus[] } {
+export function orderStatuses(s: State, on = new Date().toISOString().slice(0, 10)): { sales: OrderStatus[]; work: OrderStatus[] } {
   const entries: Entry[] = [
     ...s.salesOrders.map(row => ({ kind: 'sales' as const, row, rank: 0 })),
     ...s.workOrders.map(row => ({ kind: 'work' as const, row, rank: 0 })),
@@ -22,12 +22,12 @@ export function orderStatuses(s: State): { sales: OrderStatus[]; work: OrderStat
     (a.row.createdAt ?? '').localeCompare(b.row.createdAt ?? '') || a.row.id.localeCompare(b.row.id))
   let next = Math.max(0, ...entries.filter(e => explicit(e.row)).map(e => e.row.rank))
   for (const e of entries) e.rank = explicit(e.row) ? e.row.rank : ++next
-  const allocate = supplyAllocator(s), result = { sales: [] as OrderStatus[], work: [] as OrderStatus[] }
+  const allocate = supplyAllocator(s, on), result = { sales: [] as OrderStatus[], work: [] as OrderStatus[] }
   for (const { kind, row: r, rank } of entries) {
     const lines: StatusLine[] = []
     if (kind === 'work') {
-      const live = ['draft', 'released'].includes(r.status), bom = r.status === 'draft' ? (r.engineeringBomId ? s.boms.find(b => b.id === r.engineeringBomId) : activeBom(s, r.itemId)) : undefined
-      const components = r.status === 'draft' ? (bom ? resolvedComponents(s, bom, decimal(r.quantity), undefined, r.engineeringBomIds).components : undefined) : r.components
+      const live = ['draft', 'released'].includes(r.status), bom = r.status === 'draft' ? (r.engineeringBomId ? s.boms.find(b => b.id === r.engineeringBomId) : activeBom(s, r.itemId, on)) : undefined
+      const components = r.status === 'draft' ? (bom ? resolvedComponents(s, bom, decimal(r.quantity), on, r.engineeringBomIds).components : undefined) : r.components
       if (live && components) for (const l of components) {
         const need = r.status === 'draft' ? decimal(l.quantity) : max(0n, decimal(l.required) - decimal(l.issued))
         lines.push(allocate(l.itemId, need, r.id, l.id ?? `${r.id}:${l.itemId}`, r.reference))
@@ -46,10 +46,10 @@ export function orderStatuses(s: State): { sales: OrderStatus[]; work: OrderStat
         if (item?.kind === 'make' && line.ingredientStatus === 'Expected' && !line.supplies.some(p => p.kind === 'purchase')) line.ingredientStatus = 'In stock'
         const uncovered = decimal(line.missing)
         if (uncovered > 0n && item?.kind === 'make') {
-          const bom = activeBom(s, item.id)
+          const bom = activeBom(s, item.id, on)
           if (!bom) line.ingredientStatus = 'No BOM'
           else {
-            const resolved = resolvedComponents(s, bom, uncovered).components
+            const resolved = resolvedComponents(s, bom, uncovered, on).components
             line.ingredients = resolved.map((c: any) => allocate(c.itemId, decimal(c.quantity), r.id, `${l.id}:${c.itemId}`, r.reference))
             // A recipe's shortages are expressed in product units at the parent,
             // while each ingredient retains its own quantity and supply units.

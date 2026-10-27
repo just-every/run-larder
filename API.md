@@ -967,3 +967,31 @@ This is a recorded-material bridge, not complete actual WIP: production labor,
 overhead, later valuations, operation allocation, screens and external control
 account reconciliation remain COST-002 gaps. The response labels that basis and
 its external state as not connected and not reconciled. No journals are posted.
+
+## Costed quote preparation
+
+`so.review` prepares terms on an unconfirmed order (owner, manager or sales,
+with unrestricted commercial and location access). Send `orderId`, `version`,
+`currency` (USD or CAD), `validUntil`, `paymentTerms`, `discountPercent`,
+`freight` and each existing line exactly once as `{lineId, unitPrice, breaks?}`.
+A break is `{minimum, unitPrice}`; the greatest qualifying minimum wins. Prices
+and freight use customer currency. CAD requires positive `usdRate` (USD per one
+CAD), `rateDate` and `rateReference`. Optional `laborCostRate`, `machineCostRate`
+and `overheadCostRate` are explicit USD quote tariffs per routing hour, never
+employment wages. Missing estimates stay unknown.
+
+Optional `asOf` and `days` select a current or future planning window of 3 to 30
+days. The bounded search checks up to seven not-before days and retains at most
+three distinct full-batch dates. Ordinary made-item lines only are supported for
+finite options. Missing materials, upstream-work supply, overdue purchase supply,
+uncertain dated stock, missing skills, maintenance and displacement keep a date
+unoffered. Expected receipts still require physical receipt and quality release.
+
+`quoteReview` retains totals, costs, margins, material sources and exact named
+machine and person intervals. Its `inputVersion` identifies its business inputs;
+any later write requires fresh preparation. It has no acceptance authority and
+changes no price on the original USD order. Confirmation refuses while a review
+is attached. `so.reviewClear` (`orderId`, `version`, `reason`) retains review
+history and reopens the original USD quote without applying reviewed terms.
+Native archive and empty restore preserve the review as inert history. Scoped
+members cannot prepare or replay reviews; location-scoped state omits them.
