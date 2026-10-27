@@ -876,9 +876,9 @@ replaces cached human labels and reuses the append-only audit replacement bounda
 Movement IDs, quantities, costs, original immutable text and document bytes are unchanged.
 Future archives use the anonymized name even for historical people; restore is inert.
 Native security records and external identity values remain retained and are explicitly
-reported; this is not complete identity erasure. The operator policy awaits ct approval.
+reported; this is not complete identity erasure. This limited display-label replacement does not establish complete lawful former-operator erasure.
 
-Business archive settings expose retention periods, hold creation and explicit release,
+Settings, under Retention and erasure, exposes retention periods, hold creation and explicit release,
 current-subject review, retained categories, controlled-copy outcomes and exact consent.
 The review is invalidated when business state changes. Provider outcomes explicitly say
 not attempted; consent sends no outbound request. Eligible document, message and model
@@ -1019,3 +1019,14 @@ Native archive and empty restore preserve the review as inert history. Scoped
 members cannot prepare or replay reviews; location-scoped state omits them.
 
 Explicit review disposition: editing an existing quote through `so.quote` refuses while a current costed review is attached, even when the edit includes a reason. Use `so.reviewClear` first with the exact current order version and a nonblank reason. Discard retains the complete review with disposition actor, time, reason, order version and review input version. It leaves original USD lines unchanged and creates no reservation or booking. A stale version, missing review, agent or restricted commercial scope refuses discard. Refreshing preparation retains the earlier review as history and keeps the confirmation block. A later edit or confirmation is a separate current-version command under existing authority and margin policy.
+
+
+Legal holds preserve saved follow-up rows during automatic observation; reads still
+show the current overdue condition. Explicit follow-up edits remain refused until
+owner release. A hold on an unsent variance analysis never prevents owner withdrawal
+of model-disclosure consent. Revocation preserves sources, destination and prior
+consent evidence, remains audited, and authorizes no model call or erasure.
+
+CT retains explicit native-owner consent to the exact current contact-erasure review, indefinite preservation of production and financial trace records and documents, and explicit audited owner release of a current legal hold without erasure. Credential replacement, credential revocation and link expiry grant no erasure authority and perform no deletion. Operational staff retain document access under their current native roles. Configurable lawful retention and complete eligible erasure remain required. This ruling adopts no Mallet credential or customer-media policy and accepts no completion.
+
+Gap — GOV-005: configurable US retention periods; lawful subject erasure, including former-operator live anonymization and eligible document, message and model-context erasure; complete legal-hold lifecycle coverage; controlled search, cache and provider deletion outcomes; and the page journey. Actual provider deletion and legal sufficiency of retention remain unestablished.

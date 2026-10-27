@@ -195,12 +195,12 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
-    enforceRetention(before, s)
     enforceScope(c, before)
     if (!c.people && s.schedulePolicies.length && recoveryInputsChanged(before, s)) c.people = (await people(env, actor)).people as any
     observeRecovery(c, before, type, payload)
     observeFollowUps(c)
     voidBatchReviews(c)
+    enforceRetention(before, s, undefined, type)
     cutoverGuard(before, s, c.now)
     const audit = auditEntries(c, before, type, payload, type.startsWith('import.'))
     if (type === 'import.commit' || type === 'import.undo') {

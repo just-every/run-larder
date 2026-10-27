@@ -17,6 +17,7 @@ import { kitAvailability } from './kits'
 import { format } from './decimal'
 import { exceptionRows } from './exceptions'
 import { followUpView } from './follow-up-state'
+import { commandTime } from './clock'
 import { shortages } from './planning'
 import { positions } from './stock'
 import { fefoPlans, lotStatuses } from './lot-dates'
@@ -48,7 +49,7 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
 function fullView(s: State, actor: Actor, extra: Record<string, unknown>) {
   const blind = blindView(s, actor, extra)
   if (blind) return blind
-  const today = new Date().toISOString().slice(0, 10), followUpCases = followUpView(s, today)
+  const today = commandTime().slice(0, 10), followUpCases = followUpView(s, today)
   const records = Object.fromEntries(collections.map(k => [k, ((k === 'laborRates' || ['costPolicies','jobCharges','costLinks','marginCharges','costValuations','reportSchedules'].includes(k)) && !rateReaders.includes(actor.role)) || (['retentionPolicies', 'integrationGrants', 'auditErasures', 'retentionHolds', 'contactErasures'].includes(k) && actor.role !== 'owner') ? [] : s[k]]))
   // Scopes and custom roles are the owner's to read; everyone else sees only who holds which role.
   if (actor.role !== 'owner') { records.varianceAnalyses = []; records.roles = s.roles.map(({ id, version, role }) => ({ id, version, role })); records.customRoles = [] }

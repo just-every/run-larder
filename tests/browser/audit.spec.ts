@@ -34,8 +34,11 @@ test('GOV-004 and GOV-005 owner audit and exact retention decisions preserve his
     const body = await response.json(); expect(body.ok, JSON.stringify(body.error)).toBe(true); return body.result
   }
   const contact = await sendResult('party.save', { name: 'Synthetic Former Contact', kind: 'customer', email: 'synthetic-larder-820@example.test' })
+  const item = (await (await page.request.get(origin + '/api/larder/state')).json()).items[0]
+  const linkedOrder = await sendResult('so.quote', { customerId: contact.id, promiseDate: '2099-01-01', lines: [{ itemId: item.id, quantity: '1', unitPrice: '10' }] })
   await page.setViewportSize({ width: 1440, height: 1000 })
-  await page.goto(origin + '/app#more/archive')
+  await page.goto(origin + '/app#settings')
+  await page.getByRole('link', { name: /Retention and erasure/ }).click()
   const card = (name: string) => page.locator('section.card').filter({ has: page.getByRole('heading', { name, exact: true }) })
   const retention = card('Retention settings'), holds = card('Legal holds'), erasure = card('Erasure review')
   const act = async (click: () => Promise<unknown>) => {
@@ -62,6 +65,9 @@ test('GOV-004 and GOV-005 owner audit and exact retention decisions preserve his
   await erasure.getByRole('button', { name: 'Review erasure', exact: true }).click()
   await expect(erasure).toContainText('Current name: Synthetic Former Contact. Current email: synthetic-larder-820@example.test.')
   await expect(erasure).toContainText('production and financial trace')
+  await expect(erasure).toContainText(linkedOrder.id)
+  await page.getByLabel('Account menu', { exact: true }).focus()
+  await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
   await expect(erasure).toContainText('Not attempted; this door makes no provider deletion request.')
   const erase = erasure.getByRole('button', { name: 'Erase reviewed fields', exact: true })
   await erasure.getByLabel('Erasure reason', { exact: true }).fill('Exact subject request')

@@ -40,6 +40,10 @@ export function RetentionSettings({ larder }: { larder: Larder }) {
       {error && <p role="alert">{error}</p>}
       {review && <div><h3>{review.label}</h3><p>Current name: {review.subject?.name}. Current email: {review.subject?.email || 'none'}.</p><p>Reviewed business version {review.version}. Eligible fields: {review.eligibleFields.join(', ')}.</p>
         {review.eligibleAt && <p>Minimum retention ends {review.eligibleAt}.</p>}
+        <h3>Linked records</h3>
+        <ul>{review.retained.flatMap((r: any) => typeof r === 'string' ? [] : r.linked ?? []).map((r: any) => <li key={r.kind + ':' + r.id}>{words(r.kind)}: {r.id}</li>)}{(review.linkedMovements ?? []).map((id: string) => <li key={id}>Movement: {id}</li>)}</ul>
+        {!review.retained.some((r: any) => typeof r !== 'string' && r.linked?.length) && !review.linkedMovements?.length && <p>No linked records in this review.</p>}
+        {review.legalHolds?.length > 0 && <><h3>Current legal holds</h3><ul>{review.legalHolds.map((h: any) => <li key={h.id}>{words(h.kind)}: {h.recordId}. {h.reason}</li>)}</ul></>}
         <h3>Retained categories and reasons</h3><ul>{review.retained.map((r: any, i: number) => <li key={i}>{typeof r === 'string' ? r : `${r.category}: ${r.reason}`}</li>)}</ul>
         <h3>Controlled copy outcomes</h3><dl>{Object.entries(review.outcomes).map(([kind, result]) => <div key={kind}><dt>{words(kind)}</dt><dd>{String(result)}</dd></div>)}</dl>
         {review.blocked || review.periodBlocked ? <p role="status">Erasure is blocked by preservation requirements. Review and resolve them explicitly first.</p> : <Form submit="Erase reviewed fields" busy={larder.busy || review.version !== s.version} onSubmit={d => larder.run(review.kind === 'contact' ? 'erasure.contact' : 'erasure.operator', { partyId: review.partyId, operatorId: review.operatorId, operatorVersion: review.operatorVersion, reviewedVersion: review.version, consent: d.has('consent'), reason: text(d, 'reason') })}>

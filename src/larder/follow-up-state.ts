@@ -38,6 +38,8 @@ export function followUpView(s: State, today: string) {
 export function observeFollowUps(c: Context) {
   const today = c.now.slice(0, 10), activeKeys = new Set(caseSources(c.s, today).map(source => source.key))
   for (const saved of c.s.followUps) {
+    // Live due status is still projected by reads; held evidence stays byte-for-byte.
+    if (c.s.retentionHolds.some(h => h.active && h.kind === 'followUps' && h.recordId === saved.id)) continue
     const status = caseStatus(c.s, saved.source, today, activeKeys), history = [...(saved.history ?? [])]
     const updates: Record<string, unknown> = {}
     if (status !== saved.observedStatus) {

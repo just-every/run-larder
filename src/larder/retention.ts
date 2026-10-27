@@ -91,7 +91,7 @@ export function retention(c: Context, type: string, p: any): Row | undefined {
 }
 
 // Holds fence every business command, including import undo and record editors.
-export function enforceRetention(before: State, next: State, undoId?: unknown) {
+export function enforceRetention(before: State, next: State, undoId?: unknown, commandType?: string) {
   for (const hold of before.retentionHolds.filter(h => h.active)) {
     if (!next.retentionHolds.some(h => h.id === hold.id && h.active)) continue
     if (!(retentionKinds as readonly string[]).includes(hold.kind)) fail('LEGAL_HOLD', 'Unknown held category requires owner review.')
@@ -101,6 +101,15 @@ export function enforceRetention(before: State, next: State, undoId?: unknown) {
     }
     const previous = before[kind].find(r => r.id === hold.recordId)
     const current = next[kind].find(r => r.id === hold.recordId)
+    // Withdrawing unsent disclosure authority preserves the original evidence and
+    // approval fields. A hold cannot force consent to remain live.
+    if (kind === 'varianceAnalyses' && commandType === 'variance.revoke' && previous && current
+      && ['prepared', 'approved'].includes(previous.status) && current.status === 'revoked'
+      && current.version === previous.version + 1) {
+      const { status, version, revokedAt, revokeReason, ...evidence } = current
+      const { status: oldStatus, version: oldVersion, ...original } = previous
+      if (JSON.stringify(evidence) === JSON.stringify(original)) continue
+    }
     if (JSON.stringify(previous) !== JSON.stringify(current)) fail('LEGAL_HOLD', 'This record is legally held. Release the hold explicitly before changing it.')
   }
 }
