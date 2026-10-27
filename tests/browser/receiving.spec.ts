@@ -264,7 +264,6 @@ test('Supplier credit and landed-cost corrections reach the accountant handoff w
   po = await command(page, 'po.approve', { poId: po.id, version: po.version })
   const receipt = await command(page, 'receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-460', lines: [{ lineId: po.lines[0].id, locationId: location.id, quantity: '10', lot: `synthetic-larder-${tag}-lot`, inspection: 'quarantine' }] })
   const current = async () => (await (await page.request.get(origin + '/api/larder/state')).json()).purchaseOrders.find((x: any) => x.id === po.id)
-  const run = async (type: string, payload: object) => command(page, type, { poId: po.id, version: (await current()).version, reason: 'Reviewed supplier document', ...payload })
   await page.goto(origin + '/app'); await settled(page); await page.goto(origin + '/app#make/po/' + po.id)
   await expect(page.getByRole('heading', { name: 'Supplier invoices', exact: true })).toBeVisible()
   const fillProof = async (form: ReturnType<Page['locator']>) => {
@@ -345,7 +344,11 @@ test('Supplier credit and landed-cost corrections reach the accountant handoff w
     await expect(page.getByText('undefined: $0.00', { exact: true })).toHaveCount(0)
   }
   await shot(page, 'credit-reconciled', 'BUY-006')
-  await run('po.claim.close', { claimId })
+  await page.goto(origin + '/app#make/po/' + po.id)
+  await formFor('Close locally settled claim').getByLabel('Closure reason', { exact: true }).fill('Every unit locally settled with matched accountant acknowledgement')
+  await submit('Close locally settled claim')
+  expect((await current()).supplierClaims[0].status).toBe('closed')
+  await shot(page, 'closed-claim', 'BUY-006')
 
   // A late charge on another exact receipt remains distinct from its physical cost.
   let late = await command(page, 'po.draft', { supplierId: supplier.id, expectedDate: day(3), reason: 'Late freight', lines: [{ itemId: item.id, quantity: '5', unitPrice: '2' }] })
