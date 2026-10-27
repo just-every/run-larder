@@ -320,7 +320,7 @@ export function reportScheduling(c: Context, type: string, p: any): Row | undefi
       status: 'active',
       ownerId: c.actor.id,
       cadence: 'daily',
-      delivery: 'in-app; owner opens each due report',
+      delivery: 'daily in-app snapshots while the consenting native owner session is live; no external send',
       nextDate: c.now.slice(0, 10),
       reason: text(p.reason, 'schedule reason', 400),
       consent: { by: c.actor.id, at: c.now },
@@ -336,6 +336,6 @@ export function reportScheduling(c: Context, type: string, p: any): Row | undefi
     if (r.status !== 'active' || r.nextDate > c.now.slice(0, 10)) fail('STATE', 'This in-app report is not due.')
     const snapshot = performanceReport(c.s, new URLSearchParams(r.filters)),
       tomorrow = new Date(Date.parse(c.now.slice(0, 10) + 'T00:00Z') + 86400000).toISOString().slice(0, 10)
-    return bump(r, { snapshots: [...r.snapshots, { at: c.now, by: c.actor.id, report: snapshot }], nextDate: tomorrow })
+    return bump(r, { snapshots: [...r.snapshots, { at: c.now, by: r.ownerId, ownerName: c.reportAuthority?.name ?? c.actor.name, generation: c.automaticReport ? 'scheduled' : 'manual', report: snapshot }], nextDate: tomorrow })
   }
 }

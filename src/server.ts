@@ -9,7 +9,7 @@ import { lobbyResponse } from './base/lobby'
 import { setupStateResponse } from './base/setup-state'
 import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
-import { larderResponse } from './larder/api'
+import { larderResponse, runDueReports } from './larder/api'
 
 const api = new Hono<{ Bindings: Bindings }>()
 api.get('/health', (context) => context.json({ status: 'ok', ...deploymentHealth(context.env) }))
@@ -24,6 +24,9 @@ function noTransform(response: Response): Response {
 }
 
 export default withDemo({
+  async scheduled(_controller, env) {
+    await runDueReports(env)
+  },
   async fetch(request, env, execution) {
     const asset = await staticAssetResponse(request, env)
     if (asset) return asset
