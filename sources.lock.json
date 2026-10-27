@@ -3897,7 +3897,7 @@
       "executable": false
     },
     "tests/api/audit-retention.test.mjs": {
-      "sha256": "2913dd0eac0b4363258ecb96fa712838964cfa1405c84114ff1ee603ccf57ed4",
+      "sha256": "92f908eda89fa44ef675ef558631df6213b2aaad905a64eaf8deb3f2522f7c5b",
       "executable": false
     },
     "tests/api/authority.test.mjs": {
