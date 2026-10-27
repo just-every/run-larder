@@ -364,13 +364,15 @@ test('COST reports retain shipment margins, job source drills and missing perfor
   const charge=card(page,'Record a line discount, fee or freight')
   await charge.getByLabel('Charge order',{exact:true}).selectOption(order.id);await charge.getByLabel('Charge sales line',{exact:true}).selectOption(order.lines[0].id);await charge.getByLabel('Charge kind',{exact:true}).selectOption('discount');await charge.getByLabel('Charge USD',{exact:true}).fill('4');await charge.getByLabel('Refund proportionally on a return').check();await charge.getByLabel('Charge evidence',{exact:true}).setInputFiles({name:'discount.txt',mimeType:'text/plain',buffer:Buffer.from('synthetic-larder-485 agreed discount')});await charge.getByLabel('Charge reason',{exact:true}).fill('synthetic-larder-486 exact commercial charge')
   await act(page,()=>charge.getByRole('button',{name:'Record commercial charge',exact:true}).click())
+  const completedJobs=(await state(page)).workOrders.filter((r:any)=>jobs.some(j=>j.id===r.id));expect(completedJobs).toHaveLength(2)
+  const reportThrough=completedJobs.map((r:any)=>r.closedAt.slice(0,10)).sort().at(-1)
   for(const width of [1440,390]){
     await page.setViewportSize({width,height:1000})
     for(const report of ['margins','variances','performance']){
       await page.goto(origin+`/app#handoff/${report}`)
       await expect(page.getByRole('heading',{name:report==='margins'?'Order margins':report==='variances'?'Job cost variances':'Production performance',exact:true})).toBeVisible()
       if(report==='performance'){
-        await page.getByLabel('Site location',{exact:true}).selectOption(location.id);await page.getByLabel('Report owner',{exact:true}).selectOption(ownerId);await page.getByLabel('Product',{exact:true}).selectOption(product.id);await page.getByLabel('From date',{exact:true}).fill(today);await page.getByLabel('To date',{exact:true}).fill(today)
+        await page.getByLabel('Site location',{exact:true}).selectOption(location.id);await page.getByLabel('Report owner',{exact:true}).selectOption(ownerId);await page.getByLabel('Product',{exact:true}).selectOption(product.id);await page.getByLabel('From date',{exact:true}).fill(today);await page.getByLabel('To date',{exact:true}).fill(reportThrough)
       }else await page.getByLabel('Sales order',{exact:true}).selectOption(order.id)
       const ready=page.waitForResponse(r=>r.url().includes(`/api/larder/costing/${report}?`)&&r.request().method()==='GET')
       await page.getByRole('button',{name:'Apply report filters',exact:true}).click();await ready
@@ -384,10 +386,10 @@ test('COST reports retain shipment margins, job source drills and missing perfor
         await expect(card(page,'Performance metrics')).toContainText('Unknown');await expect(card(page,'Performance metrics')).toContainText('No recorded operation clocks')
         const metrics=card(page,'Performance metrics')
         for(const [name,numerator,denominator,result]of [['Yield','4','5','80%'],['On-time job delivery','0','2','0%']]){
-          const row=metrics.getByRole('row').filter({has:metrics.getByRole('button',{name:'Metric sources '+name,exact:true})}),cells=row.getByRole('cell')
+          const row=metrics.getByRole('row').filter({has:page.getByRole('button',{name:'Metric sources '+name,exact:true})}),cells=row.getByRole('cell')
           expect(await cells.nth(1).evaluate(el=>el.childNodes[0].textContent)).toBe(numerator);expect(await cells.nth(2).evaluate(el=>el.childNodes[0].textContent)).toBe(denominator);await expect(cells.nth(3)).toHaveText(result)
         }
-        const oee=metrics.getByRole('row').filter({has:metrics.getByRole('button',{name:'Metric sources Overall equipment effectiveness',exact:true})});await expect(oee.getByRole('cell').nth(3)).toHaveText('Unknown')
+        const oee=metrics.getByRole('row').filter({has:page.getByRole('button',{name:'Metric sources Overall equipment effectiveness',exact:true})});await expect(oee.getByRole('cell').nth(3)).toHaveText('Unknown')
         const sourceButtons=metrics.getByRole('button',{name:/^Metric sources /});expect(await sourceButtons.count()).toBe(11);for(const button of await sourceButtons.all()){await button.click();await expect(button).toHaveAttribute('aria-expanded','true');await button.click()}const metric=metrics.getByRole('button',{name:'Metric sources Yield',exact:true});await metric.click();await expect(metrics).toContainText('Output')
       }
       if(width===390) {
