@@ -22,6 +22,16 @@ export function traceGraph(s: State) {
     lot(l.id)
     if (l.source === 'customer-custody') link(`property:${l.id}`, party(l.ownerId), lot(l.id), { basis: 'customer-owned intake', date: l.createdAt, ...measure(l.itemId, ''), lotId: l.id })
   }
+  for (const po of s.purchaseOrders) for (const claim of po.supplierClaims ?? []) {
+    for (const replacement of claim.replacements) {
+      link('supplier-replacement:' + replacement.id, lot(claim.lotId), lot(replacement.lotId), {
+        ...document('receipts', claim.receiptId), ...measure(claim.itemId, replacement.quantity),
+        kind: 'supplier replacement', basis: 'recorded supplier replacement; quarantined on receipt',
+        date: replacement.at, movementId: replacement.movementId, reference: claim.supplierRma,
+        originalMovementId: claim.movementId, claimId: claim.id, evidenceId: replacement.evidence.id,
+      })
+    }
+  }
   for (const m of s.movements.filter(m => !m.reversesId)) {
     const data = { ...measure(m.itemId, format(m.quantity < 0n ? -m.quantity : m.quantity)), netQuantity: format(effective(m) < 0n ? -effective(m) : effective(m)), date: m.createdAt, movementId: m.id, ...document(m.documentKind, m.documentId) }
     if (m.documentKind === 'workOrders' && s.workOrders.find(w => w.id === m.documentId)?.traceAllocationVersion && ['issue', 'output'].includes(m.kind)) continue

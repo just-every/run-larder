@@ -1691,6 +1691,16 @@ test('Supplier RMA settles a partial rejected lot with quarantined replacement a
   assert.deepEqual(state.positions.filter(x => x.itemId === p.item.id).map(x => [x.quantity, x.status]).sort(), [['2', 'quarantine'], ['6', 'quarantine']])
   const trace = await (await h.request('/api/larder/lots/' + p.receipt.lines[0].lotId + '/trace?direction=downstream')).json()
   assert.ok(trace.rows.some(x => x.kind === 'supplier-return' && x.quantity === '-4'))
+  const replacement = po.supplierClaims[0].replacements[0]
+  const relation = trace.rows.filter(x => x.kind === 'supplier replacement')
+  assert.deepEqual(relation.map(x => [x.from, x.to, x.quantity, x.movementId, x.originalMovementId, x.claimId, x.reference]),
+    [['lot:' + p.receipt.lines[0].lotId, 'lot:' + replacement.lotId, '2', replacement.movementId, p.receipt.lines[0].movementId, claimId, 'synthetic-larder-440']])
+  const upstream = await (await h.request('/api/larder/lots/' + replacement.lotId + '/trace?direction=upstream')).json()
+  assert.ok(upstream.nodes.some(x => x.lotId === p.receipt.lines[0].lotId))
+  const csv = await (await h.request('/api/larder/lots/' + replacement.lotId + '/trace.csv?direction=upstream')).text()
+  assert.ok(csv.includes('recorded supplier replacement; quarantined on receipt'))
+  assert.ok(csv.includes('synthetic-larder-440'))
+
   assert.equal(state.pendingHandoff, 0)
   await h.restart(); assert.deepEqual((await p.current()).supplierClaims, po.supplierClaims)
   const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
