@@ -132,8 +132,10 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
   // FLOOR-004 retains its explicit production authoring authority. Operators
   // and other readers never recover a rework rate from a prior command replay.
   const respond = (body: any) => json(scopeOf(actor).costs && body?.result ? { ...body, result: redactCosts(body.result) } : Array.isArray(body?.result?.labor) && !readsWages(actor, body.result) ? { ...body, result: withoutWages(body.result) } : body)
+  // Cron identities contain colons, outside the public command alphabet.
+  // A client can never reserve or replay a scheduler command identity.
   const { commandId, type, payload = {} } = body ?? {}
-  if (typeof commandId !== 'string' || !/^[-a-zA-Z0-9_]{8,100}$/.test(commandId) || typeof type !== 'string') throw new Problem('COMMAND', 'Send a unique commandId and a command type.', null, 400)
+  if (typeof commandId !== 'string' || !(automaticReport ? /^cron:report:[-a-f0-9]{36}:\d{4}-\d{2}-\d{2}$/ : /^[-a-zA-Z0-9_]{8,100}$/).test(commandId) || typeof type !== 'string') throw new Problem('COMMAND', 'Send a unique commandId and a command type.', null, 400)
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Problem('INPUT', 'The payload must be an object.', null, 400)
   if (actor.role === 'viewer') forbidden('Viewers can read but not change records.')
   if (type.startsWith('audit.')) forbidden('The audit is append-only: no role, including the owner, edits or deletes an entry.')
@@ -255,7 +257,7 @@ export async function runDueReports(original: Bindings): Promise<void> {
   for (const r of due) {
     try {
       const actor = await liveReportOwner(env.DB, r.id, true)
-      await executeCommand(env, actor, { commandId: `report-${r.id}-${today}`, type: 'reports.run', payload: { scheduleId: r.id, version: r.version } }, true)
+      await executeCommand(env, actor, { commandId: `cron:report:${r.id}:${today}`, type: 'reports.run', payload: { scheduleId: r.id, version: r.version } }, true)
     } catch (error) {
       // A stopped session or a concurrent cancellation has no new consequence.
       // Unexpected failures surface after other due schedules have been tried.

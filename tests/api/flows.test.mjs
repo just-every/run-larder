@@ -1129,13 +1129,15 @@ test('COST-001 approved time overtime and service costs roll through scrap and d
 })
 
 test('COST-006 filtered performance retains denominators and missing clocks, receipt rejects and in-app scheduled snapshots',async t=>{
-  const h=await installation();t.after(()=>h.close());const w=await workshop(h),today=new Date().toISOString().slice(0,10),me=(await h.state()).actor
+  const h=await installation({now:'2026-10-27T10:00:00.000Z'});t.after(()=>h.close());const w=await workshop(h),today='2026-10-27',me=(await h.state()).actor
   let job=await h.command('wo.draft',{itemId:w.board.id,quantity:'2',requiredBy:'2026-01-01',reason:'synthetic-larder-457 late job'});job=await h.command('wo.release',{workOrderId:job.id,version:job.version})
   job=await h.command('wo.operation.assign',{workOrderId:job.id,version:job.version,sequence:1,operatorId:me.id})
   job=await h.command('wo.operation.start',{workOrderId:job.id,version:job.version,sequence:1,workCentre:'Bench',station:'synthetic-larder-458',reason:'synthetic-larder-459 start'})
-  job=await h.command('wo.operation.pause',{workOrderId:job.id,version:job.version,sequence:1,reason:'breakdown',note:'synthetic-larder-460 broken tool',escalationOwnerId:me.id,anticipatedResumeAt:new Date(Date.now()+3600000).toISOString()})
+  job=await h.command('wo.operation.pause',{workOrderId:job.id,version:job.version,sequence:1,reason:'breakdown',note:'synthetic-larder-460 broken tool',escalationOwnerId:me.id,anticipatedResumeAt:'2026-10-27T11:00:00.000Z'})
+  await h.advanceClock('2026-10-27T10:02:00.000Z')
   job=await h.command('wo.operation.resume',{workOrderId:job.id,version:job.version,sequence:1,reason:'synthetic-larder-461 tool repaired'})
   job=await h.command('wo.operation.report',{workOrderId:job.id,version:job.version,sequence:1,good:'1',scrap:'1',scrapReason:'synthetic-larder-530 actual reject',reason:'synthetic-larder-531 actual operation quantities'})
+  await h.advanceClock('2026-10-27T10:20:00.000Z')
   job=await h.command('wo.operation.complete',{workOrderId:job.id,version:job.version,sequence:1,reason:'synthetic-larder-469 operation completed'})
   job=await h.command('wo.issue',{workOrderId:job.id,lines:[{itemId:w.timber.id,locationId:w.loc.id,quantity:'2'},{itemId:w.oil.id,locationId:w.loc.id,quantity:'0.1'}]})
   job=await h.command('wo.output',{workOrderId:job.id,version:job.version,locationId:w.loc.id,quantity:'1',scrap:'1',scrapReason:'synthetic-larder-462 failed finish',lot:'synthetic-larder-463'})
@@ -1154,7 +1156,19 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   assert.equal(filtered.metrics.onTimeDelivery.percent,'0');assert.equal(filtered.metrics.yield.percent,'50');assert.equal(filtered.metrics.quality.percent,'50');assert.equal(filtered.metrics.quality.denominator,'2');assert.equal(filtered.metrics.utilization.percent,null);assert.match(filtered.metrics.utilization.missing.join(' '),/calendar/)
   assert.equal(filtered.metrics.scheduleAdherence.percent,null);assert.match(filtered.metrics.scheduleAdherence.missing.join(' '),/booked end/)
   assert.equal(filtered.metrics.downtime.sources[0].workOrderId,job.id);assert.ok(BigInt(filtered.metrics.downtime.milliseconds)>0n)
-  const absent=await costReport(h,'performance',`?center=Finishing&itemId=${w.board.id}`);assert.equal(absent.metrics.oee.percent,null);assert.match(absent.metrics.oee.missing.join(' '),/clock/)
+  assert.equal(filtered.metrics.downtime.milliseconds,'120000');assert.equal(filtered.metrics.availability.percent,'90');assert.equal(filtered.metrics.performance.percent,'222.222222');assert.equal(filtered.metrics.oee.percent,'100')
+  assert.deepEqual(filtered.metrics.onTimeDelivery.sources.map(r=>r.workOrderId),[job.id])
+  for(const metric of Object.values(filtered.metrics)){assert.ok(Object.hasOwn(metric,'denominator'));assert.ok(Array.isArray(metric.missing));assert.ok(Array.isArray(metric.sources))}
+  const filterManager=await h.person('synthetic-larder-1111@example.test','manager')
+  for(const [filter,yes,no] of [['site',w.loc.id,w.store.id],['ownerId',me.id,filterManager.id],['itemId',w.board.id,w.oil.id],['center','Bench','Finishing']]){
+    const base=`?from=${today}&to=${today}`+(filter==='itemId'?'':`&itemId=${w.board.id}`)
+    const included=await costReport(h,'performance',base+`&${filter}=${yes}`),excluded=await costReport(h,'performance',base+`&${filter}=${no}`)
+    if(filter!=='center')assert.deepEqual(included.metrics.onTimeDelivery.sources.map(r=>r.workOrderId),[job.id],filter+' keeps matching job')
+    assert.deepEqual(excluded.metrics[filter==='center'?'availability':'onTimeDelivery'].sources,[],filter+' excludes unrelated records')
+    if(filter==='ownerId'){assert.equal(included.metrics.utilization.percent,null);assert.match(included.metrics.utilization.missing.join(' '),/not allocated/)}
+  }
+  const outside=await costReport(h,'performance',`?from=2026-10-28&to=2026-10-28`);assert.deepEqual(outside.metrics.onTimeDelivery.sources,[]);assert.equal(outside.metrics.oee.percent,null)
+  const absent=await costReport(h,'performance',`?from=${today}&to=${today}&center=Finishing&itemId=${w.board.id}`);assert.equal(absent.metrics.oee.percent,null);assert.match(absent.metrics.oee.missing.join(' '),/clock/)
   const csv=await(await h.request(`/api/larder/costing/performance.csv?from=${today}&to=${today}&center=Bench&itemId=${w.board.id}`)).text();assert.match(csv,/denominator/);assert.match(csv,/Bench/);assert.match(csv,new RegExp(job.id))
   await h.command('reports.schedule',{filters:filtered.filters,consent:false,reason:'synthetic-larder-467 no consent'},{error:'CONSENT'})
   const schedule=await h.command('reports.schedule',{filters:filtered.filters,consent:true,reason:'synthetic-larder-468 daily in-app report'})
@@ -1166,12 +1180,14 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   const measured=await h.command('item.save',{sku:'synthetic-larder-509',name:'Measured product',kind:'make',baseUnit:'each'})
   await h.command('bom.revise',{itemId:measured.id,components:[{itemId:w.timber.id,quantity:'1'}],routing:[{name:'Measured operation',workCentre:'Bench',minutes:20}]})
   let positive=await h.command('wo.draft',{itemId:measured.id,quantity:'1',requiredBy:today,reason:'synthetic-larder-510 positive metrics'});positive=await h.command('wo.release',{workOrderId:positive.id,version:positive.version})
-  const start=new Date(Math.ceil(Date.now()/60000)*60000+60000).toISOString()
+  const start='2026-10-27T11:00:00.000Z'
   await h.command('schedule.protect',{asOf:start,days:1,freezeUntil:start,manualLocks:[],reason:'synthetic-larder-511 retained baseline'})
   const plan=await h.command('schedule.scenario',{asOf:start,days:1,name:'synthetic-larder-512',reason:'synthetic-larder-513 record feasible baseline'})
   await h.command('schedule.adopt',{planId:plan.id,version:plan.version,reason:'synthetic-larder-514 explicit owner approval'})
   positive=await h.command('wo.operation.assign',{workOrderId:positive.id,version:positive.version,sequence:1,operatorId:me.id})
+  await h.advanceClock(start)
   positive=await h.command('wo.operation.start',{workOrderId:positive.id,version:positive.version,sequence:1,workCentre:'Bench',station:'synthetic-larder-515',reason:'synthetic-larder-516 actual start'})
+  await h.advanceClock('2026-10-27T11:20:00.000Z')
   positive=await h.command('wo.operation.complete',{workOrderId:positive.id,version:positive.version,sequence:1,reason:'synthetic-larder-517 actual finish'})
   positive=await h.command('wo.issue',{workOrderId:positive.id,lines:[{itemId:w.timber.id,quantity:'1',locationId:w.loc.id}]})
   positive=await h.command('wo.output',{workOrderId:positive.id,version:positive.version,locationId:w.loc.id,quantity:'1',scrap:'0',lot:'synthetic-larder-518'})
@@ -1179,7 +1195,7 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   const measuredReport=await costReport(h,'performance',`?from=${today}&to=${today}&center=Bench&itemId=${measured.id}`)
   assert.equal(measuredReport.metrics.availability.percent,'100');assert.equal(measuredReport.metrics.quality.percent,'100');assert.equal(measuredReport.metrics.scheduleAdherence.percent,'100');assert.equal(measuredReport.metrics.onTimeDelivery.percent,'100');assert.equal(measuredReport.metrics.utilization.denominator,'86400000')
   const elapsed=Date.parse(positive.operationStates[0].completedAt)-Date.parse(positive.operationStates[0].startedAt)
-  assert.equal(measuredReport.metrics.utilization.numerator,String(elapsed));assert.equal(measuredReport.metrics.performance.numerator,'1200000');assert.equal(measuredReport.metrics.performance.denominator,String(elapsed));assert.notEqual(measuredReport.metrics.oee.percent,null)
+  assert.equal(measuredReport.metrics.utilization.numerator,String(elapsed));assert.equal(measuredReport.metrics.performance.numerator,'1200000');assert.equal(measuredReport.metrics.performance.denominator,String(elapsed));assert.equal(measuredReport.metrics.oee.percent,'100');assert.equal(measuredReport.metrics.performance.percent,'100');assert.equal(measuredReport.metrics.utilization.percent,'1.388889')
   const monday=new Date(Date.parse(today+'T00:00Z')-((new Date(today+'T00:00Z').getUTCDay()+6)%7)*86400000).toISOString().slice(0,10)
   const quote=await h.command('so.quote',{customerId:w.customer.id,promiseDate:monday,lines:[{itemId:measured.id,quantity:'4',unitPrice:'50'}]});await h.command('so.confirm',{orderId:quote.id,version:quote.version,reserve:false})
   await h.command('forecast.import',{stateVersion:(await h.state()).version,file:{name:'synthetic-larder-519.csv',content:`sku,week,quantity,seasonality\n${measured.sku},${monday},6,1\n`},reason:'synthetic-larder-520 exact forecast'})
@@ -1202,6 +1218,7 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   await runner.command('reports.run',{},{error:'INPUT'})
   for(const verb of ['reports.run','reports.cancel'])await manager.run(verb,{scheduleId:unattended.id,version:unattended.version,reason:'synthetic-larder-1105 non-owner refused'},{error:'FORBIDDEN'})
   assert.deepEqual((await runner.state()).reportSchedules.find(r=>r.id===unattended.id),unattended)
+  for(const as of [manager.cookie,runner.owner()]){const refused=await runner.send('location.save',{name:'synthetic-larder-1112 reserved namespace'},{as,commandId:`cron:report:${unattended.id}:2027-01-10`});assert.equal(refused.res.status,400);assert.equal(refused.body.error.code,'COMMAND')}
   await manager.run('location.save',{name:'synthetic-larder-1110 client command identity'},{commandId:`report-${unattended.id}-2027-01-10`})
   const outbound=runner.outboundCount()
   await Promise.all([tick(runner),tick(runner)])
