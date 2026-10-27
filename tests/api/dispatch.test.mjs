@@ -67,6 +67,7 @@ test('FLOOR-001 assigned dispatch gates, station/reason history, authority, repl
   // A historical archive is test input at the real restore door. Remove only
   // metadata absent in the earlier edition; migration must not invent it.
   const archive = await (await h.request('/api/larder/archive')).json()
+  delete archive.currencyDeclarations
   const restored = await installation(); t.after(() => restored.close())
   const restoredOwner = (await restored.state()).actor
   const restoredOther = await restored.person('legacy-other@example.test')
