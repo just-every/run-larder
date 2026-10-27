@@ -967,3 +967,22 @@ This is a recorded-material bridge, not complete actual WIP: production labor,
 overhead, later valuations, operation allocation, screens and external control
 account reconciliation remain COST-002 gaps. The response labels that basis and
 its external state as not connected and not reconciled. No journals are posted.
+
+## US business identity
+
+The owner opens Settings from the account menu. `business.save` takes the current
+profile `version` (0 before first save), `legalName`, `einReference`,
+`billingAddress` and `shippingAddress` (each `street`, `city`, two-letter US
+`state`, `postalCode`, `country: US`), `timeZone` (US IANA identifier),
+`workingWeek` (distinct weekday numbers, Sunday 0), and `fiscalYearStart`
+(recurring `MM-DD`). Functional currency defaults to USD; another currency is
+refused, never used to relabel history. The business calendar describes the
+business; existing production calendar definitions and recorded dates stay intact.
+The command checks owner authority before replay and again at atomic commit,
+refuses stale versions, and records audit history. Only the owner sees the
+profile in ordinary state reads; existing authorized business archive access
+retains the profile. This is an identity reference, not tax validation.
+
+Customer and supplier `party.save` uses separate `ein` and legacy `abn` fields.
+Existing Australian and imported tax identities are retained without reclassification.
+An omitted field does not reinterpret an ABN as an EIN.

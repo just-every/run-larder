@@ -1,3 +1,4 @@
+import { BusinessSettings } from './business-settings'
 import { useEffect, useState } from 'react'
 import { rows, useLarder } from './api'
 import { Details } from './controls'
@@ -25,7 +26,7 @@ export const destinations = [
   { id: 'more', title: 'More', icon: 'more' },
 ] as const
 
-const readHash = () => { const [view = '', ...rest] = window.location.hash.slice(1).split('/'); return { view: destinations.some(d => d.id === view) ? view : '', rest } }
+const readHash = () => { const [view = '', ...rest] = window.location.hash.slice(1).split('/'); return { view: view === 'settings' || destinations.some(d => d.id === view) ? view : '', rest } }
 export const go = (path: string) => { window.location.hash = path }
 
 export function LarderApp() {
@@ -50,6 +51,7 @@ export function LarderApp() {
           {view === 'stock' && <Stock larder={larder} />}
           {view === 'make' && <MakeBuy larder={larder} section={route.rest[0]} id={route.rest[1]} />}
           {view === 'handoff' && <Handoff larder={larder} id={route.rest[0]} />}
+          {view === 'settings' && <div className="page"><header className="page-head"><h1>Settings</h1></header><BusinessSettings larder={larder} /></div>}
           {view === 'more' && <More larder={larder} section={route.rest[0]} />}
         </>}
       </main>

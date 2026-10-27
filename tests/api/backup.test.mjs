@@ -170,3 +170,57 @@ test('US-001 restore refuses undeclared or non-USD functional money without rela
   assert.deepEqual(exported.records.salesOrders, archive.records.salesOrders)
   assert.deepEqual(exported.movements, archive.movements)
 })
+
+test('US business settings retain Ohio identity, local dates and per-record currencies through restart and restore', async t => {
+  const h = await installation({ now: '2026-10-27T02:30:00.000Z' }); t.after(() => h.close())
+  const address = { street: '12 Workshop Way', city: 'Columbus', state: 'OH', postalCode: '43215', country: 'US' }
+  const payload = { version: 0, legalName: 'Synthetic Ohio Workshop', billingAddress: address, shippingAddress: { ...address, street: '14 Workshop Way' }, einReference: 'synthetic-larder-931', timeZone: 'America/New_York', workingWeek: [1, 2, 3, 4, 5], fiscalYearStart: '07-01' }
+  const replay = 'synthetic-larder-business-931'
+  const profile = await h.command('business.save', payload, { commandId: replay })
+  assert.equal(profile.functionalCurrency, 'USD')
+  assert.equal(new Intl.DateTimeFormat('en-CA', { timeZone: profile.timeZone }).format(new Date(profile.updatedAt)), '2026-10-26')
+  await h.command('business.save', { ...payload, legalName: 'Stale overwrite' }, { error: 'STALE' })
+  for (const change of [{ functionalCurrency: 'AUD' }, { timeZone: 'Australia/Sydney' }, { fiscalYearStart: '02-30' }, { workingWeek: [] }, { billingAddress: { ...address, country: 'AU' } }]) {
+    await h.command('business.save', { ...payload, version: profile.version, ...change }, { error: change.functionalCurrency ? 'CURRENCY_MIGRATION' : 'INPUT' })
+    assert.deepEqual((await h.state()).businessProfiles, [profile])
+  }
+  const manager = await h.person('business-manager@example.test', 'manager')
+  await manager.run('business.save', { ...payload, version: profile.version }, { error: 'FORBIDDEN' })
+  assert.deepEqual((await h.state(manager.cookie)).businessProfiles, [])
+  const w = await workshop(h)
+  const stock = await h.command('item.save', { sku: 'synthetic-larder-931', name: 'Ohio bar stock', baseUnit: 'inch', conversions: [{ unit: 'foot', factor: '12' }, { unit: 'thou', factor: '0.001' }], standardCost: '0.5' })
+  const quote = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-11-01', lines: [{ itemId: stock.id, quantity: '24', unit: 'inch', unitPrice: '1.25' }] })
+  assert.equal(quote.lines[0].quantity, '24'); assert.equal(quote.lines[0].unitPrice, '1.25')
+  await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-11-01', lines: [{ itemId: stock.id, quantity: '0.0005', unit: 'thou', unitPrice: '1.25' }] }, { error: 'INEXACT_CONVERSION' })
+  const purchase = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-11-01', reason: 'Ohio restock', lines: [{ itemId: stock.id, quantity: '2', unit: 'foot', unitPrice: '0.5' }] })
+  await h.command('po.approve', { poId: purchase.id, version: purchase.version })
+  const receipt = await h.command('receipt.create', { poId: purchase.id, supplierReference: 'synthetic-larder-931', lines: [{ lineId: purchase.lines[0].id, quantity: '2', unit: 'foot', locationId: w.loc.id, lot: 'synthetic-larder-931' }] })
+  assert.equal(receipt.lines[0].quantity, '24')
+  assert.equal((await h.invariant()).positions.find(p => p.itemId === stock.id).quantity, '24')
+  await h.restart()
+  assert.deepEqual(await h.command('business.save', payload, { commandId: replay }), profile)
+  const archive = await (await h.request('/api/larder/archive')).json()
+  assert.deepEqual(archive.currencyDeclarations.records.salesOrders, [{ id: quote.id, currency: 'USD' }])
+  assert.equal(archive.currencyDeclarations.movements, 'USD')
+  for (const [kind, records] of Object.entries(archive.records)) assert.deepEqual(archive.currencyDeclarations.records[kind], records.map(r => ({ id: r.id, currency: kind === 'sourceHistory' ? r.currency : 'USD' })))
+  const target = await installation(); t.after(() => target.close())
+  const altered = structuredClone(archive)
+  altered.currencyDeclarations.records.salesOrders[0].currency = 'AUD'
+  const stable = v => Array.isArray(v) ? v.map(stable) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map(k => [k, stable(v[k])])) : v
+  const { exportedAt, checksum, ledger, ...content } = altered
+  altered.checksum = createHash('sha256').update(JSON.stringify(stable(content))).digest('hex')
+  assert.equal((await (await target.request('/api/larder/archive/restore', { method: 'POST', body: altered })).json()).error.code, 'CURRENCY_MIGRATION')
+  assert.equal((await target.state()).version, 0)
+  assert.equal((await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })).status, 200)
+  const again = await (await target.request('/api/larder/archive')).json()
+  assert.deepEqual(again.records.businessProfiles, [profile])
+  assert.deepEqual(again.records.salesOrders, archive.records.salesOrders)
+  assert.deepEqual(again.currencyDeclarations.records.salesOrders, [{ id: quote.id, currency: 'USD' }])
+  assert.equal(again.records.salesOrders[0].promiseDate, '2026-11-01')
+  assert.equal(again.records.salesOrders[0].lines[0].quantity, '24')
+  assert.equal(again.records.salesOrders[0].lines[0].unitPrice, '1.25')
+  assert.deepEqual(again.records.receipts, archive.records.receipts)
+  assert.deepEqual(again.movements, archive.movements)
+  assert.deepEqual(again.records.businessProfiles[0].billingAddress, address)
+  assert.equal(again.records.businessProfiles[0].einReference, 'synthetic-larder-931')
+})
