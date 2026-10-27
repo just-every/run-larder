@@ -485,7 +485,15 @@ test('Owner reviews exact variance sources and destination, then inspects the li
 
 test('US business settings save Ohio identity and retain distinct EIN fields at both widths', async ({ page }) => {
   await enter(page)
-  for (const width of [1440, 390]) {
+  // Behaviour runs once; record the same saved screens at both proof widths.
+  const capture = async (name: string) => {
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 })
+      await shot(page, name)
+    }
+    await page.setViewportSize({ width: 1440, height: 900 })
+  }
+  const width = 1440
     await page.setViewportSize({ width, height: 900 })
     await page.goto(origin + '/app#settings')
     const form = card(page, 'US business settings')
@@ -515,7 +523,7 @@ test('US business settings save Ohio identity and retain distinct EIN fields at 
     const account = page.getByLabel('Account menu', { exact: true })
     await account.focus()
     await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
-    await shot(page, 'US-001-settings')
+    await capture('US-001-settings')
     await account.click()
     await expect(page.getByRole('link', { name: 'Settings', exact: true })).toBeVisible()
     await page.goto(origin + '/app#more/setup')
@@ -528,7 +536,6 @@ test('US business settings save Ohio identity and retain distinct EIN fields at 
     expect(contact.ein).toBe('synthetic-larder-1')
     expect(contact.abn).toBe('')
     await expect(contacts.getByRole('cell', { name: `Synthetic Ohio contact ${width}`, exact: true })).toBeVisible()
-    await shot(page, 'US-001-contact-identity')
+    await capture('US-001-contact-identity')
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  }
 })
