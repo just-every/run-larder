@@ -863,7 +863,8 @@ indefinitely preserved regardless of their recorded minimum floor. No statutory 
 expiry, purge schedule or legal compliance is supplied by this setting.
 
 Holds can now preserve any native business-record category except retention decisions,
-hold metadata and audit erasure requests. Native identity tables and attachment bytes
+hold metadata, audit erasure requests and live authority metadata. A legal hold
+cannot freeze role changes, credential revocation or delegated authority revocation. Native identity tables and attachment bytes
 are not independently editable business records; document bytes remain retained.
 
 The owner reviews `GET /api/larder/retention/operator?operatorId=<id>` and submits

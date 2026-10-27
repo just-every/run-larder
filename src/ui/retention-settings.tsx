@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Larder } from './app'
 import { rows } from './api'
-import { collections } from '../larder/model'
+import { retentionKinds } from '../larder/model'
 import { Card, Choose, Empty, Field, Form, Table, text } from './controls'
 import { words } from './format'
 
@@ -11,7 +11,7 @@ export function RetentionSettings({ larder }: { larder: Larder }) {
   if (s.actor.role !== 'owner') return null
   const holds = rows(s, 'retentionHolds'), policies = rows(s, 'retentionPolicies')
   const subjects = [...rows(s, 'parties').filter(p => !p.contactErasedAt).map(p => ({ value: 'contact:' + p.id, label: 'Contact: ' + p.name })), ...rows(s, 'operators').filter(o => o.status === 'inactive' && o.name !== '[erased]').map(o => ({ value: 'operator:' + o.id, label: 'Former operator: ' + o.name }))]
-  const records = collections.filter(k => !['retentionHolds', 'contactErasures', 'retentionPolicies', 'auditErasures'].includes(k)).flatMap(kind => rows(s, kind).map(r => ({ value: kind + ':' + r.id, label: `${words(kind)}: ${r.reference || r.name || r.code || r.id}` })))
+  const records = retentionKinds.flatMap(kind => rows(s, kind).map(r => ({ value: kind + ':' + r.id, label: `${words(kind)}: ${r.reference || r.name || r.code || r.id}` })))
   async function loadReview(d: FormData) {
     setError(''); setReview(null)
     const [kind, id] = text(d, 'subject').split(':')
@@ -38,7 +38,7 @@ export function RetentionSettings({ larder }: { larder: Larder }) {
       <p>Review the current subject and retained records before consenting. Contact erasure replaces name and email only. Former operators must be inactive; any active legal hold blocks their anonymization. Documents, messages, model context and immutable movement text remain retained.</p>
       <Form submit="Review erasure" busy={larder.busy} onSubmit={loadReview}><Choose label="Erasure subject" name="subject" options={subjects} /></Form>
       {error && <p role="alert">{error}</p>}
-      {review && <div><h3>{review.label}</h3><p>Reviewed business version {review.version}. Eligible fields: {review.eligibleFields.join(', ')}.</p>
+      {review && <div><h3>{review.label}</h3><p>Current name: {review.subject?.name}. Current email: {review.subject?.email || 'none'}.</p><p>Reviewed business version {review.version}. Eligible fields: {review.eligibleFields.join(', ')}.</p>
         {review.eligibleAt && <p>Minimum retention ends {review.eligibleAt}.</p>}
         <h3>Retained categories and reasons</h3><ul>{review.retained.map((r: any, i: number) => <li key={i}>{typeof r === 'string' ? r : `${r.category}: ${r.reason}`}</li>)}</ul>
         <h3>Controlled copy outcomes</h3><dl>{Object.entries(review.outcomes).map(([kind, result]) => <div key={kind}><dt>{words(kind)}</dt><dd>{String(result)}</dd></div>)}</dl>
