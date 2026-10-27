@@ -360,7 +360,7 @@ test('Supplier credit and landed-cost corrections reach the accountant handoff w
   late = await command(page, 'po.approve', { poId: late.id, version: late.version })
   const second = await command(page, 'receipt.create', { poId: late.id, supplierReference: 'synthetic-larder-465', lines: [{ lineId: late.lines[0].id, locationId: location.id, quantity: '5', lot: `synthetic-larder-${tag}-freight` }] })
   late = (await (await page.request.get(origin + '/api/larder/state')).json()).purchaseOrders.find((x: any) => x.id === late.id)
-  await page.goto(origin + '/app#make/po/' + late.id)
+  await page.goto(origin + '/app#make/po/' + late.id); await page.reload(); await settled(page)
   await page.locator('summary').filter({ hasText: /^Prepare allocation$/ }).click()
   form = formFor('Prepare allocation')
   await form.getByLabel('Charge kind', { exact: true }).selectOption('freight')
