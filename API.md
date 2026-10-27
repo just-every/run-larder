@@ -995,3 +995,5 @@ is attached. `so.reviewClear` (`orderId`, `version`, `reason`) retains review
 history and reopens the original USD quote without applying reviewed terms.
 Native archive and empty restore preserve the review as inert history. Scoped
 members cannot prepare or replay reviews; location-scoped state omits them.
+
+Explicit review disposition: editing an existing quote through `so.quote` refuses while a current costed review is attached, even when the edit includes a reason. Use `so.reviewClear` first with the exact current order version and a nonblank reason. Discard retains the complete review with disposition actor, time, reason, order version and review input version. It leaves original USD lines unchanged and creates no reservation or booking. A stale version, missing review, agent or restricted commercial scope refuses discard. Refreshing preparation retains the earlier review as history and keeps the confirmation block. A later edit or confirmation is a separate current-version command under existing authority and margin policy.

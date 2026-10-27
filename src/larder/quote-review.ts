@@ -99,7 +99,12 @@ export function quoteReview(c: Context, type: string, p: any): Row | undefined {
   const order = get(c.s, 'salesOrders', p.orderId); fresh(order, p.version)
   if (order.status !== 'quote') fail('STATE', 'Costed preparation is available only on an unconfirmed quote.')
   const history = [...(order.quoteReviewHistory ?? []), ...(order.quoteReview ? [order.quoteReview] : [])]
-  if (type === 'so.reviewClear') return bump(order, { quoteReview: null, quoteReviewHistory: history, reviewClearedBy: c.actor.id, reviewClearReason: text(p.reason, 'discard reason') })
+  if (type === 'so.reviewClear') {
+    if (!order.quoteReview) fail('STATE', 'There is no current costed review to discard.')
+    const reason = text(p.reason, 'discard reason')
+    const disposition = { actorId: c.actor.id, at: c.now, reason, orderVersion: order.version, reviewInputVersion: order.quoteReview.inputVersion }
+    return bump(order, { quoteReview: null, quoteReviewHistory: [...(order.quoteReviewHistory ?? []), { ...order.quoteReview, disposition }], reviewClearedBy: c.actor.id, reviewClearedAt: c.now, reviewClearReason: reason })
+  }
   const currency = oneOf(p.currency ?? 'USD', ['USD', 'CAD'] as const, 'quote currency')
   const rate = currency === 'USD' ? SCALE : decimal(p.usdRate, 'USD per customer currency unit', { positive: true })
   const rateDate = currency === 'USD' ? c.now.slice(0, 10) : realDate(p.rateDate, 'rate date')
