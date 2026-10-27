@@ -122,8 +122,16 @@ jobs:
       - run: npm install --global pnpm@10.12.4
       - run: pnpm install --frozen-lockfile
       - run: pnpm run deps
-      - if: matrix.part != 'api'
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Chromium
+        if: matrix.part != 'api'
+        run: |
+          set -euo pipefail
+          pnpm exec playwright install chromium
+          # Hosted ubuntu-24.04 already carries Chromium's libraries. Use apt only when a real launch fails.
+          node scripts/ci/chromium-probe.mjs || {
+            timeout 420 pnpm exec playwright install-deps chromium
+            node scripts/ci/chromium-probe.mjs
+          }
       - run: pnpm exec rer check --profile first-party
       # The foundation partition still uses Base verify, including its hosted
       # production-output and hydration checks after the application target.
