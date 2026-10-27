@@ -1186,6 +1186,65 @@ test('COST-006 filtered performance retains denominators and missing clocks, rec
   const forecast=await costReport(h,'performance',`?from=${monday}&to=${today}&itemId=${measured.id}`);assert.equal(forecast.metrics.forecastError.numerator,'2');assert.equal(forecast.metrics.forecastError.denominator,'4');assert.equal(forecast.metrics.forecastError.percent,'50');assert.equal(forecast.metrics.forecastError.sources[0].forecast,'6')
   const archive=await(await h.request('/api/larder/archive')).json(),target=await installation();t.after(()=>target.close());assert.equal((await target.request('/api/larder/archive/restore',{method:'POST',body:archive})).status,200)
   assert.deepEqual((await target.state()).reportSchedules[0].filters,filtered.filters);assert.equal((await target.state()).reportSchedules[0].status,'paused')
+
+  // The real cron door runs without an HTTP request or a browser being open.
+  const runner=await installation({now:'2027-01-10T12:00:00.000Z'});t.after(()=>runner.close())
+  assert.equal((await runner.request('/api/larder/archive/restore',{method:'POST',body:archive})).status,200)
+  const tick=async installation=>assert.equal((await (await installation.mf.getWorker()).scheduled()).outcome,'ok')
+  const paused=(await runner.state()).reportSchedules
+  await tick(runner);assert.deepEqual((await runner.state()).reportSchedules,paused,'Restore grants no background authority')
+  const expected=await costReport(runner,'performance',`?from=${today}&to=${today}&center=Bench&itemId=${w.board.id}`)
+  const owner=(await runner.state()).actor, scheduleArgs={filters:filtered.filters,consent:true,reason:'synthetic-larder-1100 native session scheduling'}
+  const manager=await runner.person('synthetic-larder-1101@example.test','manager')
+  await manager.run('reports.schedule',scheduleArgs,{error:'FORBIDDEN'})
+  await runner.command('reports.schedule',{...scheduleArgs,consent:false},{error:'CONSENT'})
+  const unattended=await runner.command('reports.schedule',scheduleArgs)
+  await runner.command('reports.run',{},{error:'INPUT'})
+  for(const verb of ['reports.run','reports.cancel'])await manager.run(verb,{scheduleId:unattended.id,version:unattended.version,reason:'synthetic-larder-1105 non-owner refused'},{error:'FORBIDDEN'})
+  assert.deepEqual((await runner.state()).reportSchedules.find(r=>r.id===unattended.id),unattended)
+  await manager.run('location.save',{name:'synthetic-larder-1110 client command identity'},{commandId:`report-${unattended.id}-2027-01-10`})
+  const outbound=runner.outboundCount()
+  await Promise.all([tick(runner),tick(runner)])
+  let retained=(await runner.state()).reportSchedules.find(r=>r.id===unattended.id)
+  assert.equal(retained.snapshots.length,1,'Concurrent ticks generate exactly one due snapshot')
+  assert.deepEqual(retained.filters,filtered.filters);assert.deepEqual(retained.snapshots[0].report,expected)
+  assert.equal(retained.snapshots[0].generation,'scheduled');assert.equal(retained.snapshots[0].by,owner.id);assert.equal(retained.snapshots[0].ownerName,owner.name)
+  assert.equal(retained.nextDate,'2027-01-11');assert.equal(retained.snapshots[0].at,'2027-01-10T12:00:00.000Z')
+  await runner.restart();await tick(runner);assert.deepEqual((await runner.state()).reportSchedules.find(r=>r.id===unattended.id),retained)
+  await runner.advanceClock('2027-01-11T12:00:00.000Z');await tick(runner)
+  retained=(await runner.state()).reportSchedules.find(r=>r.id===unattended.id)
+  assert.equal(retained.snapshots.length,2);assert.equal(retained.snapshots[1].by,owner.id);assert.deepEqual(retained.snapshots[0].report,expected)
+  assert.equal(runner.outboundCount(),outbound,'Cron performs no outbound send')
+  const audit=await(await runner.request('/api/larder/audit?type=reports.run')).json()
+  assert.equal(audit.entries.filter(e=>e.subjectId===unattended.id).length,2)
+  const portable=await(await runner.request('/api/larder/archive')).json()
+  const privateBinding=await runner.db.prepare('SELECT actor FROM larder_report_sessions WHERE schedule_id=?').bind(unattended.id).first()
+  const sessionId=JSON.parse(privateBinding.actor).sessionId
+  assert.equal(JSON.stringify(portable).includes(sessionId),false);assert.equal(JSON.stringify(audit).includes(sessionId),false)
+  await runner.command('reports.run',{scheduleId:unattended.id,version:retained.version-1},{error:'STALE'})
+  await runner.command('reports.cancel',{scheduleId:unattended.id,version:retained.version,reason:'synthetic-larder-1102 revoke consent'})
+  await runner.advanceClock('2027-01-12T12:00:00.000Z');await tick(runner)
+  assert.equal((await runner.state()).reportSchedules.find(r=>r.id===unattended.id).snapshots.length,2)
+  for(const termination of ['signout','expiry','revocation','owner change','deactivation','review','dev']){
+    const stopped=await installation({now:'2027-01-10T12:00:00.000Z'})
+    try{
+      const due=await stopped.command('reports.schedule',{filters:{},consent:true,reason:'synthetic-larder-1103 stop conditions'})
+      const binding=JSON.parse((await stopped.db.prepare('SELECT actor FROM larder_report_sessions WHERE schedule_id=?').bind(due.id).first()).actor)
+      if(termination==='signout')assert.equal((await stopped.request('/auth/signout',{method:'POST',body:{}})).status<400,true)
+      else if(termination==='expiry')await stopped.db.prepare('UPDATE oa_sessions SET expires_at=0 WHERE id=?').bind(binding.sessionId).run()
+      else if(termination==='revocation')await stopped.db.prepare('UPDATE oa_sessions SET revoked_at=? WHERE id=?').bind(Date.now(),binding.sessionId).run()
+      else if(['review','dev'].includes(termination))await stopped.db.prepare('UPDATE oa_sessions SET kind=? WHERE id=?').bind(termination,binding.sessionId).run()
+      else{
+        // Native owner lifecycle fixtures preserve the final-owner invariant.
+        await stopped.db.prepare("INSERT INTO oa_operators(id,email,display_name,role,status,created_at) VALUES(?,?,?,'owner','active',?)").bind('synthetic-larder-1104','synthetic-larder-1104@example.test','Synthetic Larder Owner',Date.now()).run()
+        await stopped.db.prepare(termination==='owner change'?"UPDATE oa_operators SET role='member' WHERE id=?":"UPDATE oa_operators SET status='inactive' WHERE id=?").bind(binding.id).run()
+      }
+      const before=(await stopped.db.prepare("SELECT data FROM larder_records WHERE kind='reportSchedules' AND id=?").bind(due.id).first()).data
+      const noSend=stopped.outboundCount();await tick(stopped);await stopped.restart();await tick(stopped)
+      assert.equal((await stopped.db.prepare("SELECT data FROM larder_records WHERE kind='reportSchedules' AND id=?").bind(due.id).first()).data,before,termination+' must stop generation across restart')
+      assert.equal(stopped.outboundCount(),noSend)
+    }finally{await stopped.close()}
+  }
 })
 
 test('COST-001 unvalued production lots keep weighted average until an actual valuation is approved',async t=>{

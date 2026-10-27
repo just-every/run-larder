@@ -119,15 +119,19 @@ async function people(env: Bindings, actor: Actor) {
 }
 
 async function command(env: Bindings, actor: Actor, request: Request): Promise<Response> {
-  // FLOOR-004 retains its explicit production authoring authority. Operators
-  // and other readers never recover a rework rate from a prior command replay.
-  const respond = (body: any) => json(scopeOf(actor).costs && body?.result ? { ...body, result: redactCosts(body.result) } : Array.isArray(body?.result?.labor) && !readsWages(actor, body.result) ? { ...body, result: withoutWages(body.result) } : body)
   if (request.headers.get('origin') !== new URL(env.AUTH_ORIGIN).origin) throw new Problem('ORIGIN', 'Send commands from this installation.', null, 403)
   if (!request.headers.get('content-type')?.includes('application/json')) throw new Problem('CONTENT_TYPE', 'Use application/json.', null, 400)
   const raw = await request.text()
   if (raw.length > 4 * 1024 * 1024) throw new Problem('SIZE', 'A command is limited to 4 MiB.', null, 413)
   let body: any
   try { body = JSON.parse(raw) } catch { throw new Problem('JSON', 'Malformed JSON.', null, 400) }
+  return executeCommand(env, actor, body)
+}
+
+async function executeCommand(env: Bindings, actor: Actor, body: any, automaticReport = false): Promise<Response> {
+  // FLOOR-004 retains its explicit production authoring authority. Operators
+  // and other readers never recover a rework rate from a prior command replay.
+  const respond = (body: any) => json(scopeOf(actor).costs && body?.result ? { ...body, result: redactCosts(body.result) } : Array.isArray(body?.result?.labor) && !readsWages(actor, body.result) ? { ...body, result: withoutWages(body.result) } : body)
   const { commandId, type, payload = {} } = body ?? {}
   if (typeof commandId !== 'string' || !/^[-a-zA-Z0-9_]{8,100}$/.test(commandId) || typeof type !== 'string') throw new Problem('COMMAND', 'Send a unique commandId and a command type.', null, 400)
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Problem('INPUT', 'The payload must be an object.', null, 400)
@@ -155,6 +159,8 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
       if (!target || !['owner','manager','production','operator'].includes(target.role)) fail('INPUT', 'Calendar members must be active production people, operators or managers.')
     }
   }
+  if (type.startsWith('reports.') && actor.role !== 'owner') forbidden('Only the owner manages report schedules.')
+  const reportAuthority = type === 'reports.run' ? await liveReportOwner(env.DB, payload.scheduleId, automaticReport) : undefined
   const digest = sha256(canonicalJson({ type, payload }))
   const previous = await saved(env.DB, commandId, digest, actor)
   if (previous) {
@@ -188,7 +194,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     const before = await load(env.DB), s = structuredClone(before)
     if (['erasure.contact', 'erasure.operator'].includes(type)) erasure = await contactOutcomes(env.DB, await erasurePlan(env.DB, before, actor, payload))
     if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
-    const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type === 'so.review' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
+    const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], reportAuthority, automaticReport, ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type === 'so.review' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
     if (erasure) c.erasure = erasure
     enforcePayload(c, payload)
     if (type === 'import.undo') enforceRetention(before, s, payload.importId)
@@ -221,12 +227,42 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
       // the event as a review proposal if its delegated authorizer was revoked.
       if (/CHECK constraint failed/.test(String((error as Error)?.message ?? '')) && newBookings(c,before).some(b=>b.automatic) && attempt < 7) continue
       const message = String((error as Error)?.message ?? '')
+      if (reportAuthority) await liveReportOwner(env.DB, payload.scheduleId, automaticReport)
       if (/oversold|reserved_stock|negative_stock/.test(message)) fail('DEPENDENCY', 'Stock changed underneath this action. Reload and try again.')
       if (/CHECK constraint failed/.test(message) && (await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>())?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
       throw error
     }
   }
   return fail('BUSY', 'Records changed repeatedly. Send the same command again.')
+}
+
+// Trusted Worker cron only: no HTTP route accepts a scheduled actor. The
+// original session reference grants no authority beyond its live native owner.
+async function liveReportOwner(db: D1Database, scheduleId: string, automatic: boolean): Promise<Actor> {
+  if (typeof scheduleId !== 'string' || !scheduleId) fail('INPUT', 'Choose a report schedule.')
+  const binding = await db.prepare('SELECT actor FROM larder_report_sessions WHERE schedule_id=?').bind(scheduleId).first<{ actor: string }>()
+  if (!binding) throw new Problem('AUTH', 'This schedule needs fresh owner consent.', null, 401)
+  const actor: Actor = JSON.parse(binding.actor), fence = authority(actor)
+  const live = await db.prepare(`SELECT 1 AS ok FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.role='owner' AND (${fence.sql}) ${automatic ? "AND s.kind IN ('native','oidc','password')" : ''}`).bind(actor.sessionId, ...fence.params).first<{ ok: number }>()
+  if (actor.role !== 'owner' || !live) throw new Problem('AUTH', 'The consenting native owner session is no longer active. Create a new schedule after signing in.', null, 401)
+  return actor
+}
+
+export async function runDueReports(original: Bindings): Promise<void> {
+  const env = runtimeBindings(original), today = commandTime().slice(0, 10)
+  const due = (await load(env.DB)).reportSchedules.filter(r => r.status === 'active' && r.consent?.by === r.ownerId && r.nextDate <= today)
+  const failures: unknown[] = []
+  for (const r of due) {
+    try {
+      const actor = await liveReportOwner(env.DB, r.id, true)
+      await executeCommand(env, actor, { commandId: `report-${r.id}-${today}`, type: 'reports.run', payload: { scheduleId: r.id, version: r.version } }, true)
+    } catch (error) {
+      // A stopped session or a concurrent cancellation has no new consequence.
+      // Unexpected failures surface after other due schedules have been tried.
+      if (!(error instanceof Problem && ['AUTH', 'STATE', 'STALE', 'FORBIDDEN'].includes(error.code))) failures.push(error)
+    }
+  }
+  if (failures.length) throw new AggregateError(failures, 'Scheduled report generation failed.')
 }
 
 export async function larderResponse(request: Request, original: Bindings): Promise<Response | null> {

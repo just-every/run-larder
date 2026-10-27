@@ -112,6 +112,7 @@ export async function installation({ now, modelEdge, modelKey } = {}) {
       assert.ok(now !== undefined && next > now, 'Advance an explicitly fixed command clock')
       code = await script(next); now = next
       await mf.setOptions(options(Number(new URL(origin).port)))
+      db = await mf.getD1Database('DB')
     }, outboundCount: () => outboundRequests, get mf() { return mf }, origin, get db() { return db }, async restart() {
       await mf.dispose()
       mf = new Miniflare(options(Number(new URL(origin).port)))
