@@ -26,6 +26,7 @@ test('GOV-004 and GOV-005 owner audit and exact retention decisions preserve his
   expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
+    expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
     if (process.env.LARDER_SCREENSHOTS) { await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true }); await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-GOV-004-audit.png`), fullPage: true }) }
   }
   // Continue through the same owner's preservation decision and its audit.
@@ -66,8 +67,9 @@ test('GOV-004 and GOV-005 owner audit and exact retention decisions preserve his
   await expect(erasure).toContainText('Current name: Synthetic Former Contact. Current email: synthetic-larder-820@example.test.')
   await expect(erasure).toContainText('production and financial trace')
   await expect(erasure).toContainText(linkedOrder.id)
+  await page.keyboard.press('Tab')
   await page.getByLabel('Account menu', { exact: true }).focus()
-  await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
+  await expect(page.locator('#account-tooltip')).toBeVisible()
   await expect(erasure).toContainText('Not attempted; this door makes no provider deletion request.')
   const erase = erasure.getByRole('button', { name: 'Erase reviewed fields', exact: true })
   await erasure.getByLabel('Erasure reason', { exact: true }).fill('Exact subject request')

@@ -4053,7 +4053,7 @@
       "executable": false
     },
     "tests/browser/audit.spec.ts": {
-      "sha256": "49f3af03c71e9ee6cf6e03a2ca4cadd7f1937dc5ec9cd56f6e971cef92c77b08",
+      "sha256": "6ab8df1fe27710632dfe3832a17c2ff3fa0d9e4f88b038ad530a9bf869c342a7",
       "executable": false
     },
     "tests/browser/catalog.spec.ts": {
