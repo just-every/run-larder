@@ -376,7 +376,7 @@ test('Supplier credit and landed-cost corrections reach the accountant handoff w
   await shot(page, 'allocation-review', 'BUY-005'); await submit('Approve exact allocation')
   await page.goto(origin + '/app#make/po')
   await page.getByLabel('Filter billing status', { exact: true }).selectOption('Billed')
-  let poRows = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Purchase orders', exact: true }) }).locator('tbody tr')
+  const poRows = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Purchase orders', exact: true }) }).locator('tbody tr').filter({ hasText: 'Claim supplier ' + tag })
   await expect(poRows).toHaveCount(1); await expect(poRows).toContainText(po.reference)
   await expect(poRows).toContainText('not connected')
   await page.getByLabel('Filter billing status', { exact: true }).selectOption('Not billed')
