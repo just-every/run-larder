@@ -93,22 +93,18 @@ jobs:
         with:
           persist-credentials: false
       - name: Reclaim unused hosted runner toolchain space
-        if: runner.environment == 'github-hosted' && runner.os == 'Linux'
+        if: startsWith(matrix.part, 'browser-') && runner.environment == 'github-hosted' && runner.os == 'Linux'
         shell: bash
         run: |
-          # rer dev, which the browser journey starts, requires 15 GiB free. This
-          # JavaScript job does not use Android, .NET or Haskell.
+          set -euo pipefail
+          # Only the browser journeys start rer dev. Stop reclaiming as soon as
+          # both its workspace and temporary filesystem have 20 GiB free.
           df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
-          reclaim_pids=()
           for reclaim_path in /usr/local/lib/android /usr/share/dotnet /usr/local/.ghcup; do
-            sudo rm -rf -- "$reclaim_path" &
-            reclaim_pids+=("$!")
+            available_kib=$(df -Pk "$GITHUB_WORKSPACE" "$RUNNER_TEMP" | awk 'NR > 1 { if (min == "" || $4 < min) min = $4 } END { print min }')
+            if [ "$available_kib" -ge "$((20 * 1024 * 1024))" ]; then break; fi
+            sudo rm -rf -- "$reclaim_path"
           done
-          reclaim_failed=0
-          for reclaim_pid in "${reclaim_pids[@]}"; do
-            wait "$reclaim_pid" || reclaim_failed=1
-          done
-          test "$reclaim_failed" -eq 0
           df -h "$GITHUB_WORKSPACE" "$RUNNER_TEMP"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0; action runtime Node 24
         with:
@@ -117,7 +113,7 @@ jobs:
       - name: Check edition source lock freshness
         # Technical foundation exports use composition.lock.json or reference-export.json.
         # Edition-owned seeds must commit both edition.json and sources.lock.json.
-        if: ${{ hashFiles('edition.json', 'sources.lock.json') != '' }}
+        if: ${{ matrix.part == 'foundation' && hashFiles('edition.json', 'sources.lock.json') != '' }}
         run: node scripts/edition-authoring/cli.mjs check
       - run: npm install --global pnpm@10.12.4
       - run: pnpm install --frozen-lockfile
@@ -132,7 +128,8 @@ jobs:
             timeout 420 pnpm exec playwright install-deps chromium
             node scripts/ci/chromium-probe.mjs
           }
-      - run: pnpm exec rer check --profile first-party
+      - if: matrix.part == 'foundation'
+        run: pnpm exec rer check --profile first-party
       # The foundation partition still uses Base verify, including its hosted
       # production-output and hydration checks after the application target.
       - if: matrix.part == 'foundation'
