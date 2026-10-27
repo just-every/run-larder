@@ -271,7 +271,12 @@ test('Supplier credit and landed-cost corrections reach the accountant handoff w
     await form.getByLabel('Evidence file', { exact: true }).setInputFiles({ name: 'synthetic-larder.txt', mimeType: 'text/plain', buffer: Buffer.from('Reviewed supplier evidence') })
   }
   const formFor = (submit: string) => page.locator('form').filter({ has: page.getByRole('button', { name: submit, exact: true }) })
-  const submit = async (name: string) => { await formFor(name).getByRole('button', { name, exact: true }).click(); await settled(page) }
+  const submit = async (name: string) => {
+    const response = page.waitForResponse(r => r.url().endsWith('/api/larder/commands') && r.request().method() === 'POST')
+    await formFor(name).getByRole('button', { name, exact: true }).click()
+    expect((await (await response).json()).ok).toBe(true)
+    await settled(page)
+  }
   await page.locator('summary').filter({ hasText: /^Capture invoice$/ }).click()
   let form = formFor('Capture invoice')
   await form.getByLabel('Invoice reference', { exact: true }).fill('synthetic-larder-' + tag + '-bill')
@@ -366,7 +371,7 @@ test('Supplier credit and landed-cost corrections reach the accountant handoff w
   await shot(page, 'allocation-form', 'BUY-005'); await submit('Prepare allocation')
   const allocation = page.getByLabel('Allocation synthetic-larder-466', { exact: true })
   await expect(allocation).toContainText('draft')
-  expect(await allocation.locator('tbody tr').allTextContents()).toEqual(['synthetic-larder-' + tag + '-freight3300'])
+  expect(await allocation.locator('tbody td').allTextContents()).toEqual(['synthetic-larder-' + tag + '-freight', '3', '3', '0', '0'])
   await formFor('Approve exact allocation').getByLabel('Approval reason', { exact: true }).fill('Owner reviewed exact allocation')
   await shot(page, 'allocation-review', 'BUY-005'); await submit('Approve exact allocation')
   await page.goto(origin + '/app#make/po')
