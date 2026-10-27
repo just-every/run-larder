@@ -1863,16 +1863,41 @@ test('Costed quote preparation reconciles fractional CAD prices, discounts, brea
   const restricted = await h.state(sales.cookie)
   assert.equal(restricted.salesOrders.find(row => row.id === order.id).quoteReview, undefined)
   const current = (await h.state()).salesOrders.find(row => row.id === order.id)
+  const edit = { orderId: order.id, version: current.version, promiseDate: '2026-12-01', lines: [{ itemId: first.id, quantity: '1.25', unitPrice: '99' }] }
+  // Editing is a separate action after disposition, even if it supplies a reason.
+  for (const reason of ['', 'Try to skip explicit discard']) {
+    await h.command('so.quote', { ...edit, reason }, { error: 'QUOTE_PREPARATION' })
+    assert.deepEqual((await h.state()).salesOrders.find(row => row.id === order.id), current)
+  }
+  for (const reason of ['', '   ']) {
+    await h.command('so.reviewClear', { orderId: order.id, version: current.version, reason }, { error: 'INPUT' })
+    assert.deepEqual((await h.state()).salesOrders.find(row => row.id === order.id), current)
+  }
+  await h.command('so.reviewClear', { orderId: order.id, version: prepared.version, reason: 'Stale review' }, { error: 'STALE' })
+  await agent.run('so.reviewClear', { orderId: order.id, version: current.version, reason: 'Agent discard' }, { error: 'FORBIDDEN' })
+  await sales.run('so.reviewClear', { orderId: order.id, version: current.version, reason: 'Restricted discard' }, { error: 'FORBIDDEN' })
   const cleared = await h.command('so.reviewClear', { orderId: order.id, version: current.version, reason: 'Return to original USD terms' })
   assert.equal(cleared.quoteReview, null); assert.equal(cleared.quoteReviewHistory.length, 2)
+  const disposition = { actorId: current.preparedBy, at: '2026-11-23T00:00:00.000Z', reason: 'Return to original USD terms', orderVersion: current.version, reviewInputVersion: current.quoteReview.inputVersion }
+  assert.deepEqual(cleared.quoteReviewHistory.at(-1), { ...current.quoteReview, disposition })
+  assert.deepEqual(cleared.lines, order.lines)
+  assert.equal(cleared.reviewClearedAt, '2026-11-23T00:00:00.000Z')
+  await h.command('so.reviewClear', { orderId: order.id, version: cleared.version, reason: 'Already discarded' }, { error: 'STATE' })
+  const audit = await (await h.request('/api/larder/audit?commandType=so.reviewClear')).json()
+  assert.ok(audit.entries.some(entry => entry.subjectId === order.id && entry.actorId === disposition.actorId && entry.at === disposition.at && entry.reason === disposition.reason && entry.after.quoteReview === null))
   await h.restart()
   const archive = await (await h.request('/api/larder/archive')).json()
   const target = await installation(); t.after(() => target.close())
   const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restored.status, 200, await restored.text())
   const state = await target.state(), retained = state.salesOrders.find(row => row.id === order.id)
   assert.equal(retained.quoteReviewHistory[0].totalUsdAmount, '20.72')
+  assert.deepEqual(retained.quoteReviewHistory, cleared.quoteReviewHistory)
+  assert.deepEqual(retained.lines, order.lines)
   assert.deepEqual([state.scheduleBookings.length, state.workOrders.length, state.reservations.length, state.movements.length], [0, 0, 0, 0])
-  assert.equal((await h.command('so.confirm', { orderId: order.id, version: cleared.version, reserve: false })).status, 'confirmed')
+  const edited = await h.command('so.quote', { ...edit, version: cleared.version, lines: order.lines })
+  assert.deepEqual(edited.quoteReviewHistory, cleared.quoteReviewHistory)
+  await h.command('so.confirm', { orderId: order.id, version: cleared.version, reserve: false }, { error: 'STALE' })
+  assert.equal((await h.command('so.confirm', { orderId: order.id, version: edited.version, reserve: false })).status, 'confirmed')
   const fractional = await h.command('so.quote', { customerId: customer.id, promiseDate: '2026-12-01', lines: [{ itemId: first.id, quantity: '0.000001', unitPrice: '1' }] })
   const edge = await h.command('so.review', { ...payload, orderId: fractional.id, version: fractional.version, currency: 'USD', discountPercent: '0', freight: '0', lines: [{ lineId: fractional.lines[0].id, unitPrice: '4999.999999' }] })
   assert.equal(edge.quoteReview.lines[0].grossAmount, '0.00', 'Round the exact product directly; six-place intermediate rounding would incorrectly charge one cent')

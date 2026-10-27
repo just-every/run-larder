@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "a4bd1610da4c74f35e218863cd3ecd5bdbee24849eed0c72f020458e80341201",
+      "sha256": "a9e2ea06b8138213a9445368d62f2e85e5767df83fdc20f6bd1f9edb602c115b",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -193,7 +193,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "4926f969d10f2718f9c6df63703241cc4c54cd3b63de16d054e49ad4098b292e",
+      "sha256": "a6e62bbf432140501968b3e5e58da5cae2449c3c48c49c6259e657f8ab3a01dd",
       "executable": false
     },
     "base-copies.json": {
@@ -201,7 +201,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "d9eb9a203aa3b3d21b0445e49a7ee434d17d0d77dcb893af2f5f5729e37d8ced",
+      "sha256": "c3449cd6ae7f07f2745da0ebe3336d556ae28f6473f5ae30ce098f485448658c",
       "executable": false
     },
     "DEMO.md": {
@@ -1449,7 +1449,7 @@
       "executable": false
     },
     "src/larder/quote-review.ts": {
-      "sha256": "5b4a08df029456a6aeec36d675700a2b3a9ea021d6034abe80ad5dbeb58b7695",
+      "sha256": "881a5397fc3eed78cd9b025eeec64d3aaa9d382d947ef47885b2dfe2538ed53f",
       "executable": false
     },
     "src/larder/recall-policy.ts": {
@@ -1505,7 +1505,7 @@
       "executable": false
     },
     "src/larder/sales.ts": {
-      "sha256": "617a4c0bd9713b4c0f38bbcf9fef29d6af7c7c5ed7166dc2b4c53eed90b2cc2a",
+      "sha256": "0d7c0f5da3495bfd4a56752eb17f0e37b5c885671a5316487630ed12151c6318",
       "executable": false
     },
     "src/larder/scan.ts": {
@@ -3941,7 +3941,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "e88f9d8e123e5491f6576731abe0e05035dee95dfa28b8482efb24d1afbb3d6f",
+      "sha256": "d3d9ca4836769af2358b1d55214a330cc36b839f6348c46e875d5de0878f2e74",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -4113,7 +4113,7 @@
       "executable": false
     },
     "tests/browser/order-amendments.spec.ts": {
-      "sha256": "47163cdcbdcbc854be97aca82917cb614250e730904eb5231d19670b3b3a1ce4",
+      "sha256": "c38cb112acebe65884a65148cc6a5c25d8572d984aa69d6fa140f955acb3be9a",
       "executable": false
     },
     "tests/browser/order-status.spec.ts": {
