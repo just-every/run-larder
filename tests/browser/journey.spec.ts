@@ -544,7 +544,7 @@ test('US business settings save Ohio identity and retain distinct EIN fields at 
     await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
     await shot(page, 'US-001-settings')
     await account.click()
-    await expect(page.getByRole('link', { name: 'Settings', exact: true })).toBeVisible()
+    await expect(page.getByRole('banner').getByRole('link', { name: 'Settings', exact: true })).toBeVisible()
     await page.goto(origin + '/app#more/setup')
     const contacts = card(page, 'Customers and suppliers')
     await contacts.getByLabel('Name', { exact: true }).fill(`Synthetic Ohio contact ${width}`)
