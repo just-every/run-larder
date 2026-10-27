@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "946340944e81632a1b7018b3bcc993b7cd3f3dcb5309e0153d6ffc8bc6601d0d",
+      "sha256": "eabe56d30480ab603bd769ad7eaa80b1b927862c7e704b29708df2a3ef819d7d",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -201,7 +201,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "ba0147e0b0d8db3970af58a01a8ecece009fc6b3673b3040370e1bd545bd4c85",
+      "sha256": "8ddbad91961eedcb2c15210194c4d09b07f4ded3d61f76032c15e65b1e29280c",
       "executable": false
     },
     "DEMO.md": {
@@ -1617,11 +1617,11 @@
       "executable": false
     },
     "src/larder/trace-graph.ts": {
-      "sha256": "205f7ea6cb79abf635e3444be65842b84ee1bb1a2a106384565777015576b619",
+      "sha256": "3b22db0256eb72cbcb700bee84d07afe554d863ae26d19730edb89b0cadae75a",
       "executable": false
     },
     "src/larder/trace.ts": {
-      "sha256": "cd8038922201f00e5fb92864dbb49eebf4886ea1f19e341804d79348b8db7f1e",
+      "sha256": "8a74d0d4c358244a04a2304b76b3543c0caa1dd997eec773b4baa4c8e344da9d",
       "executable": false
     },
     "src/larder/view.ts": {
@@ -3661,7 +3661,7 @@
       "executable": false
     },
     "src/ui/make.tsx": {
-      "sha256": "41afaf45a79f2af83e2d3a3a84293ba824eba59b6d35ef901186338adc53afa6",
+      "sha256": "5f4186d623753cf3f0735edaeb8229552ecb1f4d522828b0bfbb38036b3602d4",
       "executable": false
     },
     "src/ui/more.tsx": {
@@ -3702,6 +3702,10 @@
     },
     "src/ui/people.tsx": {
       "sha256": "93a3f4c02ca2f8645be619c469456c7ed3e95fdfeeaefcf52f4625612bdfe562",
+      "executable": false
+    },
+    "src/ui/purchase-accounting.tsx": {
+      "sha256": "87f08b2476f62e011b058984d2d667431c48fde1db1f737866f1c5f1fe9ee21a",
       "executable": false
     },
     "src/ui/quality.tsx": {
@@ -3929,7 +3933,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "0d562aaf43798b917add82709ae423f104eb7d61a45650ed2aa354130b109df6",
+      "sha256": "e78350a9d94326c3189601467a7bf67b353988505670c3d66b60d15bf995a3c4",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -4117,7 +4121,7 @@
       "executable": false
     },
     "tests/browser/receiving.spec.ts": {
-      "sha256": "88051005204ca7f595d442e53ccc13f00cac339a4cbdb564062c6d875aa0416b",
+      "sha256": "05aed322e63ca88a793235137d1ed4facb0e17344c34242ff0a9f1c97223381f",
       "executable": false
     },
     "tests/browser/rework.spec.ts": {
