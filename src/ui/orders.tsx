@@ -1,3 +1,4 @@
+import { QuoteReview } from './quote-review'
 import { WavePicking } from './wave-picking'
 import { ShipmentCertificates } from './certificates'
 import { ScanPanel } from './scan'
@@ -88,12 +89,13 @@ function OrderWorkspace({ larder, order }: { larder: Larder; order: Rec }) {
             <td className="num"><span className={`short ${positive(short) ? 'bad' : 'ok'}`}>{qty(short)}</span></td></tr>
         })}</Table>
         {order.lines.filter((l: any) => l.configuration).map((l: any) => <div key={`cfg-${l.id}`}><ConfigurationNote s={s} c={l.configuration} />{open && can(s, ['manager', 'production', 'planner']) && <button type="button" className="button" disabled={busy} onClick={() => run('wo.draft', { itemId: l.itemId, quantity: openOf(l), requiredBy: order.promiseDate, reason: `Configured line of ${order.reference}`, orderId: order.id, lineId: l.id })}>Draft work to this configuration</button>}</div>)}
-        {order.status === 'quote' && can(s, ['manager', 'sales']) && <div className="actions"><button className="button primary" disabled={busy} onClick={() => run('so.confirm', { orderId: order.id, version: order.version })}>Confirm order and reserve stock</button></div>}
+        {order.status === 'quote' && can(s, ['manager', 'sales']) && <div className="actions"><button className="button primary" disabled={busy || !!order.quoteReview} onClick={() => run('so.confirm', { orderId: order.id, version: order.version })}>Confirm order and reserve stock</button></div>}
       </Card>
       {selected && <Availability s={s} itemId={selected} larder={larder} order={order} />}
       {open && reservations.length > 0 && <footer className="action-bar"><div><strong>{order.reference}</strong><p><span>{partyName(s, order.customerId)}</span><small>Promised {day(order.promiseDate)} · {qty(plus(...reservations.map(r => r.quantity)))} reserved</small></p></div><a className="button primary" href="#pick">Continue to pick &amp; pack →</a></footer>}
       <NeedsList larder={larder} compact />
     </div>
+    <QuoteReview larder={larder} order={order} />
     <OrderChanges larder={larder} order={order} />
     <div className="split">
       <Card title="Pick, pack and ship" className="pick"><span id="pick" />
