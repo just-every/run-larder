@@ -409,11 +409,11 @@ test('COST reports retain shipment margins, job source drills and missing perfor
   expect((await page.request.post(origin+'/auth/invite',{headers:{Origin:origin},data:{email,displayName:'Restricted report manager',role:'member'}})).status()).toBe(202)
   const context=await browser.newContext({storageState:await page.context().storageState()}),member=await context.newPage()
   try{
-    await member.goto(origin+'/auth/dev/enter?as='+encodeURIComponent(email));await member.waitForURL(u=>u.pathname==='/app')
+    await member.goto(origin+'/auth/dev/enter?as='+encodeURIComponent(email));await member.waitForURL(u=>u.pathname==='/app');await expect(member.locator('main')).toHaveAttribute('aria-busy','false')
     const memberId=(await(await member.request.get(origin+'/auth/session')).json()).operator.id
     await command('role.set',{operatorId:memberId,role:'manager'});await command('member.scope',{operatorId:memberId,costsRestricted:true,locations:null})
     for(const width of [1440,390]){
-      await member.setViewportSize({width,height:1000});await member.goto(origin+'/app#handoff/performance');await member.reload()
+      await member.setViewportSize({width,height:1000});await member.goto(origin+'/app');await member.reload();await expect(member.locator('main')).toHaveAttribute('aria-busy','false');await member.getByRole('link',{name:'Handoff',exact:true}).click();await member.getByRole('link',{name:'Production performance',exact:true}).click()
       await expect(member.getByRole('status',{name:''}).filter({hasText:'Costs and wages restricted'})).toBeVisible()
       await expect(card(member,'Performance metrics')).toContainText('Yield')
       const scoped=await state(member);expect(scoped.items.find((r:any)=>r.id===product.id).standardCost).toBe('restricted')
