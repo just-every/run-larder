@@ -1,6 +1,6 @@
 # Larder API
 
-The app and agents use the same door. Every request needs a native session cookie (an invited person signs in through the emailed link); agents are invited people given the `agent` role.
+The app and native agent accounts use this authenticated HTTP API. Every request needs a native session cookie (an invited person signs in through the emailed link); native agent accounts are given the `agent` role. The shared MCP door is not enabled; see [Agent access](docs/AGENT-ACCESS.md) for the supported boundary.
 
 - `GET /api/larder/state` — every record, the formatted movement ledger, reservations, positions, availability per item, shortages, weekly forecasts/MPS, the exception queue and owned `followUpCases` (including closed-case history), recent recorded actions and (for the owner) the team.
 - `GET /api/larder/planning/pegging` — current dated forward/reverse material allocations; see MRP-002 below.
