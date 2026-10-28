@@ -1949,7 +1949,7 @@ Actual vendor, physical-device and human-review receipts are field proof. Standa
 
 | ID | Now | Reason |
 | --- | --- | --- |
-| LARDER-014 | moved to Base BASE-ACCESS-002; moved to Base BASE-ROLE-001 | Session and current-role enforcement are shared duties; GOV-001 retains the manufacturing role matrix. |
+| LARDER-014 | moved to Base BASE-ACCESS-002; moved to Base BASE-ROLE-001; moved to Base BASE-PUBLIC-002 | Session, current-role and origin enforcement are shared duties; GOV-001 retains the manufacturing role matrix and HTTP-001 exercises its domain origin boundary. |
 
 ## Status
 

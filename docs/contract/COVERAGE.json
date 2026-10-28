@@ -498,15 +498,23 @@
       "file": "CONTRACT.md",
       "line": 59,
       "text": "**LARDER-014 \u2014 Authority everywhere.** Every command and read checks the current session and role in the handler and again inside the atomic write; losing a role or signing out takes effect on the next request; cross-site commands are refused.",
-      "to": "deleted",
-      "note": "Duplicate of the HTTP-001 origin-refusal journey and requirement in the old contract."
+      "to": "base",
+      "ids": [
+        "BASE-ACCESS-002",
+        "BASE-ROLE-001",
+        "BASE-PUBLIC-002"
+      ]
     },
     {
       "file": "CONTRACT.md",
       "line": 59,
       "text": "**Acceptance evidence:** Call every protected door as signed out, viewer and restricted roles; revoke a role and sign out, then reuse the old cookie; cross-site commands and writes with stale live authority leave no mutation.",
-      "to": "deleted",
-      "note": "Duplicate of the HTTP-001 origin-refusal journey and requirement in the old contract."
+      "to": "base",
+      "ids": [
+        "BASE-ACCESS-002",
+        "BASE-ROLE-001",
+        "BASE-PUBLIC-002"
+      ]
     },
     {
       "file": "CONTRACT.md",

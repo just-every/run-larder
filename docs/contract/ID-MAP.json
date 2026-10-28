@@ -87,7 +87,7 @@
     "LARDER-014": {
       "how": "retired",
       "to": [],
-      "now": "moved to Base BASE-ACCESS-002; moved to Base BASE-ROLE-001"
+      "now": "moved to Base BASE-ACCESS-002; moved to Base BASE-ROLE-001; moved to Base BASE-PUBLIC-002"
     },
     "LARDER-015": {
       "how": "kept",
