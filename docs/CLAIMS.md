@@ -7,7 +7,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | # | Claim | Clauses | Status |
 | --- | --- | --- | --- |
 | 1 | "Promise dates you can keep." (headline; closing: "Ship on the day you said.") | `DEMAND-001` partial; `CAP-004` done | partial |
-| 2 | "plans your materials" | `LARDER-006` partial; `MRP-001` done; `MRP-006` done | partial |
+| 2 | "plans your materials" | `LARDER-006` done; `MRP-001` done; `MRP-006` done | done |
 | 3 | "and machines" | `CAP-001` done; `CAP-002` done; `CAP-004` done | done |
 | 4 | "runs the shop floor" | `FLOOR-001` done; `LARDER-009` done | done |
 | 5 | "traces every lot" | `TRACE-001` done; `LARDER-008` done | done |
@@ -26,7 +26,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 18 | "Est. margin 42.0%" | `DEMAND-001` partial; `COST-004` done | partial |
 | 19 | "Confirmed Thu Oct 8 → SO-1184" | `LARDER-004` done | done |
 | 20 | "MRP explodes the bill of materials" (multilevel BOM) | `ENG-001` done | done |
-| 21 | "nets what you have and drafts what to buy, with dates" (net requirements, PO-5521, PO-5524, MO-2198) | `LARDER-006` partial; `MRP-001` done; `MRP-006` done | partial |
+| 21 | "nets what you have and drafts what to buy, with dates" (net requirements, PO-5521, PO-5524, MO-2198) | `LARDER-006` done; `MRP-001` done; `MRP-006` done | done |
 | 22 | "BOM · FW-EG-1218 rev C" | `LARDER-003` done | done |
 | 23 | "2 POs approved by Dana W. · 9:31 AM" | `LARDER-007` done | done |
 | 24 | "The planning agent reads the supplier’s reply" | `AGENT-002` partial | partial |
@@ -51,9 +51,9 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 43 | "Dana picks one" (Approved by Dana W. · 1:46 PM) | `LARDER-015` partial; `GOV-002` done | partial |
 | 44 | Downtime timeline (spindle fault logged, released, 240/240) | `FLOOR-007` done; `CAP-009` done | done |
 | 45 | "Customer dates changed: 0" | `DEMAND-005` done | done |
-| 46 | "SO-1184 · 21 cartons · out Fri Nov 6, 3:40 PM" | `LARDER-010` partial | partial |
-| 47 | "Wholesale, Shopify and Amazon orders ship from one list" | `LARDER-010` partial; `CONN-003` missing; `CONN-005` missing; `DEMAND-008` missing | partial |
-| 48 | "Labels, tracking ... sync as they go" | `CONN-007` missing; `LARDER-010` partial; `AUTO-003` missing | partial |
+| 46 | "SO-1184 · 21 cartons · out Fri Nov 6, 3:40 PM" | `LARDER-010` done | done |
+| 47 | "Wholesale, Shopify and Amazon orders ship from one list" | `LARDER-010` done; `CONN-003` missing; `CONN-005` missing; `DEMAND-008` missing | partial |
+| 48 | "Labels, tracking ... sync as they go" | `CONN-007` missing; `LARDER-010` done; `AUTO-003` missing | partial |
 | 49 | "and invoices sync as they go" | `CONN-001` missing; `DEMAND-007` partial | partial |
 | 50 | Materials column (In stock / Gift boxes · PO-5530 Nov 9) | `DEMAND-006` done | done |
 | 51 | "ShipStation · 23 labels · tracking live" | `CONN-007` missing; `AUTO-003` missing | missing |
@@ -72,4 +72,4 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 64 | `npx -y @runeditrun/rer dev just-every/run-larder` starts Larder on your computer | `OPEN-001` partial | partial |
 | 65 | "100% free and open source. MIT licensed." | `OPEN-001` partial | partial |
 
-Claims: 65; 29 done, 28 partial, 8 missing.
+Claims: 65; 32 done, 25 partial, 8 missing.

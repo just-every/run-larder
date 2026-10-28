@@ -8,12 +8,12 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 79 | 31 | 40 | 150 |
+| Core | 82 | 28 | 40 | 150 |
 | Agent surface | 0 | 0 | 13 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 79 | 31 | 53 | 163 |
+| Full target | 82 | 28 | 53 | 163 |
 
-Judged from the code and tests at commit `14e91ae089eba16fb201de11d7ef6b7f69325acb` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
+Judged from the code and tests at commit `1d1ee8f51e15a0b3b56324efecd91bf9a14dfc97` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
 ## Core
 
@@ -81,7 +81,7 @@ Core · published · **done** · Cites BASE-OPS-003, BASE-ROLE-001 · Rules D-2,
 
 #### LARDER-006 — Shortages
 
-Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Larder computes shortages deterministically from confirmed orders and released work against free stock and open supply, with the date needed and the documents that need it, and drafts a purchase order (preferred supplier and price) or a work order with that required-by date and reason.
 
@@ -89,7 +89,7 @@ Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, 
 1. Confirm an order exceeding free stock, draft its work shortage, release work, and draft the resulting purchased-component shortage; quantities, required dates and source documents agree.
 
 **Evidence.** `tests/api/flows.test.mjs` — “LARDER-006 shortages are reviewed and drafted into purchase and work orders with dates and reasons”
-**Gap.** The cited shortage journey checks work required dates, shortages, draft quantities and reasons. Missing: read back the component purchase draft’s required delivery date from the shortage action.
+**Gap.** None.
 
 #### LARDER-007 — Purchase approval
 
@@ -129,7 +129,7 @@ Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6
 
 #### LARDER-010 — Pick, pack and partial shipment
 
-Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A warehouse person picks only reserved stock, packs, and ships part of an order; shipping consumes those reservations, and the remaining commitments stay reserved or short.
 
@@ -138,7 +138,7 @@ Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, 
 2. Pack a shipment with its carton count, ship it, and read back that count, actual departure timestamp, carrier and tracking against the sales order through the API.
 
 **Evidence.** `tests/api/flows.test.mjs` — “LARDER-010 pick, pack and partially ship against reservations; the rest stays committed”
-**Gap.** The cited dispatch journey completes partial shipment, retains the balance and refuses excess picking. Missing: read back shipped carton count, departure time, carrier and tracking details after dispatch.
+**Gap.** None.
 
 #### LARDER-011 — Customer returns
 
@@ -166,7 +166,7 @@ Core · published · **done** · From LARDER-011 · Cites BASE-ROLE-001 · Rules
 
 #### LARDER-018 — Independently approved stock counts
 
-Core · published · **partial** · From LARDER-011 · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · published · **done** · From LARDER-011 · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A count adjustment needs a different person's approval, except that the owner may approve their own count. A changed counted position requires a fresh count.
 
@@ -174,7 +174,7 @@ Core · published · **partial** · From LARDER-011 · Cites BASE-ROLE-001 · Ru
 1. Approve another person’s count and inspect its adjustment; refuse a stale count.
 
 **Evidence.** `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit”
-**Gap.** The cited returns/transfers/count journey checks count variance, independent approval and the posted adjustment. Missing: execute a stale-count refusal with unchanged movements through a journey in that old evidence set; tests/api/authority.test.mjs and tests/api/counts.test.mjs contain this scenario but were not cited by LARDER-011.
+**Gap.** None.
 
 #### LARDER-019 — Compensating corrections
 
