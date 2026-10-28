@@ -25,7 +25,9 @@ export type Visible = { state: State; hidden: Set<string> }
 export function visibleState(s: State, scope: Scope): Visible {
   if (scope.locations === null) return { state: s, hidden: new Set() }
   const places = hiddenLocations(s, scope), hidden = new Set(places)
-  for (const site of s.sites) { const bins = s.locations.filter(l => l.siteId === site.id); if (!bins.length || bins.some(l => !scope.locations!.includes(l.id))) hidden.add(site.id) }
+  // A site label is visible when at least one of its bins is reachable. Hiding a partially
+  // reachable site would transitively hide the allowed bins and their stock too.
+  for (const site of s.sites) if (!s.locations.some(l => l.siteId === site.id && scope.locations!.includes(l.id))) hidden.add(site.id)
   const keep = (r: unknown) => !names(r, hidden)
   for (const m of s.movements) if (names(m, places)) { hidden.add(m.id) }
   for (const r of s.reservations) if (names(r, places)) hidden.add(r.id)
@@ -67,9 +69,23 @@ export function reconcile(full: any, visible: any): any {
 
 // Trace, recall and certificate packs: out-of-scope rows and nodes read only as a restricted record.
 export function stubHidden(value: any, hidden: Set<string>): any {
-  if (Array.isArray(value)) return value.map(v => (v && typeof v === 'object' && names(v, hidden)) || (typeof v === 'string' && hidden.has(v)) ? { restricted: restrictedRecord } : stubHidden(v, hidden))
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, typeof v === 'string' && hidden.has(v) ? restrictedRecord : stubHidden(v, hidden)]))
-  return value
+  // Graph identifiers prefix their source record ID. They carry the same restrictions.
+  const identifiers = new Set(hidden)
+  for (const id of hidden) for (const kind of ['lot', 'party', 'untracked', 'movement', ...collections]) identifiers.add(`${kind}:${id}`)
+  const scrub = (entry: any): any => {
+    if (Array.isArray(entry)) {
+      let restricted = false
+      const shown = entry.flatMap(v => {
+        if (names(v, identifiers)) { restricted = true; return [] }
+        return [scrub(v)]
+      })
+      // One marker, independent of the number and ordering of hidden records.
+      return restricted ? [...shown, { restricted: restrictedRecord }] : shown
+    }
+    if (entry && typeof entry === 'object') return Object.fromEntries(Object.entries(entry).map(([k, v]) => [k, typeof v === 'string' && identifiers.has(v) ? restrictedRecord : scrub(v)]))
+    return entry
+  }
+  return scrub(value)
 }
 
 export const refuseHidden = (value: unknown, hidden: Set<string>) => { if (names(value, hidden)) forbidden('This involves records outside your location scope.') }

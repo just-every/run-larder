@@ -1586,8 +1586,8 @@ Core · target · **partial** · From GOV-001 · Cites BASE-ROLE-001 · Rules D-
 **Acceptance.**
 1. Restrict a member to one site, exercise reads, commands, trace, recall and downloads, add a bin and narrow scope; inspect refusals and redaction, including a saved outcome replay and a mid-task revocation.
 
-**Evidence.** `tests/api/authority.test.mjs` — “GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live”
-**Gap.** The cited scope journeys cover explicit location restrictions, derived-value redaction, preparer/approver checks, replay and revocation. Missing: named site-group scope including a location added after the grant. The site-group journey in tests/api/flows.test.mjs is outside GOV-001’s old evidence set.
+**Evidence.** `tests/api/authority.test.mjs` — “GOV-014 site and location scope: later bins join live reach, explicit limits intersect, and reads, writes, downloads, approvals and replay obey narrowing and revocation”
+**Gap.** Native site grants, later bins, explicit-location intersection, derived-value and trace redaction, recall and evidence access, independent approvals, saved replay and revocation are covered by the expanded HTTP journey. Candidate browser proof remains to run.
 
 #### GOV-015 — Costs and wages scope
 

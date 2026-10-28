@@ -28,5 +28,5 @@ export function lotTrace(s: State, lotId: string, direction: unknown) {
 const fields = ['selectedLotId', 'selectedLot', 'direction', 'recordType', 'id', 'from', 'fromLabel', 'to', 'toLabel', 'lotId', 'lot', 'itemId', 'item', 'unit', 'quantity', 'netQuantity', 'scrap', 'value', 'scrapValue', 'locationId', 'location', 'status', 'documentKind', 'documentId', 'reference', 'orderReference', 'party', 'date', 'movementId', 'originalMovementId', 'claimId', 'evidenceId', 'reversesId', 'kind', 'ownership', 'allocationBasis', 'basis']
 export function traceCsv(trace: ReturnType<typeof lotTrace>) {
   const quote = (value: string) => `"${value.replace(/"/g, '""')}"`
-  return [fields, ...trace.rows.map(r => fields.map(f => (r as TraceRow)[f] ?? ''))].map(r => r.map(quote).join(',')).join('\r\n') + '\r\n'
+  return [fields, ...trace.rows.map(r => fields.map(f => (r as TraceRow)[f] ?? (f === 'basis' ? (r as TraceRow).restricted ?? '' : '')))].map(r => r.map(quote).join(',')).join('\r\n') + '\r\n'
 }
