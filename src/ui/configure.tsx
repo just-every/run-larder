@@ -1,6 +1,6 @@
 // ENG-003: configure a made item on the quote (sizes, finishes, dimensions, options), compare the resolved BOM and cost
 // line by line, and keep the configuration rules as saved revisions.
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { can, itemName, rows, type LarderState, type Rec } from './api'
 import type { Larder } from './app'
 import { Area, Card, Chip, Choose, Empty, Field, Form, Table, options, text } from './controls'
@@ -32,22 +32,26 @@ export function ConfigureQuote({ larder }: { larder: Larder }) {
   const s = larder.state!, models = rows(s, 'configModels').filter(m => m.status === 'active')
   const [itemId, setItemId] = useState(''), [choice, setChoice] = useState<Choice>(empty), [quantity, setQuantity] = useState('1'), [price, setPrice] = useState('')
   const [lines, setLines] = useState<Line[]>([]), [problem, setProblem] = useState(''), [checked, setChecked] = useState<Resolved | null>(null)
-  const [adding, setAdding] = useState(false)
+  const [resolving, setResolving] = useState(false), resolutionPending = useRef(false)
   const model = models.find(m => m.itemId === itemId)
   if (!can(s, ['manager', 'sales']) || models.length === 0) return null
   const pick = (id: string) => { setItemId(id); setChoice(empty); setChecked(null); setProblem('') }
   const set = (kind: keyof Choice, name: string, value: string | boolean) => { setChoice({ ...choice, [kind]: { ...choice[kind], [name]: value } }); setChecked(null); setProblem('') }
   async function check() {
+    if (resolutionPending.current) return
+    resolutionPending.current = true; setResolving(true)
     try { setChecked(await resolve(itemId, choice)); setProblem('') } catch (e) { setChecked(null); setProblem((e as Error).message) }
+    finally { resolutionPending.current = false; setResolving(false) }
   }
   async function add() {
-    setAdding(true)
+    if (resolutionPending.current) return
+    resolutionPending.current = true; setResolving(true)
     try { const resolved = await resolve(itemId, choice); setLines(current => [...current, { itemId, quantity, unitPrice: price, selection: choice, resolved }]); setChecked(null); setProblem('') } catch (e) { setProblem((e as Error).message) }
-    finally { setAdding(false) }
+    finally { resolutionPending.current = false; setResolving(false) }
   }
   const complete = !!model && model.attributes.every((a: any) => choice.attributes[a.name]) && model.dimensions.every((d: any) => choice.dimensions[d.name])
   return <Card title="Configured quote">
-    <Form submit="Save configured quote" busy={larder.busy || adding} note="Choose sizes, finishes and options, compare what each configuration makes and costs, then save them as one quote. The resolved configuration is pinned on each line."
+    <Form submit="Save configured quote" busy={larder.busy || resolving} note="Choose sizes, finishes and options, compare what each configuration makes and costs, then save them as one quote. The resolved configuration is pinned on each line."
       onSubmit={async d => { if (!lines.length) { setProblem('Add at least one configured line.'); return false } const r = await larder.run('so.quote', { customerId: text(d, 'customerId'), promiseDate: text(d, 'promiseDate'), lines: lines.map(l => ({ itemId: l.itemId, quantity: l.quantity, ...(l.unitPrice ? { unitPrice: l.unitPrice } : {}), configuration: { selection: l.selection } })) }); if (r) { setLines([]); window.location.hash = `orders/${r.id}` } return r }}>
       <Choose label="Customer" name="customerId" options={options(rows(s, 'parties').filter(p => p.kind !== 'supplier'), r => r.name)} />
       <Field label="Promise date" name="promiseDate" type="date" />
@@ -59,7 +63,7 @@ export function ConfigureQuote({ larder }: { larder: Larder }) {
           {model.options.map((o: any) => <label key={o.name} className="field"><span>{o.name}</span><input type="checkbox" aria-label={o.name} checked={choice.options[o.name] ?? false} onChange={e => set('options', o.name, e.target.checked)} /></label>)}
           <Field label="Quantity" name="cfgQuantity" inputMode="decimal" value={quantity} onChange={(e: any) => setQuantity(e.target.value)} />
           <Field label="Unit price" name="cfgPrice" inputMode="decimal" required={false} hint="Blank uses the list price" value={price} onChange={(e: any) => setPrice(e.target.value)} />
-          <div className="actions"><button type="button" className="button" disabled={!complete || larder.busy || adding} onClick={() => void check()}>Check this configuration</button><button type="button" className="button" disabled={!complete || larder.busy || adding} onClick={() => void add()}>Add to quote</button></div>
+          <div className="actions"><button type="button" className="button" disabled={!complete || larder.busy || resolving} onClick={() => void check()}>Check this configuration</button><button type="button" className="button" disabled={!complete || larder.busy || resolving} onClick={() => void add()}>Add to quote</button></div>
         </>}
       </fieldset>
       {problem && <p role="status" className="notice">{problem}</p>}
