@@ -18,7 +18,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 10 | "Router 2 down 2 hrs → 3 jobs moved to Router 1 · Nov 6 still on" | `AGENT-001` partial; `CAP-007` done; `CAP-009` done | partial |
 | 11 | "QC · fill weight 4.0 oz · passed" | `TRACE-004` done | done |
 | 12 | "Order margin 41.6%" | `COST-004` done | done |
-| 13 | "Lot BB-1020 · 480 tins · Oct 20 · exp Apr 2028" | `TRACE-001` done; `TRACE-003` partial | partial |
+| 13 | "Lot BB-1020 · 480 tins · Oct 20 · exp Apr 2028" | `TRACE-001` done; `TRACE-003` done | done |
 | 14 | "Larder checks walnut, machines and people before it offers a ship date" | `DEMAND-001` partial; `CAP-001` done; `CAP-002` done | partial |
 | 15 | "then prices the job to the cent" (Q-0412 lines, $25,010.00) | `LARDER-004` done; `US-001` done; `DEMAND-001` partial | partial |
 | 16 | Ship date options (three capable-to-promise dates) | `DEMAND-001` partial | partial |
@@ -34,7 +34,7 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 26 | "ETA Oct 19 → Oct 23" on PO-5521 | `LARDER-007` done | done |
 | 27 | "Next chase Oct 21 if no ship notice" | `AGENT-002` partial | partial |
 | 28 | "Lots ... are recorded as you make" | `LARDER-008` done; `LARDER-009` done | done |
-| 29 | "checks and expiry are recorded as you make" | `TRACE-003` partial; `TRACE-004` done | partial |
+| 29 | "checks and expiry are recorded as you make" | `TRACE-003` done; `TRACE-004` done | done |
 | 30 | "Trace any lot forward to every order or back to every input" (genealogy, Trace forward/back, Export trace CSV) | `TRACE-001` done | done |
 | 31 | Held lot BW-0911 "held · CoA missing", swapped for BW-0930 | `LARDER-008` done; `TRACE-007` done | done |
 | 32 | "Actual $4.18/tin · plan $4.10" | `LARDER-009` done; `COST-003` done | done |
@@ -72,4 +72,4 @@ A claim is done when every clause behind it is done, missing when every one is m
 | 64 | `npx -y @runeditrun/rer dev just-every/run-larder` starts Larder on your computer | `OPEN-001` partial | partial |
 | 65 | "100% free and open source. MIT licensed." | `OPEN-001` partial | partial |
 
-Claims: 65; 32 done, 25 partial, 8 missing.
+Claims: 65; 34 done, 23 partial, 8 missing.
