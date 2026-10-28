@@ -15,12 +15,12 @@ The importer clauses promise working move-in, not that an untested provider form
 
 | Approved input | Named clauses |
 | --- | --- |
-| Full US manufacturing product and switcher workflows | US-001–US-003, LARDER-001–LARDER-016, ENG-001–ENG-007, DEMAND-001–DEMAND-007, MRP-001–MRP-004, MOVE-001–MOVE-008 |
-| Dated MRP, finite work-center/labor scheduling, Gantt and promise dates | MRP-001–MRP-004, CAP-001–CAP-009, DEMAND-001, DEMAND-005, DEMAND-006, OPS-001 |
-| Tablet/barcode, start/stop, labor, consumption, WIP and rework | LARDER-009, FLOOR-001–FLOOR-009 |
-| Actual USD material/labor/overhead, WIP, variances and order margin | US-001, COST-001–COST-007, BUY-005 |
+| Full US manufacturing product and switcher workflows | US-001–US-003, LARDER-001–LARDER-013, LARDER-015–LARDER-020, GOV-001, ENG-001–ENG-008, DEMAND-001–DEMAND-008, MRP-001–MRP-007, MOVE-001–MOVE-008 |
+| Dated MRP, finite work-center/labor scheduling, Gantt and promise dates | MRP-001–MRP-007, CAP-001–CAP-009, DEMAND-001, DEMAND-005, DEMAND-006, OPS-001 |
+| Tablet/barcode, start/stop, labor, consumption, WIP and rework | LARDER-009, FLOOR-001–FLOOR-010 |
+| Actual USD material/labor/overhead, WIP, variances and order margin | US-001, COST-001–COST-008, BUY-005 |
 | Live QuickBooks Online and Xero inventory/COGS/WIP | CONN-001, CONN-002, DEMAND-007, BUY-003, COST-002, COST-005, AGENT-004 |
 | Shopify, WooCommerce, Amazon and ShipStation | CONN-003–CONN-007 |
-| Lot/batch, recall, QC, expiry and Katana/MRPeasy migration | TRACE-001–TRACE-007, MOVE-001, MOVE-002 |
+| Lot/batch, recall, QC, expiry and Katana/MRPeasy migration | TRACE-001–TRACE-008, MOVE-001, MOVE-002 |
 | Inventory integrations, automation and buyer friction | CONN-001–CONN-015, AUTO-001–AUTO-003, ENG-004, ENG-007, US-003, COST-007, MOVE-007 |
 | Continuous approved replanning and actual-cost reconciliation | AGENT-001–AGENT-009, CAP-007 |
