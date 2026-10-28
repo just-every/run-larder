@@ -51,14 +51,14 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 | BASE-DATA-004 | Outbound flows | CONN-001, CONN-002, AGENT-003 | not run |
 | BASE-DATA-005 | Independence | OPEN-001 | not run |
 | BASE-PUBLIC-001 | Privacy | HTTP-001 | not run |
-| BASE-PUBLIC-002 | Origins | none | not run |
+| BASE-PUBLIC-002 | Origins | HTTP-001 | not run |
 | BASE-PUBLIC-003 | Accessibility | MOB-001 | not run |
 | BASE-OPS-001 | Health | HTTP-001 | not run |
 | BASE-OPS-002 | Migrations | OPEN-001 | not run |
 | BASE-OPS-003 | Idempotency | LARDER-005, CONN-014, AUTO-003 | not run |
 | BASE-OPS-004 | Failure is visible | AUTO-001, AUTO-003, OPS-001 | not run |
 | BASE-OPS-005 | Audit | GOV-004 | not run |
-| BASE-ROLE-001 | Roles through every door | LARDER-001, LARDER-002, LARDER-003, LARDER-004, LARDER-005, LARDER-006, LARDER-007, LARDER-008, LARDER-009, LARDER-010, LARDER-011, LARDER-017, LARDER-018, LARDER-019, LARDER-012, LARDER-013, LARDER-020, LARDER-015, LARDER-016, US-001, US-002, US-003, ENG-001, ENG-002, ENG-003, ENG-004, ENG-005, ENG-006, ENG-007, ENG-008, DEMAND-001, DEMAND-002, DEMAND-003, DEMAND-004, DEMAND-005, DEMAND-006, DEMAND-007, DEMAND-008, MRP-001, MRP-006, MRP-002, MRP-007, MRP-003, MRP-004, MRP-005, CAP-001, CAP-002, CAP-003, CAP-004, CAP-005, CAP-006, CAP-007, CAP-008, CAP-009, BUY-001, BUY-002, BUY-003, BUY-004, BUY-005, BUY-006, BUY-007, BUY-008, BUY-009, FLOOR-001, FLOOR-002, FLOOR-003, FLOOR-004, FLOOR-005, FLOOR-006, FLOOR-007, FLOOR-008, FLOOR-009, FLOOR-010, TRACE-001, TRACE-002, TRACE-003, TRACE-004, TRACE-005, TRACE-008, TRACE-006, TRACE-007, STOCK-001, STOCK-002, STOCK-004, COST-001, COST-002, COST-003, COST-004, COST-005, COST-006, COST-008, COST-007, CONN-001, CONN-002, CONN-003, CONN-004, CONN-005, CONN-006, CONN-007, CONN-008, CONN-009, CONN-010, CONN-011, CONN-012, CONN-013, CONN-014, CONN-015, AUTO-001, AUTO-002, AUTO-003, MOVE-001, MOVE-002, MOVE-003, MOVE-004, MOVE-005, MOVE-006, MOVE-007, MOVE-008, GOV-001, GOV-014, GOV-015, GOV-016, GOV-002, GOV-003, GOV-004, GOV-005, GOV-006, GOV-007, GOV-008, GOV-009, GOV-010, GOV-011, GOV-012, GOV-013, HTTP-001, MOB-001, MOB-002, OPS-001, LINK-001, LINK-002, AGENT-001, AGENT-002, AGENT-003, AGENT-004, AGENT-005, AGENT-006, AGENT-007, AGENT-008, AGENT-009, SURFACE-007 | not run |
+| BASE-ROLE-001 | Roles through every door | LARDER-001, LARDER-002, LARDER-003, LARDER-004, LARDER-005, LARDER-006, LARDER-007, LARDER-008, LARDER-009, LARDER-010, LARDER-011, LARDER-017, LARDER-018, LARDER-019, LARDER-012, LARDER-013, LARDER-020, LARDER-015, LARDER-016, US-001, US-002, US-003, ENG-001, ENG-002, ENG-003, ENG-004, ENG-005, ENG-006, ENG-007, ENG-008, DEMAND-001, DEMAND-002, DEMAND-003, DEMAND-004, DEMAND-005, DEMAND-006, DEMAND-007, DEMAND-008, MRP-001, MRP-006, MRP-002, MRP-007, MRP-003, MRP-004, MRP-005, CAP-001, CAP-002, CAP-003, CAP-004, CAP-005, CAP-006, CAP-007, CAP-008, CAP-009, BUY-001, BUY-002, BUY-003, BUY-004, BUY-005, BUY-006, BUY-007, BUY-008, BUY-009, FLOOR-001, FLOOR-002, FLOOR-003, FLOOR-004, FLOOR-005, FLOOR-006, FLOOR-007, FLOOR-008, FLOOR-009, FLOOR-010, TRACE-001, TRACE-002, TRACE-003, TRACE-004, TRACE-005, TRACE-008, TRACE-006, TRACE-007, STOCK-001, STOCK-002, STOCK-004, COST-001, COST-002, COST-003, COST-004, COST-005, COST-006, COST-008, COST-007, CONN-001, CONN-002, CONN-003, CONN-004, CONN-005, CONN-006, CONN-007, CONN-008, CONN-009, CONN-010, CONN-011, CONN-012, CONN-013, CONN-014, CONN-015, AUTO-001, AUTO-002, AUTO-003, MOVE-001, MOVE-002, MOVE-003, MOVE-004, MOVE-005, MOVE-006, MOVE-007, MOVE-008, GOV-001, GOV-014, GOV-015, GOV-016, GOV-002, GOV-003, GOV-004, GOV-005, GOV-006, GOV-007, GOV-008, GOV-009, GOV-010, GOV-011, GOV-012, GOV-013, HTTP-001, MOB-001, MOB-002, OPS-001, LINK-001, LINK-002, SURFACE-007, AGENT-001, AGENT-002, AGENT-003, AGENT-004, AGENT-005, AGENT-006, AGENT-007, AGENT-008, AGENT-009 | not run |
 | BASE-AUDIT-001 | Searchable, durable audit | BUY-009, FLOOR-002, FLOOR-009, COST-005, CONN-014, MOVE-008, GOV-004, GOV-005, GOV-012, GOV-013 | not run |
 | BASE-BACKUP-001 | Independent backup, restore and rollback | GOV-007 | not run |
 | BASE-DATA-006 | Erasure respects retention and legal hold | GOV-005, GOV-013 | not run |
@@ -69,16 +69,16 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 | BASE-ACCESSIBILITY-001 | One accessibility bar | MOB-001 | not run |
 | BASE-DOCS-001 | On-site docs from one contract | HTTP-001 | not run |
 | BASE-AGENT-001 | One MCP door per seed | SURFACE-013 | not run |
-| BASE-AGENT-002 | The seed's jobs are tools, through the UI's own actions | LARDER-015, AGENT-001, AGENT-002, AGENT-003, AGENT-004, AGENT-005, AGENT-006, AGENT-007, AGENT-008, AGENT-009, SURFACE-001 | not run |
+| BASE-AGENT-002 | The seed's jobs are tools, through the UI's own actions | LARDER-015, SURFACE-001, AGENT-001, AGENT-002, AGENT-003, AGENT-004, AGENT-005, AGENT-006, AGENT-007, AGENT-008, AGENT-009 | not run |
 | BASE-AGENT-003 | Records are resources | SURFACE-004, SURFACE-007 | not run |
 | BASE-AGENT-004 | Business identity and short-lived, audience-bound tokens | SURFACE-013 | not run |
-| BASE-AGENT-005 | An agent acts as a person in a role, never more | AGENT-009, SURFACE-005 | not run |
-| BASE-AGENT-006 | Every action declares its risk class | LARDER-015, FLOOR-002, GOV-002, GOV-008, GOV-009, GOV-010, GOV-011, AGENT-001, AGENT-002, AGENT-003, AGENT-004, AGENT-005, AGENT-006, AGENT-007, AGENT-008, AGENT-009, SURFACE-001, SURFACE-002, SURFACE-003, SURFACE-004, SURFACE-005, SURFACE-006, SURFACE-010 | not run |
-| BASE-AGENT-007 | The company's policy decides, at one chokepoint | LARDER-015, FLOOR-002, GOV-002, GOV-008, GOV-009, GOV-010, GOV-011, AGENT-001, AGENT-002, AGENT-003, AGENT-004, AGENT-005, AGENT-006, AGENT-007, AGENT-008, AGENT-009, SURFACE-003, SURFACE-006, SURFACE-008 | not run |
-| BASE-AGENT-008 | Truthful attribution | LARDER-015, FLOOR-002, GOV-002, GOV-008, GOV-009, GOV-010, GOV-011, AGENT-001, AGENT-002, AGENT-003, AGENT-004, AGENT-005, AGENT-006, AGENT-007, AGENT-008, AGENT-009, SURFACE-008 | not run |
+| BASE-AGENT-005 | An agent acts as a person in a role, never more | SURFACE-005, AGENT-009 | not run |
+| BASE-AGENT-006 | Every action declares its risk class | LARDER-015, CAP-007, BUY-008, FLOOR-002, GOV-002, GOV-006, GOV-008, GOV-009, GOV-010, GOV-011, SURFACE-001, SURFACE-002, SURFACE-003, SURFACE-004, SURFACE-005, SURFACE-006, SURFACE-010, AGENT-001, AGENT-002, AGENT-003, AGENT-004, AGENT-005, AGENT-006, AGENT-007, AGENT-008, AGENT-009 | not run |
+| BASE-AGENT-007 | The company's policy decides, at one chokepoint | LARDER-015, CAP-007, BUY-008, FLOOR-002, GOV-002, GOV-006, GOV-008, GOV-009, GOV-010, GOV-011, SURFACE-003, SURFACE-006, SURFACE-008, AGENT-001, AGENT-002, AGENT-003, AGENT-004, AGENT-005, AGENT-006, AGENT-007, AGENT-008, AGENT-009 | not run |
+| BASE-AGENT-008 | Truthful attribution | LARDER-015, FLOOR-002, GOV-002, GOV-008, GOV-009, GOV-010, GOV-011, SURFACE-008, AGENT-001, AGENT-002, AGENT-003, AGENT-004, AGENT-005, AGENT-006, AGENT-007, AGENT-008, AGENT-009 | not run |
 | BASE-AGENT-009 | Every agent action is audited with its class and decision | SURFACE-013 | not run |
 | BASE-AGENT-010 | Agents can follow changes | SURFACE-009, SURFACE-011 | not run |
-| BASE-AGENT-011 | Limits are policy, and Pause stops everything | AGENT-009, SURFACE-010, SURFACE-012 | not run |
+| BASE-AGENT-011 | Limits are policy, and Pause stops everything | SURFACE-010, SURFACE-012, AGENT-009 | not run |
 | BASE-AGENT-012 | Writes are idempotent and conflict-safe | SURFACE-013 | not run |
 | BASE-AGENT-013 | Manifest, docs and the conformance journey | SURFACE-001, SURFACE-012, SURFACE-013 | not run |
 
@@ -570,7 +570,7 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 #### CAP-007 — Live dependency-preserving reflow
 
-*Tier:* Core · *Cites:* BASE-ROLE-001 · *Rules:* D-2, D-3, D-4, D-6, D-8
+*Tier:* Core · *Cites:* BASE-ROLE-001, BASE-AGENT-006, BASE-AGENT-007 · *Rules:* D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Recorded progress, ETA, breakdown and priority changes can reflow internal sequencing within explicit protection, scope, displacement, delay and expiry limits. Frozen work and manual overrides stay protected; exact-version adoption refuses any newly infeasible or out-of-scope booking atomically. For agent calls, reversible internal sequencing is standard, outside promises add external and commitment, and spending adds money; the company’s policy decides each class. The native decision follows RL-6. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-007) retain the detailed bounds and record semantics.
 
@@ -664,7 +664,7 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 #### BUY-008 — Allocation of accepted receipts to make-path demand
 
-*Tier:* Core · *Cites:* BASE-ROLE-001 · *Rules:* D-2, D-3, D-4, D-6, D-8
+*Tier:* Core · *Cites:* BASE-ROLE-001, BASE-AGENT-006, BASE-AGENT-007 · *Rules:* D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Accepted receipt stock needed through a make path can be reserved explicitly to the released job making the product, retaining receipt, component, quantity, allocator and reason. Only accepted unreserved stock qualifies; taking an existing reservation needs the documented manager/owner decision, and held, draft, closed or overfilled jobs refuse. A reservation carries standard for agent calls, decided by the company’s policy. The native decision follows RL-12. The [operating rules](docs/contract/OPERATING-DETAILS.md#buy-008) retain the detailed bounds and record semantics.
 
@@ -1335,7 +1335,7 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 #### GOV-006 — Provider and model secret custody
 
-*Tier:* Core · *Cites:* BASE-SECRET-001, BASE-SECRET-002, BASE-ROLE-001, BASE-DATA-001 · *Rules:* D-6, D-8
+*Tier:* Core · *Cites:* BASE-SECRET-001, BASE-SECRET-002, BASE-ROLE-001, BASE-DATA-001, BASE-AGENT-006, BASE-AGENT-007 · *Rules:* D-6, D-8
 
 **Requirement.** Ledger, mail and model connections keep installation-owned encrypted, least-scoped credential custody with rotation/revocation without source edits. Destination and data-scope configuration carries security and access; the company’s policy decides corresponding agent calls.
 
@@ -1407,7 +1407,7 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 #### HTTP-001 — Preserve Base public and private paths
 
-*Tier:* Core · *Cites:* BASE-ACCESS-002, BASE-ACCESS-003, BASE-PUBLIC-001, BASE-OPS-001, BASE-ROLE-001, BASE-DOCS-001 · *Rules:* D-6, D-8
+*Tier:* Core · *Cites:* BASE-ACCESS-002, BASE-ACCESS-003, BASE-PUBLIC-001, BASE-OPS-001, BASE-ROLE-001, BASE-DOCS-001, BASE-PUBLIC-002 · *Rules:* D-6, D-8
 
 **Requirement.** The manufacturing Lobby, health and on-site documentation are public while the app, manufacturing records and archives stay private. Larder owns its domain dispatch and manufacturing authorization.
 

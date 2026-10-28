@@ -672,7 +672,7 @@ Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D
 
 #### CAP-007 — Live dependency-preserving reflow
 
-Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · target · **done** · Cites BASE-ROLE-001, BASE-AGENT-006, BASE-AGENT-007 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Recorded progress, ETA, breakdown and priority changes can reflow internal sequencing within explicit protection, scope, displacement, delay and expiry limits. Frozen work and manual overrides stay protected; exact-version adoption refuses any newly infeasible or out-of-scope booking atomically. For agent calls, reversible internal sequencing is standard, outside promises add external and commitment, and spending adds money; the company’s policy decides each class. The native decision follows RL-6. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-007) retain the detailed bounds and record semantics.
 
@@ -796,7 +796,7 @@ Core · target · **missing** · Cites BASE-MAIL-001, BASE-ROLE-001 · Rules D-2
 
 #### BUY-008 — Allocation of accepted receipts to make-path demand
 
-Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · target · **done** · Cites BASE-ROLE-001, BASE-AGENT-006, BASE-AGENT-007 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Accepted receipt stock needed through a make path can be reserved explicitly to the released job making the product, retaining receipt, component, quantity, allocator and reason. Only accepted unreserved stock qualifies; taking an existing reservation needs the documented manager/owner decision, and held, draft, closed or overfilled jobs refuse. A reservation carries standard for agent calls, decided by the company’s policy. The native decision follows RL-12. The [operating rules](docs/contract/OPERATING-DETAILS.md#buy-008) retain the detailed bounds and record semantics.
 
@@ -1665,7 +1665,7 @@ Core · target · **partial** · Cites BASE-DATA-002, BASE-DATA-003, BASE-DATA-0
 
 #### GOV-006 — Provider and model secret custody
 
-Core · target · **missing** · Cites BASE-SECRET-001, BASE-SECRET-002, BASE-ROLE-001, BASE-DATA-001 · Rules D-6, D-8
+Core · target · **missing** · Cites BASE-SECRET-001, BASE-SECRET-002, BASE-ROLE-001, BASE-DATA-001, BASE-AGENT-006, BASE-AGENT-007 · Rules D-6, D-8
 
 **Requirement.** Ledger, mail and model connections keep installation-owned encrypted, least-scoped credential custody with rotation/revocation without source edits. Destination and data-scope configuration carries security and access; the company’s policy decides corresponding agent calls.
 
@@ -1761,7 +1761,7 @@ Core · target · **done** · Cites BASE-DATA-002, BASE-DATA-003, BASE-AUDIT-001
 
 #### HTTP-001 — Preserve Base public and private paths
 
-Core · target · **done** · Cites BASE-ACCESS-002, BASE-ACCESS-003, BASE-PUBLIC-001, BASE-OPS-001, BASE-ROLE-001, BASE-DOCS-001 · Rules D-6, D-8
+Core · target · **done** · Cites BASE-ACCESS-002, BASE-ACCESS-003, BASE-PUBLIC-001, BASE-OPS-001, BASE-ROLE-001, BASE-DOCS-001, BASE-PUBLIC-002 · Rules D-6, D-8
 
 **Requirement.** The manufacturing Lobby, health and on-site documentation are public while the app, manufacturing records and archives stay private. Larder owns its domain dispatch and manufacturing authorization.
 
