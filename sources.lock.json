@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "ed489137df2a7f2c4e676e121134533cd1cc9dd1ef9a544b0e999413afe0be04",
+      "sha256": "507da9a95eebe9016f5cd375e41035cb50f6a94578c305c941704b0ffa500eb9",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -197,11 +197,15 @@
       "executable": false
     },
     "base-copies.json": {
-      "sha256": "8404e4b26940c7fb76bf3fa55317abb7313aedab37354077bd491f3feea6ca23",
+      "sha256": "829d946cfe57d3175264f9a48d92817dd27718af854bddc53933deb3c71086f6",
+      "executable": false
+    },
+    "CHANGELOG.md": {
+      "sha256": "d0b01dc85459492b81be8e58260c7665b1cbbc9bc837e1150630ef7e19e3c16b",
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "76fde4aeaf65b97e1786716b2d967c9452dbf6c3a32b44ed1162c8aadb2d974e",
+      "sha256": "9de8fc9b06ea853cad0c7d833c334f8a79a2a3f4d1cb930cf6c789fcb2bb7684",
       "executable": false
     },
     "DEMO.md": {
@@ -222,6 +226,18 @@
     },
     "docs/backup-and-restore.md": {
       "sha256": "9e2298138f25687a8b360f56631352c6821268ae50016756d2333c877305f73f",
+      "executable": false
+    },
+    "docs/CLAIMS.md": {
+      "sha256": "4ddef4cb4211fe96618a399b98fad12b7f563d3b210bb9bde82f1f7da3e6969f",
+      "executable": false
+    },
+    "docs/contract/COVERAGE.json": {
+      "sha256": "97dbeda457fbf27331c59a9fc0e9ea19d3864f9a9564d2a79b046dbe18b9c3d0",
+      "executable": false
+    },
+    "docs/contract/ID-MAP.json": {
+      "sha256": "7a1f69d2af4a9829a64d58460c44b3cad6dfa35ffebc9f5bba41d57b7c9c7103",
       "executable": false
     },
     "docs/getting-started.md": {
@@ -254,6 +270,10 @@
     },
     "docs/stock.md": {
       "sha256": "3c5a84ef9fdb52206ea8c40cc380cb3298751dd6563739089b22ae98625c25fe",
+      "executable": false
+    },
+    "docs/verify.md": {
+      "sha256": "ed489137df2a7f2c4e676e121134533cd1cc9dd1ef9a544b0e999413afe0be04",
       "executable": false
     },
     "edition.json": {
@@ -926,6 +946,10 @@
     },
     "src/base/command-receipts.ts": {
       "sha256": "2f2411c94af00854c4d040ae74a8e6bd11da98308e7d5b0211473f46679d791a",
+      "executable": false
+    },
+    "src/base/contract-docs.mjs": {
+      "sha256": "d98e14f489c57f60446c2cc68310db09f298f7974d77026dbaa2c62868cc4838",
       "executable": false
     },
     "src/base/contract-filter.ts": {
