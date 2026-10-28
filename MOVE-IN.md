@@ -139,3 +139,16 @@ Older USD archives without this additional map retain their existing USD
 functional envelope; new exports emit the explicit per-record declarations.
 A non-USD functional archive still requires an explicit recorded-rate migration;
 no such archive migration is implemented and Settings cannot substitute for it.
+
+
+Legacy AUD business archives require an explicit versioned conversion before
+USD restore. The owner prepares it through the migration route documented in
+API.md, reviews the recorded rate and each amount declaration and reconciles
+the reported source stock value, converted stock value and rounding difference.
+Preparation changes no source installation. Original AUD amounts and currencies,
+recorded rate metadata, command outcomes and original files remain evidence;
+converted native amounts declare USD. The original commands are inert after
+restore. Re-export and compare the receipt, quantities, dates, currencies,
+monetary totals and file digests before routing business traffic. Current record
+shapes without a built-in legacy amount definition require explicit field
+classifications; an omitted or ambiguous classification blocks preparation.

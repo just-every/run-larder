@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "47966b352fd7147ed868d8d8e43c97661709b7a7e0ad91e49d5b5cbdafb2bf03",
+      "sha256": "ed489137df2a7f2c4e676e121134533cd1cc9dd1ef9a544b0e999413afe0be04",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -193,7 +193,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "62aa1596451eaef2eb6ff6b569f99e6955df3d673c6cc057298d56dc6f14d09a",
+      "sha256": "b74da29da0ce24995b9544532f2f81b79cccd91c7a537555d7c5aeec89aa4570",
       "executable": false
     },
     "base-copies.json": {
@@ -201,7 +201,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "86f7eb87a4cd819eb5b9941e60ea351c94e733a6bbc3f3bbd0ae82e796cfb5fa",
+      "sha256": "750fe69d7afacd24baecb118c091bc1b4a58f8e00e556027dbde5ca64d87e0c8",
       "executable": false
     },
     "DEMO.md": {
@@ -405,7 +405,7 @@
       "executable": false
     },
     "MOVE-IN.md": {
-      "sha256": "757031cfe6f6ee8bd8c79bb1d9cf093af9f116898beb1d715efb9e567f0c4bd4",
+      "sha256": "e71c1c9e77ed0787fdbe4065c0226112f2ddaf272bd7a0b18a0d56b5688af65b",
       "executable": false
     },
     "ONBOARDING.md": {
@@ -694,6 +694,10 @@
     },
     "scripts/ci/chromium-probe.mjs": {
       "sha256": "c57c6ab541b0c9eb2a10896da3d027b4400f15744063acfd16d7faeb00c02110",
+      "executable": false
+    },
+    "scripts/contract-docs.mjs": {
+      "sha256": "a61c5d414b18cb77dde57615ea7d71e7a1f1c1fb40ef4cfc0448045d1a9ab25f",
       "executable": false
     },
     "scripts/delivery/base/artifact.mjs": {
@@ -1061,7 +1065,7 @@
       "executable": false
     },
     "src/larder/archive.ts": {
-      "sha256": "6726e31d4d5e73e5c4749aeb8ffda4bedaa28c41913a03309414a9db43b54a5b",
+      "sha256": "248e5d125b008132c8e4f1b83baf17253399e9cbd5d1f87c203c013893e277a5",
       "executable": false
     },
     "src/larder/attachments.ts": {
@@ -1201,7 +1205,7 @@
       "executable": false
     },
     "src/larder/currency-migration.ts": {
-      "sha256": "30747f47ec3919db7c1c396d9c6bc706bcde9fb3e2b6ec67329b6e0b6127df3d",
+      "sha256": "a4ebf167b9c68d2d8b5db7c595051cb5b47c9a32cc49cc33ece91ad948f92825",
       "executable": false
     },
     "src/larder/cutover-guard.ts": {
@@ -3929,7 +3933,7 @@
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "44bdf5262969e94d6898e6c8362e02bafe0f949f7d1dfa7fcf195a1927644d3b",
+      "sha256": "d3b034d091286c96ee0d48ad230ded48daa856c77ade248fc3386921196e9b27",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {

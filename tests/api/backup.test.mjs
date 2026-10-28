@@ -231,15 +231,33 @@ test('US business settings retain Ohio identity, local dates and per-record curr
 test('AUD archive migration records exact rates, original money and stock reconciliation through restart and restore', async t => {
   const h = await installation({ now: '2026-10-28T02:30:00.000Z' }); t.after(() => h.close())
   const w = await workshop(h)
-  const quote = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-11-01', lines: [{ itemId: w.board.id, quantity: '2', unitPrice: '89.25' }] })
+  const quotePayload = { customerId: w.customer.id, promiseDate: '2026-11-01', lines: [{ itemId: w.board.id, quantity: '2', unitPrice: '89.25' }] }
+  const quoteCommand = 'synthetic-larder-currency-1'
+  const quote = await h.command('so.quote', quotePayload, { commandId: quoteCommand })
+  const policy = await h.command('costing.policy.prepare', { standardLaborRate: '20', machineRate: '8', overheadRate: '4', overtimeAfterHours: '8', overtimeMultiplier: '1.5', reason: 'Synthetic legacy policy' })
+  const history = await h.command('history.preview', { file: { name: 'synthetic-larder-1.json', content: JSON.stringify({ format: 'larder-source-history-v1', source: 'Synthetic source history', records: [{ kind: 'bill', originalId: 'synthetic-larder-1', reference: 'synthetic-larder-1', occurredAt: '2025-12-01T17:30:00-05:00', currency: 'EUR', sourceStatus: 'closed', summary: 'Historical bill', amount: '150.75' }] }) } })
+  await h.command('history.commit', { importId: history.id, version: history.version })
+  const target = await installation(); t.after(() => target.close())
   const source = await (await h.request('/api/larder/archive')).json()
   const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value
   const sign = a => { const { exportedAt, checksum, ledger, ...content } = a; a.checksum = createHash('sha256').update(JSON.stringify(stable(content))).digest('hex'); return a }
   source.currency = 'AUD'
-  for (const rows of Object.values(source.currencyDeclarations.records)) for (const row of rows) row.currency = 'AUD'
+  source.records.costPolicies[0].currency = 'AUD'
+  for (const [kind, rows] of Object.entries(source.currencyDeclarations.records)) if (kind !== 'sourceHistory') for (const row of rows) row.currency = 'AUD'
   source.currencyDeclarations.movements = 'AUD'
+  // A restored installation may retain the same native owner ID. Reserve that
+  // command identity even then; archived AUD outcomes must remain inert.
+  source.commands.find(c => c.id === quoteCommand).actor_id = (await target.state()).actor.id
   sign(source)
-  const input = { version: 1, consent: true, sourceChecksum: source.checksum, rateToUsd: '0.625', recordedOn: '2026-10-27', source: 'Synthetic accountant recorded rate', reason: 'Explicit USD cutover from legacy AUD workshop' }
+  const declarations = [
+    ...['standardLaborRate', 'machineRate', 'overheadRate'].map(key => ({ path: ['records', 'costPolicies', 0, key], type: 'amount', currency: 'AUD' })),
+    ...['overtimeAfterHours', 'overtimeMultiplier'].map(key => ({ path: ['records', 'costPolicies', 0, key], type: 'quantity', reason: 'Operational hours or dimensionless multiplier, unchanged by currency' })),
+  ]
+  const input = { version: 1, consent: true, sourceChecksum: source.checksum, rateToUsd: '0.6250', recordedOn: '2026-10-27', source: 'Synthetic accountant recorded rate', reason: 'Explicit USD cutover from legacy AUD workshop', declarations }
+  for (const bad of [declarations.slice(1), [...declarations, declarations[0]], [...declarations, { path: ['records', 'missing', 0, 'amount'], type: 'amount', currency: 'AUD' }], declarations.map((d, i) => i === 0 ? { ...d, type: 'quantity', reason: 'Incorrect exclusion' } : d), declarations.map((d, i) => i === 3 ? { ...d, type: 'amount', currency: 'AUD' } : d)]) {
+    const refused = await h.request('/api/larder/archive/migrate-aud', { method: 'POST', body: { archive: source, migration: { ...input, declarations: bad } } })
+    assert.equal((await refused.json()).error.code, 'CURRENCY_MIGRATION')
+  }
   const before = await h.state(), outbound = h.outboundCount()
   const res = await h.request('/api/larder/archive/migrate-aud', { method: 'POST', body: { archive: source, migration: input } })
   assert.equal(res.status, 200)
@@ -248,6 +266,13 @@ test('AUD archive migration records exact rates, original money and stock reconc
   assert.equal(migrated.records.salesOrders[0].lines[0].unitPrice, '55.78125')
   assert.equal(migrated.records.items.find(i => i.id === w.timber.id).standardCost, '5.9375')
   assert.equal(migrated.records.partyItems[0].price, '5.9375')
+  assert.equal(migrated.records.costPolicies[0].standardLaborRate, '12.5')
+  assert.equal(migrated.records.costPolicies[0].machineRate, '5')
+  assert.equal(migrated.records.costPolicies[0].overheadRate, '2.5')
+  assert.equal(migrated.records.costPolicies[0].overtimeAfterHours, '8')
+  assert.equal(migrated.records.costPolicies[0].overtimeMultiplier, '1.5')
+  assert.equal(migrated.records.costPolicies[0].currency, 'USD')
+  assert.equal(receipt.input.declarations.length, 5)
   assert.deepEqual(migrated.movements.map(m => m.unitCost), ['5937500', '11250000', '18750000'])
   assert.deepEqual(migrated.movements.map(m => m.quantity), source.movements.map(m => m.quantity))
   assert.equal(migrated.records.salesOrders[0].promiseDate, '2026-11-01')
@@ -262,15 +287,18 @@ test('AUD archive migration records exact rates, original money and stock reconc
   const priceEntry = receipt.entries.find(e => JSON.stringify(e.path) === JSON.stringify(['records', 'salesOrders', 0, 'lines', 0, 'unitPrice']))
   assert.deepEqual(priceEntry, { path: ['records', 'salesOrders', 0, 'lines', 0, 'unitPrice'], sourceCurrency: 'AUD', currency: 'USD', original: '89.25', converted: '55.78125', representation: 'decimal' })
   assert.deepEqual(receipt.totals.find(e => e.field === 'unitPrice'), { field: 'unitPrice', count: 1, sourceCurrency: 'AUD', currency: 'USD', original: '89.25', converted: '55.78125' })
-  for (const rows of Object.values(migrated.currencyDeclarations.records)) for (const row of rows) assert.equal(row.currency, 'USD')
+  for (const [kind, rows] of Object.entries(migrated.currencyDeclarations.records)) for (const row of rows) assert.equal(row.currency, kind === 'sourceHistory' ? 'EUR' : 'USD')
+  assert.deepEqual(migrated.records.sourceHistory, source.records.sourceHistory)
+  assert.deepEqual(migrated.attachments, source.attachments)
   assert.deepEqual(await h.state(), before, 'preparation changes no source records')
   assert.equal(h.outboundCount(), outbound)
-  const target = await installation(); t.after(() => target.close())
-  for (const change of ['entry', 'rate', 'total']) {
+  for (const change of ['entry', 'rate', 'total', 'record', 'movement']) {
     const invalid = structuredClone(migrated)
     if (change === 'entry') invalid.currencyMigration.entries[0].converted = '999'
     if (change === 'rate') invalid.currencyMigration.rateToUsd = '1'
     if (change === 'total') invalid.currencyMigration.reconciliation.convertedStockValue = '0'
+    if (change === 'record') invalid.records.salesOrders[0].lines[0].unitPrice = '0'
+    if (change === 'movement') invalid.movements[0].unitCost = '0'
     sign(invalid)
     const refused = await (await target.request('/api/larder/archive/restore', { method: 'POST', body: invalid })).json()
     assert.equal(refused.error.code, 'CURRENCY_MIGRATION', change)
@@ -282,6 +310,7 @@ test('AUD archive migration records exact rates, original money and stock reconc
   const again = await (await target.request('/api/larder/archive')).json()
   assert.deepEqual(again.currencyMigration, receipt)
   assert.deepEqual(again.records.salesOrders, migrated.records.salesOrders)
+  assert.deepEqual(again.records.costPolicies, migrated.records.costPolicies)
   assert.deepEqual(again.movements, migrated.movements)
   assert.deepEqual(again.reconciliation, source.reconciliation)
   assert.equal(again.currencyDeclarations.records.salesOrders[0].currency, 'USD')
@@ -289,6 +318,18 @@ test('AUD archive migration records exact rates, original money and stock reconc
   const originalCommand = source.commands.find(c => JSON.parse(c.result).result?.id === quote.id)
   assert.deepEqual(again.commands.find(c => c.id === originalCommand.id), originalCommand)
   assert.ok(again.currencyMigration.originalCommandIds.includes(originalCommand.id))
+  await target.command('so.quote', quotePayload, { commandId: quoteCommand, error: 'CURRENCY_MIGRATION' })
+  assert.deepEqual((await (await target.request('/api/larder/archive')).json()).records.salesOrders, migrated.records.salesOrders)
+  assert.deepEqual(again.records.sourceHistory, source.records.sourceHistory)
+  assert.deepEqual(again.attachments, source.attachments)
+  // Subsequent normal revisions remain portable; the original monetary receipt
+  // stays immutable rather than claiming to be the current price.
+  const item = (await target.state()).items.find(i => i.id === w.timber.id)
+  await target.command('item.save', { ...item, standardCost: '7' })
+  const updatedArchive = await (await target.request('/api/larder/archive')).json()
+  const third = await installation(); t.after(() => third.close())
+  assert.equal((await third.request('/api/larder/archive/restore', { method: 'POST', body: updatedArchive })).status, 200)
+  assert.equal((await third.state()).items.find(i => i.id === w.timber.id).standardCost, '7')
   assert.equal(target.outboundCount(), targetOutbound)
   const duplicate = await (await target.request('/api/larder/archive/restore', { method: 'POST', body: migrated })).json()
   assert.equal(duplicate.error.code, 'NOT_EMPTY')

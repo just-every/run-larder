@@ -705,7 +705,7 @@ vendor-specific nesting imports and inherits these review and posting guards.
 
 Under ct approval of 23 October 2026, both commands are owner-only, including command replay. A customer date change still uses `so.changePreview` and `so.changeApprove` with recorded customer attestation. That preview includes `impact.changedPromiseCount` (affected customer orders) and `impact.promiseChanges` (each changed line with previous and proposed delivery dates). Each accepted receipt on its purchase-order page offers the owner a two-line split form, the exact review and a reasoned approval; changed business records or UTC day require a fresh review. The existing qualified-alternate API and browser journeys now assert customer-linked outage recovery with sufficient alternate capacity, zero changed promises and unchanged order dates.
 
-Archive restore currently accepts only an explicit `USD` functional-currency declaration. Missing, malformed or non-USD declarations answer `CURRENCY_MIGRATION` before any write. This prevents silent relabelling; it does not implement the US-001 versioned AUD conversion. Original currencies of source-history evidence remain separate from functional money.
+Archive restore accepts only an explicit `USD` functional-currency declaration; the owner can first prepare a recorded-rate AUD conversion through the migration route below. Missing, malformed or non-USD declarations answer `CURRENCY_MIGRATION` before any write. This prevents silent relabelling or implicit conversion during restore. Original currencies of source-history evidence remain separate from functional money.
 
 
 ### Optional finite nesting comparison
@@ -732,8 +732,7 @@ USD archive export and restore refuse a conflicting root `currency` or
 orders, labor rates, job charges, cost links, cost valuations, margin charges
 and handoffs before any write or new USD export label. Original source-history
 currencies and supplier-quote currencies remain independent and unchanged.
-This refusal does not implement legacy AUD migration or complete per-amount
-currency declarations.
+The explicit migration below preserves original AUD amounts alongside the converted functional money; record currency declarations cover native archive amounts.
 
 ## Explicit multi-output batches (FLOOR-006)
 
@@ -1049,3 +1048,51 @@ retains the profile. This is an identity reference, not tax validation.
 Customer and supplier `party.save` uses separate `ein` and legacy `abn` fields.
 Existing Australian and imported tax identities are retained without reclassification.
 An omitted field does not reinterpret an ABN as an EIN.
+
+
+### Versioned AUD archive migration
+
+`POST /api/larder/archive/migrate-aud` is a native-owner-only, same-origin
+preparation door. It writes nothing and makes no external request. Send
+`{archive, migration}` with the original checksummed `larder-archive-v1` archive
+explicitly declaring AUD. Migration fields are `version: 1`, `consent: true`,
+`sourceChecksum`, positive decimal `rateToUsd` (USD per AUD), `recordedOn`,
+`source` and `reason`. Missing currencies, conflicting native declarations,
+changed checksums, unreviewed fields and unsupported versions are refused.
+
+Legacy core record shapes have built-in amount definitions. Other implemented
+collections require explicit `declarations`: one entry for every numeric field,
+including numeric elements of arrays, except immutable identifiers and versions.
+Each entry has an exact `path` from the archive root, `type: amount` and
+`currency: AUD`, or `type: quantity` with a reason for leaving it unchanged.
+For example, `['records','costPolicies',0,'standardLaborRate']` is money;
+`['records','costPolicies',0,'overtimeAfterHours']` is an unchanged time quantity.
+Money cannot be excluded as a quantity; physical quantities, percentages and
+operational factors cannot be converted as money. Duplicate, missing and unused
+declarations are refused. Source-history records and original evidence files
+already carry independent original currencies and remain unchanged.
+
+The response is a USD archive for the existing empty-installation restore door.
+Review its `currencyMigration` before restoring: the source checksum, owner and
+time, recorded rate and basis, original record currencies, per-field original
+AUD and converted USD amounts, per-field totals, original stock quantities and
+rates, aggregate expected USD stock value, actual converted stock value and
+explicit rounding difference. Conversion uses bigint fixed-point arithmetic,
+rounding half away from zero to six places; rates and amounts outside the exact
+supported range are refused. A zero rounding difference is reported only when
+it is zero. This is a local recording, not ledger, provider or tax confirmation.
+
+Restore validates the receipt's arithmetic and totals and their link to the
+original converted records and immutable movements before its guarded batch.
+Later native record revisions remain portable without rewriting that receipt.
+Original command outcomes retain their AUD currency, identified by the receipt's
+`originalCommandIds` and `originalCommandsCurrency`; replay is refused even if
+the original owner identity exists in the destination. New native commands use
+USD. The receipt is retained in JSON and lossless CSV and survives subsequent
+restore. It contains monetary originals and identifiers, without another full
+copy of personal data. The complete source archive stays with the owner.
+
+Contract status and acceptance projection: run
+`node scripts/contract-docs.mjs write US-001`, followed by the same command with
+`check`. CONTRACT.md remains the acceptance and status source; the generator
+updates only the requested acceptance rows and the canonical status counts.

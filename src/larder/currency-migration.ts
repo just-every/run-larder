@@ -10,7 +10,7 @@ import { authority } from './storage'
 
 export const archiveFormat = 'larder-archive-v1'
 const migrationFormat = 'larder-aud-to-usd-v1'
-const moneyKeys = new Set(['standardCost', 'salePrice', 'price', 'unitPrice', 'quotedUnitCost', 'unitCost', 'standardUnitCost', 'actualUnitCost', 'unitAmount', 'amount', 'amountCents', 'total', 'exposure', 'materials', 'standardOutput', 'variance', 'cost', 'laborCost', 'machineCost', 'overheadCost', 'materialCost', 'serviceCost', 'rate', 'hourlyRate', 'laborRate', 'burdenRate', 'machineRate', 'overheadRate', 'freight', 'tax', 'priceVariance', 'value', 'valueChange', 'roundingResidual', 'stock', 'wip', 'cogs', 'revenue', 'margin', 'profit'])
+const moneyKeys = new Set(['standardLaborRate', 'standardCost', 'salePrice', 'price', 'unitPrice', 'quotedUnitCost', 'unitCost', 'standardUnitCost', 'actualUnitCost', 'unitAmount', 'amount', 'amountCents', 'total', 'exposure', 'materials', 'standardOutput', 'variance', 'cost', 'laborCost', 'machineCost', 'overheadCost', 'materialCost', 'serviceCost', 'rate', 'hourlyRate', 'laborRate', 'burdenRate', 'machineRate', 'overheadRate', 'freight', 'tax', 'priceVariance', 'value', 'valueChange', 'roundingResidual', 'stock', 'wip', 'cogs', 'revenue', 'margin', 'profit'])
 // A closed schema is intentional. New financial sub-ledgers need their own
 // conversion semantics (particularly approvals, valuations and source evidence).
 const legacyKinds = new Set(['businessProfiles', 'items', 'locations', 'parties', 'partyItems', 'boms', 'salesOrders', 'purchaseOrders', 'workOrders', 'receipts', 'lots', 'shipments', 'returns', 'transfers', 'counts', 'openings', 'reversals', 'handoffs', 'roles', 'approvals', 'resolutions', 'sourceHistory', 'historyImports'])
@@ -45,6 +45,24 @@ function convert(sourceArchive: any, input: any, actor: { id: string }, at: stri
   if (!source.records || Object.entries(source.records).some(([kind, rows]) => !Array.isArray(rows) || (!(collections as readonly string[]).includes(kind) && (rows as any[]).length))) fail('CURRENCY_MIGRATION', 'The source contains an unknown record collection.')
   if (source.currencyDeclarations && canonicalJson(source.currencyDeclarations) !== canonicalJson(currencyDeclarations(source.records, 'AUD'))) fail('CURRENCY_MIGRATION', 'The source record declarations do not reconcile to AUD.')
   const target = structuredClone(source), entries: Entry[] = []
+  const rules: any[] = input.declarations ?? [], used = new Set<string>()
+  if (!Array.isArray(rules) || rules.length > 10000 || rules.some(r => !Array.isArray(r?.path) || !['amount', 'quantity'].includes(r.type) || !r.path.length || r.path.some((p: any) => !(typeof p === 'string' || Number.isSafeInteger(p))))) fail('CURRENCY_MIGRATION', 'Supply exact amount or quantity paths for additional record shapes.')
+  const ruleMap = new Map(rules.map(r => [canonicalJson(r.path), r]))
+  if (ruleMap.size !== rules.length) fail('CURRENCY_MIGRATION', 'A migration path can be classified only once.')
+  const classify = (path: (string | number)[], v: unknown, required: boolean): string | undefined => {
+    const rule = ruleMap.get(canonicalJson(path))
+    if (!rule && required) fail('CURRENCY_MIGRATION', 'Review and classify every numeric field of an additional record shape.', { path })
+    if (!rule) return
+    used.add(canonicalJson(path))
+    if (rule.type === 'quantity') {
+      if (/(?:cost|price|amount|wage|burden|exposure|revenue|profit|margin|^rate$|standardLaborRate|machineRate|overheadRate|hourlyRate|laborRate)/i.test(String(path.at(-1)))) fail('CURRENCY_MIGRATION', 'A monetary field cannot be declared a quantity.', { path })
+      text(rule.reason, 'unchanged quantity basis', 500)
+      return
+    }
+    if (/(?:quantity|minutes|hours|percent|multiplier|sequence|version|days|count|yield|factor|good|scrap|received|shipped|issued|returned|cancelled|rejected|weight|seasonality|capacity|units|duration)/i.test(String(path.at(-1)))) fail('CURRENCY_MIGRATION', 'A physical quantity or operational factor cannot be converted as money.', { path })
+    if (rule.currency !== 'AUD' || !numeric(v)) fail('CURRENCY_MIGRATION', 'A converted amount needs an explicit AUD declaration and an exact decimal string.', { path })
+    return amount(v as string, path)
+  }
   function amount(value: string, path: (string | number)[], representation: Entry['representation'] = 'decimal') {
     const original = representation === 'scaled' ? (/^-?\d+$/.test(value) ? BigInt(value) : fail('CURRENCY_MIGRATION', 'A movement rate must be a scaled integer.')) : decimal(value, 'original AUD amount', { signed: true })
     const converted = times(original, rate)
@@ -53,29 +71,34 @@ function convert(sourceArchive: any, input: any, actor: { id: string }, at: stri
     entries.push({ path, sourceCurrency: 'AUD', currency: 'USD', original: value, converted: result, representation })
     return result
   }
-  function walk(value: any, path: (string | number)[]): any {
-    if (Array.isArray(value)) return value.map((v, i) => walk(v, [...path, i]))
-    if (!value || typeof value !== 'object') return value
+  function walk(value: any, path: (string | number)[], explicit = false): any {
+    if (Array.isArray(value)) return value.map((v, i) => walk(v, [...path, i], explicit))
+    if (!value || typeof value !== 'object') return explicit && (numeric(value) || typeof value === 'number') ? classify(path, value, true) ?? value : value
     const out: any = {}
     for (const [key, v] of Object.entries(value)) {
-      if (originalFields.has(key)) out[key] = v
+      if (originalFields.has(key) || key === 'id' || key === 'version' || /Ids?$/.test(key)) out[key] = v
       else if (key === 'currency' || key === 'functionalCurrency') {
         if (v !== 'AUD') fail('CURRENCY_MIGRATION', 'A native legacy record has a conflicting currency. Keep mixed-currency source evidence separate.')
         out[key] = 'USD'
+      } else if (explicit && (numeric(v) || typeof v === 'number') && key !== 'version') {
+        out[key] = classify([...path, key], v, true) ?? v
+      } else if (ruleMap.has(canonicalJson([...path, key]))) {
+        if (moneyKeys.has(key) && ruleMap.get(canonicalJson([...path, key])).type !== 'amount') fail('CURRENCY_MIGRATION', 'A known native amount cannot be excluded from conversion.')
+        out[key] = classify([...path, key], v, false) ?? v
       } else if (moneyKeys.has(key) && v !== null && typeof v !== 'object') {
         if (!numeric(v)) fail('CURRENCY_MIGRATION', 'A legacy monetary field is not an exact decimal string.')
         out[key] = amount(v as string, [...path, key])
       } else if (/(?:cost|price|amount|value|rate|total|exposure|margin|revenue|profit)/i.test(key) && numeric(v) && !['tolerancePercent', 'yieldRate', 'scrapRate', 'taxRate', 'discountRate', 'discountPercent', 'exchangeRate'].includes(key)) {
         fail('CURRENCY_MIGRATION', 'An unrecognised monetary field needs a newer migration version.', { path: [...path, key] })
-      } else out[key] = walk(v, [...path, key])
+      } else out[key] = walk(v, [...path, key], explicit)
     }
     return out
   }
   for (const [kind, rows] of Object.entries(source.records) as [string, any[]][]) {
-    if (rows.length && !legacyKinds.has(kind)) fail('CURRENCY_MIGRATION', 'This archive needs a migration version covering its newer financial or operational records.', { collection: kind })
     // Source history already declares original currencies. It is not native AUD.
-    target.records[kind] = ['sourceHistory', 'historyImports'].includes(kind) ? rows : rows.map((r, i) => walk(r, ['records', kind, i]))
+    target.records[kind] = ['sourceHistory', 'historyImports'].includes(kind) ? rows : rows.map((r, i) => walk(r, ['records', kind, i], !legacyKinds.has(kind)))
   }
+  if (used.size !== rules.length) fail('CURRENCY_MIGRATION', 'A declared path was not used. Review the exact source archive and declarations again.')
   target.movements = source.movements.map((m: any, i: number) => ({ ...m, unitCost: amount(m.unitCost, ['movements', i, 'unitCost'], 'scaled') }))
   // Original outcomes remain evidence, but replay cannot return AUD as native
   // USD or execute a capture again. The old identity remains reserved.
@@ -84,7 +107,7 @@ function convert(sourceArchive: any, input: any, actor: { id: string }, at: stri
   target.currencyDeclarations = currencyDeclarations(target.records)
   const before = stockValue(source.movements), after = stockValue(target.movements), expected = times(before, rate)
   const originalStock = source.movements.map((m: any) => ({ id: m.id, quantity: m.quantity, unitCost: m.unitCost }))
-  target.currencyMigration = { format: migrationFormat, version: 1, sourceCurrency: 'AUD', currency: 'USD', sourceChecksum: sourceArchive.checksum, rateToUsd: format(rate), recordedOn, source: basis, reason, preparedBy: actor.id, preparedAt: at, input: { ...input, rateToUsd: format(rate), source: basis, reason }, originalCurrencyDeclarations: currencyDeclarations(source.records, 'AUD'), originalCommandIds: source.commands.map((c: any) => c.id), originalCommandsCurrency: 'AUD', originalStock, entries, totals: amountTotals(entries), reconciliation: { sourceStockValue: format(before), expectedUsd: format(expected), convertedStockValue: format(after), roundingDifferenceUsd: format(after - expected), quantityUnchanged: true }, boundary: 'Locally recorded conversion, not ledger, provider or tax confirmation. Per-amount half-away-from-zero rounding to six places; stock-rate rounding differences remain explicit.' }
+  target.currencyMigration = { format: migrationFormat, version: 1, sourceCurrency: 'AUD', currency: 'USD', sourceChecksum: sourceArchive.checksum, rateToUsd: format(rate), recordedOn, source: basis, reason, preparedBy: actor.id, preparedAt: at, sourceStateVersion: source.version, originalRecordVersions: Object.fromEntries(Object.entries(source.records).map(([kind, rows]) => [kind, (rows as any[]).map(r => ({ id: r.id, version: r.version }))])), input: { ...input, rateToUsd: format(rate), source: basis, reason }, originalCurrencyDeclarations: currencyDeclarations(source.records, 'AUD'), originalCommandIds: source.commands.map((c: any) => c.id), originalCommandsCurrency: 'AUD', originalStock, entries, totals: amountTotals(entries), reconciliation: { sourceStockValue: format(before), expectedUsd: format(expected), convertedStockValue: format(after), roundingDifferenceUsd: format(after - expected), quantityUnchanged: true }, boundary: 'Locally recorded conversion, not ledger, provider or tax confirmation. Per-amount half-away-from-zero rounding to six places; stock-rate rounding differences remain explicit.' }
   return target
 }
 function amountTotals(entries: Entry[]) {
@@ -94,7 +117,7 @@ function amountTotals(entries: Entry[]) {
     return { field, count: same.length, sourceCurrency: 'AUD', currency: 'USD', original: format(same.reduce((n, e) => n + scaled(e, e.original), 0n)), converted: format(same.reduce((n, e) => n + scaled(e, e.converted), 0n)) }
   })
 }
-export function checkMigration(receipt: any) {
+export function checkMigration(receipt: any, content: any) {
   if (receipt?.format !== migrationFormat || receipt.version !== 1 || receipt.sourceCurrency !== 'AUD' || receipt.currency !== 'USD' || receipt.originalCommandsCurrency !== 'AUD') fail('CURRENCY_MIGRATION', 'Unknown currency migration version.')
   const input = receipt.input, rate = decimal(receipt.rateToUsd, 'recorded USD per AUD', { positive: true })
   if (input?.version !== 1 || input.consent !== true || input.sourceChecksum !== receipt.sourceChecksum || input.rateToUsd !== receipt.rateToUsd || input.recordedOn !== receipt.recordedOn || input.source !== receipt.source || input.reason !== receipt.reason) fail('CURRENCY_MIGRATION', 'The recorded rate does not match the reviewed migration.')
@@ -106,6 +129,15 @@ export function checkMigration(receipt: any) {
     const n = entry.representation === 'scaled' ? BigInt(entry.original) : decimal(entry.original, 'original AUD amount', { signed: true })
     const expected = times(n, rate)
     if (entry.converted !== (entry.representation === 'scaled' ? expected.toString() : format(expected))) fail('CURRENCY_MIGRATION', 'A converted amount does not match its original and recorded rate.')
+    if (entry.path[0] === 'movements') {
+      const original = receipt.originalStock[Number(entry.path[1])], current = content.movements.find((m: any) => m.id === original.id)
+      if (!current || current.unitCost !== entry.converted || current.quantity !== original.quantity) fail('CURRENCY_MIGRATION', 'An original migrated movement rate or quantity changed.')
+    } else if (entry.path[0] === 'records') {
+      const [_, kind, index, ...tail] = entry.path, original = receipt.originalRecordVersions[String(kind)][Number(index)]
+      const current = content.records[String(kind)].find((r: any) => r.id === original.id)
+      if ((!current && content.version === receipt.sourceStateVersion) || (current?.version === original.version && tail.reduce((v: any, k) => v?.[k], current) !== entry.converted)) fail('CURRENCY_MIGRATION', 'A migrated record amount changed without a subsequent native revision.')
+    }
+
   }
   const before = stockValue(receipt.originalStock), converted = stockValue(receipt.originalStock.map((m: any) => ({ ...m, unitCost: times(BigInt(m.unitCost), rate).toString() }))), expected = times(before, rate)
   if (canonicalJson(receipt.totals) !== canonicalJson(amountTotals(receipt.entries)) || canonicalJson(receipt.reconciliation) !== canonicalJson({ sourceStockValue: format(before), expectedUsd: format(expected), convertedStockValue: format(converted), roundingDifferenceUsd: format(converted - expected), quantityUnchanged: true })) fail('CURRENCY_MIGRATION', 'The migration totals or stock reconciliation do not match the original amounts.')

@@ -68,6 +68,7 @@ The sixteen published clauses keep their IDs and useful operational guarantees. 
 ### US operating setup
 
 - **US-001 — US business and USD defaults.** A US manufacturer sets legal name, US billing/shipping addresses, EIN reference, USD functional currency, US time zone, working week and fiscal year. Quantities support exact US customary and metric units; customer/supplier tax identities are distinct from Australian ABNs. Money and archives retain their declared currency. **Acceptance evidence:** Set up an Ohio workshop in USD, quote in inches and receive in feet with an exact conversion; export and restore the order and verify local dates, currency and identity. Reject an inexact conversion. Each archived monetary amount retains its ISO 4217 currency, either on the amount or through an unambiguous currency declaration for its record; USD is the default for a new US installation. Restore preserves original currencies. Existing AUD data requires an explicit versioned migration with recorded rates and reconciliation, never a USD relabel. Compare a new USD archive and a migrated legacy AUD archive after restore, including all amount currencies and migration totals.
+  *Cites:* MOVE-008.
 
 - **US-002 — Sales tax and exemption handoff.** Manufacturing quotes/orders carry ship-to jurisdiction, taxable items, freight, exemption/resale certificates and provider-calculated US sales tax via Avalara AvaTax or TaxJar. Final invoice tax goes to the connected ledger once; expiry or provider failure blocks an unsupported tax assertion. Larder retains the calculation and reversal references. **Acceptance evidence:** Quote an interstate taxable order and a resale-exempt order through the UI with a tax sandbox; ship/return part and reconcile invoice and tax reversal in QuickBooks Online.
 
@@ -477,17 +478,17 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 
 ## Status
 
-Judged from the code and tests at commit `b6b09f0f478073c0cde3bc872067844aaf626b0e` (27 October 2026). Clause rows carry subsequent candidate evidence; exact-SHA Verify, publication scan and landing gates are required before integration.
+Judged from the code and tests at candidate commit `HEAD` for US-001 (28 October 2026); other rows retain their prior judgments from `b6b09f0f478073c0cde3bc872067844aaf626b0e`. The final handoff resolves HEAD to its immutable full commit identity. Clause rows carry subsequent candidate evidence; exact-SHA Verify, publication scan and landing gates are required before integration.
 
 HTTP-001, ENG-004, STOCK-002, DEMAND-006, ENG-001, ENG-002, ENG-007, DEMAND-002 and DEMAND-003 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
 
-Homepage claim coverage was completed on 18 October 2026. The baseline retained every pre-existing clause status; subsequent completed journeys are recorded in the Status rows. US-001 was re-judged against the current archive code and remains partial; OPEN-001 and DEMAND-008 are new target clauses. The additional acceptance requirements below remain engineering work wherever their clause is partial or missing.
+Homepage claim coverage was completed on 18 October 2026. The baseline retained every pre-existing clause status; subsequent completed journeys are recorded in the Status rows. US-001 is supported by the named current archive and business-setting journeys; OPEN-001 and DEMAND-008 are new target clauses. The additional acceptance requirements below remain engineering work wherever their clause is partial or missing.
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 16 | 0 | 0 | 16 |
-| Target and push further | 60 | 23 | 40 | 123 |
-| All | 76 | 23 | 40 | 139 |
+| Target and push further | 61 | 22 | 40 | 123 |
+| All | 77 | 22 | 40 | 139 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -507,7 +508,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `LARDER-014` | Authority everywhere | published | done | `src/larder/api.ts`; `tests/api/authority.test.mjs` |  |
 | `LARDER-015` | Agents prepare, people approve | published | done | `src/larder/proposals.ts`; `tests/api/authority.test.mjs` |  |
 | `LARDER-016` | Odoo kit | published | done | `src/larder/odoo/imports.ts`; `tests/api/move-in.test.mjs` |  |
-| `US-001` | US business and USD defaults | target | partial | `tests/api/flows.test.mjs` — LARDER-001 items, variants, units and parties; `tests/api/backup.test.mjs` — US-001 restore refuses undeclared or non-USD functional money; US business settings retain Ohio identity, local dates and per-record currencies through restart and restore; `tests/browser/journey.spec.ts` — US business settings save Ohio identity and retain distinct EIN fields at both widths | US business identity, US billing and shipping addresses, EIN reference, US IANA time zone, working week, fiscal year and USD defaults now persist through the owner-only versioned command, restart and empty restore. Settings are reached from the account menu; customer and supplier EIN fields are distinct from retained Australian ABNs. Archives declare the functional currency for each record and movements, with explicit nested source currencies preserved and conflicting declarations refused before writes. Existing exact unit and refusal proofs remain. Ohio inch quotes, exact foot receipts and inexact conversion refusal now round-trip with profile identity and original dates. Remaining: explicit versioned AUD migration with recorded rates and reconciliation; comparison of a migrated AUD archive after restore. The named archive test asserts MOVE-008 coverage. |
+| `US-001` | US business and USD defaults | target | done | `tests/api/flows.test.mjs` — LARDER-001 items, variants, units and parties; `tests/api/backup.test.mjs` — US-001 restore refuses undeclared or non-USD functional money; US business settings retain Ohio identity, local dates and per-record currencies through restart and restore; AUD archive migration records exact rates, original money and stock reconciliation through restart and restore; AUD migration refuses missing consent, guessed rates, incompatible records and non-owner or revoked authority; `tests/browser/journey.spec.ts` — US business settings save Ohio identity and retain distinct EIN fields at both widths | |
 | `US-002` | Sales tax and exemption handoff | target | missing |  | Sales tax and exemption handoff workflow and its acceptance journey are not implemented. |
 | `US-003` | Guided real-order setup | target | missing |  | Guided real-order setup workflow and its acceptance journey are not implemented. |
 | `ENG-001` | Multilevel BOM explosion | target | done | `tests/api/multilevel.test.mjs`; `tests/browser/multilevel.spec.ts` — ENG-001 | Recursive topological shared-supply netting, root/revision pegging, stocked subassemblies, make/buy/phantom choices, upward yield arithmetic, effective-date cycle rejection and immutable resolved release pins; recipe, shortage and work screens at 1440/390. |

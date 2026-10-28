@@ -57,7 +57,7 @@ export async function restore(env: Bindings, actor: Actor, request: Request) {
   if (content.currency !== 'USD') fail('CURRENCY_MIGRATION', 'Restore requires an explicitly declared USD functional currency. Legacy non-USD amounts need a versioned migration with recorded rates and reconciliation; they cannot be relabelled.')
   checkFunctionalMoney(content.records ?? {})
   if (content.currencyDeclarations !== undefined && canonicalJson(content.currencyDeclarations) !== canonicalJson(currencyDeclarations(content.records ?? {}))) fail('CURRENCY_MIGRATION', 'Per-record currency declarations conflict with the archived records.')
-  if (content.currencyMigration !== undefined) checkMigration(content.currencyMigration)
+  if (content.currencyMigration !== undefined) checkMigration(content.currencyMigration, content)
   const empty = await env.DB.prepare('SELECT (SELECT version FROM larder_meta WHERE id=1)=0 AND NOT EXISTS(SELECT 1 FROM larder_records) AND NOT EXISTS(SELECT 1 FROM larder_movements) AND NOT EXISTS(SELECT 1 FROM larder_commands) AS empty').first<{ empty: number }>()
   if (empty?.empty !== 1) fail('NOT_EMPTY', 'Restore only into an empty installation. This one already has records.')
   const db = env.DB, guard = authority(actor)
