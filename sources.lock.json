@@ -193,7 +193,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "b74da29da0ce24995b9544532f2f81b79cccd91c7a537555d7c5aeec89aa4570",
+      "sha256": "0d672395a1c2acfe449f5468fcea3abd26ce630eda9d33ecfcb0578f748a408e",
       "executable": false
     },
     "base-copies.json": {
@@ -201,7 +201,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "750fe69d7afacd24baecb118c091bc1b4a58f8e00e556027dbde5ca64d87e0c8",
+      "sha256": "76fde4aeaf65b97e1786716b2d967c9452dbf6c3a32b44ed1162c8aadb2d974e",
       "executable": false
     },
     "DEMO.md": {
@@ -1205,7 +1205,7 @@
       "executable": false
     },
     "src/larder/currency-migration.ts": {
-      "sha256": "a4ebf167b9c68d2d8b5db7c595051cb5b47c9a32cc49cc33ece91ad948f92825",
+      "sha256": "805fa0fe99df67bfd69fe61c85daefff7a99703ad3642088bcb7fbb4f3efc26f",
       "executable": false
     },
     "src/larder/cutover-guard.ts": {
@@ -3933,7 +3933,7 @@
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "d3b034d091286c96ee0d48ad230ded48daa856c77ade248fc3386921196e9b27",
+      "sha256": "ecffa91101835c14b6bc6b1b83c071987952dbf1803348b8a05ca5e6cf8e6c5e",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {

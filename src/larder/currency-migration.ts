@@ -2,7 +2,7 @@
 // never edits an installation. Originals and every converted scalar travel with
 // the result; unrecognised monetary shapes fail closed instead of being guessed.
 import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
-import { decimal, format, times, MAX } from './decimal'
+import { decimal, format, times, cents, MAX } from './decimal'
 import { collections, date, text, type Actor } from './model'
 import { Problem, fail, forbidden } from './problem'
 import type { Bindings } from '../auth.server'
@@ -16,7 +16,7 @@ const moneyKeys = new Set(['standardLaborRate', 'standardCost', 'salePrice', 'pr
 const legacyKinds = new Set(['businessProfiles', 'items', 'locations', 'parties', 'partyItems', 'boms', 'salesOrders', 'purchaseOrders', 'workOrders', 'receipts', 'lots', 'shipments', 'returns', 'transfers', 'counts', 'openings', 'reversals', 'handoffs', 'roles', 'approvals', 'resolutions', 'sourceHistory', 'historyImports'])
 const originalFields = new Set(['attributes', 'sourceAmount', 'sourcePrice', 'sourceCost', 'sourceUnitCost', 'sourceCurrency', 'conversionRate', 'rateToUsd', 'usdRate', 'original', 'evidence', 'attachments', 'drawings'])
 const numeric = (v: unknown) => typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v)
-type Entry = { path: (string | number)[]; sourceCurrency: 'AUD'; currency: 'USD'; original: string; converted: string; representation: 'decimal' | 'scaled' }
+type Entry = { path: (string | number)[]; sourceCurrency: 'AUD'; currency: 'USD'; original: string; converted: string; representation: 'decimal' | 'scaled' | 'cents'; basisOriginal?: string }
 
 export function archiveContent(a: any) {
   const { exportedAt, checksum, ledger, ...content } = a ?? {}
@@ -63,12 +63,12 @@ function convert(sourceArchive: any, input: any, actor: { id: string }, at: stri
     if (rule.currency !== 'AUD' || !numeric(v)) fail('CURRENCY_MIGRATION', 'A converted amount needs an explicit AUD declaration and an exact decimal string.', { path })
     return amount(v as string, path)
   }
-  function amount(value: string, path: (string | number)[], representation: Entry['representation'] = 'decimal') {
+  function amount(value: string, path: (string | number)[], representation: Entry['representation'] = 'decimal', basisOriginal?: string) {
     const original = representation === 'scaled' ? (/^-?\d+$/.test(value) ? BigInt(value) : fail('CURRENCY_MIGRATION', 'A movement rate must be a scaled integer.')) : decimal(value, 'original AUD amount', { signed: true })
-    const converted = times(original, rate)
+    const converted = times(basisOriginal === undefined ? original : decimal(basisOriginal, 'full original AUD amount', { signed: true }), rate)
     if (original > MAX || original < -MAX || converted > MAX || converted < -MAX) fail('CURRENCY_MIGRATION', 'A converted amount exceeds the supported exact range.')
-    const result = representation === 'scaled' ? converted.toString() : format(converted)
-    entries.push({ path, sourceCurrency: 'AUD', currency: 'USD', original: value, converted: result, representation })
+    const result = representation === 'scaled' ? converted.toString() : representation === 'cents' ? cents(converted) : format(converted)
+    entries.push({ path, sourceCurrency: 'AUD', currency: 'USD', original: value, converted: result, representation, ...(basisOriginal === undefined ? {} : { basisOriginal }) })
     return result
   }
   function walk(value: any, path: (string | number)[], explicit = false): any {
@@ -80,6 +80,13 @@ function convert(sourceArchive: any, input: any, actor: { id: string }, at: stri
       else if (key === 'currency' || key === 'functionalCurrency') {
         if (v !== 'AUD') fail('CURRENCY_MIGRATION', 'A native legacy record has a conflicting currency. Keep mixed-currency source evidence separate.')
         out[key] = 'USD'
+      } else if (key === 'amountCents') {
+        const rule = ruleMap.get(canonicalJson([...path, key]))
+        if (explicit && !rule) fail('CURRENCY_MIGRATION', 'Review the cent amount declaration.', { path: [...path, key] })
+        if (rule && (rule.type !== 'amount' || rule.currency !== 'AUD')) fail('CURRENCY_MIGRATION', 'A cent amount must be declared AUD money.')
+        if (rule) used.add(canonicalJson([...path, key]))
+        if (!numeric(v) || !numeric(value.amount)) fail('CURRENCY_MIGRATION', 'A cent-rounded amount needs its full original decimal amount.')
+        out[key] = amount(v as string, [...path, key], 'cents', value.amount)
       } else if (explicit && (numeric(v) || typeof v === 'number') && key !== 'version') {
         out[key] = classify([...path, key], v, true) ?? v
       } else if (ruleMap.has(canonicalJson([...path, key]))) {
@@ -124,11 +131,11 @@ export function checkMigration(receipt: any, content: any) {
   const paths = new Set<string>()
   for (const entry of receipt.entries as Entry[]) {
     const key = canonicalJson(entry.path)
-    if (paths.has(key) || entry.sourceCurrency !== 'AUD' || entry.currency !== 'USD' || !['decimal', 'scaled'].includes(entry.representation)) fail('CURRENCY_MIGRATION', 'The migration contains an ambiguous amount declaration.')
+    if (paths.has(key) || entry.sourceCurrency !== 'AUD' || entry.currency !== 'USD' || !['decimal', 'scaled', 'cents'].includes(entry.representation)) fail('CURRENCY_MIGRATION', 'The migration contains an ambiguous amount declaration.')
     paths.add(key)
     const n = entry.representation === 'scaled' ? BigInt(entry.original) : decimal(entry.original, 'original AUD amount', { signed: true })
-    const expected = times(n, rate)
-    if (entry.converted !== (entry.representation === 'scaled' ? expected.toString() : format(expected))) fail('CURRENCY_MIGRATION', 'A converted amount does not match its original and recorded rate.')
+    const expected = times(entry.basisOriginal === undefined ? n : decimal(entry.basisOriginal, 'full original AUD amount', { signed: true }), rate)
+    if (entry.converted !== (entry.representation === 'scaled' ? expected.toString() : entry.representation === 'cents' ? cents(expected) : format(expected))) fail('CURRENCY_MIGRATION', 'A converted amount does not match its original and recorded rate.')
     if (entry.path[0] === 'movements') {
       const original = receipt.originalStock[Number(entry.path[1])], current = content.movements.find((m: any) => m.id === original.id)
       if (!current || current.unitCost !== entry.converted || current.quantity !== original.quantity) fail('CURRENCY_MIGRATION', 'An original migrated movement rate or quantity changed.')

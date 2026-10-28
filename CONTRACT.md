@@ -478,7 +478,7 @@ Every capability claim in br's approved 18 October 2026 homepage register (`evid
 
 ## Status
 
-Judged from the code and tests at candidate commit `HEAD` for US-001 (28 October 2026); other rows retain their prior judgments from `b6b09f0f478073c0cde3bc872067844aaf626b0e`. The final handoff resolves HEAD to its immutable full commit identity. Clause rows carry subsequent candidate evidence; exact-SHA Verify, publication scan and landing gates are required before integration.
+Judged from the code and tests at commit `3d7042b28d5946a90401b8e3e5359f69c78921ca` (28 October 2026). Clause rows carry subsequent candidate evidence; exact-SHA Verify, publication scan and landing gates are required before integration. The final handoff records the exact candidate identity and any subsequent money-format correction.
 
 HTTP-001, ENG-004, STOCK-002, DEMAND-006, ENG-001, ENG-002, ENG-007, DEMAND-002 and DEMAND-003 were subsequently completed with their named public-door journeys on 19 October 2026; their current evidence and statuses are recorded below.
 

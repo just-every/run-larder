@@ -237,6 +237,7 @@ test('AUD archive migration records exact rates, original money and stock reconc
   const policy = await h.command('costing.policy.prepare', { standardLaborRate: '20', machineRate: '8', overheadRate: '4', overtimeAfterHours: '8', overtimeMultiplier: '1.5', reason: 'Synthetic legacy policy' })
   const history = await h.command('history.preview', { file: { name: 'synthetic-larder-1.json', content: JSON.stringify({ format: 'larder-source-history-v1', source: 'Synthetic source history', records: [{ kind: 'bill', originalId: 'synthetic-larder-1', reference: 'synthetic-larder-1', occurredAt: '2025-12-01T17:30:00-05:00', currency: 'EUR', sourceStatus: 'closed', summary: 'Historical bill', amount: '150.75' }] }) } })
   await h.command('history.commit', { importId: history.id, version: history.version })
+  await h.command('handoff.prepare', { note: 'Synthetic legacy accountant handoff' })
   const target = await installation(); t.after(() => target.close())
   const source = await (await h.request('/api/larder/archive')).json()
   const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value
@@ -266,6 +267,8 @@ test('AUD archive migration records exact rates, original money and stock reconc
   assert.equal(migrated.records.salesOrders[0].lines[0].unitPrice, '55.78125')
   assert.equal(migrated.records.items.find(i => i.id === w.timber.id).standardCost, '5.9375')
   assert.equal(migrated.records.partyItems[0].price, '5.9375')
+  assert.deepEqual(migrated.records.handoffs[0].lines.map(l => l.amountCents), ['35.63', '22.50', '75.00'])
+  assert.equal(migrated.records.handoffs[0].total, '133.125')
   assert.equal(migrated.records.costPolicies[0].standardLaborRate, '12.5')
   assert.equal(migrated.records.costPolicies[0].machineRate, '5')
   assert.equal(migrated.records.costPolicies[0].overheadRate, '2.5')

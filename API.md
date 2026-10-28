@@ -1078,7 +1078,9 @@ time, recorded rate and basis, original record currencies, per-field original
 AUD and converted USD amounts, per-field totals, original stock quantities and
 rates, aggregate expected USD stock value, actual converted stock value and
 explicit rounding difference. Conversion uses bigint fixed-point arithmetic,
-rounding half away from zero to six places; rates and amounts outside the exact
+rounding half away from zero to six places. Accountant cent fields are derived
+from the converted full-precision amount and rounded to two places; their
+original AUD cent values remain in the receipt. Rates and amounts outside the exact
 supported range are refused. A zero rounding difference is reported only when
 it is zero. This is a local recording, not ledger, provider or tax confirmation.
 
