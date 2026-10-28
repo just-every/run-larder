@@ -28,7 +28,7 @@
 .docs-code code { padding: 0; background: none; color: inherit; font: inherit; overflow-wrap: normal; }
 .docs-copy { position: absolute; top: 12px; right: 12px; min-height: 34px; padding: 0 14px; border: 1px solid #5A5A5A; border-radius: 8px; background: transparent; color: #E6E6E6; font-size: 14px; font-weight: 500; cursor: pointer; }
 .docs-copy:hover { background: #3A3A3A; }
-.docs-table { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.docs-table { overflow-wrap: normal; overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
 .docs-table table { width: 100%; border-collapse: collapse; font-size: 16px; }
 .docs-table th { padding: 12px 14px; color: var(--muted); font-size: 13px; font-weight: 650; letter-spacing: .04em; text-align: left; border-bottom: 1px solid var(--line-strong); }
 .docs-table td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
