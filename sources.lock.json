@@ -4197,7 +4197,7 @@
       "executable": false
     },
     "tests/browser/subcontract.spec.ts": {
-      "sha256": "5ba2ba09e464f401b86758e416fc4b646843601a9fc540b27ccdf2bd43016319",
+      "sha256": "621fd19b5eaa9b97582cb34b5d4390e3e2884fa24fa7d73d0be42d7cc07e513d",
       "executable": false
     },
     "tests/browser/trace.spec.ts": {
