@@ -1121,7 +1121,7 @@
       "executable": false
     },
     "src/larder/availability.ts": {
-      "sha256": "050e14b39279c418165dcf3f01f749273e3800b8d3a6c2a344070459b1f524e0",
+      "sha256": "ba6d20d82203e039d754f6b48e6119a65ba3bfdaffae75c6448aa8f39958178d",
       "executable": false
     },
     "src/larder/bin-policy.ts": {
@@ -1353,7 +1353,7 @@
       "executable": false
     },
     "src/larder/lot-dates.ts": {
-      "sha256": "fb4611e28dc09febf7b5226123fe398ce699535c2ad7623e4ae98ba9ee428077",
+      "sha256": "c320c1900c0af5646db9ce6b488f6ae5c561e190d7298b3429ee8a9c3c487f97",
       "executable": false
     },
     "src/larder/maintenance-availability.ts": {
@@ -1689,7 +1689,7 @@
       "executable": false
     },
     "src/larder/view.ts": {
-      "sha256": "da5de727b9fcc2d00ebc6907759431663f956fd4be297f4369a9a360ca128e80",
+      "sha256": "e429886a2a3300ae107908b50d88cd6c9544b60a8036108aa7d2af15b5b52b50",
       "executable": false
     },
     "src/larder/wage-view.ts": {
@@ -4017,7 +4017,7 @@
       "executable": false
     },
     "tests/api/expiry.test.mjs": {
-      "sha256": "5dec2158e236bfd3010abc46c0502520e44ade1040eca1f9629a137f9db08569",
+      "sha256": "15ea88ce47beb0a3b2609baf079c5240309e369386ff30d0dd457f24f28e0fbb",
       "executable": false
     },
     "tests/api/flows.test.mjs": {

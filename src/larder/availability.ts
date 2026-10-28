@@ -30,8 +30,8 @@ export function unreservedDemand(s: State, itemId: string) {
   return n
 }
 
-export function availability(s: State, itemId: string) {
-  const physical = onHand(s, itemId), quarantine = onHand(s, itemId, 'quarantine'), expired = blockedQuantity(s, itemId, utcToday())
+export function availability(s: State, itemId: string, today = utcToday()) {
+  const physical = onHand(s, itemId), quarantine = onHand(s, itemId, 'quarantine'), expired = blockedQuantity(s, itemId, today)
   const reserved = s.reservations.filter(r => r.itemId === itemId).reduce((n, r) => n + r.quantity, 0n)
   const purchase = expectedPurchase(s, itemId), production = expectedProduction(s, itemId), demand = unreservedDemand(s, itemId)
   return {
