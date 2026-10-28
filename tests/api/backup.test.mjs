@@ -224,3 +224,102 @@ test('US business settings retain Ohio identity, local dates and per-record curr
   assert.deepEqual(again.records.businessProfiles[0].billingAddress, address)
   assert.equal(again.records.businessProfiles[0].einReference, 'synthetic-larder-931')
 })
+
+// Migration is exercised through the owner HTTP door, never by editing a live
+// ledger. The legacy fixture is derived from a real workshop archive; only its
+// functional declaration changes to describe the old AUD installation.
+test('AUD archive migration records exact rates, original money and stock reconciliation through restart and restore', async t => {
+  const h = await installation({ now: '2026-10-28T02:30:00.000Z' }); t.after(() => h.close())
+  const w = await workshop(h)
+  const quote = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-11-01', lines: [{ itemId: w.board.id, quantity: '2', unitPrice: '89.25' }] })
+  const source = await (await h.request('/api/larder/archive')).json()
+  const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value
+  const sign = a => { const { exportedAt, checksum, ledger, ...content } = a; a.checksum = createHash('sha256').update(JSON.stringify(stable(content))).digest('hex'); return a }
+  source.currency = 'AUD'
+  for (const rows of Object.values(source.currencyDeclarations.records)) for (const row of rows) row.currency = 'AUD'
+  source.currencyDeclarations.movements = 'AUD'
+  sign(source)
+  const input = { version: 1, consent: true, sourceChecksum: source.checksum, rateToUsd: '0.625', recordedOn: '2026-10-27', source: 'Synthetic accountant recorded rate', reason: 'Explicit USD cutover from legacy AUD workshop' }
+  const before = await h.state(), outbound = h.outboundCount()
+  const res = await h.request('/api/larder/archive/migrate-aud', { method: 'POST', body: { archive: source, migration: input } })
+  assert.equal(res.status, 200)
+  const migrated = await res.json(), receipt = migrated.currencyMigration
+  assert.equal(migrated.currency, 'USD')
+  assert.equal(migrated.records.salesOrders[0].lines[0].unitPrice, '55.78125')
+  assert.equal(migrated.records.items.find(i => i.id === w.timber.id).standardCost, '5.9375')
+  assert.equal(migrated.records.partyItems[0].price, '5.9375')
+  assert.deepEqual(migrated.movements.map(m => m.unitCost), ['5937500', '11250000', '18750000'])
+  assert.deepEqual(migrated.movements.map(m => m.quantity), source.movements.map(m => m.quantity))
+  assert.equal(migrated.records.salesOrders[0].promiseDate, '2026-11-01')
+  assert.equal(receipt.format, 'larder-aud-to-usd-v1'); assert.equal(receipt.version, 1)
+  assert.equal(receipt.rateToUsd, '0.625'); assert.equal(receipt.recordedOn, '2026-10-27')
+  assert.equal(receipt.source, input.source); assert.equal(receipt.reason, input.reason)
+  assert.equal(receipt.preparedBy, before.actor.id)
+  assert.equal(receipt.sourceChecksum, source.checksum)
+  assert.equal(receipt.originalCommandsCurrency, 'AUD')
+  assert.equal('originalArchive' in receipt, false, 'no duplicate personal snapshot')
+  assert.deepEqual(receipt.reconciliation, { sourceStockValue: '213', expectedUsd: '133.125', convertedStockValue: '133.125', roundingDifferenceUsd: '0', quantityUnchanged: true })
+  const priceEntry = receipt.entries.find(e => JSON.stringify(e.path) === JSON.stringify(['records', 'salesOrders', 0, 'lines', 0, 'unitPrice']))
+  assert.deepEqual(priceEntry, { path: ['records', 'salesOrders', 0, 'lines', 0, 'unitPrice'], sourceCurrency: 'AUD', currency: 'USD', original: '89.25', converted: '55.78125', representation: 'decimal' })
+  assert.deepEqual(receipt.totals.find(e => e.field === 'unitPrice'), { field: 'unitPrice', count: 1, sourceCurrency: 'AUD', currency: 'USD', original: '89.25', converted: '55.78125' })
+  for (const rows of Object.values(migrated.currencyDeclarations.records)) for (const row of rows) assert.equal(row.currency, 'USD')
+  assert.deepEqual(await h.state(), before, 'preparation changes no source records')
+  assert.equal(h.outboundCount(), outbound)
+  const target = await installation(); t.after(() => target.close())
+  for (const change of ['entry', 'rate', 'total']) {
+    const invalid = structuredClone(migrated)
+    if (change === 'entry') invalid.currencyMigration.entries[0].converted = '999'
+    if (change === 'rate') invalid.currencyMigration.rateToUsd = '1'
+    if (change === 'total') invalid.currencyMigration.reconciliation.convertedStockValue = '0'
+    sign(invalid)
+    const refused = await (await target.request('/api/larder/archive/restore', { method: 'POST', body: invalid })).json()
+    assert.equal(refused.error.code, 'CURRENCY_MIGRATION', change)
+    assert.equal((await target.state()).version, 0)
+  }
+  const targetOutbound = target.outboundCount()
+  assert.equal((await target.request('/api/larder/archive/restore', { method: 'POST', body: migrated })).status, 200)
+  await target.restart()
+  const again = await (await target.request('/api/larder/archive')).json()
+  assert.deepEqual(again.currencyMigration, receipt)
+  assert.deepEqual(again.records.salesOrders, migrated.records.salesOrders)
+  assert.deepEqual(again.movements, migrated.movements)
+  assert.deepEqual(again.reconciliation, source.reconciliation)
+  assert.equal(again.currencyDeclarations.records.salesOrders[0].currency, 'USD')
+  assert.equal(again.currencyMigration.entries.find(e => JSON.stringify(e.path) === JSON.stringify(['records', 'salesOrders', 0, 'lines', 0, 'unitPrice'])).original, '89.25')
+  const originalCommand = source.commands.find(c => JSON.parse(c.result).result?.id === quote.id)
+  assert.deepEqual(again.commands.find(c => c.id === originalCommand.id), originalCommand)
+  assert.ok(again.currencyMigration.originalCommandIds.includes(originalCommand.id))
+  assert.equal(target.outboundCount(), targetOutbound)
+  const duplicate = await (await target.request('/api/larder/archive/restore', { method: 'POST', body: migrated })).json()
+  assert.equal(duplicate.error.code, 'NOT_EMPTY')
+})
+
+test('AUD migration refuses missing consent, guessed rates, incompatible records and non-owner or revoked authority', async t => {
+  const h = await installation(); t.after(() => h.close())
+  await workshop(h)
+  const usd = await (await h.request('/api/larder/archive')).json()
+  const source = structuredClone(usd)
+  const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])])) : value
+  const sign = a => { const { exportedAt, checksum, ledger, ...content } = a; a.checksum = createHash('sha256').update(JSON.stringify(stable(content))).digest('hex'); return a }
+  source.currency = 'AUD'; delete source.currencyDeclarations; sign(source)
+  const input = { version: 1, consent: true, sourceChecksum: source.checksum, rateToUsd: '0.666667', recordedOn: '2026-10-27', source: 'Synthetic recorded rate', reason: 'Cutover' }
+  const prepare = (archive = source, migration = input, as) => h.request('/api/larder/archive/migrate-aud', { method: 'POST', body: { archive, migration }, ...(as !== undefined ? { as } : {}) })
+  for (const change of [{ version: 2 }, { consent: false }, { sourceChecksum: 'synthetic-larder-1' }, { rateToUsd: '0' }, { rateToUsd: '-1' }, { rateToUsd: '0.1234567' }, { source: '' }, { recordedOn: '2026-02-30' }]) {
+    const response = await prepare(source, { ...input, ...change })
+    assert.notEqual(response.status, 200, JSON.stringify(change))
+  }
+  for (const altered of [usd, { ...source, checksum: 'synthetic-larder-2' }, sign({ ...source, currency: undefined }), sign({ ...source, records: { ...source.records, costValuations: [{ id: 'synthetic-larder-1', amount: '5' }] } }), sign({ ...source, records: { ...source.records, items: [{ ...source.records.items[0], unknownCost: '1' }] } })]) {
+    const response = await prepare(altered, { ...input, sourceChecksum: altered.checksum })
+    assert.notEqual(response.status, 200)
+  }
+  const first = await (await prepare()).json()
+  assert.equal(first.currencyMigration.reconciliation.expectedUsd, '142.000071')
+  assert.equal(first.currencyMigration.reconciliation.convertedStockValue, '142.000074')
+  assert.equal(first.currencyMigration.reconciliation.roundingDifferenceUsd, '0.000003')
+  const manager = await h.person(['synthetic-larder-1', 'example.test'].join(String.fromCharCode(64)), 'manager')
+  assert.equal((await prepare(source, input, manager.cookie)).status, 403)
+  assert.equal((await prepare(source, input, '')).status, 401)
+  const owner = h.owner()
+  assert.equal((await h.request('/auth/signout', { method: 'POST', body: {} })).status, 204)
+  assert.equal((await prepare(source, input, owner)).status, 401)
+})

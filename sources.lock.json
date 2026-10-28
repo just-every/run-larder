@@ -1049,7 +1049,7 @@
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "51a4055f8a5b1eb909d4a26fd04733207b7aeb5057b18cc5e51311e51f7f2492",
+      "sha256": "6138afafa2ce5992f0912812729c5959dafac3e1f26cfaa2787ac1a86f35e00c",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -1061,7 +1061,7 @@
       "executable": false
     },
     "src/larder/archive.ts": {
-      "sha256": "867ce2142639518c08f5887796c872e75a35975a1dd1ab962684ffecc7310205",
+      "sha256": "6726e31d4d5e73e5c4749aeb8ffda4bedaa28c41913a03309414a9db43b54a5b",
       "executable": false
     },
     "src/larder/attachments.ts": {
@@ -1198,6 +1198,10 @@
     },
     "src/larder/counts.ts": {
       "sha256": "8399ec46b20cc6ccd68f8d528242987f557467c4cab59fbdf02afa7ef3110ce5",
+      "executable": false
+    },
+    "src/larder/currency-migration.ts": {
+      "sha256": "30747f47ec3919db7c1c396d9c6bc706bcde9fb3e2b6ec67329b6e0b6127df3d",
       "executable": false
     },
     "src/larder/cutover-guard.ts": {
@@ -1605,7 +1609,7 @@
       "executable": false
     },
     "src/larder/storage.ts": {
-      "sha256": "48292276a03eea2a122a15ad83831b5aab6c3fcb67f95023120e396ceb7497ce",
+      "sha256": "178ed8d60051f98bbd253defa06093a591112a498f5cfb01bd28e34cc906d8d1",
       "executable": false
     },
     "src/larder/subcontract-custody.ts": {
@@ -3925,7 +3929,7 @@
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "8cc4866a89d0c5ce1a0dbe377edd3248bd768b27572ffb4b6720fe1d16184140",
+      "sha256": "44bdf5262969e94d6898e6c8362e02bafe0f949f7d1dfa7fcf195a1927644d3b",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {

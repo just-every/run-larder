@@ -24,6 +24,7 @@ import { supplierQuotes } from './supplier-terms'
 import { operatorAuth, runtimeBindings, type Bindings } from '../auth.server'
 import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
 import { archive, restore } from './archive'
+import { migrateAudArchive } from './currency-migration'
 import { approvalCommand } from './approval-policy'
 import { cutover } from './cutover'
 import { cutoverGuard } from './cutover-guard'
@@ -277,6 +278,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const path = url.pathname.slice('/api/larder'.length)
     if (request.method === 'POST' && path === '/commands') return await command(env, actor, request)
     if (path !== '/state' && blindSessions(await load(env.DB), actor).length) forbidden('Downloads are unavailable during your assigned blind count.')
+    if (request.method === 'POST' && path === '/archive/migrate-aud') return json(await migrateAudArchive(env, actor, request))
     if (request.method === 'POST' && path === '/archive/restore') return json(await restore(env, actor, request))
     if (request.method !== 'GET') throw new Problem('METHOD', 'Use GET to read or POST /api/larder/commands to act.', null, 405)
     const ok = await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>()

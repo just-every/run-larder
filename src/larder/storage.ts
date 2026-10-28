@@ -38,6 +38,8 @@ export async function saved(db: D1Database, commandId: string, digest: string, a
   const r = await db.prepare('SELECT * FROM larder_commands WHERE id=?').bind(commandId).first<any>()
   if (!r) return null
   if (r.digest !== digest || r.actor_id !== actor.id) fail('IDEMPOTENCY', 'This command identity was already used with different content or by someone else.')
+  const migration = await db.prepare("SELECT data FROM larder_records WHERE kind='archiveCurrencyMigration' AND id='archive'").first<{ data: string }>()
+  if (migration && JSON.parse(migration.data).originalCommandIds.includes(commandId)) fail('CURRENCY_MIGRATION', 'This action predates the currency migration. Its original AUD outcome remains in the archive; replay is refused.')
   return JSON.parse(r.result)
 }
 

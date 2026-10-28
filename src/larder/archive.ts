@@ -8,6 +8,7 @@ import { positions } from './stock'
 import { authority, load } from './storage'
 import { movementView } from './view'
 import { collections, type Actor } from './model'
+import { archiveContent, readArchiveRequest, currencyDeclarations, checkMigration } from './currency-migration'
 
 const FORMAT = 'larder-archive-v1'
 // These are native USD records. Original source history and supplier quote
@@ -19,29 +20,25 @@ function checkFunctionalMoney(records: Partial<Record<(typeof functionalMoney)[n
   }
 }
 
-// Per-record declarations cover every nested monetary value unless that value
-// carries its own explicit original currency (for example source evidence).
-function declarations(records: Record<string, any[]>) {
-  return Object.fromEntries(Object.entries(records).map(([kind, rows]) => [kind, rows.map(r => ({ id: r.id, currency: kind === 'sourceHistory' ? r.currency : 'USD' }))]))
-}
-
 const base64 = (bytes: ArrayBuffer | Uint8Array) => { let s = ''; for (const b of new Uint8Array(bytes)) s += String.fromCharCode(b); return btoa(s) }
 
 export async function archive(env: Bindings, actor: Actor) {
   if (!['owner', 'manager'].includes(actor.role)) forbidden('Only the owner or a manager can export the business archive.')
   const s = await load(env.DB)
-  const [commands, attachments, people, historicalPeople, historicalRoles] = await env.DB.batch<any>([
+  const [commands, attachments, people, historicalPeople, historicalRoles, currencyMigration] = await env.DB.batch<any>([
     env.DB.prepare('SELECT * FROM larder_commands ORDER BY created_at,id'),
     env.DB.prepare('SELECT * FROM larder_attachments ORDER BY created_at,id'),
     env.DB.prepare('SELECT id,display_name AS name FROM oa_operators ORDER BY id'),
     env.DB.prepare("SELECT data FROM larder_records WHERE kind='people' AND id='archive'"),
     env.DB.prepare("SELECT data FROM larder_records WHERE kind='archiveRoleHistory' AND id='archive'"),
+    env.DB.prepare("SELECT data FROM larder_records WHERE kind='archiveCurrencyMigration' AND id='archive'"),
   ])
   checkFunctionalMoney(s)
   const content = {
     format: FORMAT, version: s.version, currency: 'USD', precision: 6,
     records: Object.fromEntries(collections.map(k => [k, s[k]])),
-    currencyDeclarations: { version: 1, records: declarations(Object.fromEntries(collections.map(k => [k, s[k]]))), movements: 'USD' },
+    currencyDeclarations: currencyDeclarations(Object.fromEntries(collections.map(k => [k, s[k]]))),
+    ...(currencyMigration.results.length ? { currencyMigration: JSON.parse(currencyMigration.results[0].data) } : {}),
     movements: s.movements.map(m => ({ ...m, quantity: m.quantity.toString(), unitCost: m.unitCost.toString() })),
     reservations: s.reservations.map(r => ({ ...r, quantity: r.quantity.toString() })),
     commands: commands.results, people: [...new Map([...historicalPeople.results.flatMap((r: any) => JSON.parse(r.data)), ...people.results].map((p: any) => [p.id, p])).values()].map((p: any) => s.contactErasures.some(e => e.subjectKind === 'operator' && e.subjectId === p.id) ? { ...p, name: '[erased]' } : p),
@@ -55,18 +52,12 @@ export async function archive(env: Bindings, actor: Actor) {
 export async function restore(env: Bindings, actor: Actor, request: Request) {
   if (actor.role !== 'owner') forbidden('Only the owner can restore an archive.')
   if (request.headers.get('origin') !== new URL(env.AUTH_ORIGIN).origin) throw new Problem('ORIGIN', 'Restore from this installation.', null, 403)
-  const raw = await request.text()
-  if (raw.length > 64 * 1024 * 1024) throw new Problem('SIZE', 'Archives over 64 MiB need the installation export (rer export).', null, 413)
-  let a: any
-  try { a = JSON.parse(raw) } catch { fail('ARCHIVE', 'The file is not a Larder archive.') }
-  const { exportedAt, checksum, ledger, ...content } = a ?? {}
-  if (content.format !== FORMAT) fail('ARCHIVE', 'The file is not a Larder archive.')
-  if (sha256(canonicalJson(content)) !== checksum) fail('CHECKSUM', 'The archive does not match its checksum. It was changed or damaged after export.')
-  // Until an explicit functional-currency migration exists, refusing a legacy
-  // archive is safer than restoring its amounts and later exporting them as USD.
+  const content = archiveContent(await readArchiveRequest(request))
+  // A legacy archive must first pass the explicit recorded-rate migration door.
   if (content.currency !== 'USD') fail('CURRENCY_MIGRATION', 'Restore requires an explicitly declared USD functional currency. Legacy non-USD amounts need a versioned migration with recorded rates and reconciliation; they cannot be relabelled.')
   checkFunctionalMoney(content.records ?? {})
-  if (content.currencyDeclarations !== undefined && canonicalJson(content.currencyDeclarations) !== canonicalJson({ version: 1, records: declarations(content.records ?? {}), movements: 'USD' })) fail('CURRENCY_MIGRATION', 'Per-record currency declarations conflict with the archived records.')
+  if (content.currencyDeclarations !== undefined && canonicalJson(content.currencyDeclarations) !== canonicalJson(currencyDeclarations(content.records ?? {}))) fail('CURRENCY_MIGRATION', 'Per-record currency declarations conflict with the archived records.')
+  if (content.currencyMigration !== undefined) checkMigration(content.currencyMigration)
   const empty = await env.DB.prepare('SELECT (SELECT version FROM larder_meta WHERE id=1)=0 AND NOT EXISTS(SELECT 1 FROM larder_records) AND NOT EXISTS(SELECT 1 FROM larder_movements) AND NOT EXISTS(SELECT 1 FROM larder_commands) AS empty').first<{ empty: number }>()
   if (empty?.empty !== 1) fail('NOT_EMPTY', 'Restore only into an empty installation. This one already has records.')
   const db = env.DB, guard = authority(actor)
@@ -87,6 +78,7 @@ export async function restore(env: Bindings, actor: Actor, request: Request) {
     if (sha256(bytes) !== f.sha256) fail('CHECKSUM', `Attachment ${f.name} does not match its digest.`)
     statements.push(db.prepare('INSERT INTO larder_attachments VALUES(?,?,?,?,?,?,?,?)').bind(f.id, f.name, f.content_type, f.size, f.sha256, bytes, f.created_by, f.created_at))
   }
+  if (content.currencyMigration !== undefined) statements.push(db.prepare("INSERT INTO larder_records(kind,id,version,data) VALUES('archiveCurrencyMigration','archive',1,?)").bind(JSON.stringify(content.currencyMigration)))
   statements.push(db.prepare("INSERT INTO larder_records(kind,id,version,data) VALUES('people','archive',1,?)").bind(JSON.stringify(content.people)))
   statements.push(db.prepare("INSERT INTO larder_records(kind,id,version,data) VALUES('archiveRoleHistory','archive',1,?)").bind(JSON.stringify(unmappedRoles)))
   // Prove every archived position from the restored movements, inside the write.
