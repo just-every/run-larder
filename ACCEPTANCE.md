@@ -8,10 +8,10 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 78 | 32 | 40 | 150 |
+| Core | 79 | 31 | 40 | 150 |
 | Agent surface | 0 | 0 | 13 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 78 | 32 | 53 | 163 |
+| Full target | 79 | 31 | 53 | 163 |
 
 Judged from the code and tests at commit `3d7042b28d5946a90401b8e3e5359f69c78921ca` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
@@ -129,7 +129,7 @@ Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6
 
 #### LARDER-010 — Pick, pack and partial shipment
 
-Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A warehouse person picks only reserved stock, packs, and ships part of an order; shipping consumes those reservations, and the remaining commitments stay reserved or short.
 
@@ -138,7 +138,7 @@ Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, 
 2. Pack a shipment with its carton count, ship it, and read back that count, actual departure timestamp, carrier and tracking against the sales order through the API.
 
 **Evidence.** `tests/api/flows.test.mjs` — “LARDER-010 pick, pack and partially ship against reservations; the rest stays committed”
-**Gap.** The cited dispatch journey completes partial shipment, retains the balance and refuses excess picking. Missing: read back shipped carton count, departure time, carrier and tracking details after dispatch.
+**Gap.** None.
 
 #### LARDER-011 — Customer returns
 
