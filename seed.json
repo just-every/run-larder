@@ -8,7 +8,7 @@
     "id": "manufacturing",
     "record": "Stock movement"
   },
-  "description": "Small-maker operations: available to promise, atomic reservations, purchasing, version-pinned production, partial shipment, an accountant handoff, agent proposals approved by people, and an Odoo move-in kit.",
+  "description": "Small-maker operations: available to promise, atomic reservations, purchasing, version-pinned production, partial shipment, an accountant handoff, agent work decided by company risk policy, and an Odoo move-in kit.",
   "capabilities": [
     {
       "id": "http-dispatch",
@@ -70,7 +70,10 @@
     {
       "id": "stock-corrections",
       "clauses": [
-        "LARDER-011"
+        "LARDER-011",
+        "LARDER-017",
+        "LARDER-018",
+        "LARDER-019"
       ]
     },
     {
@@ -82,13 +85,14 @@
     {
       "id": "exceptions-and-archive",
       "clauses": [
-        "LARDER-013"
+        "LARDER-013",
+        "LARDER-020"
       ]
     },
     {
       "id": "authority",
       "clauses": [
-        "LARDER-014"
+        "GOV-001"
       ]
     },
     {

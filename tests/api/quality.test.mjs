@@ -352,7 +352,7 @@ test('TRACE-006 immediate recall containment expands exact genealogy, identifies
 })
 
 
-test('TRACE-005 quality-role deviations: exact proposals, independent approval and gated atomic execution release only held units under deviation, with trace, shipment pack, restart and archive restore', async t => {
+test('TRACE-008 quality-role deviations: exact proposals, independent approval and gated atomic execution release only held units under deviation, with trace, shipment pack, restart and archive restore', async t => {
   const h = await installation(); t.after(() => h.close())
   const manager = await h.person('deviation-manager@example.test', 'manager')
   const opener = await h.person('deviation-opener@example.test', 'quality'), inspector = await h.person('deviation-inspector@example.test', 'quality')

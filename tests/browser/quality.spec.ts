@@ -214,7 +214,7 @@ test('TRACE-006 recall WIP gate has the same live reason in dispatch, job detail
 })
 
 
-test('TRACE-005 owner proposes a deviation; an independent quality-role holder approves and releases only held units under deviation, with trace and reload at 1440/390', async ({ page, browser }) => {
+test('TRACE-008 owner proposes a deviation; an independent quality-role holder approves and releases only held units under deviation, with trace and reload at 1440/390', async ({ page, browser }) => {
   if (!process.env.LARDER_OPEN) throw new Error('A private local entry is required.')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(u => u.pathname === '/app') }
@@ -250,7 +250,7 @@ test('TRACE-005 owner proposes a deviation; an independent quality-role holder a
     await f.getByLabel('Deviation quantity', { exact: true }).fill('1.25')
     await f.getByLabel('Deviation reason', { exact: true }).fill('Review fit for intended use')
     await f.locator('input[type=file]').setInputFiles({ name: 'deviation-review.txt', mimeType: 'text/plain', buffer: Buffer.from('Engineering assessment; still needs independent approval') })
-    if (process.env.LARDER_SCREENSHOTS) await f.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-005-deviation-form.png`) })
+    if (process.env.LARDER_SCREENSHOTS) await f.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-008-deviation-form.png`) })
     await f.getByRole('button', { name: 'Save deviation proposal', exact: true }).click()
     await expect(page.getByRole('region', { name: `Deviation proposal ${n.reference}-DEV-1`, exact: true })).toBeVisible()
     await settled(page)
@@ -268,7 +268,7 @@ test('TRACE-005 owner proposes a deviation; an independent quality-role holder a
     const file = await page.request.get(origin + `/api/larder/attachments/${d.evidence[0].id}`)
     expect(await file.text()).toBe('Engineering assessment; still needs independent approval')
     expect(await page.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
-    if (process.env.LARDER_SCREENSHOTS) await region.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-005-deviation-saved.png`) })
+    if (process.env.LARDER_SCREENSHOTS) await region.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-008-deviation-saved.png`) })
     const attempt = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type: 'nonconformance.deviation.execute', payload: { caseId: n.id, version: n.version, deviationId: d.id } } })
     expect((await attempt.json()).error.code).toBe('STATE')
     expect(await snapshot()).toEqual(before)
@@ -292,13 +292,13 @@ test('TRACE-005 owner proposes a deviation; an independent quality-role holder a
     expect(released.reservations).toEqual(before.reservations)
     expect(released.positions.filter((x: any) => x.lotId === lotId).map((x: any) => [x.status, x.quantity]).sort()).toEqual([['available', '7.25'], ['quarantine', '2.75']])
     expect(await qa.locator('main').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
-    if (process.env.LARDER_SCREENSHOTS) await qaRegion.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-005-deviation-released.png`) })
+    if (process.env.LARDER_SCREENSHOTS) await qaRegion.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-008-deviation-released.png`) })
     // The lot trace screen shows the deviation release and its reference; reload keeps the record.
     await open(qa, 'stock')
     const genealogy = qa.locator('section.card').filter({ has: qa.getByRole('heading', { name: 'Lot genealogy', exact: true }) })
     await genealogy.getByLabel('Trace lot', { exact: true }).selectOption(lotId)
     for (const text of ['deviation release', d.reference]) await expect(genealogy.getByLabel('Lot trace results')).toContainText(text)
-    if (process.env.LARDER_SCREENSHOTS) await genealogy.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-005-deviation-trace.png`) })
+    if (process.env.LARDER_SCREENSHOTS) await genealogy.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-TRACE-008-deviation-trace.png`) })
     await open(qa, 'make/quality')
     await expect(qaRegion).toContainText(`1.25 units ${label}.`)
   }

@@ -4,7 +4,7 @@ The app and agents use the same door. Every request needs a native session cooki
 
 - `GET /api/larder/state` — every record, the formatted movement ledger, reservations, positions, availability per item, shortages, weekly forecasts/MPS, the exception queue and owned `followUpCases` (including closed-case history), recent recorded actions and (for the owner) the team.
 - `GET /api/larder/planning/pegging` — current dated forward/reverse material allocations; see MRP-002 below.
-- `GET /api/larder/planning/supply-changes` — MRP-002 expedite, defer and cancel recommendations on open purchase lines, each with its affected orders and a stable `key`; decide them with `supply.change.approve` / `supply.change.reject` (see MRP-002 below).
+- `GET /api/larder/planning/supply-changes` — MRP-007 expedite, defer and cancel recommendations on open purchase lines, each with its affected orders and a stable `key`; decide them with `supply.change.approve` / `supply.change.reject` (see MRP-002 below).
 - `GET /api/larder/planning/materials` — MRP-001 read-only dated physical/purchase projection, its exact input version, source quantities/dates, unavailable and provisional supply, and remaining limitations (see below).
 - `POST /api/larder/commands` — `{ "commandId": "<8–100 of A-Z a-z 0-9 _ ->", "type": "...", "payload": { ... } }` with `content-type: application/json` and the installation's own `Origin`. Repeating a `commandId` returns its recorded outcome; reusing it with other content or by someone else is refused (`IDEMPOTENCY`). Replies are `{ ok: true, result, version }` or `{ ok: false, error: { code, message, details } }`.
 - `GET /api/larder/handoffs/<id>.csv` — a handoff batch as CSV (owner, manager, accounts).
@@ -55,7 +55,7 @@ is a `work` source on the demand it supplies, and `kind=work` follows it forward
 that demand. The archive preserves the inputs and restore reproduces the pegs
 without executing any command or external effect.
 
-### Supply-change recommendations and decisions
+### Supply-change recommendations and decisions (MRP-007)
 
 `GET /api/larder/planning/supply-changes` reads the same shared allocation and
 returns, for each open approved purchase line: an `expedite` when it arrives after
@@ -345,7 +345,7 @@ A serial-tracked item moves only as named serials, each a one-unit lot (`serial:
 
 `wo.batch.allocate` takes `{workOrderId, version, batchIndex, allocations, reason, evidence}` (production/manager, owner included), recording missing historical allocation once with actor/time/original evidence. It retains original output quantities/movements and refuses ambiguous original output identity. New output or closure cannot bypass unresolved historical batch allocations. The Stock genealogy screen and work-order allocation forms use these same public doors.
 
-## Nonconformance cases (TRACE-005)
+## Nonconformance cases (TRACE-005; deviations TRACE-008)
 
 Owner, manager or quality uses `nonconformance.open` with `{lotId, locationId, quantity, complaint, dueOn, evidence: [file]}` to contain available units and own the case. `nonconformance.update` takes `{caseId, version, rootCause, correctiveAction, nextAction, dueOn, supplierId?, reworkOrderId?, evidence: [file]}` and records follow-up in app; it sends nothing and executes no repair. A linked draft quarantined repair acquires the case reference and later consumes its held quantity through the independently approved `rework.execute` door. Case closure waits for that repair’s inspection and release.
 
@@ -371,7 +371,7 @@ Routing JSON and the routing editor accept `transferBatch` (decimal finished-ite
 - `GET /api/larder/archive.csv` — owner/manager; lossless `section,index,json` CSV companion to the complete JSON business archive. See MOVE-IN.md for decoding, decimal representations and original-file custody. This is not the installation backup, which has a separate portability policy.
 
 
-## Drafting a dated suggestion (MRP-001, partial)
+## Drafting a dated suggestion (MRP-006)
 
 Read `/api/larder/planning/materials`, review the returned requirement and its
 `suggestion`, then send `plan.draft` with `itemId`, `dated: {version, asOf, key}`
@@ -1095,9 +1095,10 @@ restore. It contains monetary originals and identifiers, without another full
 copy of personal data. The complete source archive stays with the owner.
 
 Contract status and acceptance projection: run
-`node scripts/contract-docs.mjs write US-001`, followed by the same command with
-`check`. CONTRACT.md remains the acceptance and status source; the generator
-updates only the requested acceptance rows and the canonical status counts.
+`node src/base/contract-docs.mjs write`, then
+`node src/base/contract-docs.mjs check`. CONTRACT.md remains the acceptance and
+status source; the shared generator updates ACCEPTANCE.md, docs/CLAIMS.md and
+the canonical status counts together.
 
 ### Warehouse transit, bin rules and property
 

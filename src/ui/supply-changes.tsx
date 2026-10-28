@@ -6,7 +6,7 @@ import { day, qty } from './format'
 
 const noun: Record<string, string> = { expedite: 'Ask for it sooner', defer: 'Ask for it later', cancel: 'Cancel the unneeded quantity' }
 
-// MRP-002: the recommendations on one purchase order, each with the orders it affects, and the decision.
+// MRP-007: the recommendations on one purchase order, each with the orders it affects, and the decision.
 export function SupplyChanges({ larder, po }: { larder: Larder; po: Rec }) {
   const s = larder.state!, [plan, setPlan] = useState<any>(null), [error, setError] = useState('')
   useEffect(() => {

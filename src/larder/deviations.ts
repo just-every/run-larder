@@ -1,4 +1,4 @@
-// TRACE-005 executed deviations, shared by trace rows and frozen shipment packs.
+// TRACE-008 executed deviations, shared by trace rows and frozen shipment packs.
 import type { Movement, Row, State } from './model'
 export const deviationLabel = 'released under deviation; failed results retained, not passed'
 export const lotDeviations = (s: Pick<State, 'nonconformances'>, lotId: string) => s.nonconformances.flatMap(n => n.lotId !== lotId ? [] : (n.deviationProposals ?? []).filter((d: Row) => d.executedAt).map((d: Row) => ({

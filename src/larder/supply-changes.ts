@@ -1,4 +1,4 @@
-// MRP-002: expedite, defer and cancel recommendations for open purchase lines, read from the shared dated
+// MRP-007: expedite, defer and cancel recommendations for open purchase lines, read from the shared dated
 // MRP-001 allocation, and the buyer's decision on one of them. Approval records the decision with the exact
 // recommendation inputs it was given for and, for an excess cancellation, trims only the unallocated
 // outstanding quantity; a cancel worth at least the owner's spend threshold needs the GOV-002 signatures. An

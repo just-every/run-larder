@@ -1,4 +1,4 @@
-// GOV-001 reads for a scoped member. The member's state holds only records whose every named location is in scope.
+// GOV-014 reads for a scoped member. The member's state holds only records whose every named location is in scope.
 // A derived figure (availability, shortages, costs, schedules, packs) is computed twice, over everything and over the
 // visible records; it shows only if the two agree, so no partial total ever appears under a plain label. Anything
 // else reads "restricted (includes other locations)". Out-of-scope records are never counted or named.

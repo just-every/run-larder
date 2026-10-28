@@ -46,6 +46,31 @@
           "file": "backup-and-restore.md"
         }
       ]
+    },
+    {
+      "title": "Contract records",
+      "pages": [
+        {
+          "slug": "homepage-claims",
+          "file": "CLAIMS.md"
+        },
+        {
+          "slug": "operating-rules",
+          "file": "contract/OPERATING-DETAILS.md"
+        },
+        {
+          "slug": "done-audit",
+          "file": "contract/DONE-AUDIT.md"
+        },
+        {
+          "slug": "rulings",
+          "file": "../RULINGS.md"
+        },
+        {
+          "slug": "source-formats",
+          "file": "contract/SOURCE-FORMATS.md"
+        }
+      ]
     }
   ]
 }

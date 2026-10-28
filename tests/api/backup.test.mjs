@@ -16,7 +16,7 @@ import { installation, migrate, workshop } from './harness.mjs'
 const tables = async db => (await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE 'larder_%' OR name LIKE 'oa_operators') ORDER BY name").all()).results.map(r => r.name)
 const rows = async (db, table) => (await db.prepare(`SELECT * FROM "${table}" ORDER BY 1`).all()).results
 
-test('LARDER-013 an installation backup restores into a reset installation', async t => {
+test('LARDER-020 an installation backup restores into a reset installation', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h)
   const q = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-10-28', lines: [{ itemId: w.board.id, quantity: '2', unitPrice: '89' }] })

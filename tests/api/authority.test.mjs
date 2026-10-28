@@ -1,10 +1,10 @@
-// LARDER-014 roles are enforced in every handler; LARDER-015 agents prepare and people approve; GOV-001 roles inherit their clauses' doors.
+// GOV-001 roles are enforced in every handler; LARDER-015 agents prepare and people approve; GOV-001 roles inherit their clauses' doors.
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile, readdir } from 'node:fs/promises'
 import { installation, workshop, evidence } from './harness.mjs'
 
-test('LARDER-014 roles and sessions are checked on every command and read', async t => {
+test('GOV-001 roles and sessions are checked on every command and read', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h)
   const viewer = await h.person('vic@example.test')
@@ -576,8 +576,8 @@ test('GOV-002 orders below the margin floor and high-value quarantine releases n
   await h.invariant()
 })
 
-// GOV-001 location scope (ct scope-review-50 a): a scoped member reads, acts and downloads only inside their locations.
-test('GOV-001 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live', async t => {
+// GOV-014 location scope (ct scope-review-50 a): a scoped member reads, acts and downloads only inside their locations.
+test('GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h)
   const annex = await h.command('location.save', { name: 'Annex cold room' })
@@ -664,8 +664,8 @@ test('GOV-001 location scope: a scoped member sees, changes and downloads nothin
   assert.equal((await h.request('/api/larder/state', { as: lead.cookie })).status, 401)
 })
 
-// GOV-001 costs-and-wages scope and custom roles (ct scope-review-50 b, c).
-test('GOV-001 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live', async t => {
+// GOV-015 GOV-016 costs-and-wages scope and custom roles (ct scope-review-50 b, c).
+test('GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h), ownerId = (await h.state()).actor.id
   const gauge = await h.command('item.save', { sku: 'GAUGE', name: 'Depth gauge', kind: 'buy', baseUnit: 'each', standardCost: '33.3131', salePrice: '71.4242' })

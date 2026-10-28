@@ -63,9 +63,12 @@
       ]
     },
     "LARDER-011": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "LARDER-011"
+        "LARDER-011",
+        "LARDER-017",
+        "LARDER-018",
+        "LARDER-019"
       ]
     },
     "LARDER-012": {
@@ -75,16 +78,16 @@
       ]
     },
     "LARDER-013": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "LARDER-013"
+        "LARDER-013",
+        "LARDER-020"
       ]
     },
     "LARDER-014": {
-      "how": "kept",
-      "to": [
-        "LARDER-014"
-      ]
+      "how": "retired",
+      "to": [],
+      "now": "moved to Base BASE-ACCESS-002; moved to Base BASE-ROLE-001"
     },
     "LARDER-015": {
       "how": "kept",
@@ -153,9 +156,10 @@
       ]
     },
     "ENG-007": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "ENG-007"
+        "ENG-007",
+        "ENG-008"
       ]
     },
     "DEMAND-001": {
@@ -207,15 +211,17 @@
       ]
     },
     "MRP-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "MRP-001"
+        "MRP-001",
+        "MRP-006"
       ]
     },
     "MRP-002": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "MRP-002"
+        "MRP-002",
+        "MRP-007"
       ]
     },
     "MRP-003": {
@@ -429,9 +435,10 @@
       ]
     },
     "TRACE-005": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "TRACE-005"
+        "TRACE-005",
+        "TRACE-008"
       ]
     },
     "TRACE-006": {
@@ -495,9 +502,10 @@
       ]
     },
     "COST-006": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "COST-006"
+        "COST-006",
+        "COST-008"
       ]
     },
     "COST-007": {
@@ -669,9 +677,12 @@
       ]
     },
     "GOV-001": {
-      "how": "kept",
+      "how": "split",
       "to": [
-        "GOV-001"
+        "GOV-001",
+        "GOV-014",
+        "GOV-015",
+        "GOV-016"
       ]
     },
     "GOV-002": {

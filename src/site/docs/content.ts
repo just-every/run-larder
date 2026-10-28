@@ -2,15 +2,16 @@
 // A link to a page that is not listed, a missing file or a page without a title fails the run site build.
 import { Marked, type Tokens } from 'marked'
 import site from '../../../docs/site.json'
+import rulings from '../../../RULINGS.md?raw'
 
 export type DocsPage = { slug: string; title: string; lead: string; html: string; toc: { id: string; text: string }[]; section: string }
 export type DocsSection = { title: string; pages: { slug: string; title: string; lead: string }[] }
 
-const files = import.meta.glob('../../../docs/*.md', { query: '?raw', import: 'default', eager: true }) as Record<string, string>
+const files: Record<string, string> = { ...import.meta.glob('../../../docs/**/*.md', { query: '?raw', import: 'default', eager: true }), '../../../docs/../RULINGS.md': rulings }
 const source = (file: string) => {
   const text = files[`../../../docs/${file}`]
   if (text === undefined) throw new Error(`Docs: docs/${file} is listed in docs/site.json but missing.`)
-  return text
+  return text.replace(/^\s*<!--[^\n]*-->\s*$/gm, '')
 }
 const fileSlug = new Map(site.sections.flatMap(section => section.pages.map(page => [page.file, page.slug] as const)))
 const escape = (text: string) => text.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))

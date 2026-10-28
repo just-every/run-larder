@@ -1,4 +1,4 @@
-// MRP-001: convert one reviewed dated suggestion to an ordinary draft. The
+// MRP-006: convert one reviewed dated suggestion to an ordinary draft. The
 // existing plan.draft role/policy checks and atomic storage guard still apply.
 import { materialDates } from './material-dates'
 import { fail } from './problem'

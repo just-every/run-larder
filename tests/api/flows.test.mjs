@@ -202,7 +202,7 @@ test('LARDER-010 pick, pack and partially ship against reservations; the rest st
   assert.equal(s.shortages.find(x => x.itemId === w.board.id).shortage, '2')
 })
 
-test('LARDER-011 returns, transfers and approved counts; corrections reverse, never edit', async t => {
+test('LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h)
   const worker = await h.person('sam@example.test', 'warehouse')
@@ -271,7 +271,7 @@ test('LARDER-012 handoff exports costs and invoice preparation; acknowledgements
   assert.equal(next.lines[0].amountCents, '-178.00')
 })
 
-test('LARDER-013 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation', async t => {
+test('LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h)
   const q = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-10-28', lines: [{ itemId: w.board.id, quantity: '6', unitPrice: '89' }] })
@@ -1129,7 +1129,7 @@ test('COST-001 approved time overtime and service costs roll through scrap and d
   const hidden=(await costReport(h,'variances',`?workOrderId=${w.id}`,restricted.cookie)).jobs[0];assert.equal(hidden.actualCost,'restricted');assert.equal(hidden.laborSources[0].hourlyRate,'restricted')
 })
 
-test('COST-006 filtered performance retains denominators and missing clocks, receipt rejects and in-app scheduled snapshots',async t=>{
+test('COST-006 COST-008 filtered performance retains denominators and missing clocks, receipt rejects and in-app scheduled snapshots',async t=>{
   const h=await installation({now:'2026-10-27T10:00:00.000Z'});t.after(()=>h.close());const w=await workshop(h),today='2026-10-27',me=(await h.state()).actor
   let job=await h.command('wo.draft',{itemId:w.board.id,quantity:'2',requiredBy:'2026-01-01',reason:'synthetic-larder-457 late job'});job=await h.command('wo.release',{workOrderId:job.id,version:job.version})
   job=await h.command('wo.operation.assign',{workOrderId:job.id,version:job.version,sequence:1,operatorId:me.id})

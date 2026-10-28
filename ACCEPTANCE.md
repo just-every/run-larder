@@ -1,19 +1,19 @@
 <!-- Generated from CONTRACT.md by contract-docs. Edit CONTRACT.md, then regenerate. -->
 
-# Accept a Larder product installation
+# Accept a Larder installation
 
-The primary journey: Exercise the capabilities and acceptance journeys below.
+The primary journey: bring the workshop’s records across, quote and confirm real demand, plan material and qualified capacity, buy and receive usable lots, execute pinned work, ship and reconcile actual costs with the books.
 
 ## Progress
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 77 | 22 | 40 | 139 |
-| Agent surface | 0 | 0 | 0 | 0 |
+| Core | 77 | 33 | 40 | 150 |
+| Agent surface | 0 | 0 | 13 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 77 | 22 | 40 | 139 |
+| Full target | 77 | 33 | 53 | 163 |
 
-Judged from the code and tests at commit `3d7042b28d5946a90401b8e3e5359f69c78921ca` (28 October 2026). Clause rows carry subsequent candidate evidence; exact-SHA Verify, publication scan and landing gates are required before integration. The final handoff records the exact candidate identity and any subsequent money-format correction. Field proof register: 0 rows; 0 passed, 0 failed, 0 not run.
+Judged from the code and tests at commit `3d7042b28d5946a90401b8e3e5359f69c78921ca` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
 ## Core
 
@@ -21,115 +21,115 @@ Judged from the code and tests at commit `3d7042b28d5946a90401b8e3e5359f69c78921
 
 #### LARDER-001 — Items, variants, units and parties
 
-Core · published · **done**
+Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A person creates items (made or bought), variants of a template with distinct attribute sets, exact unit conversions, customers and suppliers, and each party's own code for an item. Ambiguous conversions, duplicate SKUs or variants, ambiguous party codes and duplicate party names are refused.
 
 **Acceptance.**
 1. Through authenticated HTTP create two variants, exact unit conversions and supplier/customer codes; refuse duplicate SKUs, variants, ambiguous codes, undefined or rounding conversions, and edits to used units.
 
-**Evidence.** `src/larder/catalogue.ts`; `tests/api/flows.test.mjs`
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-001 items, variants, units and parties; ambiguous conversions are refused”
 **Gap.** None.
 
 #### LARDER-002 — Opening stock
 
-Core · published · **done**
+Core · published · **done** · Cites BASE-INPUT-003, BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A person records a counted opening position by location with its count date, valuation basis (supplier invoices, last purchase, standard cost or owner estimate), unit cost, optional lot and a required evidence file kept with its digest. Opening stock cannot be posted twice for an item and location.
 
 **Acceptance.**
 1. Record a counted, costed opening with its evidence attachment; download that attachment, reconcile the position, and refuse a second opening for the same item/location.
 
-**Evidence.** `src/larder/warehouse.ts`; `tests/api/flows.test.mjs`
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-002 opening stock by location with date, valuation basis and evidence”
 **Gap.** None.
 
 #### LARDER-003 — Versioned BOM and routing
 
-Core · published · **done**
+Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A person saves BOM revisions (components per finished unit, simple routing steps). Releasing work pins the active revision; a later revision does not change released work.
 
 **Acceptance.**
 1. Release work on revision 1, save revision 2 and release another job; the first job keeps revision 1 and its original components/routing.
 
-**Evidence.** `src/larder/bom.ts`; `tests/api/flows.test.mjs`
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-003 versioned BOM and routing; released work keeps its revision”
 **Gap.** None.
 
 #### LARDER-004 — Quote and confirm
 
-Core · published · **done**
+Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A person quotes an order and confirms it. For every item Larder shows on hand, reserved, quarantine, expected from purchase, expected from production, unreserved demand and available to promise, each kept separate.
 
 **Acceptance.**
 1. Quote and confirm an order through the order screen/API; inspect on-hand, reserved, quarantine, expected purchase/production and unreserved demand as separate figures.
 
-**Evidence.** `src/larder/sales.ts`; `tests/api/flows.test.mjs`
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-004 quote and confirm an order; physical, reserved and expected stock stay separate”; `tests/api/flows.test.mjs` — “LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded”; `tests/api/flows.test.mjs` — “LARDER-008 partial receipts record supplier lots and quarantine decisions”; `tests/api/flows.test.mjs` — “LARDER-009 released work issues materials and records output and scrap”
 **Gap.** None.
 
 #### LARDER-005 — Atomic reservation
 
-Core · published · **done**
+Core · published · **done** · Cites BASE-OPS-003, BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Confirming or reserving takes only available stock. Concurrent orders cannot both consume the same stock; a retried command returns its first outcome.
 
 **Acceptance.**
 1. Race six HTTP reservations for the same stock; total reservations never exceed stock, an identical command replays its first outcome and changed content under its identity is refused.
 
-**Evidence.** `src/larder/stock.ts`; `tests/api/flows.test.mjs`
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-005 reservations are atomic: competing orders never consume the same stock”
 **Gap.** None.
 
 #### LARDER-006 — Shortages
 
-Core · published · **done**
+Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Larder computes shortages deterministically from confirmed orders and released work against free stock and open supply, with the date needed and the documents that need it, and drafts a purchase order (preferred supplier and price) or a work order with that required-by date and reason.
 
 **Acceptance.**
 1. Confirm an order exceeding free stock, draft its work shortage, release work, and draft the resulting purchased-component shortage; quantities, required dates and source documents agree.
 
-**Evidence.** `src/larder/planning.ts`; `tests/api/flows.test.mjs`
-**Gap.** None.
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-006 shortages are reviewed and drafted into purchase and work orders with dates and reasons”
+**Gap.** The cited shortage journey checks work required dates, shortages, draft quantities and reasons. Missing: read back the component purchase draft’s required delivery date from the shortage action.
 
 #### LARDER-007 — Purchase approval
 
-Core · published · **done**
+Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** A buyer or manager approves a draft purchase order (approval recorded with the exact terms and cash exposure), records the supplier's confirmation and reference, and revises the expected delivery with history.
+**Requirement.** A buyer or manager approves a draft purchase order , records the supplier's confirmation and reference, and revises the expected delivery with history.
 
 **Acceptance.**
 1. Draft and approve a PO, confirm supplier reference/date, then revise its ETA; read exact approved terms, cash exposure and every date revision.
 
-**Evidence.** `src/larder/purchasing.ts`; `tests/api/flows.test.mjs`
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded”
 **Gap.** None.
 
 #### LARDER-008 — Partial receipt, lots and quarantine
 
-Core · published · **done**
+Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A warehouse person receives part of a purchase order into a location, records supplier lots and either accepts or holds stock in quarantine; a recorded release or rejection decision moves it on. Over-receipt is refused.
 
 **Acceptance.**
 1. Part-receive a PO with supplier lot into quarantine; release part and reject part with reasons; refuse over-receipt and prevent held stock from reservation/picking.
 
-**Evidence.** `src/larder/purchasing.ts`; `tests/api/flows.test.mjs`
-**Gap.** None.
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-008 partial receipts record supplier lots and quarantine decisions”
+**Gap.** The cited receipt journey reads partial receipts, lot balances, quarantine release and rejection. Missing: attempt reservation and pick while that same received quantity remains quarantined and verify refusal without a stock change.
 
 #### LARDER-009 — Production
 
-Core · published · **done**
+Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Released work reserves its components; materials are issued as actually used (drawn across lots when no lot is named), good output and scrap are recorded against the pinned revision, and closing records material cost and variance.
 
 **Acceptance.**
 1. Release work, issue actual components across lots, record good output and scrap, and close; inspect pinned BOM, cost and material variance through the API and work-order screen.
 
-**Evidence.** `src/larder/production.ts`; `tests/api/flows.test.mjs`
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-009 released work issues materials and records output and scrap”
 **Gap.** None.
 
 #### LARDER-010 — Pick, pack and partial shipment
 
-Core · published · **done**
+Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A warehouse person picks only reserved stock, packs, and ships part of an order; shipping consumes those reservations, and the remaining commitments stay reserved or short.
 
@@ -137,88 +137,125 @@ Core · published · **done**
 1. Reserve an order, pick only reserved stock, pack and partly ship; read remaining reservations/shortages and refuse an unreserved pick through HTTP.
 2. Pack a shipment with its carton count, ship it, and read back that count, actual departure timestamp, carrier and tracking against the sales order through the API.
 
-**Evidence.** `src/larder/sales.ts`; `tests/api/flows.test.mjs`
-**Gap.** None.
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-010 pick, pack and partially ship against reservations; the rest stays committed”
+**Gap.** The cited dispatch journey completes partial shipment, retains the balance and refuses excess picking. Missing: read back shipped carton count, departure time, carrier and tracking details after dispatch.
 
-#### LARDER-011 — Returns, transfers, counts and corrections
+#### LARDER-011 — Customer returns
 
-Core · published · **done**
+Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Returns of shipped quantities come back to stock or quarantine; transfers move only free stock; counts by one person need another's approval before an adjustment (the owner, who holds every authority, may approve their own count so a one-person workshop can keep its stock right); a stale count is refused; reversals restore stock and order state through compensating movements and are refused while downstream work depends on the stock.
+**Requirement.** Returns of shipped quantities come back to stock or quarantine, retaining the original shipment link.
 
 **Acceptance.**
-1. Receive a return, transfer free stock and approve another person's count; reject stale counts and downstream-dependent reversals; reverse shipment by compensating movements and retain its original.
+1. Receive a shipped return and inspect its stock or quarantine position and retained shipment history.
 
-**Evidence.** `src/larder/reversal.ts`; `tests/api/flows.test.mjs`
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit”
+**Gap.** None.
+
+#### LARDER-017 — Free-stock transfers
+
+Core · published · **done** · From LARDER-011 · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+
+**Requirement.** Transfers move only free stock between locations.
+
+**Acceptance.**
+1. Transfer free stock and refuse a transfer of stock committed to another order; reconcile both locations.
+
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit”
+**Gap.** None.
+
+#### LARDER-018 — Independently approved stock counts
+
+Core · published · **partial** · From LARDER-011 · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+
+**Requirement.** A count adjustment needs a different person's approval, except that the owner may approve their own count. A changed counted position requires a fresh count.
+
+**Acceptance.**
+1. Approve another person’s count and inspect its adjustment; refuse a stale count.
+
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit”
+**Gap.** The cited returns/transfers/count journey checks count variance, independent approval and the posted adjustment. Missing: execute a stale-count refusal with unchanged movements through a journey in that old evidence set; tests/api/authority.test.mjs and tests/api/counts.test.mjs contain this scenario but were not cited by LARDER-011.
+
+#### LARDER-019 — Compensating corrections
+
+Core · published · **done** · From LARDER-011 · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
+
+**Requirement.** Reversals restore stock and order state through linked compensating movements, retaining the original. Downstream dependencies block reversal until resolved.
+
+**Acceptance.**
+1. Reverse a shipment by compensating movements and inspect the restored order and retained original; refuse a downstream-dependent reversal.
+
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit”
 **Gap.** None.
 
 #### LARDER-012 — Accountant handoff
 
-Core · published · **done**
+Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A manager or accounts person prepares an immutable batch of not-yet-handed-off movements, valued: supplier receipts, customer shipments for invoice preparation (with the order price), production issue and output, adjustments, returns and corrections. The batch downloads as CSV. Acknowledgments record ledger references line by line; differing amounts show as mismatches until corrected; a later reversal appears in the next batch as a correction pointing to the original batch and line.
 
 **Acceptance.**
 1. Prepare/download valued handoff CSV, acknowledge ledger references with a mismatch, correct it, reverse an earlier shipment and see its linked correction in the next batch.
 
-**Evidence.** `src/larder/handoff.ts`; `tests/api/flows.test.mjs`
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile”
 **Gap.** None.
 
-#### LARDER-013 — Exceptions and the complete archive
+#### LARDER-013 — Operational exception queue
 
-Core · published · **done**
+Core · published · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** One queue shows shortages, overdue purchases, quarantine, waiting approvals and proposals, unreconciled handoffs and rejected move-in rows; a manager records decision and follow-up notes. Under AUTO-001 a note remains in history and the case stays visible as following up while its source condition holds; only clearing that condition closes it. The owner or a manager exports the complete business archive with a checksum; the owner restores it into an empty installation in one atomic write that proves every stock position against the archive.
+**Requirement.** One queue shows shortages, overdue purchases, quarantine, waiting decisions and proposals, unreconciled handoffs and rejected move-in rows. A manager records follow-up notes; AUTO-001 keeps a case visible while its source condition holds.
 
 **Acceptance.**
-1. Record a decision follow-up note, verify the ongoing exception stays visible and the note survives restore; export/archive and restore into an empty installation; refuse a damaged archive and prove every restored position; round-trip an installation backup after migration/reset.
+1. Record a decision and follow-up note; verify that the ongoing exception remains visible and that its note survives restore.
 
-**Evidence.** `src/larder/archive.ts`; `tests/api/flows.test.mjs`; `tests/api/backup.test.mjs`
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation”
 **Gap.** None.
 
-#### LARDER-014 — Authority everywhere
+#### LARDER-020 — Reconciled business archive
 
-Core · published · **done**
+Core · published · **partial** · From LARDER-013 · Cites BASE-DATA-001, BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Every command and read checks the current session and role in the handler and again inside the atomic write; losing a role or signing out takes effect on the next request; cross-site commands are refused.
+**Requirement.** The owner or manager exports the manufacturing archive with a checksum. An owner restores it into an empty installation atomically, reconciling every stock position.
 
 **Acceptance.**
-1. Call every protected door as signed out, viewer and restricted roles; revoke a role and sign out, then reuse the old cookie; cross-site commands and writes with stale live authority leave no mutation.
+1. Export and restore the archive into an empty installation, compare every position and retained exception note, and refuse a damaged archive; round-trip an installation backup after migration/reset.
 
-**Evidence.** `src/larder/api.ts`; `tests/api/authority.test.mjs`
-**Gap.** None.
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation”; `tests/api/backup.test.mjs` — “LARDER-020 an installation backup restores into a reset installation”
+**Gap.** The cited HTTP archive journey restores records, balances and attachments and refuses a second restore. The installation-backup journey invokes portability libraries directly. Missing: a covering export/reset/import journey through the public installation commands.
 
-#### LARDER-015 — Agents prepare, people approve
+#### LARDER-015 — Exact-version operational proposals
 
-Core · published · **done**
+Core · published · **partial** · Cites BASE-INPUT-002, BASE-ROLE-001, BASE-AGENT-002, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Through the same public command API an agent prepares: order intake from a pasted inquiry (kept as data, never obeyed; missing quantities block approval), replenishment as grouped purchase orders over deterministic shortages with its explanation and cash exposure, a duplicate-item merge with its previewed impact (stock moved by compensating movements), a work-order reschedule with conflicts, and a ledger reconciliation. A person with the right role, never the preparer (except the owner, who holds every authority) and never an agent, approves or declines the exact version; stale inputs are refused; every decision is recorded.
+**Requirement.** Agents prepare exact-version intake, grouped replenishment, item merge, work reschedule and ledger reconciliation proposals from cited business evidence. Intake preserves the inquiry as data and identifies missing quantities; every proposal shows impact, conflicts and cash exposure. Preparation is standard; consequential calls carry their computed money, commitment, external or destructive classes, and the company’s policy decides them. A person’s recorded decision names that person and binds exact inputs.
 
 **Acceptance.**
-1. As an agent prepare intake, replenishment, merge, reschedule and reconciliation proposals; refuse incomplete/stale inputs and agent/self approval, then approve/decline exact versions as authorized people and inspect decisions.
+1. Prepare each of the five proposal kinds; inspect incomplete or stale refusal, exact decisions and the documented independent native-person decision flow.
+2. Under the held company policy, approve or decline the consequential calls; under the all-autonomous company policy, complete the same permitted jobs without waiting for a person.
 
-**Evidence.** `src/larder/proposals.ts`; `tests/api/authority.test.mjs`
-**Gap.** None.
+**Evidence.** `tests/api/authority.test.mjs` — “LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve”
+**Gap.** The cited native proposal journey prepares and independently approves exact intake, replenishment, merge, reschedule and reconciliation records. Missing: corresponding server-computed risk classes and company-policy decisions through the agent door, including execution under an all-autonomous company policy.
 
 #### LARDER-016 — Odoo kit
 
-Core · published · **done**
+Core · published · **done** · Cites BASE-INPUT-003, BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A manager (or an agent, for preparation) previews Odoo import-compatible CSV exports of contacts, units, products and variants, locations, BOMs with routing, on-hand quantities and open sales and purchase orders. The preview is a dry run listing counts, rejected rows with file, line, External ID and reason, deliberate skips and unread columns. Committing publishes through Base's import kit, which journals the job and keeps every original file and digest. Undo before live use removes the whole batch; once later work depends on it, undo is refused and points at the dependency. The documented shape is in [MOVE-IN.md](MOVE-IN.md).
 
 **Acceptance.**
 1. Upload Odoo import-compatible CSV via move-in, inspect file/line/External-ID errors, skips/unread columns, commit, inspect retained originals/digests and undo; malformed/replayed inputs and undo after live dependencies are refused.
 
-**Evidence.** `src/larder/odoo/imports.ts`; `tests/api/move-in.test.mjs`
+**Evidence.** `tests/api/move-in.test.mjs` — “LARDER-016 Odoo move-in: preview rejects with source IDs, commit journals originals, undo is dependency-safe”
 **Gap.** None.
 
 ### US operating setup
 
 #### US-001 — US business and USD defaults
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-6, D-8
 
-**Requirement.** A US manufacturer sets legal name, US billing/shipping addresses, EIN reference, USD functional currency, US time zone, working week and fiscal year. Quantities support exact US customary and metric units; customer/supplier tax identities are distinct from Australian ABNs. Money and archives retain their declared currency.
+**Requirement.** A US manufacturer sets legal name, US billing/shipping addresses, EIN reference, USD functional currency, US time zone, working week and fiscal year. Quantities support exact US customary and metric units; customer/supplier tax identities are distinct from Australian ABNs. Money and archives retain their declared currency. MOVE-008 preserves original currencies and migration records. The [operating rules](docs/contract/OPERATING-DETAILS.md#us-001) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Set up an Ohio workshop in USD, quote in inches and receive in feet with an exact conversion; export and restore the order and verify local dates, currency and identity.
@@ -227,14 +264,13 @@ Core · target · **done**
 4. Restore preserves original currencies.
 5. Existing AUD data requires an explicit versioned migration with recorded rates and reconciliation, never a USD relabel.
 6. Compare a new USD archive and a migrated legacy AUD archive after restore, including all amount currencies and migration totals.
-7. *Cites:* MOVE-008.
 
-**Evidence.** `tests/api/flows.test.mjs` — LARDER-001 items, variants, units and parties; `tests/api/backup.test.mjs` — US-001 restore refuses undeclared or non-USD functional money; US business settings retain Ohio identity, local dates and per-record currencies through restart and restore; AUD archive migration records exact rates, original money and stock reconciliation through restart and restore; AUD migration refuses missing consent, guessed rates, incompatible records and non-owner or revoked authority; `tests/browser/journey.spec.ts` — US business settings save Ohio identity and retain distinct EIN fields at both widths
+**Evidence.** `tests/api/backup.test.mjs` — “US business settings retain Ohio identity, local dates and per-record currencies through restart and restore”; `tests/api/backup.test.mjs` — “AUD archive migration records exact rates, original money and stock reconciliation through restart and restore”; `tests/api/backup.test.mjs` — “AUD migration refuses missing consent, guessed rates, incompatible records and non-owner or revoked authority”; `tests/browser/journey.spec.ts` — “US business settings save Ohio identity and retain distinct EIN fields at both widths”
 **Gap.** None.
 
 #### US-002 — Sales tax and exemption handoff
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8
 
 **Requirement.** Manufacturing quotes/orders carry ship-to jurisdiction, taxable items, freight, exemption/resale certificates and provider-calculated US sales tax via Avalara AvaTax or TaxJar. Final invoice tax goes to the connected ledger once; expiry or provider failure blocks an unsupported tax assertion. Larder retains the calculation and reversal references.
 
@@ -246,7 +282,7 @@ Core · target · **missing**
 
 #### US-003 — Guided real-order setup
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8
 
 **Requirement.** Setup guides the owner through units, locations, suppliers, BOMs, calendars, costing and a real order to shipment, showing missing prerequisites and understandable migration diagnostics. It starts empty, and progress resumes without a consulting-only configuration path.
 
@@ -260,179 +296,191 @@ Core · target · **missing**
 
 #### ENG-001 — Multilevel BOM explosion
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Engineers build multilevel assemblies and phantom subassemblies with per-unit quantities, yields, effective revisions and make/buy choices. MRP recursively explodes them, detects cycles, and pegs component demand without double counting shared subassemblies. Released work remains pinned. Yield is a good-output fraction greater than zero and at most one; each aggregate recipe requirement divides per-unit inputs by yield and rounds upward to six quantity places. Planning and release select the revision effective today in UTC. Make supply nets shared stock/open and draft supply before exploding only uncovered quantity; buy stops explosion; phantom bypasses subassembly stock and expands its recipe. Draft work contributes its inputs once; released work uses its pinned requirements. Pegs retain the root document and revision path. Future effective revisions are also checked for cycles.
 
 **Acceptance.**
 1. Create a three-level BOM sharing a component, stock one subassembly, run MRP and inspect net component demand; reject a cycle and preserve released work after revision.
 
-**Evidence.** `tests/api/multilevel.test.mjs`; `tests/browser/multilevel.spec.ts` — ENG-001
-**Gap.** Recursive topological shared-supply netting, root/revision pegging, stocked subassemblies, make/buy/phantom choices, upward yield arithmetic, effective-date cycle rejection and immutable resolved release pins; recipe, shortage and work screens at 1440/390.
+**Evidence.** `tests/api/multilevel.test.mjs` — “ENG-001 three-level shared netting, stocked subassembly, phantom/yield/make-buy choices, effective cycles and immutable released recipes”; `tests/browser/multilevel.spec.ts` — “ENG-001 edit phantom/yield recipes, inspect three-level pegged shortages and pinned work at 1440/390”
+**Gap.** None.
 
 #### ENG-002 — Executable routings and instructions
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** A revision includes ordered operations, dependencies, setup/run/queue times, work-center eligibility, labor skills, drawings and step instructions. Operators see the exact approved revision at their task, including a required acknowledgment after an instruction change. Setup and queue estimates are minutes per job; run time is minutes per base-unit output (legacy `minutes` aliases run time), each finite in the inclusive range 0–100000. Dependencies name unique earlier operation sequence numbers, defaulting to the previous operation; an explicit empty list permits an independent step. Eligible center names match exactly. The production role and the GOV-001 engineer author routings, and production people and GOV-001 operators operate them; the owner or manager records a named active production person’s or operator’s skill authorization for the exact task before starting work that requires those skills. This is a human authorization, never certification. The assigned person and current native role are checked at execution; agents cannot authorize, acknowledge, start or complete tasks. Saving through the authorized engineering door records the authorizing person and time. Release snapshots instructions and original drawing files/digests, and each job starts with unacknowledged tasks. A person acknowledges that job’s exact pinned BOM before starting an instruction/drawing task; predecessor completion and eligible center selection are enforced through both tablet and command API. Future revision/intake doors in ENG-004, ENG-005, CONN-011, MOVE-001 through MOVE-006 and AGENT-005 inherit the same pinning and acknowledgment obligations before shipping.
+**Requirement.** A revision includes ordered operations, dependencies, setup/run/queue times, work-center eligibility, labor skills, drawings and step instructions. Operators see the exact approved revision at their task, including a required acknowledgment after an instruction change. The [operating rules](docs/contract/OPERATING-DETAILS.md#eng-002) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Release a two-operation job, open its tablet task and drawing, then revise instructions; the released job retains its instructions and a new job requires acknowledgment.
 
-**Evidence.** `tests/api/routing.test.mjs` (ENG-002 routing definitions fail atomically; pinned execution, drawings, acknowledgment, skills and predecessors survive revisions and restore); `tests/browser/routing.spec.ts` — ENG-002
-**Gap.** Ordered executable tasks with predecessor/center checks, setup/run/queue estimates, required skills, retained drawings/instructions, per-person exact-job acknowledgment and immutable release pins. CSV and archive round-trip preserve full definitions/files; old and new revision tasks inspected at 1440/390.
+**Evidence.** `tests/api/routing.test.mjs` — “ENG-002 routing definitions fail atomically; pinned execution, drawings, acknowledgment, skills and predecessors survive revisions and restore”; `tests/browser/routing.spec.ts` — “ENG-002 author routing, open tablet tasks/drawing, execute dependencies and retain instructions after revision at 1440/390”
+**Gap.** None.
 
 #### ENG-003 — Configurable and matrix BOMs
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Sales/engineering choose permitted variant attributes, dimensions and options; rules derive component quantities, routing and cost with explainable formulas. Invalid combinations are refused and the resolved configuration is pinned on quote and work. A configuration model is a saved revision per made item (manager, production or engineer): attributes with permitted values, dimensions with a unit and a range, yes/no options, rules whose conditions name attributes, options or dimension ranges and whose formulas (numbers, dimension and option names, + - * / and parentheses, exact to six places) derive component quantities per unit, routing minutes and added cost, and refused combinations with their reason; formulas are dry-run when saved. A choice resolves to its components, routing and cost, each figure carrying the rule and the arithmetic behind it. A quote line pins the resolved configuration; a work order drafted from that line (or from a direct choice) copies it, and releasing it pins exactly those components, routing and cost with no active BOM; a later rule edit is a new revision and moves neither the quote nor released work, and a quote against a replaced revision is refused.
+**Requirement.** Sales/engineering choose permitted variant attributes, dimensions and options; rules derive component quantities, routing and cost with explainable formulas. Invalid combinations are refused and the resolved configuration is pinned on quote and work. The [operating rules](docs/contract/OPERATING-DETAILS.md#eng-003) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Configure two sizes/finishes through the quote form, compare resolved BOM/cost and release both; refuse an invalid combination and keep old work stable after a rule edit.
 
-**Evidence.** `src/larder/config-expr.ts`; `src/larder/config-model.ts`; `src/larder/configurations.ts`; `src/larder/sales.ts`; `src/larder/production.ts`; `src/larder/api.ts`; `src/ui/configure.tsx`; `src/ui/orders.tsx`; `src/ui/bom-editor.tsx`; `src/ui/make.tsx`; `tests/api/engineering.test.mjs` (ENG-003: roles and formula refusal, two resolved BOMs and costs with their arithmetic, invalid combination/range/missing choice refused at the resolve and quote doors, quote pins, both lines confirmed and released with their own components, routing and cost, a rule edit leaving the old quote, released work and a later draft from the old line on revision 1, a stale revision refused); `tests/browser/engineering.spec.ts` (ENG-003: configure two sizes and finishes on the quote, refuse an invalid choice, compare and draft work to both at 1440; browser proof at 1440 and 390) Conforms: every acceptance point runs in the named journeys in push Verify. Configured output stocks the made item itself; per-configuration SKUs are not created.
+**Evidence.** `tests/api/engineering.test.mjs` — “ENG-003 configure two sizes and finishes through the quote, compare the resolved BOM and cost, release both, refuse an invalid choice and keep old work stable after a rule edit”; `tests/browser/engineering.spec.ts` — “ENG-003 configure two sizes and finishes on the quote, compare the resolved BOM and cost, refuse an invalid choice and draft work to both through quote and work screens”
 **Gap.** None.
 
 #### ENG-004 — BOM CSV export and bulk revision
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Engineers export BOMs/routings as CSV and preview batch component substitutions, quantity changes and effective dates with affected SKUs, stock and open-work impact. Approval creates revisions atomically; released work changes only by a separately reviewed change.
 
 **Acceptance.**
 1. Export ten BOMs, replace one component through CSV preview, inspect row errors and affected work, approve and re-export; a released job keeps its previous revision.
 
-**Evidence.** `src/larder/bom-csv.ts`; `src/larder/bom-bulk.ts`; `src/larder/bom.ts`; `tests/api/bom-bulk.test.mjs` (ENG-004)
-**Gap.** Authenticated CSV export/edit/preview/approval round-trip for ten BOMs and routings; row errors exclude whole recipes, stock/open-work impact is retained, exact quantities and effective dates create revisions atomically, stale/self approval is refused and released work stays pinned.
+**Evidence.** `tests/api/bom-bulk.test.mjs` — “ENG-004 export ten BOMs and routings, preview CSV substitutions and dated quantities, approve atomically and keep released work pinned”
+**Gap.** None.
 
 #### ENG-005 — Engineering change approval and obsolescence
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Engineers propose changes with reason, effectivity, attachments, substitute eligibility and disposition of obsolete stock; authorized managers approve, record acknowledgment and choose treatment of unreleased work. Approved revision history is immutable. Production, a GOV-001 engineer or a manager prepares, and owner/manager approves an exact state version, with a different approver except the owner; engineers never approve. A pending safety change blocks new affected work releases; an open proposal also blocks direct and CSV BOM revision bypass. Each affected draft, including a parent that flattens a changed phantom, receives a reasoned keep-previous, adopt-approved or cancel decision. Adoption cannot release before the approved UTC effective date; keeping uses the explicitly reviewed previous revision. The releasing production person acknowledges the exact approved change before affected work releases; task instructions/drawings still require ENG-002’s job-level acknowledgment. Substitutes name the removed and replacement components with eligibility evidence. Every positive removed-component stock position has a quantity/location/lot/disposition instruction and reason; these instructions never claim a physical return, rework or scrap movement. Actual stock actions use their own authorized doors. Evidence files and drawing bytes/digests, source/prospective/approved revisions, decisions and acknowledgments remain in the archive. An intervening business write refuses approval; decline and propose a new review.
+**Requirement.** Engineers propose changes with reason, effectivity, attachments, substitute eligibility and disposition of obsolete stock; authorized managers approve, record acknowledgment and choose treatment of unreleased work. Approved revision history is immutable. The [operating rules](docs/contract/OPERATING-DETAILS.md#eng-005) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Propose a safety-related component replacement with an attachment and substitute eligibility, deny direct and phantom-parent release before approval and refuse BOM bypass, independently approve on an effective date, acknowledge it and inspect old stock instructions plus keep/adopt/cancel draft outcomes and unchanged released jobs.
-2. Refuse premature adoption, stale/self/agent approval; restore the evidence and immutable review history, and require the new job’s pinned instruction acknowledgment.
+2. Refuse premature adoption, stale or self approval; restore the evidence and immutable review history, and require the new job’s pinned instruction acknowledgment.
 
-**Evidence.** `src/larder/engineering.ts`; `src/larder/engineering-policy.ts`; `tests/api/engineering.test.mjs`; `tests/browser/engineering.spec.ts` (ENG-005)
-**Gap.** Named Worker and real-dev journeys assert safety release blocking, exact independent approval, UTC effectivity, evidence/substitute eligibility, stock instructions, direct/phantom draft treatment, immutable released pins, acknowledgment, archive restore and stale/agent/self refusal.
+**Evidence.** `tests/api/engineering.test.mjs` — “ENG-005 safety replacement review, eligibility/evidence, effectivity, stock disposition, draft treatment, acknowledgment and immutable released revisions”; `tests/browser/engineering.spec.ts` — “ENG-005 review a safety replacement, evidence and stock/work dispositions, approve effectivity, acknowledge and release at 1440/390”
+**Gap.** None.
 
 #### ENG-006 — Kits and sale-triggered assembly
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Sellable kits have versioned component definitions; an authorized sale can trigger policy-approved assembly or component picking. Stock, kit availability and costs reconcile once even when the channel repeats the sale event. A kit revision lists its components per kit and its policy (assemble the kit, or pick the components); a manager, production, engineer or agent prepares it and a different manager or production person (the owner excepted) approves the policy, which makes it the one active revision. An authorized sale (owner, manager or sales; never an agent) names the channel, the channel's own event id, the quantity and the one location it draws from: the first sight of an event posts, in one atomic write, the exact components of the pinned revision (and, for an assembling policy, the kit assembled and sold at the components' cost), and refuses before anything posts when any component is short; a repeat of the same event under any command identity returns the recorded sale and moves nothing, and the same event with different content is refused. Kit availability is what each location can build or pick from available stock.
+**Requirement.** Sellable kits have versioned component definitions; an authorized sale can trigger policy-approved assembly or component picking. Stock, kit availability and costs reconcile once even when the channel repeats the sale event. The [operating rules](docs/contract/OPERATING-DETAILS.md#eng-006) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Sell a kit twice via one replayed channel event and a separate second sale; verify two assemblies only, exact component consumption and no oversell.
 
-**Evidence.** `src/larder/kits.ts`; `src/larder/api.ts`; `src/larder/view.ts`; `src/ui/kits.tsx`; `src/ui/make.tsx`; `tests/api/engineering.test.mjs` (ENG-006: prepare/approve independence and agent refusal, no sale before approval, a first sale that posts the exact components, the assembly and its cost, one channel event replayed under a new command identity moving nothing and a changed repeat refused, a separate second sale, an oversell refused before anything posts, kit availability, a new revision with its own approval and pick policy leaving old sales on revision 1); `tests/browser/engineering.spec.ts` (ENG-006: prepare, approve, sell, replay and refuse an oversell at 1440/390)
-**Gap.** Conforms: every acceptance point runs in the named journeys in push Verify. The channel is named by the caller; no marketplace connector exists (CONN-003/006) and these doors are what it will call.
+**Evidence.** `tests/api/engineering.test.mjs` — “ENG-006 a kit sold twice through one replayed channel event and a separate second sale assembles twice only, consumes exact components and never oversells”; `tests/browser/engineering.spec.ts` — “ENG-006 prepare and approve a kit, then record a channel sale twice with one event id and once more, and see two assemblies and no oversell at 1440/390”
+**Gap.** None.
 
 #### ENG-007 — Catalog export, bulk edit and re-import
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-INPUT-001, BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** An authorized manager, buyer or engineer downloads the active catalog of items and variants as XLSX or CSV, with the Larder ID and every editable field per row (per location where the field is location-specific): SKU, name, category, sales price and price list, purchase price, default supplier and supplier code, barcode/GTIN, reorder point, safety stock, min/max, default bin, batch/serial tracking, lead time and active/archived state. Re-uploading the edited file matches rows by Larder ID; rows without an ID are creates. An empty cell leaves the stored value unchanged and only an explicit clear marker removes a value. The preview lists each changed field (old and new value), each row error (file, row, column, reason) and what each change affects: open quotes and orders, planning policies, open POs and tracked stock. Approval applies all accepted rows atomically against the previewed state version. Used units, stock movements, reservations and issued documents are never rewritten, and turning on batch/serial tracking for an item with untracked stock is refused with its reason. CSV is the delivered format; the download includes every current editable item field and one row per active location, with locations serving as bins. Global edits on repeated location rows must agree, and an invalid row excludes its whole item group. Blank cells preserve values; #CLEAR removes an optional value, with a leading backslash escaping a literal #CLEAR (one added backslash escapes a preceding backslash run). Text exports carry one reversible leading apostrophe, preserving numeric identifiers, leading zeros and formula-like text. A new item's ID-less location rows group by SKU. Supplier terms retain their purchase unit in party/item references; catalog edits affect future documents and never reprice saved ones. Location reorder/safety/min/max/bin/lead settings are retained configuration for DEMAND-004; that clause must honor them before its policy planner ships. Manager/buyer/production and the GOV-001 engineer role export, prepare and approve catalog edits, with a different human approver except the owner. Agents cannot approve or enable tracking. Tracking selection is a declared catalog policy: batch requires a valid lot on current physical receipts/output, while serial is labelled “serial policy configured; one serial per unit at every stock door” and every physical movement of a serial item is one named serial unit through TRACE-002's doors; a door that cannot name serials refuses. Enabling batch is refused for any nonzero unlotted position across all locations/dispositions; serial selection is refused while any nonzero physical stock exists. TRACE-002 owns serial-aware execution and must honor the configured serial policy before shipping.
+**Requirement.** An authorized manager, buyer or engineer downloads items and variants as XLSX or CSV with Larder IDs and every editable field, including per-location fields. Re-import matches IDs, creates ID-less rows, preserves blank cells and previews changes, row errors and impacts before an atomic exact-version approval. Saved documents, used units and stock history stay unchanged. The [operating rules](docs/contract/OPERATING-DETAILS.md#eng-007) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Export items and variants for two locations, change sales prices, reorder points and default suppliers on several rows, leave other cells blank, and add one bad row (unknown supplier) and one change to a used unit.
 2. The preview lists both row errors and each row's impact.
 3. Approve, re-export and compare: only the edited fields changed, blank cells kept existing data, used units and stock history are unchanged, and a preview made stale by a concurrent edit is refused.
 
-**Evidence.** `tests/api/catalog.test.mjs`; `tests/browser/catalog.spec.ts` — ENG-007
-**Gap.** Stable-ID CSV item/variant/location round-trip, all editable fields, supplier terms, blank/clear semantics, field/record impacts, rejected groups, atomic independent approval, used-unit/untracked-stock/stale refusal and unchanged stock, reservations and issued terms; 1440/390 UI. The configured serial policy is executed by TRACE-002: every physical movement of a serial item is one named serial unit.
+**Evidence.** `tests/api/catalog.test.mjs` — “ENG-007 export/edit catalog by Larder ID at two locations, preview all field/record impacts and errors, approve valid groups atomically and preserve blanks, units, history and stale protection”; `tests/browser/catalog.spec.ts` — “ENG-007 real catalog export/edit/preview/approve/re-export with two locations, errors, preserved history and stale refusal at 1440/390”
+**Gap.** None.
+
+#### ENG-008 — Tracking policy selection
+
+Core · target · **partial** · From ENG-007 · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+
+**Requirement.** Tracking selection is a declared catalog policy:  batch requires a valid lot on current physical receipts/output, while serial is labelled “serial policy configured; one serial per unit at every stock door” and every physical movement of a serial item is one named serial unit through TRACE-002's doors; a door that cannot name serials refuses. Enabling batch is refused for any nonzero unlotted position across all locations/dispositions; serial selection is refused while any nonzero physical stock exists. TRACE-002 owns serial-aware execution and must honor the configured serial policy before shipping. The [operating rules](docs/contract/OPERATING-DETAILS.md#eng-008) retain the detailed bounds and record semantics.
+
+**Acceptance.**
+1. Select batch tracking only with no nonzero unlotted position; refuse serial selection while physical stock exists.
+2. Require named lots for batch receipts/output and exactly one named serial per unit through every physical serial door; an unsupported door refuses rather than creating untracked stock.
+
+**Evidence.** `tests/api/catalog.test.mjs` — “ENG-007 export/edit catalog by Larder ID at two locations, preview all field/record impacts and errors, approve valid groups atomically and preserve blanks, units, history and stale protection”
+**Gap.** The cited catalog journeys refuse batch tracking on an unlotted balance and require serials at receipt/output. Missing: a covering selected batch/serial policy journey through receipt, issue, output and shipment with one-unit serial lifecycle and refused unsafe changes; the serial lifecycle in tests/api/trace.test.mjs is outside ENG-007’s old evidence set.
 
 ### Demand and sales
 
 #### DEMAND-001 — Costed quotes and credible promise dates
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Sales prepares versioned quotes in USD, or in a customer's own currency such as CAD with the recorded rate and USD functional value, including customer-specific prices, quantity breaks, discounts, freight, quote validity and estimated material/labor/overhead margin. Available-to-promise and capable-to-promise dates use dated supply and finite material/labor capacity, exposing assumptions and alternatives.
+**Requirement.** Sales prepares versioned quotes in USD, or in a customer's own currency such as CAD with the recorded rate and USD functional value, including customer-specific prices, quantity breaks, discounts, freight, quote validity and estimated material/labor/overhead margin. Available-to-promise and capable-to-promise dates use dated supply and finite material/labor capacity, exposing assumptions and alternatives. The native decision follows RL-1.
 
 **Acceptance.**
 1. Quote a job with scarce material and a busy machine, compare immediate/partial/overtime options and their margin/date, accept one and trace the date to booked supply/capacity; quote a Canadian wholesale customer in CAD and read the order, invoice and margin in CAD with their USD valuation at the recorded rate.
 2. Show three feasible ship-date alternatives for an order, each checked against the material, machine and qualified-person calendars before it is offered.
 3. Reconcile quoted line extensions and the order total to the cent using the documented fixed-point rounding rules, including a fractional quantity and price.
 
-**Evidence.** `tests/api/flows.test.mjs` — “Costed quote preparation reconciles fractional CAD prices, discounts, breaks, USD margin and inert history”; “Costed quote dates require shared scarce supply and live qualified joint calendars without booking or displacement”; `tests/browser/order-amendments.spec.ts` — “Costed quote review shows reconciled CAD terms and USD estimates at desktop and phone widths without accepting a commitment”
-**Gap.** Still unproved: immediate, partial and overtime options with distinct cost, margin and date outcomes; exact authorized option acceptance with fresh material, machine and qualified-person checks and trace to once-only booked supply and capacity; customer-currency confirmed orders and invoices retaining the recorded rate, original currency, margin and USD valuation; reasoned review disposition on quote editing and every clearing path, including blank-reason refusal; and complete preparation-record audit, protected export and restore proof. Configured items, bought-item capacity alternatives, upstream production and quality dependencies, overdue supply and exact dated-lot feasibility remain unsupported by the bounded full-batch comparison and must remain explicit rather than becoming invented promises. Actual provider readback, physical execution and accounting or regulatory qualification are not established by review or local confirmation. No obligation is carved by this ruling. Disposition follow-up: `tests/api/flows.test.mjs` — “Costed quote preparation reconciles fractional CAD prices, discounts, breaks, USD margin and inert history” asserts edit refusal before explicit discard, blank and stale discard refusal, agent and scoped-member refusal, exact retained review economics and disposition actor, time and reason, unchanged original lines, complete retained review history after restart and archive restore, and separate current-version edit and confirmation. The CT remainder above is retained verbatim; its disposition bypass is now covered, while complete preparation-record audit and protected portability qualification remain partial. `tests/browser/order-amendments.spec.ts` — “Costed quote review shows reconciled CAD terms and USD estimates at desktop and phone widths without accepting a commitment” exercises preparation and reasoned discard through the page.
+**Evidence.** `tests/api/flows.test.mjs`; `tests/browser/order-amendments.spec.ts`
+**Gap.** The cited costed-quote journeys cover configured items, fractional currency arithmetic and reasoned review disposition through the page. Missing: immediate/partial/overtime alternatives with distinct cost, margin and date outcomes; exact acceptance with current material, machine, qualified-person and upstream/quality checks; once-only supply and capacity bookings; customer-currency confirmation/invoice and complete preparation audit/export/restore. Unsupported alternatives remain explicit.
 
 #### DEMAND-002 — Order changes and cancellations
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Sales versions order quantities, dates, addresses and prices with customer approval history. Changes identify affected reservations, procurement, work and shipped balances; cancellation releases only unconsumed commitments and leaves already incurred costs visible. Customer approval is the authorized salesperson’s locally recorded attestation (name, source reference, received date and optional original evidence), never a claim of remote identity validation. An amendment preview retains old/proposed commercial terms and identifies exact reservations/shipments, indicative allocated supply and potential shared work/procurement with incurred material-cost sources and remaining exposure. An authorized sales/manager person approves the exact preview; any intervening business write requires a new review. The screen uses this same reviewed amendment for cancellation; the existing direct cancellation API also requires the customer attestation and retains before/after history. Every line retains its stable identity, cumulative ordered/cancelled quantities and shipped/returned balances. Edited quantity means the non-cancelled total including shipped units; dated delivery quantities sum only the outstanding balance. Shipping consumes earliest outstanding dates; direct cancellation removes latest dates first. The compatible order promise date is the latest remaining delivery date, while planning retains the individual dated pegs; when no delivery remains, the last approved promise date stays as history. Customer approval dates are real calendar dates no later than today in UTC. Price changes apply prospectively to unshipped quantities; picked shipment prices/addresses remain immutable. Picked/packed quantities require an explicit undo-pick before cancellation, and excess reservations are released without consuming any location’s picked commitment. Work and supplier commitments remain visible and require their own authorized change. Historical shipments missing an issued price are labelled incomplete; repricing, invoice values, returns or corrections requiring that missing price are refused pending source-document reconciliation, with no current-price substitution.
+**Requirement.** Sales versions order quantities, dates, addresses and prices with customer approval history. Changes identify affected reservations, procurement, work and shipped balances; cancellation releases only unconsumed commitments and leaves already incurred costs visible. The [operating rules](docs/contract/OPERATING-DETAILS.md#demand-002) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Increase, split-date and cancel the unshipped remainder of a partly produced order; inspect reservation/supply changes, retained shipment and incurred cost without deleting history.
 
-**Evidence.** `tests/api/order-amendments.test.mjs`; `tests/browser/order-amendments.spec.ts` — DEMAND-002
-**Gap.** Exact-state customer-attested quantity/price/address/split-date revisions; current and prior terms, reservation and supply impacts, incurred material costs and procurement exposure; pick-safe cancellation/unpick, original shipment prices/addresses, credits/reversals and history preserved. Named real UI at 1440/390 includes stale refusal, retained costs and issued order value.
+**Evidence.** `tests/api/order-amendments.test.mjs` — “DEMAND-002 approved amendments split promises, preserve issued terms and production costs, cancel only unconsumed commitments, and reject stale or unsafe changes”; `tests/api/order-amendments.test.mjs` — “DEMAND-002 dated quantities net once, stale review is refused, and unpick resolves a blocked cancellation without posting stock”; `tests/browser/order-amendments.spec.ts` — “DEMAND-002 customer-approved split dates, prospective prices and cancellation retain shipments and incurred work at 1440/390”
+**Gap.** None.
 
 #### DEMAND-003 — Master production schedule and forecasts
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Planners maintain time-bucketed sales forecasts and a master production schedule, import forecast CSV, distinguish actual orders from forecast consumption, and record overrides, seasonality and forecast error. Actual demand consumes forecasts rather than doubling them. Weeks start Monday at 00:00 UTC with an exclusive next-Monday end; quantities use each SKU's base unit. Baseline × nonnegative seasonality rounds half away from zero to six places, and an explicit nonnegative override replaces that result. Confirmed outstanding schedules and issued shipped-delivery quantities consume forecast for the same SKU/week; quotes and cancelled quantities do not. Remaining commercial demand is outstanding orders plus max(0, adjusted forecast minus actual ordered demand), with existing hard reservations kept separate. Error is actual ordered demand minus adjusted forecast, including fulfilled deliveries, rather than a claim of completed-period accuracy. Historical shipped quantities without issued delivery-date evidence are explicit and block MPS preparation pending source reconciliation. The MPS pools free available stock and existing draft/open supply by week (receipt on or before Sunday); suggestions cover only the remaining commercial quantity and carry unused common stock forward. This weekly quantity plan does not claim finite capacity or change customer promises. An authorized human releases the exact state-version preview to linked draft work/purchases; work release and purchase spending approval remain their existing separate doors. Manager/buyer/production/planner/agent prepare imports and MPS previews, manager/production/planner record reasoned seasonality/override changes and undo, and owner/manager/production/planner approve release (a different preparer except the owner); agents never release. Every original CSV/digest and before/after change remains retained, and undo appends the prior basis with its reason instead of deleting history. The GOV-001 planner role carries this forecast/MPS authority and separation. The location policy planner is the default for configured SKU/location sizing. The existing global DEMAND-003 MPS remains an explicit manual exception: its preview shows the effective policies and current catalog settings for suggested supply; release requires a human acknowledgment and recorded reason, retains the exact weekly quantities without automatic location sizing, and pins that policy evidence and decision on the plan and linked drafts. Existing independent human release authority still applies and agents cannot grant the exception.
+**Requirement.** Planners maintain time-bucketed sales forecasts and a master production schedule, import forecast CSV, distinguish actual orders from forecast consumption, and record overrides, seasonality and forecast error. Actual demand consumes forecasts rather than doubling them. The [operating rules](docs/contract/OPERATING-DETAILS.md#demand-003) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Import a 12-week forecast, confirm overlapping sales orders and release an MPS; compare net demand and forecast error by week, then undo an override with history.
 
-**Evidence.** `tests/api/forecast.test.mjs`; `tests/browser/forecast.spec.ts` — DEMAND-003
-**Gap.** Twelve-week CSV, retained sources, exact seasonal/override arithmetic, dated order consumption including shipped quantities, forecast error, net weekly supply, reasoned undo history, stale-safe independent MPS approval and linked draft work/purchases; responsive real screen at 1440/390.
+**Evidence.** `tests/api/forecast.test.mjs` — “DEMAND-003 DEMAND-004 twelve-week CSV forecast, order consumption, seasonal overrides/undo, error, approved stale-safe MPS and real supply linkage”; `tests/browser/forecast.spec.ts` — “DEMAND-003 DEMAND-004 import twelve weeks, consume real orders, adjust and undo forecasts, review and release linked MPS at 1440/390”
+**Gap.** None.
 
 #### DEMAND-004 — Make-to-stock and make-to-order policies
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Each SKU/location selects make-to-stock, make-to-order or assemble-to-order with reorder point, safety stock, min/max, batch size, order multiple and lead time. Customer-specific work stays pegged while common stock supplies approved competing demand. The planner must honor ENG-007’s configured SKU/location reorder, safety, min/max, default-bin and lead-time values before shipping. Policies are immutable effective-dated SKU/location revisions maintained by manager/production people and GOV-001 planners. The current effective revision and current ENG-007 catalog location settings are read at preview; the default bin, or settings location when absent, is the physical pool and draft destination. Existing hard reservations remain protected across all bins. Approved common allocation considers explicitly selected confirmed orders and all still-open lines previously assigned to this bin, in rank/due-date order. The protected floor is max(safety stock, minimum stock); common available stock above it is shared only through exact reviewed allocations. For make-to-stock, projected inventory nets selected outstanding demand and located open/draft supply; at or below reorder it replenishes toward max(maximum stock, floor), otherwise only a floor shortfall is suggested. Make-to-order and assemble-to-order retain separate customer/order-line/date pegs for uncovered demand; assembly previews resolve the effective BOM and show shared component availability, shortage and late supply. Batch size and order multiple are base quantities; suggestions round upward to their least common exact six-place multiple. Lead time is calendar days in UTC, subtracted from required date; past starts and late supply are explicit, with no finite-capacity or customer-date claim. Located dedicated future supply stays with its exact order/line, and late supply nets quantity without claiming on-time coverage. Unlocated open supply blocks approval until a manager/production person or planner records its exact-version bin and optional customer peg without changing quantity, price or date. Existing assigned commitments cannot be silently relocated. A manager/buyer/production person, planner or agent prepares; owner/manager/production/planner approves an exact state-version preview, independently except the owner. Approval records planning-bin metadata, reserves only the displayed common available quantities and creates linked draft work or purchases; physical receipt/output, work release and spending retain their separate authorized doors. Earlier policy/preview/approval and demand pegs remain in the complete archive; current catalog edits invalidate old previews rather than rewriting them. The GOV-001 planner role carries this maintenance and independent approval authority. The location policy planner is the default for configured SKU/location sizing. The existing global DEMAND-003 MPS remains an explicit manual exception: its preview shows the effective policies and current catalog settings for suggested supply; release requires a human acknowledgment and recorded reason, retains the exact weekly quantities without automatic location sizing, and pins that policy evidence and decision on the plan and linked drafts. Existing independent human release authority still applies and agents cannot grant the exception.
+**Requirement.** Each SKU/location selects make-to-stock, make-to-order or assemble-to-order with reorder point, safety stock, min/max, batch size, order multiple and lead time. Customer-specific work stays pegged while common stock supplies approved competing demand. The [operating rules](docs/contract/OPERATING-DETAILS.md#demand-004) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Run the same demand with stock and order policies, approve the suggested batches and inspect customer pegging, safety stock and unused common inventory.
 
-**Evidence.** `src/larder/inventory.ts`; `src/larder/inventory-plan.ts`; `src/ui/inventory-policies.tsx`; `tests/api/inventory.test.mjs`; `tests/browser/inventory.spec.ts`; `tests/api/forecast.test.mjs`; `tests/browser/forecast.spec.ts` (DEMAND-004)
-**Gap.** Named public Worker and native-dev journeys compare stock/order/assembly demand, current catalog/location settings, exact rounded approved drafts, protected common reservations, customer pegs, inventory floors/unused stock, late/unlocated supply and immutable archive history at 1440/390.
+**Evidence.** `tests/api/inventory.test.mjs` — “DEMAND-004 stock/order/assembly policies, catalog location settings, reviewed common stock and exact customer-pegged batches”; `tests/api/inventory.test.mjs` — “DEMAND-004 approve stock batches, retain unused common inventory and locate late/open supply without duplicating it”; `tests/api/forecast.test.mjs` — “DEMAND-003 DEMAND-004 twelve-week CSV forecast, order consumption, seasonal overrides/undo, error, approved stale-safe MPS and real supply linkage”; `tests/browser/inventory.spec.ts` — “DEMAND-004 compare same demand under stock/order policies, approve exact batches, inspect customer pegs and inventory floors at 1440/390”; `tests/browser/forecast.spec.ts` — “DEMAND-003 DEMAND-004 import twelve weeks, consume real orders, adjust and undo forecasts, review and release linked MPS at 1440/390”
+**Gap.** None.
 
 #### DEMAND-005 — Allocation priority and customer commitments
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Planners rank open sales and manufacturing orders explicitly (drag in the list or set a rank), and scarce supply is allocated in that rank with due-date and margin consequences. Reallocation shows displaced orders, requires approval and preserves hard-reservation integrity; customers receive only approved promise changes. Rank drives the live order status in DEMAND-006. The command API previews an explicit split of accepted receipt stock between open sales lines, including displacement, unchanged promises and estimated margin from retained quote costs. Exact atomic approval preserves unnamed hard reservations and picked quantities; it posts no stock and changes no customer date. Under ct approval of 23 October 2026, only the owner prepares and approves this reservation transfer, with recorded reasons. Customer date changes retain DEMAND-002 customer attestation and stale-safe approval; the revision preview counts affected customer orders and lists their previous and proposed dates. MOVE-008 carries the allocation review and decision in JSON and CSV archives and inert restore.
+**Requirement.** Planners rank open sales and manufacturing orders explicitly (drag in the list or set a rank), and scarce supply is allocated in that rank with due-date and margin consequences. Reallocation shows displaced orders, requires approval and preserves hard-reservation integrity; customers receive only approved promise changes. The native decision follows RL-2. The [operating rules](docs/contract/OPERATING-DETAILS.md#demand-005) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Allocate one receipt between two orders, preview displacement, approve a split and inspect both promises and reservation totals; re-rank two orders and see the allocation follow the new rank; deny a sales user authority to steal stock.
 2. Approve a machine-outage recovery with sufficient alternate capacity that preserves the original promises; read zero changed customer dates and inspect unchanged order dates.
 3. A recovery needing changed promises lists their count and old and new dates before the authorized person's approval.
 
-**Evidence.** `src/larder/sales-allocation.ts`; `tests/api/flows.test.mjs` — “DEMAND-005 reviewed receipt split shows displacement, both promises and estimated margins, then atomically reserves exact totals without stock or promise changes”; “DEMAND-005 stale, overallocated, duplicated and picked receipt splits refuse without changing hard reservations”; “DEMAND-005 sales, planners, managers and agents cannot take reservation approval authority through the command API”. Rank: `tests/api/order-status.test.mjs` — “DEMAND-006 next-read ranked SO&#47;MO status recomputes receipts, quarantine, current ETAs, rank, reservations, cancellations and production without planning”. Changed dates: `tests/api/order-amendments.test.mjs` — “DEMAND-002 approved amendments split promises, preserve issued terms and production costs, cancel only unconsumed commitments, and reject stale or unsafe changes”; `tests/browser/order-amendments.spec.ts` — “DEMAND-002 customer-approved split dates, prospective prices and cancellation retain shipments and incurred work at 1440/390”; `tests/browser/order-amendments.spec.ts` — DEMAND-005 owner reviews and approves an exact receipt reservation split at 1440/390; alternate capacity: `tests/api/flows.test.mjs` — “Qualified alternate comparison keeps pinned instructions, setup transitions, tools, labor, delivery and USD estimates through approval and restore”; `tests/browser/maintenance.spec.ts` — “Qualified alternates compare setup, tools, labor, delivery and cost before human approval at 1440/390”. The reviewed receipt split test also asserts an exact unnamed hard reservation, post-quote cost changes, approving actor and reason in the audit, and a nonempty CSV decision restored inertly; the role test directly refuses preparation and approval for every named non-owner role. Both browser width loops assert exact promise dates and changed counts.
-**Gap.** —
+**Evidence.** `tests/api/flows.test.mjs` — “DEMAND-005 reviewed receipt split shows displacement, both promises and estimated margins, then atomically reserves exact totals without stock or promise changes”; `tests/api/flows.test.mjs` — “DEMAND-005 stale, overallocated, duplicated and picked receipt splits refuse without changing hard reservations”; `tests/api/flows.test.mjs` — “DEMAND-005 sales, planners, managers and agents cannot take reservation approval authority through the command API”; `tests/browser/order-amendments.spec.ts` — “DEMAND-005 owner reviews and approves an exact receipt reservation split at 1440/390”
+**Gap.** None.
 
 #### DEMAND-006 — Live order material and production status
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** The sales order list and the manufacturing order list show, for every order and line, an ingredient status (In stock, Expected with the date and reference of the supplying PO or MO, Not available, or No BOM) and a product/production status (not started, blocked, in progress, done, ready to ship). Status is allocated in the DEMAND-005 order rank, with protected hard reservations taking precedence over free-supply ranking, so a higher-ranked order is covered first from free supply, and is derived from current stock, quarantine, reservations, open POs and MOs, their current ETAs and rank. For a made sales-order line, finished stock and open-MO supply are consumed once; the quantity covered by an open MO inherits that MO's material coverage, and only the uncovered quantity is exploded through its effective BOM. MOs have an explicit, editable expectedOn completion date; an existing MO's requiredBy remains its declared supply date until changed. This date is an operational declared ETA, not proof of CAP finite scheduling. Both lists name every actual supply reference and date and recompute on each read. The next read after any receipt, ETA change, re-rank, reservation, cancellation or production report shows the recomputed status, without running MRP or any planning job. Both lists sort and filter by rank and status.
+**Requirement.** Sales and manufacturing order lists show each line’s ingredient and production status, current supply references/dates and rank. They derive current stock, quarantine, reservations and dated purchase/work supply without double allocation; protected hard reservations win. Next reads respond to receipts, ETA changes, ranks, reservations, cancellation and production reports without a planning run, with rank/status sorting and filtering. The [operating rules](docs/contract/OPERATING-DETAILS.md#demand-006) retain make-path and supply-date semantics.
 
 **Acceptance.**
-1. With three ranked orders competing for one component held partly in stock and partly on two POs, (a) part-receive one PO, (b) slip the other PO's ETA and (c) swap the rank of two orders.
-2. After each step, with no planning run, the SO and MO lists (screen at 1440 and 390 pixels, and the state API) show the correct In stock / Expected-with-date / Not available status for each order and line; every Expected date equals the supplying PO's or MO's current date, and a quarantined receipt never shows as In stock.
-3. Cover a made SO line partly with finished stock and an open MO, verify those supplies are consumed once and the covered quantity inherits the MO's material coverage, then verify only the uncovered quantity uses its effective BOM.
-4. Re-rank competing demand and confirm protected hard reservations still take precedence over free supply.
-5. Edit an MO's expectedOn completion date and read the changed supply date in both lists; an unchanged existing MO still uses its requiredBy as its declared supply date.
-6. Both lists name every actual supply reference and date and recompute on each read; the declared ETA does not prove CAP finite scheduling.
+1. With three ranked orders competing for component stock and two POs, part-receive one PO, slip the other ETA and re-rank. After each step, the SO/MO screens at 1440 and 390 and state API show every line’s correct In stock, Expected-with-date/reference or Not available result; quarantine never becomes In stock and expected dates equal current supplying PO/MO dates.
+2. Cover a made SO line partly with finished stock and an open MO: count each supply once, inherit that MO’s material coverage and explode only the uncovered quantity through its effective BOM.
+3. Re-rank competing demand and inspect protected hard reservations taking precedence.
+4. Edit an MO completion date and read it in both lists; an unchanged MO uses its required date.
+5. Read every actual supply reference/date and production state: not started, blocked, in progress, done or ready to ship. A declared ETA does not establish finite CAP scheduling.
 
-**Evidence.** `tests/api/order-status.test.mjs`; `tests/browser/order-status.spec.ts` — DEMAND-006
-**Gap.** Ranked shared-supply projection on every read; SO/MO order and line status with current PO/MO references/dates, quarantine exclusion, protected reservations, rank/status sort/filter at 1440/390.
+**Evidence.** `tests/api/order-status.test.mjs` — “DEMAND-006 next-read ranked SO/MO status recomputes receipts, quarantine, current ETAs, rank, reservations, cancellations and production without planning”; `tests/browser/order-status.spec.ts` — “DEMAND-006 both ranked lists update material and production status after receipt, ETA and re-rank at 1440/390”
+**Gap.** None.
 
 #### DEMAND-007 — Order invoicing and payment status
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Accounts invoice a sales order from the order or the SO list with *Invoice all* (every packed or delivered line) or *Invoice some…* (chosen packed or delivered quantities only), for one order or in bulk across selected orders, each producing exactly one invoice per order with stable source IDs, the order's prices, discounts, freight and tax, and the invoice's lines linked to their shipments. An optional rule invoices orders automatically when they are packed, shipped or delivered and can send the invoice to the customer by BUY-007. Quantity not yet packed or delivered, or already invoiced, cannot be invoiced; a reversed shipment produces a linked credit. The SO list and the state API show every order's invoice status (Not invoiced, Partially invoiced, Invoiced) and payment status (Unpaid, Partially paid, Paid, with amount outstanding and due date), the payment status read back from the connected books (CONN-001 QuickBooks Online, CONN-002 Xero), which stay the payment authority. Both columns sort and filter, and a configurable release check warns or blocks shipping a wholesale order whose earlier invoices are overdue. Invoice commands are idempotent.
+**Requirement.** Accounts invoice a sales order from the order or the SO list with *Invoice all* (every packed or delivered line) or *Invoice some…* (chosen packed or delivered quantities only), for one order or in bulk across selected orders, each producing exactly one invoice per order with stable source IDs, the order's prices, discounts, freight and tax, and the invoice's lines linked to their shipments. An optional rule invoices orders automatically when they are packed, shipped or delivered and can send the invoice to the customer by BUY-007. The [operating rules](docs/contract/OPERATING-DETAILS.md#demand-007) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. In an authorized QuickBooks Online sandbox, (1) partly ship an order and invoice only its shipped lines from the order with *Invoice some…*; invoicing unshipped or already-invoiced quantity is refused. (2) Select two other shipped orders in the SO list and bulk-invoice them, producing exactly one QBO invoice per order, and let the automatic rule invoice a third order on shipment. (3) Record a partial payment and then a full payment against one invoice in QBO.
@@ -444,7 +492,7 @@ Core · target · **partial**
 
 #### DEMAND-008 — One fulfillment list across sales channels
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Warehouse staff see wholesale, Shopify and Amazon merchant-fulfilled orders in one shipping list, with source channel, order reference, promise date, material/production readiness and remaining shipment quantity. Filtering by channel preserves one demand record per external order. All channels use the same reservation, pick, pack and partial-ship workflow, and route labels/tracking back through their mapped connections; FBA replenishment bookings remain explicitly identified as factory-to-Amazon transfers.
 
@@ -460,57 +508,83 @@ Core · target · **missing**
 
 #### MRP-001 — Time-phased demand netting
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** MRP nets dated sales, forecast, dependent BOM demand and safety stock against usable inventory, reservations, yields, open POs, WIP and lead times. Late, held or expiring supply cannot cover earlier demand. Each suggestion explains quantity, date and sources. The current slice is the read-only dated physical/purchase/work projection at `/api/larder/planning/materials`: direct outstanding sales, residual forecasts and pinned released-work inputs share physical lots/bins and dated outstanding POs once. Hard bin reservations are protected first; lots are judged on the later of the required UTC day and today, with inclusive expiry/retest and physical customer shelf-life rules. Unusable reservations stay protected and explicit, never silently reassigned. Late/overdue unreceived POs, quarantine, draft POs and unproven work output cannot masquerade as on-time usable supply. After hard reservations, current physical safety floors protect the greater of catalog safetyStock and minStock at each active SKU’s default bin (or its catalog location when no default is set). Catalog locations naming the same SKU/bin contribute their maximum floor once, not a sum. Floor rows precede free-demand allocation, use only lots eligible today in that bin, and show any uncovered quantity explicitly; unreceived POs cannot establish a current physical floor. This is a read-only planning protection, not a new physical reservation or dispatch gate. Future dated floor replenishment: once every dated demand has taken its supply, what remains of approved open purchases and proven work output restores an uncovered floor in date order. Each floor row lists those dated receipts and the day it is restored; that supply never counts as physical cover, and the buy suggestion covers only the part nothing has scheduled. Informational bought-item suggestions subtract recorded supplier lead days in UTC calendar days, keep missing lead time unknown and flag past releases; this does not approve or create supply. When the preferred supplier has structured terms, the suggestion follows its calendar instead: the receipt day is the latest open supplier day on or before the required day, the order day is the latest day whose lead working days (closed dates and non-working weekdays do not count) arrive by then, and the quantity rounds up to the supplier's minimum order and pack, with the shortage and quoted unit price shown beside it. The dated projection now explodes uncovered make and phantom demand through today’s effective multilevel BOMs, preserving ENG-001 make/buy/phantom choices and aggregate upward six-place yield rounding. Every dependent row retains its root document/line, required UTC day and ordered BOM/revision path; shared physical and dated PO pools are netted once per item after all its parent branches. Customer shelf-life applies to finished sales stock, while dependent materials use internal lot eligibility. Recorded manufacturing routings now provide informational full-batch lead offsets: each operation takes setup + queue + run minutes times uncovered good-output base units, starts after all its declared predecessors (legacy order implies the previous operation), and the longest finishing path is rounded upward once to whole UTC calendar days. Minute arithmetic uses the stored decimal representation exactly; independent branches share elapsed time. Transfer-batch overlap, work-center/labor calendars and capacity contention are not applied, so this is not a feasible schedule. Components are due at the parent’s calculated release day; make levels accumulate offsets, while a phantom adds no separate manufacturing operation. Each row/path exposes its timing basis, BOM, receipt/release days and past-release warning; a make shortage with a representable recorded release gets an informational make suggestion. Missing or unrepresentable routing release dates provide timing diagnostics without a make suggestion. A missing/empty routing keeps lead and release unknown and explicitly labels inherited component dates as unoffset; a recorded zero-duration routing is zero days. Released inputs use the full pinned job quantity/routing and declared expectedOn completion day, falling back to requiredBy, less already-issued component quantities; later BOM edits and partial output never invent remaining operation time. A duration outside the existing four-digit YYYY-MM-DD calendar stays explicitly blocked with unknown release, never crashes the projection or supplies a plausible dated recipe. None of these reads changes promises, reservations, drafts or stock. Outstanding work is material-feasible when it is released and every pinned input still to be issued is covered, after the shared allocation, by usable stock or dated supply, including the proven output of other jobs (the projection repeats until the proven set stops growing); its completion day must not have passed and its routing must stay inside the calendar. A material-feasible job’s remaining output nets demand on its completion day like an approved purchase, sources show it by job, and only the uncovered remainder explodes further. Draft work pins no inputs and any unproven job keeps the item’s whole remainder in blockedExplosions, so a sales recipe is never counted again beside existing work; workFeasibility lists every outstanding job with its completion day, remaining output, shortages and reason, and released pinned inputs remain separate demand. An authorized `plan.draft` preparer can now select one exact dated suggestion with its projection version, UTC day and requirement key. Preparation revalidates all current inputs and the day atomically, derives the shortage quantity, supplier and receipt/release dates on the server, and retains the reviewed root/revision path and timing in the ordinary draft. A purchase draft requires an explicitly entered unit price. Existing inventory-policy routing and purchase/work approval authorities still apply; preparation never approves supply, reserves stock, changes promises or claims a feasible schedule. Open supply already linked to the same root/component branch prevents another dated draft, including after date or BOM revision edits; a repeated command replays its first result. Blocked explosions and missing suggestions cannot be drafted through this door. Reads disclose linked supply without counting unapproved drafts as usable coverage. MOVE-008 export/restore retains draft provenance and duplicate guards without executing work. The projection’s remaining boundary is unchanged: it is informational and never a feasible finite schedule, an approval or a promise change. The projection introduces no persisted records; MOVE-008 exports preserve its inputs and restore must reproduce its dated result without executing any plan.
+**Requirement.** MRP nets dated sales, forecast, dependent BOM demand and safety stock against usable inventory, reservations, yields, open POs, WIP and lead times. Late, held or expiring supply cannot cover earlier demand. Each informational suggestion explains its quantity, dates, sources and uncertainty without changing commitments. The [operating rules](docs/contract/OPERATING-DETAILS.md#mrp-001) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Place demand before and after a supplier ETA with held/expiring stock and multilevel WIP; run MRP through the planning API and verify every dated shortage and proposed release/receipt.
 
-**Evidence.** `src/larder/material-dates.ts`; `src/larder/material-supplier.ts`; `src/larder/dated-drafts.ts`; `src/larder/material-demand.ts`; `src/larder/material-lead.ts`; `src/larder/material-pegging.ts`; `src/larder/api.ts`; `tests/api/multilevel.test.mjs`; `tests/api/mrp-feasibility.test.mjs`; `tests/browser/journey.spec.ts` (MRP-001)
-**Gap.** Conforms: the dated projection nets sales, forecast, dependent multilevel demand and safety floors against usable stock, reservations, yields, dated purchases and material-feasible work (chained jobs proven to a fixpoint, only the uncovered remainder exploding), follows supplier calendars, lead working days, MOQ and pack in bought suggestions, schedules floor restoration from dated supply and keeps exact informational routing offsets, stale-safe dated drafts and archive reproduction. It is informational: a finite schedule is CAP-001 to CAP-009 and approved supply changes are MRP-002 to MRP-004.
+**Evidence.** `tests/api/mrp-feasibility.test.mjs` — “MRP-001 released work nets demand on its completion day only while every pinned input is covered, explodes only the remainder and recovers when a PO lands before its inputs are needed”; `tests/api/mrp-feasibility.test.mjs` — “MRP-001 proven work chains through multilevel jobs and is followed to the demand it supplies”; `tests/api/mrp-feasibility.test.mjs` — “MRP-001 bought suggestions follow the supplier calendar, lead working days, MOQ and pack, and restore an uncovered floor from dated supply”; `tests/api/multilevel.test.mjs` — “MRP-001 dated physical and PO pools never cover earlier demand with late, held, expired, overdue or draft supply”; `tests/api/multilevel.test.mjs` — “MRP-001 protects each reservation bin on its demand date, pins released inputs and restores the read-only projection without treating unproven WIP as feasible supply”; `tests/api/multilevel.test.mjs` — “MRP-001 current safety floors share bins once, follow catalog edits, protect hard commitments and never treat expected or held stock as physical cover”; `tests/api/multilevel.test.mjs` — “MRP-001 dated multilevel pegs share stock and ETA pools, honor make/buy/phantom and aggregate yields, and disclose unresolved work without duplicate explosion”; `tests/api/multilevel.test.mjs` — “MRP-001 manufacturing offsets reject completion-day material, follow multilevel full-batch routing and keep released timing pinned across edits and restore”; `tests/browser/journey.spec.ts` — “HTTP-001 MRP-001 public Lobby, health and docs stay separate from private app and exports”
+**Gap.** None.
+
+#### MRP-006 — Draft from a dated material suggestion
+
+Core · target · **done** · From MRP-001 · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
+
+**Requirement.** A preparer selects an exact dated material suggestion and its reviewed source path. Current inputs derive shortage quantities, supplier and dates; an entered purchase price and existing inventory-policy authority bind the draft. Preparation changes no stock, reservation, spending approval or customer promise. The [operating rules](docs/contract/OPERATING-DETAILS.md#mrp-006) retain the detailed bounds and record semantics.
+
+**Acceptance.**
+1. Draft selected buy and make suggestions with their source paths and dates; refuse changed projections, blocked or absent suggestions and already-linked supply, including after a date or revision edit.
+2. Read linked drafts, retry without duplication, and restore their provenance without executing a plan.
+
+**Evidence.** `tests/api/multilevel.test.mjs` — “MRP-006 dated drafts preserve reviewed quantities, release dates and source paths with stale, duplicate, policy and live-authority guards across restart and restore”
+**Gap.** None.
 
 #### MRP-002 — Demand pegging and supply changes
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** A planner follows any component, receipt or work order to the customer demand it supplies and reverse-pegs all affected orders. Canceled/late/excess supply produces expedite, defer or cancel recommendations with impact and approval. The current partial read-only door `/api/larder/planning/pegging` follows an item, sales order, forecast, purchase order/line, receipt/line or lot through the shared dated MRP-001 allocation, retaining root demand, component/revision paths, exact base-unit quantities, source dates and protected-reservation flags. Purchase lookup includes both outstanding lines and usable stock from its recorded receipt lots. Late purchase candidates are unallocated alternatives for shortages, never quantities to sum or promises of coverage. Received stock can be reverse-pegged only through recorded lots; unlotted receipts remain explicit untracked lines, without inferred ancestry. Work lookup exposes pinned component inputs and outstanding-work blockers, without inventing customer links through provisional output. Reads preserve physical commitments, create no records or outbound work, and reproduce from the MOVE-008 business archive after restore. Output of a material-feasible released job (MRP-001) is a work source on the demand it supplies, so work lookup follows it to that customer demand. *Supply changes as built:* a read of open approved purchase lines recommends an expedite where a line arrives after short requirements (to the earliest such day, for the quantity it could cover), a cancel for outstanding quantity no demand or floor allocates, and a deferral where everything it supplies is first needed seven or more days after it arrives, each naming its affected orders and exact quantities; it is recomputed on every read. A buyer or manager approves or rejects one with a reason against the current version and UTC day (a cancel only the manager or owner; never an agent): an approved expedite or deferral is a recorded request that changes no supplier date, stock or reservation and sends nothing, an approved cancel trims only the unallocated outstanding quantity and its exposure, and every decision keeps an approval record and audit entry. Ruled by ct (22 October 2026): the owner decides as well; an approval records the exact recommendation inputs it was given for (the recommendation, the state version and the UTC day it was read on, with a digest) and is refused when they changed; a cancel whose value (cancelled quantity at the line price) is at or above the owner's spend threshold needs the GOV-002 signatures on the exact cancellation. MRP-002 counts for the decision record only: updating the PO line's promise and reaching the supplier is MRP-005, carved from this clause.
+**Requirement.** A planner follows any component, receipt or work order to the customer demand it supplies, and reverse-pegs affected orders with exact dated quantities and revision paths. Untracked ancestry and unproven work remain explicit; reading pegging changes no commitment. The native decision follows RL-3. The [operating rules](docs/contract/OPERATING-DETAILS.md#mrp-002) retain the detailed bounds and record semantics.
 
 **Acceptance.**
-1. Delay a component PO and cancel another demand; open pegging and approve one expedite and one cancellation, verifying affected orders and no orphaned reservation.
+1. Follow dated PO lines, received lots and material-feasible work to their customer demand and back; retain quantities, dates, protected commitments and explicit untracked ancestry.
 
-**Evidence.** `src/larder/material-pegging.ts`; `src/larder/material-dates.ts`; `src/larder/supply-changes.ts`; `src/larder/api.ts`; `src/larder/purchasing.ts`; `tests/api/multilevel.test.mjs` (MRP-002); `tests/api/supply-changes.test.mjs`; `tests/browser/receiving.spec.ts` (the decision on the order screen at 1440/390) — `tests/api/supply-changes.test.mjs` proves, point by point: the delayed PO's expedite naming both orders it hurts, the cancel with no orphaned reservation and the manager-only cancel (first journey); the deferral (second); the recorded exact inputs and the refusal when they changed, and the cancel at or above the spend threshold with its signatures, the manager alone below it and the owner's decision (third)
-**Gap.** Conforms for the decision record only: pegs, work-output links, recommendations recomputed on every read, the decision with its exact inputs and signatures, restart and archive reproduction. The act leg (updating the PO line's promise and reaching the supplier) is MRP-005 and stays missing and visible.
+**Evidence.** `tests/api/multilevel.test.mjs` — “MRP-002 follows shared dated supply to customer demand and back through PO lines and received lots without changing commitments”
+**Gap.** None.
+
+#### MRP-007 — Decide supply-change recommendations
+
+Core · target · **done** · From MRP-002 · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+
+**Requirement.** Cancelled, late or excess supply produces expedite, defer or cancel recommendations with affected orders and quantities. The authorized decision binds its exact inputs and day; cancellation conserves protected commitments and uses GOV-002 at the spend threshold. An expedite or deferral records a request; BUY-009 owns supplier-confirmed dates and MRP-005 owns reaching the supplier. The native decision follows RL-3. The [operating rules](docs/contract/OPERATING-DETAILS.md#mrp-007) retain the detailed bounds and record semantics.
+
+**Acceptance.**
+1. Delay a component PO and cancel another demand; approve an expedite and a cancellation, inspect affected orders, exact decisions and no orphaned reservation.
+2. Read a deferral, refuse stale decisions and route an above-threshold cancellation through the exact spend signatures.
+
+**Evidence.** `tests/api/supply-changes.test.mjs` — “MRP-007 a delayed component PO recommends an expedite naming the orders it hurts, cancelling a demand turns surplus into a cancel only a manager approves, and no reservation is orphaned”; `tests/api/supply-changes.test.mjs` — “MRP-007 supply that lands weeks before its demand recommends a deferral to the day it is first needed and an approved deferral is only a recorded request, and the supplier's confirmation lands beside it as its own date, audited”; `tests/api/supply-changes.test.mjs` — “MRP-007 a cancel worth at least the PO spend threshold needs the policy signatures on the exact cancellation, a smaller one keeps the manager alone, and the owner decides too”
+**Gap.** None.
 
 #### MRP-003 — Replenishment forecasts and purchasing constraints
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Planners review demand history, forecast confidence, supplier calendars, MOQs, packs, price breaks and lead-time variability to set safety stock and suggested orders. The buyer sees coverage and USD cash exposure before converting suggestions. Current native replenishment previews use the shared dated material projection, counting each outstanding buy requirement and current safety floor once. They retain dated source requirements, actual shipment history (including explicit missing history), forecast buckets and a planner-recorded confidence/basis; confidence is an assumption, never a calibrated probability. Existing DEMAND-004/ENG-007 safety-stock configuration remains authoritative. BUY-001 supplier revisions additionally retain a normal-to-maximum working-day lead bound. Quotes use supplier working/closed dates, MOQ/pack rounding, price breaks and the attributed USD rate; coverage reports the quantity served by the conservative latest arrival, remaining at-risk quantity, surplus and USD cash. A different buyer/manager approves exact selected suggestions, with the owner exception; every rejected item retains its reason. A late-at-bound suggestion is refused. Full business inputs, people and UTC day bind review; approval creates only selected approved POs atomically, sends nothing and changes no stock/reservation/customer promise. Confidence/coverage never auto-edits safety stock. Preview inputs, decisions/reasons, supplier term history and pinned PO quotes inherit MOVE-008 JSON/CSV and inert restore. MRP-004 and AGENT-001/007 inherit this quantity/uncertainty/authority/archive boundary before automatic adoption.
+**Requirement.** Planners review demand history, forecast confidence, supplier calendars, MOQs, packs, price breaks and lead-time variability to set safety stock and suggested orders. The buyer sees coverage and USD cash exposure before converting suggestions. The [operating rules](docs/contract/OPERATING-DETAILS.md#mrp-003) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Change a vendor MOQ and uncertain lead time, run replenishment and inspect rounded quantities, service coverage and cash; approve only selected suggestions and retain rejected reasons.
 
 **Evidence.** `tests/api/flows.test.mjs` — “Replenishment revises MOQ and uncertain lead bounds, explains dated coverage and USD cash, approves selected suggestions and retains rejected reasons”; `tests/browser/maintenance.spec.ts` — “Replenishment reviews revised MOQ and uncertain coverage/cash, selectively approves and retains rejected reasons at 1440/390”
-**Gap.** —
+**Gap.** None.
 
 #### MRP-004 — Planning scenarios and release fence
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Planners compare baseline and scenarios for demand, inventory, overtime, alternate suppliers and equipment outages without mutating live commitments. A frozen horizon protects released work; adoption revalidates every changed input and books the approved plan. Implemented door: schedule protections retain exact frozen/manual intervals. Progress, ETA, breakdown and priority events append one durable reflow per command, left for review without a valid CAP-007 grant; replay/restart never duplicates it. Isolated outage scenarios retain baseline, displacement and proposed finite intervals without live mutation. Explicit independent human adoption rechecks every business input, UTC day, planning window and live people and atomically books every reviewed machine/person interval, or refuses with no partial booking. Frozen/unavailable or unqualified work is an explicit conflict. Customer dates/spend are refused by this door and retain separate recorded authority. Authority (ct ruling, 22 October 2026): owner, manager or planner sets, narrows or removes protection with a recorded reason and history, which moves no work. CAP-005 independent reschedule approvers (owner, manager, production and planner) adopt or decline; agents and the recorded preparer are refused, except the owner. Each adopted piece also needs its own authority: labor overtime owner/manager, machine overtime owner/manager/planner, draft work the work-draft roles. Scenario adoption is never automatic. ETA changes reflow affected work from shared named supply dates while preserving dependency buffers; uncovered inputs remain explicit conflicts. Demand scenarios add only reviewed draft work at adoption. Bounded machine/labor overtime is adopted as audited calendar windows, respecting holidays, closures, exceptions and all existing holds, without payroll effects. Inventory-withholding and alternate-supplier scenarios are isolated comparisons this door never adopts: spend is realized only through MRP-003, LARDER-007, BUY-001 and BUY-003 approvals and withheld stock only through LARDER-008, LARDER-011, STOCK-002 or TRACE-003–TRACE-005 records; a fresh scenario then compares the realized inputs. Scenario adoption is never automatic; CAP-007 owns bounded automatic sequencing. MOVE-008 covers the policy/history, event proposals, scenarios, decisions and bookings in JSON/CSV and inert restore. CAP-008 and AGENT-001 inherit these protection, stale-input, authority and archive obligations.
+**Requirement.** Planners compare baseline and isolated demand, inventory, overtime, supplier and outage scenarios without changing commitments. Exact adoption preserves frozen/manual work and revalidates every input before booking a feasible plan; hypothetical supplier spending and withheld inventory remain comparisons until their own doors record the real changes. The native decision follows RL-4. The [operating rules](docs/contract/OPERATING-DETAILS.md#mrp-004) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Compare two outage scenarios, freeze this week and adopt next week's plan; change an ETA before adoption and see stale approval refused without a partial schedule.
 
 **Evidence.** `tests/api/flows.test.mjs` — “Isolated outage scenarios protect this week and manual locks, atomically book next week and reject an ETA-stale adoption without a partial schedule”; `tests/browser/maintenance.spec.ts` — “Frozen recovery and isolated outage scenarios retain locks, show displacement and reject stale adoption at 1440/390”
-**Gap.** —
+**Gap.** None.
 
 #### MRP-005 — Supply-change act leg
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** (Carved from MRP-002 on ct's ruling of 22 October 2026.) The original MRP-002 sentence, preserved word for word: "Cancelled/late/excess supply produces expedite, defer or cancel recommendations with impact and approval." An approved expedite, deferral or cancel updates the PO line's promised date or quantity and reaches the supplier (email or portal) with the decision on record; it depends on BUY-001 supplier terms and the BUY-007 outbound documents and connections. Until this clause is done an approved expedite or deferral changes no supplier date and sends nothing, and an approved cancel only trims the unallocated quantity (MRP-002).
+**Requirement.** An authorized supply-change decision updates the requested PO line date or quantity and reaches the supplier by mail or portal, retaining the decision and supplier-confirmed result. BUY-001 supplies terms, MRP-007 the exact decision and BUY-007 the communications door. The native decision follows RL-5.
 
 **Acceptance.**
 1. Approve one expedite and one cancellation; read the PO line's new promised date and quantity and the supplier's recorded email or portal message carrying the decision.
@@ -522,7 +596,7 @@ Core · target · **missing**
 
 #### CAP-001 — Work-center calendars
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Planners define machines/work centers, parallel capacity, shifts, breaks, US holidays, maintenance, efficiency and downtime exceptions with time zone and effective dates. Planned operations occupy actual available intervals. Native machine calendars retain versioned IANA time zones, effective shift-start dates, parallel slots, integer efficiency percentages, local shift/break minutes (including overnight continuations), observed US federal holiday closures and offset-bearing downtime exceptions. Owner/manager/planner maintains machines through the ordinary atomic command door. Every occupied UTC minute is inside the named slot’s availability; efficiency stretches setup/run effort and breaks split occupied intervals. Unreleased maintenance supplies no finite capacity until actual authorized release; CAP-009’s separately labelled weekday recovery estimate remains provisional after ETA. Calendar definitions/history and exceptions inherit MOVE-008 JSON/CSV export and empty restore, asserted in the named journey.
 
@@ -530,187 +604,187 @@ Core · target · **done**
 1. Schedule across a US holiday and overnight shift, add a machine outage and verify no job occupies unavailable machine capacity.
 2. Inspect every scheduled operation's named machine and verify its occupied intervals fall within that machine's available shifts.
 
-**Evidence.** `tests/api/flows.test.mjs` — “CAP-001 persisted overnight holiday calendars, breaks, outages, efficiency and parallel named machine intervals survive archive restore”; `tests/browser/maintenance.spec.ts` — “CAP calendars and finite planning: named intervals, holiday outage and vacation, rates, critical path and count drilldowns at 1440/390” (1440/390).
-**Gap.** Holiday/overnight shifts, breaks, actual and observed closures, machine outages, maintenance release, effective dates, efficiency, parallel slots and every named occupied interval; version/restart and MOVE-008 JSON/CSV restore.
+**Evidence.** `tests/api/flows.test.mjs` — “CAP-001 persisted overnight holiday calendars, breaks, outages, efficiency and parallel named machine intervals survive archive restore”; `tests/browser/maintenance.spec.ts` — “CAP calendars and finite planning: named intervals, holiday outage and vacation, rates, critical path and count drilldowns at 1440/390”
+**Gap.** None.
 
 #### CAP-002 — Labor calendars and skills
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Supervisors schedule employees/teams by shift, availability, time off, skills and simultaneous-task limits, independent of machine availability. Wage/burden rates are restricted to accounts/authorized managers; time capture feeds costing rather than payroll. Payroll sibling: [Envelope](https://github.com/just-every/run-envelope). Person/team calendars name active native people and supervisor-authorized skill names, with independent timezone/shift/time-off availability and a task limit per named person; one person belongs to one calendar. ENG-002 supplies owner/manager supervision authority; GOV-001 supplies owner/manager/accounts employment-rate authority. Existing exact task assignments constrain projected people but a projection grants no execution assignment or certification. Employment wage/burden records and their history are omitted from other roles’ state and plan reads; operators cannot recover rework hourly-rate fields through a prior command replay, while FLOOR-004 retains its explicit production authoring authority. Completed operation clocks minus recorded pauses feed restricted costing evidence at the retained USD rate in force at start, with six-place half-up rounding and unknown cost when no historical rate exists; no payroll or ledger posting occurs. FLOOR-002 and COST-001 inherit corrections/period locks and posted actual-cost duties. Calendars, skills, rates/history and clock evidence inherit MOVE-008 JSON/CSV archive and empty restore; unmapped native people remain inert, asserted in the named journey.
+**Requirement.** Supervisors schedule employees/teams by shift, availability, time off, skills and simultaneous-task limits, independent of machine availability. Wage/burden rates are restricted to accounts/authorized managers; time capture feeds costing rather than payroll. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-002) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Give two machines one qualified operator, book vacation and run scheduling; inspect feasible assignments and deny operator access to wage rates.
 2. Inspect every scheduled operation's named qualified person and verify the assignment lies within that person's available shifts and simultaneous-task limit.
 
-**Evidence.** `tests/api/flows.test.mjs` — “CAP-002 one qualified person constrains two machines independently, vacation and task limits hold, rates are restricted and revocation blocks replay”; `tests/browser/maintenance.spec.ts` — “CAP calendars and finite planning: named intervals, holiday outage and vacation, rates, critical path and count drilldowns at 1440/390” (1440/390).
-**Gap.** Two machines/one qualified person, independent labor shifts/vacation and per-person concurrency, operator wage denial including command replay, historical wage/burden costing evidence and MOVE-008 restore.
+**Evidence.** `tests/api/flows.test.mjs` — “CAP-002 one qualified person constrains two machines independently, vacation and task limits hold, rates are restricted and revocation blocks replay”; `tests/browser/maintenance.spec.ts` — “CAP calendars and finite planning: named intervals, holiday outage and vacation, rates, critical path and count drilldowns at 1440/390”
+**Gap.** None.
 
 #### CAP-003 — Operation dependencies and blocked work
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Operations obey predecessor completion, transfer batches, overlap rules, material availability and quality gates. A blocked task shows its exact reason and owner, and becomes dispatchable only after the dependency is satisfied. Before any new operation material/quality gate ships, expose its exact live blocked reason in FLOOR-001 dispatch and enforce the same condition at operation start. **Exact rules:** Immutable routing revisions pin each operation’s predecessors, `transferBatch` in finished-item base units, `allowOverlap` and `requireMaterials`. A zero batch (the default) uses full predecessor completion without a separate handoff gate. A positive batch requires cumulative actual handoffs from every direct predecessor of at least min(batch, job quantity). Overlap is off by default and requires a positive batch when enabled; without overlap each predecessor must also be complete. Handoffs record additional completed units physically transferred, the assigned starter, server time and reason, never FLOOR-007 progress estimates or finished stock. They cannot exceed the job quantity or, for a batch-gated source, the quantity actually received from every predecessor. A batch-gated operation cannot complete before it has received the full job quantity. Owner/manager assigns inherited completed operations to an active named operator before that person records a new handoff; inherited completion does not invent a starter, clock or transfer. FLOOR-005 splits and merges retain original handoff evidence and explicit per-edge quantity allocations: completed output/scrap remains with the source; remaining handoffs allocate in the same WIP proportion, rounded down to six places with the remainder retained on the source. A configured material issue gate requires all pinned component quantities actually issued, rather than merely planned, reserved or on hand; without it no material issue condition is configured. Every current required in-process inspection on a direct predecessor needs its latest passing result under the current approved plan; an open TRACE-004 hold still requires authorized release after the retest. Recall, acknowledgment, assignment and maintenance gates also remain effective. Dispatch and start use the same current gate calculation and name the responsible person for each blocker. Routings with a configured material or transfer gate require all operations completed before finished output or job closure. FLOOR-003 still owns the full operation quantity/cost ledger, holds and dated manufacturing backorders; CAP-003 handoff evidence does not claim those. Future operation execution doors inherit these gates before shipping.
+**Requirement.** Operations obey predecessor completion, transfer batches, overlap rules, material availability and quality gates. A blocked task shows its exact reason and owner, and becomes dispatchable only after the dependency is satisfied. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-003) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Try starting coating before machining or QC release through tablet/API; inspect refusal, complete the dependency and start without bypassing it.
 
-**Evidence.** `src/larder/operation-dependencies.ts`; `src/larder/operations.ts`; `tests/api/dispatch.test.mjs`; `tests/browser/dispatch.spec.ts` (CAP-003, 1440/390)
-**Gap.** Pinned predecessor, actual transfer-batch/overlap and full material-issue rules; required predecessor QC and released holds; shared exact live blockers/owners at dispatch/start, bounded chained handoffs, no progress/stock bypass, split/merge conservation, reload/restart/archive restore.
+**Evidence.** `tests/api/dispatch.test.mjs` — “CAP-003 pinned material, predecessor, overlap, actual transfer-batch and QC gates agree at dispatch/start and survive restart/restore”; `tests/browser/dispatch.spec.ts` — “CAP-003 configure and execute material, transfer, overlap and QC dependencies through tablet dispatch at 1440/390”
+**Gap.** None.
 
 #### CAP-004 — Finite-capacity Gantt and bottlenecks
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** A production Gantt and load view place jobs in finite machine and labor capacity with due dates, setup/run durations, slack, critical path and bottlenecks. Unscheduled/unfeasible jobs remain explicit; the planner can trace each promised date to scheduled operations. The server derives a read-only versioned finite projection from current machine/labor calendars and pinned released routings (drafts use the current effective recipe). Every occupied interval names a machine slot and live qualified person; elapsed queue precedes setup/run occupation, conservatively rounded to whole minutes. Missing configuration, qualification or joint capacity within the explicit horizon remains unscheduled. Dependency CPM slack uses occupied effort plus queue; due slack compares completion with the UTC end of the due date. Open jobs with every operation completed use their latest recorded completion for lateness without invented future bars; undated legacy completion remains unproven/unscheduled. The same projection supplies Gantt intervals, today marker, job drilldowns, exact late/unscheduled ID lists and resource-load bottleneck (greatest utilization, then occupied minutes and stable ID). Existing MRP demand links trace each recorded sales delivery promise to work and operation keys; absent links are explicitly unproven, never a new material or shipping promise. Reads change no booking, execution assignment, stock or customer date. CAP-005–CAP-008, MRP-004, DEMAND-001/005 and AGENT-001 inherit these finite-calendars and explicit-unfeasible obligations before adoption or promise changes. MOVE-008 archive/restore reproduces the domain inputs and keeps unknown people inert.
+**Requirement.** A production Gantt and load view place jobs in finite machine and labor capacity with due dates, setup/run durations, slack, critical path and bottlenecks. Unscheduled/unfeasible jobs remain explicit; the planner can trace each promised date to scheduled operations. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-004) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Schedule competing multistep orders on constrained machine/labor calendars; inspect Gantt/load/critical path and infeasible work, with no simultaneous use beyond capacity.
 2. Inspect the current-day marker and derived late and unscheduled job counts; drill each count to its jobs and reconcile the named bottleneck with machine and labor load.
 3. Counts of zero require no late or unscheduled jobs in the underlying plan.
 
-**Evidence.** `tests/api/flows.test.mjs` — “CAP-004 finite multistep plan exposes critical path, load and truthful late/unscheduled drilldowns without overbooking or changing promises”; `tests/browser/maintenance.spec.ts` — “CAP calendars and finite planning: named intervals, holiday outage and vacation, rates, critical path and count drilldowns at 1440/390” (1440/390).
-**Gap.** Competing multistep confirmed orders and MRP promise/work links, named machine/labor intervals without overload, dependency critical path/slack, infeasible work, truthful late/unscheduled IDs including zero cases, and utilization-derived bottleneck; native Gantt/today/load/count drilldowns at both widths.
+**Evidence.** `tests/api/flows.test.mjs` — “CAP-004 finite multistep plan exposes critical path, load and truthful late/unscheduled drilldowns without overbooking or changing promises”; `tests/browser/maintenance.spec.ts` — “CAP calendars and finite planning: named intervals, holiday outage and vacation, rates, critical path and count drilldowns at 1440/390”
+**Gap.** None.
 
 #### CAP-005 — Drag and drop rescheduling
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Planners drag jobs or operations in the Gantt or use keyboard/date controls; preview downstream moves, displaced orders, capacity conflicts and promise changes, then approve a versioned schedule. A conflict cannot silently overload capacity. The native schedule offers a job drag and equivalent keyboard/date/priority controls through LARDER-015’s reschedule proposal door. Once machine calendars exist every reschedule door records server-derived before/after finite plans, downstream displacement, conflicts, due-date risk and linked unchanged customer promises; an earlier weekday-only proposal needs a new finite preview. Running/paused jobs cannot be selected and active work keeps first access to capacity. Existing independent reschedule approval authority applies (owner exception; agents prepare only). Approval changes only exact reviewed priority/not-before fields, never external customer promises, and keeps the named interval snapshot/version in the proposal audit. Changed-promise count is zero with before/after completion risk visible; DEMAND-005 owns amendments. The full state version, current planning window, live-native-person projection digest and atomic destination checks bind approval; shop-floor/calendar/state changes, native revocation or expiry require a new preview. Selected infeasible or newly unscheduled downstream work prevents approval rather than overloading capacity. Preview/decisions/snapshots inherit MOVE-008 JSON/CSV archive and empty restore, asserted in the named journey. CAP-006–CAP-008, MRP-004 and AGENT-001 inherit finite preview, authority, stale-input and archive obligations for their adoption doors.
+**Requirement.** Planners drag jobs or operations in the Gantt or use keyboard/date controls; preview downstream moves, displaced orders, capacity conflicts and promise changes, then approve a versioned schedule. A conflict cannot silently overload capacity. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-005) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Move an urgent job ahead of another using mouse and keyboard; compare preview and approved sequence, and reject a stale change after a shop-floor update.
 
-**Evidence.** `tests/api/flows.test.mjs` — “CAP-005 finite reschedule previews displacement and unchanged promises, requires independent approval and rejects shop-floor stale inputs or capacity conflicts”; `tests/browser/maintenance.spec.ts` — “CAP calendars and finite planning: named intervals, holiday outage and vacation, rates, critical path and count drilldowns at 1440/390” (1440/390).
-**Gap.** Finite displacement preview without mutation, exact independent approval, agent/self refusal, shop-floor stale and native-revocation refusal, capacity-conflict refusal, replay, unchanged external promises/stock and MOVE-008 snapshots; native drag and keyboard/date preview/approved sequence at both widths.
+**Evidence.** `tests/api/flows.test.mjs` — “CAP-005 finite reschedule previews displacement and unchanged promises, requires independent approval and rejects shop-floor stale inputs or capacity conflicts”; `tests/browser/maintenance.spec.ts` — “CAP calendars and finite planning: named intervals, holiday outage and vacation, rates, critical path and count drilldowns at 1440/390”
+**Gap.** None.
 
 #### CAP-006 — Alternate centers and sequence-dependent setups
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Scheduling chooses qualified alternate work centers and tools, accounts for setup families, changeover/cleanup times and minimum transfer quantities, and compares outsourcing/overtime where allowed. A chosen alternate preserves required quality/instructions. The finite projection uses the pinned routing’s qualified centers, tools and setup family; each machine slot retains its configured initial family and explicit changeover/cleanup transitions. Missing qualification or transition stays unscheduled. Sequence-configured slots advance in chronological order, including around protected bookings; unclassified pinned work remains explicitly unscheduled. Operation start retains instruction acknowledgment and refuses a different center or tooling that lost qualification. The native finite-move door compares alternatives as separate retained previews and approves exact machine choices under CAP-005’s independent authority, full-state/live-person stale checks and atomic destination guards. It preserves pinned instructions, drawings, skills, quality and transfer-batch execution gates. Consequences name setup/changeover/cleanup, occupied machine/person minutes, delivery risk and a public combined planning tariff, never private wages or actual cost postings. Optional overtime tariffs and external service quotes are comparisons only: they authorize no extra capacity, spend, provider send or custody transfer; BUY-004/COST-001 and AGENT-001 inherit their existing approvals before execution. Machine constraints/history, choices and preview/decisions inherit MOVE-008 JSON/CSV export and inert empty restore.
+**Requirement.** Scheduling chooses qualified alternate work centers and tools, accounts for setup families, changeover/cleanup times and minimum transfer quantities, and compares outsourcing/overtime where allowed. A chosen alternate preserves required quality/instructions. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-006) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Remove a primary machine, compare two eligible alternates with different changeovers, approve one and verify setup, labor, delivery and cost consequences.
 
 **Evidence.** `tests/api/flows.test.mjs` — “Qualified alternate comparison keeps pinned instructions, setup transitions, tools, labor, delivery and USD estimates through approval and restore”; `tests/browser/maintenance.spec.ts` — “Qualified alternates compare setup, tools, labor, delivery and cost before human approval at 1440/390”
-**Gap.** —
+**Gap.** None.
 
 #### CAP-007 — Live dependency-preserving reflow
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Progress, material ETA, breakdown and priority events trigger a proposed reflow preserving dependency buffers, frozen work and human overrides. Under an explicit bounded policy the planner can authorize automatic internal sequencing; external dates/spend always require their recorded authority. Implemented door: schedule protections retain exact frozen/manual intervals. Progress, ETA, breakdown and priority events append one durable reflow per command, left for review without a valid grant; replay/restart never duplicates it. Isolated outage scenarios retain baseline, displacement and proposed finite intervals without live mutation. Explicit independent human adoption rechecks every business input, UTC day, planning window and live people and atomically books every reviewed machine/person interval, or refuses with no partial booking. Frozen/unavailable or unqualified work is an explicit conflict. Customer dates/spend are refused by this door and retain separate recorded authority. Authority (ct ruling, 22 October 2026): owner, manager or planner sets, narrows or removes protection with a recorded reason and history, which moves no work. CAP-005 independent reschedule approvers (owner, manager, production and planner) adopt or decline; agents and the recorded preparer are refused, except the owner. Each adopted piece also needs its own authority: labor overtime owner/manager, machine overtime owner/manager/planner, draft work the work-draft roles. Scenario adoption is never automatic. ETA changes reflow affected work from shared named supply dates while preserving dependency buffers; uncovered inputs remain explicit conflicts. Demand scenarios add only reviewed draft work at adoption. Bounded machine/labor overtime is adopted as audited calendar windows, respecting holidays, closures, exceptions and all existing holds, without payroll effects. Inventory-withholding and alternate-supplier scenarios are isolated comparisons this door never adopts: spend is realized only through MRP-003, LARDER-007, BUY-001 and BUY-003 approvals and withheld stock only through LARDER-008, LARDER-011, STOCK-002 or TRACE-003–TRACE-005 records; a fresh scenario then compares the realized inputs. A versioned automatic-booking grant is prepared by owner/manager/planner/agent and approved by a different owner/manager/planner, with the owner exception; agents never approve. An edit stops the old approval and requires a new one. People explicitly enter event types, work-center or job scope, per-job delay and displacement limits and expiry; none has a product default. Delay is the later job finish; displacement is the largest start or finish shift of any operation in that job. Only reflows from recorded human progress, ETA, breakdown or priority commands qualify, never scenarios or agent proposals. Every application rechecks full inputs, UTC day, planning window, live people, the exact protection version and live active approver membership/role in the same atomic write. Owner, manager, approver or preparer revokes with a reason. Observed expiry, protection changes or lost approver authority suspend the grant until a fresh version is approved. Automatic applications book only unprotected in-scope machine/person intervals, preserve dependency buffers and started work on its original machine/person with first access to capacity, and refuse the entire reflow if scope, a limit, new lateness, new unscheduled work or a conflict fails. They change no customer date, spend, stock, reservation, calendar, overtime, maintenance, assignment, rank, priority, not-before date, alternate machine/tool choice, release, split/merge or draft work, and send nothing. Every application retains grant version, accountable approver, triggering command, before/after intervals and displacement once per command. GOV-002 inherits owner-set schedule threshold, dual-signature and expiry ceilings before its schedule policy ships; GOV-004 owns search/retention, OPS-001 durable-job limits and AUTO-002 notifications. MOVE-008 covers policy/history, grants, event proposals, scenarios, decisions, automatic applications and bookings in JSON/CSV and inert restore; every restored grant stays inactive until live people approve it again. CAP-008 and AGENT-001 inherit these protection, stale-input, authority and archive obligations.
+**Requirement.** Recorded progress, ETA, breakdown and priority changes can reflow internal sequencing within explicit protection, scope, displacement, delay and expiry limits. Frozen work and manual overrides stay protected; exact-version adoption refuses any newly infeasible or out-of-scope booking atomically. For agent calls, reversible internal sequencing is standard, outside promises add external and commitment, and spending adds money; the company’s policy decides each class. The native decision follows RL-6. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-007) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Stop a machine mid-job, restart the scheduler and inspect one reflow; preserve the frozen horizon and manual lock, refuse an unapproved customer promise change and show displaced work.
 
-**Evidence.** `tests/api/flows.test.mjs` — “Event recovery persists once after restart, preserves frozen and manual work, exposes displacement and refuses automatic or external authority” (progress, priority, ETA, buffers, frozen/manual slots, preparer separation and external authority); “Bounded grants independently authorize one internal reflow, stop at limits or lost authority, and restore inactive without replay” (independent scoped grants, atomic booking, unchanged stock/spend/calendars, replay/restart, limits/scope/new lateness, revocation/expiry/protection/role/membership loss and JSON/CSV inert restore); `tests/browser/maintenance.spec.ts` — “Frozen recovery and isolated outage scenarios retain locks, show displacement and reject stale adoption at 1440/390” (frozen/manual work, displaced jobs, grant preparation, bounded refusal, exact replacement approval, automatic booking and revocation at both widths)
-**Gap.** —
+**Evidence.** `tests/api/flows.test.mjs` — “Event recovery persists once after restart, preserves frozen and manual work, exposes displacement and refuses automatic or external authority”; `tests/api/flows.test.mjs` — “Bounded grants independently authorize one internal reflow, stop at limits or lost authority, and restore inactive without replay”; `tests/browser/maintenance.spec.ts` — “Frozen recovery and isolated outage scenarios retain locks, show displacement and reject stale adoption at 1440/390”
+**Gap.** None.
 
 #### CAP-008 — Grouped jobs and nesting
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Planners group compatible operations or batches and import nesting results with material yield, offcuts, setup sharing and per-job quantity and cost allocation. Groups retain each customer and job identity, required revision and due date. Implemented command API: compatible pending released jobs retain their original demand, revisions and dates. A documented nesting JSON file records one owned source lot, yield, recoverable offcut, shared setup observations and exact per-job material quantities and cost shares. Explicit audited owner approval posts all reviewed issues and offcut recovery atomically; existing per-job output and quality gates remain authoritative. Approved authority (ct ruling, 23 October 2026): only the owner explicitly approves the exact physical nest with an audited reason; a changed nest requires fresh approval. No role receives shared setup booking authority from this door. Setup shares are recorded observations, not combined finite bookings. An optional import-time comparison for single-operation pending jobs places one shared setup plus every original run estimate in an isolated finite plan with a named machine slot and live qualified person. It retains original job identities and dates, shows displacement and infeasibility and refuses booked or protected grouped work; it grants no booking authority. CONN-012 inherits the original-file, allocation, authority and stale-review obligations for its future vendor adapters.
+**Requirement.** Planners group compatible operations or batches and import nesting results with material yield, offcuts, setup sharing and per-job quantity and cost allocation. Groups retain each customer and job identity, required revision and due date. The native decision follows RL-7. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-008) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Group three sheet-metal jobs, import a nesting output, approve consumption and recoverable offcuts; trace each output and allocated cost to its original job.
 
-**Evidence.** `tests/api/flows.test.mjs` — CAP-008 three original jobs retain demand and revisions; CAP-008 owner-approved nesting consumes once, recovers a traced offcut and attributes each original output cost; CAP-008 invalid nesting and incompatible or changed jobs; CAP-008 nesting preparation obeys live roles; CAP-008 stale or impossible physical nesting approval; CAP-008 nesting cannot recover expired or controlled material. `tests/browser/work-transfers.spec.ts` — CAP-008 grouped nesting preserves three customer jobs and their allocated material costs at both widths proves page grouping, original-file import, allocation review and owner physical approval, with original demand and bookings retained.
+**Evidence.** `tests/api/flows.test.mjs`; `tests/browser/work-transfers.spec.ts`
 **Gap.** Pending unissued released jobs and one owned source material lot are supported through the command API. Shared setup observations now support an optional isolated single-operation finite comparison with one shared setup, original-job links, displacement and explicit infeasibility. It does not book capacity. Combined finite setup booking, broader batch stages and quality-controlled source recovery remain. Grouping, original-file import, exact allocation review, owner approval and cancellation now have work-order page controls. Recovered offcuts retain the source lot dates, including expiry and retest, through archive restore; the owner-approved nesting HTTP journey asserts the actual nested dates. Owner-only exact audited physical nesting approval is approved by ct; changed nests need fresh approval, with no shared setup-booking authority. Combined finite setup booking and the remaining batch and quality behavior are unproved.
 
 #### CAP-009 — Maintenance and downtime planning
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Supervisors schedule preventive maintenance and log unplanned breakdowns with owner, expected return and repair evidence; equipment stays unavailable until authorized release. Maintenance changes feed production recovery, while specialist CMMS records can link by ID. Under current roles owner/manager acts as supervisor and creates, updates and releases maintenance with a reason; production and agents cannot manage or release equipment. Repair owner is named responsibility text, not an access grant; existing operational read scopes apply. A record names an exact existing routing center, UTC start and expected return, CMMS reference and retained original evidence/digests. Breakdowns start at server time; preventive windows start at their scheduled instant. Once started, unreleased maintenance blocks operation start, resume and completion even after its ETA. Release requires a new repair evidence file and note, records the authorized person/server time and retains the immutable released record plus prior owner/ETA history. The current weekday planner moves whole affected operations and following bookings past the maintenance interval, uses the actual center for started tasks, and marks after-ETA recovery and dependent work provisional until release; these are forecasts, never dispatch authorization. Overdue unreleased ETAs project no earlier than one minute after the current read. Open work never projects before the current read. Released intervals end at actual release, not the old ETA. No maintenance action posts output, stock or changes customer promises.
+**Requirement.** Supervisors schedule preventive maintenance and log unplanned breakdowns with owner, expected return and repair evidence; equipment stays unavailable until authorized release. Maintenance changes feed production recovery, while specialist CMMS records can link by ID. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-009) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. At 1440/390 schedule preventive maintenance and log a breakdown, assign repair/ETA/CMMS ID, inspect affected and following work rescheduled with explicit provisional labels, revise owner/ETA and release after recorded repair; inspect the recovered plan, downloadable evidence/digest and full downtime trail after reload and archive restore.
-2. Assert start/resume/completion refusal while unavailable including past ETA, pre-start release refusal, unauthorized/agent/revoked-role and stale/changed-replay refusal, idempotent replay, and unchanged stock/output/promises.
+2. Assert start/resume/completion refusal while unavailable including past ETA, pre-start release refusal, unauthorized/revoked-role and stale/changed-replay refusal, idempotent replay, and unchanged stock/output/promises.
 
-**Evidence.** `src/larder/maintenance.ts`; `src/larder/maintenance-availability.ts`; `src/ui/maintenance.tsx`; `src/ui/schedule/plan.ts`; `tests/api/maintenance.test.mjs`; `tests/browser/maintenance.spec.ts` (CAP-009)
-**Gap.** Named public Worker and native-dev journeys prove preventive/breakdown records, repair/evidence/release trail, execution blocks beyond ETA, provisional recovery, archive restore and unchanged physical output/promises at 1440/390.
+**Evidence.** `tests/api/maintenance.test.mjs` — “CAP-009 preventive maintenance and breakdowns retain repair/CMMS evidence, block equipment beyond ETA and release with authority”; `tests/browser/maintenance.spec.ts` — “CAP-009 schedule maintenance, log breakdown, assign repair/ETA, inspect recovery, evidence-backed release and retained trail at 1440/390”
+**Gap.** None.
 
 ### Purchasing and suppliers
 
 #### BUY-001 — Supplier contracts and delivery rules
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Buyers maintain supplier/item codes, prices/breaks, currency, payment/freight terms, lead times, MOQs, calendars, preferred/alternate vendors and performance history. POs snapshot terms, USD exposure and delivery schedules; acknowledgments preserve supplier revisions. Native supplier quotes round total base quantity to MOQ and pack multiples, apply supplier working weekdays/closed dates and working-day lead times, and pin dated buyer-recorded currency rates with source prices and USD exposure. Approval freezes the reviewed terms and per-line delivery schedule; later acknowledgments keep complete before/after schedules. Receipt observations retain arrival, expected and original approved dates with acceptance/quarantine distinct; terms, decisions and schedules survive business archive/restore.
 
 **Acceptance.**
 1. Create two vendors with different packs/lead times, select a feasible quote, approve a PO and revise the supplier date; old approved terms remain recoverable.
 
-**Evidence.** Supplier codes/packs/MOQ/calendars/prices/currency/payment/freight/preferred alternates, feasible quote, scheduled approval/date revisions and retained terms/performance/restore: `tests/api/flows.test.mjs` — “BUY-001 supplier constraints, feasible quote and scheduled approval survive supplier revisions and restore”; two-vendor creation, feasible selection, approval/revision and recovered terms at both widths: `tests/browser/journey.spec.ts` — “BUY-001 buyers maintain two suppliers, select feasible scheduled terms and recover approval history at 1440/390”
-**Gap.** —
+**Evidence.** `tests/api/flows.test.mjs` — “BUY-001 supplier constraints, feasible quote and scheduled approval survive supplier revisions and restore”; `tests/browser/journey.spec.ts` — “BUY-001 buyers maintain two suppliers, select feasible scheduled terms and recover approval history at 1440/390”
+**Gap.** None.
 
 #### BUY-002 — Receiving against production demand
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Receivers handle partial deliveries, tolerances, damage, supplier documents, lots and inspection, then allocate accepted receipts to pegged work and sales commitments. A short delivery updates the remaining PO and downstream plan. *As built:* a delivery can carry supplier documents and, per line, damaged units that arrive in quarantine under their own lot with the reason and are never allocated; a PO line may carry a delivery tolerance of 0 to 20 percent (default 0) that admits a small over-delivery, and a delivery that falls short inside it offers the manager the MRP-002 close of the remainder; a short delivery leaves the rest open on the PO, so work shortages and the proposed date changes (MRP-002 expedites) follow from the next read. A manager, warehouse person or the owner (never an agent) turns the accepted stock into hard reservations with `receipt.allocate`, for the sales lines and released-job components the dated plan pegs it to in the plan's date order; demand reached only through a make path is listed as skipped. Ruled by ct (22 October 2026): the tolerance is 0 percent unless the buyer or a manager sets up to 20 with `po.tolerance` (audited with its reason); a delivery past it is refused (`OVER_RECEIPT`) in one delivery or across deliveries, damaged units counted, and never accepted silently; above 10 percent on an order at or above the owner's spend threshold the setting needs the GOV-002 signatures on the exact setting (a draft is approved with its tolerance among the signed lines); damaged units never reopen a received order, even when rejected afterwards; receiving reserves nothing by itself. Supplier return or credit for damaged and rejected units is BUY-006; allocation to demand reached only through a make path is BUY-008, carved from this clause.
+**Requirement.** Receivers handle partial deliveries, tolerances, damage, supplier documents, lots and inspection, then allocate accepted receipts to pegged work and sales commitments. A short delivery updates the remaining PO and downstream plan. The native decision follows RL-8. The [operating rules](docs/contract/OPERATING-DETAILS.md#buy-002) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Receive a short delivery for two pegged jobs, quarantine damaged units and allocate the accepted quantity; inspect open PO, work shortages and proposed date changes.
 
-**Evidence.** `src/larder/purchasing.ts`; `src/larder/receiving.ts`; `src/larder/supply-changes.ts`; `src/ui/supply-changes.tsx`; `tests/api/receiving.test.mjs`; `tests/browser/receiving.spec.ts` — `tests/api/receiving.test.mjs`: the short-delivery journey (7 of 10 delivered, 2 damaged and quarantined with reason and delivery note, 5 allocated to the two jobs in date order, the damaged lot never pegged, open PO, work shortage and proposed expedite, receiving reserving nothing, restart and archive restore); the tolerance journey (within, beyond and cumulative over-delivery refused with nothing recorded, the manager's close of a short remainder); the buyer-set tolerance journey (audited setting, the 20 percent limit, signatures above 10 percent at the spend threshold, damaged units never reopening the order); the make-path journey (listed as skipped, reserved for nobody); `tests/browser/receiving.spec.ts` the purchase order screen at 1440/390
-**Gap.** Conforms to ct's defaults and riders. Supplier return or credit for damaged and rejected units is BUY-006 and allocation to make-path demand is BUY-008; both stay missing and visible.
+**Evidence.** `tests/api/receiving.test.mjs` — “BUY-002 a short delivery for two pegged jobs quarantines the damaged units, keeps supplier documents, allocates only the accepted stock to the jobs and shows the late remainder as an expedite”; `tests/api/receiving.test.mjs` — “BUY-002 a line tolerance accepts a small over-delivery, refuses more, and a delivery within it offers the manager a close of the remainder”; `tests/api/receiving.test.mjs` — “BUY-002 the buyer sets a line tolerance up to 20 percent with the setting audited, above 10 percent on a PO at or above the spend threshold it needs the policy signatures, and damaged units never reopen a received PO”; `tests/api/receiving.test.mjs` — “BUY-002 accepted stock needed only through a make path is listed as skipped and reserved for nobody, and allocation stays a person's act”
+**Gap.** None.
 
 #### BUY-003 — Purchasing approvals and three-way match
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Amount and category rules route PO and change approvals to authorized people with separation of duties. Supplier bills match PO, accepted receipts, freight and tax; quantity, price and currency differences wait for accounts approval before ledger posting. The PO list and the state API show each PO's billing status (Not billed, Partially billed, Billed) and the bills' payment state read back from the connected books, sortable and filterable. Existing GOV-002 spend policies govern PO approval thresholds and separation. CT approves the interim policy with riders, 26 October 2026. Accounts resolves supplier invoice variances independently of the invoice capturer, except that the native owner may resolve their own capture with the exception recorded. Only the native owner approves the exact resolved invoice version for accountant handoff preparation. Resolution and approval retain actor, time, reason, evidence references and the exact reviewed inputs: original supplier document and digest, supplier and invoice identity, currency, PO version and approved terms, accepted receipt evidence and quantities, previously approved billed quantities, invoice quantities and prices, freight, tax, totals and every quantity, price and currency variance and its disposition. A changed PO or any changed matching or resolution input requires renewed resolution and fresh owner approval; live authority and state are rechecked atomically. The owner exception waives only independence, never required evidence, PO approval policy, duplicate protection, stale refusal or exact matching. Cross-currency approval is refused without recorded ledger conversion; buyer-recorded PO exposure rates do not establish ledger conversion. Local approved quantities derive Not billed, Partially billed and Billed; they do not establish that a bill was posted in the books. Payment remains explicitly not connected until read back from the authoritative ledger. Local handoff approval and any acknowledgement labelled locally recorded certify only the identified local decision or handoff record, never provider posting, payment, accounting or tax correctness. BUY-003 remains PARTIAL. Gaps: supplier-category routing, invoice and resolution forms, PO list billing display with sorting and filtering, quantity and currency variance decision proof, live bill posting, ledger currency conversion and connected payment readback through QuickBooks Online or Xero. The full original target and acceptance journey remain required, including configured self-approval refusal, threshold approvals, one posted bill, incremental billing and payment state read back from the books. Native progress: invoice capture, evidenced variance resolution and owner handoff approval forms show local billing state; the PO list displays billing and disconnected payment state with billing filters and billing or supplier sorting. Current remaining work: supplier-category routing, quantity and currency variance decision proof, live bill posting, ledger conversion and connected payment readback through CONN-001 or CONN-002, and complete assertion coverage of the CT decision-input riders. The ruling paragraph above is retained verbatim, including its original Gap inventory.
+**Requirement.** Amount and category rules route PO and change approvals to authorized people with separation of duties. Supplier bills match PO, accepted receipts, freight and tax; quantity, price and currency differences wait for accounts approval before ledger posting. The native decision follows RL-9. The [operating rules](docs/contract/OPERATING-DETAILS.md#buy-003) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Approve a PO below and above a threshold, upload a mismatching supplier invoice and part receipt; resolve the variance, post one bill and deny self-approval under the configured rule.
 2. The PO list and state API show the PO as Partially billed, then Billed after the second bill, and its payment state after the bills are paid in the connected books; filter the PO list by billing status.
 
-**Evidence.** `src/larder/purchasing.ts`; `src/larder/roles.ts`; `tests/api/authority.test.mjs`; `tests/api/flows.test.mjs` — "Supplier invoices retain three-way variances, refuse self-resolution and duplicate bills, and expose incremental billing without invented payment state" proves invoice capture, price and receipt evidence, independent resolution, no premature approval, partial then full billing and explicit disconnected payment state; existing GOV-002 journeys prove threshold signatures Additional native evidence: `src/ui/purchase-accounting.tsx`; `src/larder/trace-graph.ts`; `tests/browser/receiving.spec.ts` — "Supplier credit and landed-cost corrections reach the accountant handoff with source links at 1440 and 390" exercises invoice capture and resolution, owner approval, claim dispatch, quarantined replacement, original-bill credit, local closure, allocation review and PO billing filters and sort; the existing supplier RMA API journey asserts exact replacement genealogy in both directions and CSV.
-**Gap.** CT approves the interim policy with riders, 26 October 2026. Accounts resolves supplier invoice variances independently of the invoice capturer, except that the native owner may resolve their own capture with the exception recorded. Only the native owner approves the exact resolved invoice version for accountant handoff preparation. Resolution and approval retain actor, time, reason, evidence references and the exact reviewed inputs: original supplier document and digest, supplier and invoice identity, currency, PO version and approved terms, accepted receipt evidence and quantities, previously approved billed quantities, invoice quantities and prices, freight, tax, totals and every quantity, price and currency variance and its disposition. A changed PO or any changed matching or resolution input requires renewed resolution and fresh owner approval; live authority and state are rechecked atomically. The owner exception waives only independence, never required evidence, PO approval policy, duplicate protection, stale refusal or exact matching. Cross-currency approval is refused without recorded ledger conversion; buyer-recorded PO exposure rates do not establish ledger conversion. Local approved quantities derive Not billed, Partially billed and Billed; they do not establish that a bill was posted in the books. Payment remains explicitly not connected until read back from the authoritative ledger. Local handoff approval and any acknowledgement labelled locally recorded certify only the identified local decision or handoff record, never provider posting, payment, accounting or tax correctness. BUY-003 remains PARTIAL. Gaps: supplier-category routing, invoice and resolution forms, PO list billing display with sorting and filtering, quantity and currency variance decision proof, live bill posting, ledger currency conversion and connected payment readback through QuickBooks Online or Xero. The full original target and acceptance journey remain required, including configured self-approval refusal, threshold approvals, one posted bill, incremental billing and payment state read back from the books. Native progress: invoice capture, evidenced variance resolution and owner handoff approval forms show local billing state; the PO list displays billing and disconnected payment state with billing filters and billing or supplier sorting. Current remaining work: supplier-category routing, quantity and currency variance decision proof, live bill posting, ledger conversion and connected payment readback through CONN-001 or CONN-002, and complete assertion coverage of the CT decision-input riders. The ruling paragraph above is retained verbatim, including its original Gap inventory.
+**Evidence.** `src/larder/purchasing.ts`; `src/larder/roles.ts`; `tests/api/authority.test.mjs`; `tests/api/flows.test.mjs`; `src/ui/purchase-accounting.tsx`; `src/larder/trace-graph.ts`; `tests/browser/receiving.spec.ts`
+**Gap.** Native capture, independent resolution, local owner handoff and billing displays ship. Missing journey: supplier-category routing, quantity/currency variance decisions and all exact CT decision-input riders, authoritative bill posting, ledger conversion and QBO/Xero payment readback.
 
 #### BUY-004 — Subcontract and free-issue production
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Buyers issue components to subcontractors, track stock at their location, place subcontract operations/POs and receive finished work with service costs, yield and lot links. Co-manufacturing tracks customer-owned materials separately without valuing them as owned inventory. Buyers/managers and agents prepare service drafts; a different buyer/manager approves their exact operation, output quantity, service rate and exposure, except that the owner may approve their own draft. Buyers/warehouse staff/managers record actual dispatch, receipt and unused-material return; accounts/managers record supplier bill reconciliation. Agents never approve or post custody, stock or bills. Owned free-issue lots move to quarantined vendor custody, excluded from promises, and only the subcontract door consumes or returns that custody. Each receipt records exact input-lot consumption, good and scrap quantities in the output item's base unit, time, supplier evidence and finished-lot links. Cumulative good plus scrap cannot exceed approved output quantity; per-input consumption plus returns cannot exceed dispatched quantity. Service accrues at the approved rate multiplied by good plus scrap; material plus service is allocated equally per good/scrap unit, requiring an exact six-decimal unit cost, with scrap value retained separately. Yield is cumulative good divided by cumulative good plus scrap, truncated to six decimal places. Receipt output inherits existing TRACE-004 receipt inspection and TRACE-007 certificate gates. Customer property has a separate append-only customer/item/lot/location custody ledger, excluded from owned movements, availability and valuation; finished lots retain that customer, with zero owned inventory value while service accrues separately. Bills retain evidence, reference, recorded amount, accrued expectation and difference; a local recorded match never claims provider verification, and later receipts recompute any interim bill difference. Existing GOV-001 future roles inherit these obligations before shipping.
+**Requirement.** Buyers issue components to subcontractors, track stock at their location, place subcontract operations/POs and receive finished work with service costs, yield and lot links. Co-manufacturing tracks customer-owned materials separately without valuing them as owned inventory. The [operating rules](docs/contract/OPERATING-DETAILS.md#buy-004) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Send two material lots to an outside finisher, part-receive finished goods and scrap, reconcile remaining free-issue stock and service bill, and trace the finished lot.
 
-**Evidence.** `src/larder/subcontract.ts`; `src/larder/subcontract-custody.ts`; `src/ui/subcontract.tsx`; `tests/api/subcontract.test.mjs`; `tests/browser/subcontract.spec.ts`
-**Gap.** —
+**Evidence.** `tests/api/subcontract.test.mjs` — “TRACE-001 / BUY-004 two-lot free issue, partial good/scrap, service bill, customer ownership and finished-lot genealogy”
+**Gap.** None.
 
 #### BUY-005 — Landed costs
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Accounts allocates freight, duty, insurance and handling across receipts by explicit weight, value or quantity policy, supports later supplier charges and approved cost corrections, and reconciles stock, consumed COGS and WIP without rewriting prior movements. CT approves the interim policy with riders, 26 October 2026. Accounts prepares inert, versioned allocations of freight, duty, insurance and handling using an explicitly selected quantity, receipt value or supplied weight policy. Only the native owner approves the unchanged exact allocation. Approval binds the charge document and evidence, currency and signed amount, any original approved charge referenced by a negative correction, selected receipt movements and quantities, allocation basis and weights or values, rounding and remainder treatment, reviewed consumption and attribution to stock, direct COGS and open WIP, and each resulting correction line. Changed source, allocation, attribution or state inputs require fresh review and refuse stale approval. The owner may prepare and approve an allocation; that exception is recorded and grants no authority to bypass stale refusal, exact conservation or supported attribution. Each decision retains actor, time, reason, evidence references and its exact input version. Approved allocations create separate, source-linked, once-only accountant correcting handoff lines without rewriting physical movements. They do not change the valuation subledger or send provider journals. Any accountant acknowledgement is labelled locally recorded and identifies only the local lines acknowledged; it does not establish ledger acceptance, corrected valuation, accounting or tax correctness, or compliance with a costing standard. BUY-005 remains PARTIAL. Gaps: allocation forms, completed-production downstream attribution, unsupported return attribution, actual valuation subledger correction and approved correcting journals with reconciliation and provider readback in QuickBooks Online or Xero. Unsupported attribution is refused rather than estimated. The full original target and acceptance journey remain required. Native progress: allocation forms select exact receipt movements, charge kind, quantity, value or supplied weight basis and any approved charge corrected; the owner reviews the exact stock, direct COGS and open WIP lines before approval. Current remaining work: completed-production downstream attribution, unsupported return attribution, actual valuation subledger correction, approved ledger journals with reconciliation and provider readback through CONN-001 or CONN-002, and complete assertion coverage of the CT decision-input riders. The ruling paragraph above is retained verbatim, including its original Gap inventory.
+**Requirement.** Accounts allocates freight, duty, insurance and handling across receipts by explicit weight, value or quantity policy, supports later supplier charges and approved cost corrections, and reconciles stock, consumed COGS and WIP without rewriting prior movements. CT approves the interim policy with riders, 26 October 2026. The native decision follows RL-10. The [operating rules](docs/contract/OPERATING-DETAILS.md#buy-005) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Allocate a late freight bill across partly consumed receipts, review stock, COGS and WIP adjustments and send approved correcting journals to the ledger.
 
-**Evidence.** `src/larder/purchasing.ts`; `src/larder/handoff.ts`; `tests/api/flows.test.mjs` — "Late landed charges allocate exact stock and open WIP corrections by explicit policy, reject stale approval and hand off each correction once" proves versioned quantity allocation, conserved late signed corrections, stock and open WIP attribution, unchanged movements and once-only handoff; `tests/browser/receiving.spec.ts` — "Supplier credit and landed-cost corrections reach the accountant handoff with source links at 1440 and 390" proves receipt-value allocation and accountant review; `tests/api/flows.test.mjs` — "Late landed charges conserve quantity, value and weight allocations across receipts and direct COGS" proves multiple receipts and all three bases, direct COGS and exact conserved handoff totals Additional native evidence: `src/ui/purchase-accounting.tsx`; `src/larder/trace-graph.ts`; `tests/browser/receiving.spec.ts` — "Supplier credit and landed-cost corrections reach the accountant handoff with source links at 1440 and 390" exercises invoice capture and resolution, owner approval, claim dispatch, quarantined replacement, original-bill credit, local closure, allocation review and PO billing filters and sort; the existing supplier RMA API journey asserts exact replacement genealogy in both directions and CSV.
-**Gap.** CT approves the interim policy with riders, 26 October 2026. Accounts prepares inert, versioned allocations of freight, duty, insurance and handling using an explicitly selected quantity, receipt value or supplied weight policy. Only the native owner approves the unchanged exact allocation. Approval binds the charge document and evidence, currency and signed amount, any original approved charge referenced by a negative correction, selected receipt movements and quantities, allocation basis and weights or values, rounding and remainder treatment, reviewed consumption and attribution to stock, direct COGS and open WIP, and each resulting correction line. Changed source, allocation, attribution or state inputs require fresh review and refuse stale approval. The owner may prepare and approve an allocation; that exception is recorded and grants no authority to bypass stale refusal, exact conservation or supported attribution. Each decision retains actor, time, reason, evidence references and its exact input version. Approved allocations create separate, source-linked, once-only accountant correcting handoff lines without rewriting physical movements. They do not change the valuation subledger or send provider journals. Any accountant acknowledgement is labelled locally recorded and identifies only the local lines acknowledged; it does not establish ledger acceptance, corrected valuation, accounting or tax correctness, or compliance with a costing standard. BUY-005 remains PARTIAL. Gaps: allocation forms, completed-production downstream attribution, unsupported return attribution, actual valuation subledger correction and approved correcting journals with reconciliation and provider readback in QuickBooks Online or Xero. Unsupported attribution is refused rather than estimated. The full original target and acceptance journey remain required. Native progress: allocation forms select exact receipt movements, charge kind, quantity, value or supplied weight basis and any approved charge corrected; the owner reviews the exact stock, direct COGS and open WIP lines before approval. Current remaining work: completed-production downstream attribution, unsupported return attribution, actual valuation subledger correction, approved ledger journals with reconciliation and provider readback through CONN-001 or CONN-002, and complete assertion coverage of the CT decision-input riders. The ruling paragraph above is retained verbatim, including its original Gap inventory.
+**Evidence.** `src/larder/purchasing.ts`; `src/larder/handoff.ts`; `tests/api/flows.test.mjs`; `tests/browser/receiving.spec.ts`; `tests/api/flows.test.mjs`; `src/ui/purchase-accounting.tsx`; `src/larder/trace-graph.ts`; `tests/browser/receiving.spec.ts`
+**Gap.** Native quantity/value/weight allocations and exact once-only handoff corrections ship. Missing journey: completed-production and return attribution, valuation-subledger correction, all CT decision-input riders and correcting QBO/Xero journals with reconciliation/readback.
 
 #### BUY-006 — Supplier returns and credits
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Receivers initiate supplier RMAs for rejected or excess material with lot, serial and quantity evidence, ship only eligible stock and match replacement or vendor credit to the original receipt and bill. Open claims have owner and due date. CT approves the interim policy with riders, 26 October 2026. The initiating receiver owns the claim and its follow-up, with a recorded due date and evidence; claim ownership grants no dispatch, settlement or closure authority. Only the native owner records dispatch of eligible quantities, replacement receipt into quarantine, credit settlement and closure. Every consequential decision retains the actor, time, reason, evidence references and exact reviewed inputs: claim version, original receipt movement, item, lot and serial identities where applicable, eligible and previously dispatched quantities, replacement quantities and identities, original approved bill, credit currency, amount and allocation basis, prior settlements and the acknowledgement used for closure. Changed inputs or lost authority require fresh review and refuse stale execution. The owner may act on a claim they initiated; this exception is recorded and waives no stock, evidence, settlement or quarantine safeguard. Replacements remain quarantined until the separately authorized quality release. Credits require matching accountant acknowledgements labelled locally recorded before a fully settled claim can close. Locally recorded means that Larder retains a person’s acknowledgement of the identified local credit and handoff evidence; it does not certify supplier acceptance, ledger matching, provider posting, payment, tax treatment or physical receipt. No outbound provider action occurs. BUY-006 remains PARTIAL. Gaps: RMA forms, replacement genealogy and supplier credit matching and reconciliation to the authoritative QuickBooks Online or Xero ledger, including required provider readback. The full original target and acceptance journey remain required; TRACE-002 serial capability is not a reason to defer replacement genealogy. Native progress: supplier return, dispatch, quarantined replacement, credit and local closure forms now use the existing command door. Replacement genealogy links the original lot and receipt movement to each replacement in trace JSON, CSV and the lot screen. Current remaining work: authoritative supplier credit reconciliation and provider readback through CONN-001 or CONN-002, and complete assertion coverage of the CT decision-input riders. The ruling paragraph above is retained verbatim, including its original Gap inventory.
+**Requirement.** Receivers initiate supplier RMAs for rejected or excess material with lot, serial and quantity evidence, ship only eligible stock and match replacement or vendor credit to the original receipt and bill. Open claims have owner and due date. The native decision follows RL-11. The [operating rules](docs/contract/OPERATING-DETAILS.md#buy-006) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Reject a received lot, ship a partial supplier return, receive a replacement and match the remaining credit; verify stock, trace and purchasing and accounting balances.
 
-**Evidence.** `src/larder/purchasing.ts`; `src/larder/handoff.ts`; `tests/api/flows.test.mjs` — "Supplier RMA settles a partial rejected lot with quarantined replacement and reconciled original-bill credit without rewriting stock" proves exact receipt and lot linkage, partial dispatch, replacement and original-bill credit, owner and due date, trace stock balances, matching accountant acknowledgement, replay, restart and archive restore; `tests/browser/receiving.spec.ts` — "Supplier credit and landed-cost corrections reach the accountant handoff with source links at 1440 and 390" proves credit review and reconciliation on the existing screen; `tests/api/flows.test.mjs` — "Supplier serial replacement keeps one-unit identity, refuses reused and fractional serials, and remains quarantined" proves serial replacement; "Supplier financial state and original evidence obey live cost restrictions" proves protected invoice values and original attachments Additional native evidence: `src/ui/purchase-accounting.tsx`; `src/larder/trace-graph.ts`; `tests/browser/receiving.spec.ts` — "Supplier credit and landed-cost corrections reach the accountant handoff with source links at 1440 and 390" exercises invoice capture and resolution, owner approval, claim dispatch, quarantined replacement, original-bill credit, local closure, allocation review and PO billing filters and sort; the existing supplier RMA API journey asserts exact replacement genealogy in both directions and CSV.
-**Gap.** CT approves the interim policy with riders, 26 October 2026. The initiating receiver owns the claim and its follow-up, with a recorded due date and evidence; claim ownership grants no dispatch, settlement or closure authority. Only the native owner records dispatch of eligible quantities, replacement receipt into quarantine, credit settlement and closure. Every consequential decision retains the actor, time, reason, evidence references and exact reviewed inputs: claim version, original receipt movement, item, lot and serial identities where applicable, eligible and previously dispatched quantities, replacement quantities and identities, original approved bill, credit currency, amount and allocation basis, prior settlements and the acknowledgement used for closure. Changed inputs or lost authority require fresh review and refuse stale execution. The owner may act on a claim they initiated; this exception is recorded and waives no stock, evidence, settlement or quarantine safeguard. Replacements remain quarantined until the separately authorized quality release. Credits require matching accountant acknowledgements labelled locally recorded before a fully settled claim can close. Locally recorded means that Larder retains a person’s acknowledgement of the identified local credit and handoff evidence; it does not certify supplier acceptance, ledger matching, provider posting, payment, tax treatment or physical receipt. No outbound provider action occurs. BUY-006 remains PARTIAL. Gaps: RMA forms, replacement genealogy and supplier credit matching and reconciliation to the authoritative QuickBooks Online or Xero ledger, including required provider readback. The full original target and acceptance journey remain required; TRACE-002 serial capability is not a reason to defer replacement genealogy. Native progress: supplier return, dispatch, quarantined replacement, credit and local closure forms now use the existing command door. Replacement genealogy links the original lot and receipt movement to each replacement in trace JSON, CSV and the lot screen. Current remaining work: authoritative supplier credit reconciliation and provider readback through CONN-001 or CONN-002, and complete assertion coverage of the CT decision-input riders. The ruling paragraph above is retained verbatim, including its original Gap inventory.
+**Evidence.** `src/larder/purchasing.ts`; `src/larder/handoff.ts`; `tests/api/flows.test.mjs`; `tests/browser/receiving.spec.ts`; `tests/api/flows.test.mjs`; `src/ui/purchase-accounting.tsx`; `src/larder/trace-graph.ts`; `tests/browser/receiving.spec.ts`
+**Gap.** Native claims, dispatched quantities, quarantined replacement genealogy and local credit closure ship. Missing journey: authoritative supplier credit matching/reconciliation/readback and all CT decision-input riders.
 
 #### BUY-007 — Supplier and customer communications
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-MAIL-001, BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Larder sends approved POs, acknowledgments, RFQs, supplier ETA chases, customer quotes, sales-order confirmations, packing slips, invoices and promise notices by Base mail through Microsoft 365/Gmail or the configured delivery provider, each as the branded COST-007 document attached to the record. Threaded inbound replies and attachments are untrusted evidence, with delivery/failure/unknown outcomes and visible follow-up.
 
@@ -722,349 +796,349 @@ Core · target · **missing**
 
 #### BUY-008 — Allocation of accepted receipts to make-path demand
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** (Carved from BUY-002 on ct's ruling of 22 October 2026.) The original BUY-002 sentence, preserved word for word: "Receivers handle partial deliveries, tolerances, damage, supplier documents, lots and inspection, then allocate accepted receipts to pegged work and sales commitments." Allocation today reaches only demand the plan pegs directly (a sales line or a released job's component); accepted stock needed only through a make path is listed as skipped. This clause lets a manager, warehouse person or the owner allocate such stock explicitly, never automatically, to the released jobs that make the product, with the reservation, its source receipt and the person on record. *As built (ct ruling, 22 October 2026; the BUY-002 phrase "never to demand reached only through a make path" is withdrawn):* `receipt.allocate.job` is a person's act (a manager, a warehouse person or the owner; an agent may propose and never allocates, and nothing allocates automatically) naming the receipt, one released job, the component, the quantity and a reason; a draft, closed, cancelled or quality-held job refuses (`STATE`, `QUALITY_HOLD`; a job is cancelled only while still a draft, so no reservation outlives one), and so does a quantity above what the job still needs. Only accepted, unreserved stock of that receipt can be reserved: damaged units and quarantined or rejected lots are never counted. Taking stock already reserved to another demand needs `takeFrom` naming that reservation, a manager or the owner and the reason, and shrinks that reservation; the approval record (`receipt-allocation`) names the receipt, the job, the reservation, the quantity, the person's role and anything taken from, and the command is in the audit with its actor and reason. Closing the job returns what is still reserved to it (`wo.close`). It asks for no GOV-002 signature, being a reservation and not a write-off (`src/larder/receipt-job-allocation.ts`, `src/ui/receipt-job-allocation.tsx`).
+**Requirement.** Accepted receipt stock needed through a make path can be reserved explicitly to the released job making the product, retaining receipt, component, quantity, allocator and reason. Only accepted unreserved stock qualifies; taking an existing reservation needs the documented manager/owner decision, and held, draft, closed or overfilled jobs refuse. A reservation carries standard for agent calls, decided by the company’s policy. The native decision follows RL-12. The [operating rules](docs/contract/OPERATING-DETAILS.md#buy-008) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Receive a component used only by a made product on a confirmed order, allocate it to the job that makes the product and read the reservation, its receipt and the allocator.
 
-**Evidence.** `src/larder/receipt-job-allocation.ts`; `src/larder/api.ts`; `src/ui/receipt-job-allocation.tsx`; `src/ui/make.tsx`; `tests/api/receiving.test.mjs` (BUY-008: refusals by role, job state and stock, the allocation and its record, taking reserved stock, the audit, close returns the reservation); `tests/browser/receiving.spec.ts` (allocate to a job at 1440/390)
-**Gap.** Conforms to the ruled form: manual, released jobs only, accepted unreserved stock only, reserved stock only by a manager or the owner with a reason, no signatures. No door cancels a released job, so closing is the one way a reservation returns; held means an open quality hold.
+**Evidence.** `tests/api/receiving.test.mjs` — “BUY-008 accepted receipt stock is allocated by hand to a released job that makes the product, never to draft, held or closed jobs, never quarantined stock, and reserved stock only by a manager or the owner with a reason”
+**Gap.** None.
 
 #### BUY-009 — Requested and supplier-confirmed dates on a PO line
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-AUDIT-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** (Carved from MRP-005 on ct's ruling of 22 October 2026; the rider's original wording:) "Keep two fields: the line's requested date (set by the approved MRP-002 decision, changes no supplier date) and its supplier-confirmed date. A buyer may record a supplier confirmation received outside the product (phone, email) with source and reference, audited; that manual door is buildable now as its own clause, and BUY-007 mail later fills the same field." *As built:* an approved expedite or deferral sets the line's `requestedDate` and changes no supplier date, stock or reservation; `po.confirm` (a manager or buyer, never an agent) records a supplier confirmation received outside the product for the order or one line, with a source (phone, email, portal, in person or other), the supplier's reference and an optional evidence file, and sets the line's supplier-confirmed date (`confirmedDate`, with the `confirmation` record: date, source, reference, who, when) and its promised date to the supplier's; the order's history and the audit carry it, and the PO screen shows the requested and confirmed dates beside the delivery date. The BUY-007 inbound mail door fills the same `confirmedDate` and `confirmation` fields with source `email` and the message reference; MRP-005 stays missing until that mail door exists.
+**Requirement.** A PO line retains its requested date separately from the supplier-confirmed date. A buyer records an outside confirmation with its source, reference and original evidence; inbound mail fills the same confirmation record. The screen and audit show both dates without treating a request as supplier agreement. The native decision follows RL-13. The [operating rules](docs/contract/OPERATING-DETAILS.md#buy-009) retain the detailed bounds and record semantics.
 
 **Acceptance.**
-1. Approve a deferral on a PO line and read its requested date with the supplier's date unchanged; as a buyer record the supplier's phone confirmation with its reference, and read the supplier-confirmed date beside the requested date and the promised date, with the audit entry; an agent and a confirmation without a source are refused.
+1. Approve a deferral on a PO line and read its requested date with the supplier's date unchanged; as a buyer record the supplier's phone confirmation with its reference, and read the supplier-confirmed date beside the requested date and the promised date, with the audit entrya confirmation without a source are refused.
 
-**Evidence.** `src/larder/purchasing.ts`; `src/larder/supply-changes.ts`; `src/ui/make.tsx`; `tests/api/supply-changes.test.mjs` (MRP-002 deferral: the requested date, the supplier's confirmation with source and reference, the audit, refusals)
-**Gap.** The BUY-007 mail door later fills the same field; MRP-005 (updating the line from an approved change and reaching the supplier) stays missing until then.
+**Evidence.** `tests/api/supply-changes.test.mjs` — “MRP-007 supply that lands weeks before its demand recommends a deferral to the day it is first needed and an approved deferral is only a recorded request, and the supplier's confirmation lands beside it as its own date, audited”
+**Gap.** None.
 
 ### Shop-floor execution
 
 #### FLOOR-001 — Tablet and phone dispatch
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** An operator sees assigned ready/blocked operations, priority, drawings, BOM revision, quantities and safety/quality checks on a shop-floor tablet or phone. Start, pause, resume and complete record named operator, station and reason; gloves/large targets and shared-station reauthentication are supported. Operators use the GOV-001 operator role or the production role; owner/manager assigns a named active operator, production person, manager or owner to each released operation. Every new start requires that assignment, a station name and a reason; completion requires the same assigned starter and a reason. Start/pause/resume/complete retain the named operator, station, equipment, server time and reason without posting output or stock. The existing native Sign out revokes the station session; the next person signs in normally. Legacy running/paused work without assignment can be explicitly assigned by a manager only to its recorded starter, with a migration reason; its absent historical station stays “not recorded”. Current safety/quality context shows pinned instruction/drawing acknowledgment, predecessor and maintenance gates plus required output-certificate context, with unconfigured operation inspections labelled honestly. Before operation-specific material/quality gates ship, CAP-003 and TRACE-004 must enforce them at the command door and show their exact blocked reasons in this dispatcher. Existing operational read scopes apply; a production person or operator executes only their own assigned task (an operator cannot acknowledge an operation that is not assigned to them), and agents never execute or assign.
+**Requirement.** An operator sees assigned ready/blocked operations, priority, drawings, BOM revision, quantities and safety/quality checks on a shop-floor tablet or phone. Start, pause, resume and complete record named operator, station and reason; gloves/large targets and shared-station reauthentication are supported. The [operating rules](docs/contract/OPERATING-DETAILS.md#floor-001) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. At 1440 and 390 widths dispatch two real jobs, attempt blocked work, sign out a shared station and complete one operation; task state survives reload and another operator sees the update.
 
-**Evidence.** `src/larder/operations.ts`; `src/ui/dispatch.tsx`; `src/ui/work-operations.tsx`; `tests/api/dispatch.test.mjs`; `tests/browser/dispatch.spec.ts` (FLOOR-001)
-**Gap.** Named public Worker/native-dev journeys prove two assigned jobs, blocked starts, pinned drawings/check context, priority/quantities, named station and execution reasons, pause/resume/completion, independent-operator reload and native shared-station sign-out/sign-in at 1440/390; no physical output is invented.
+**Evidence.** `tests/api/dispatch.test.mjs` — “FLOOR-001 assigned dispatch gates, station/reason history, authority, replay and legacy migration through public doors”; `tests/browser/dispatch.spec.ts` — “FLOOR-001 dispatch two jobs, deny blocked work, execute named station reasons and reauthenticate a shared station at 1440/390”
+**Gap.** None.
 
 #### FLOOR-002 — Actual labor and operation time
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001, BASE-AUDIT-001, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Operators clock setup/run/cleanup time, parallel attendance and pauses against operations. Supervisors approve corrections with reason; overlapping/impossible entries are flagged, and locked periods need accounts approval to reopen. Costing uses effective authorized rates. A clocked entry belongs to one person, one operation of released work and one phase; a crew attends one operation in parallel, but one person is on one thing at a time, so a second tap on the same phase or an entry overlapping the person's other time is refused. A correction to an entry's start or stop is requested by that person (or a manager) with a reason and approved or declined with a reason by a different manager (the owner excepted); an impossible span (stop not after start, a stop in the future, more than sixteen hours) or one overlapping the person's other time is refused. Accounts (or the owner) lock a period that has ended; no entry or correction in it changes until accounts reopen it with a reason, and managers cannot reopen it. Closed entries are costed from worked time (span minus pauses) at the retained rate in force when each began, or when it was first clocked if a correction moves the start before any retained rate; an operation with clocked entries is not costed again from its operation times, and nothing posts to payroll. GOV-001 wage scope: labor and burden rates and anything computed from them read `restricted` for a member the owner restricts, in this clause's own screens, API and downloads, and its acceptance proves it.
+**Requirement.** Operators clock setup and run time, pauses and crew work against their assigned operation, retaining actual worked time once for costing rather than payroll. Under RL-102, accounts or owner controls periods and a different manager decides reasoned corrections, with the recorded owner exception. Entries are nonoverlapping bounded operational segments; start-time rates are retained, an unsupported fallback is labelled a costing assumption, and refused long spans remain recoverable as actual worked segments. GOV-015 protects wage data. The [operating rules](docs/contract/OPERATING-DETAILS.md#floor-002) retain the detailed bounds and record semantics. Native-person signatures remain exact; an equivalent agent action carries standard and sensitive under the company’s policy.
 
 **Acceptance.**
 1. Clock a setup and run, pause for breakdown, correct a missed stop and approve it; verify cost and audit while a duplicate tap and overlapping shift cannot double labor.
 
-**Evidence.** `src/larder/time-entries.ts`; `src/larder/scheduling/labor-costs.ts`; `src/larder/api.ts`; `src/ui/time-clock.tsx`; `src/ui/work-operations.tsx`; `tests/api/downtime.test.mjs` (FLOOR-002: setup and run clocked, a duplicate tap, a second phase and an unassigned operation refused, a crew member clocked in parallel, a breakdown pause and resume, a missed stop corrected with a reason and approved by a supervisor, impossible and overlapping spans refused, cost at the retained rate counting each worked hour once, wage restriction, a locked period refusing a correction until accounts reopen it, and the audit of every event); `tests/browser/downtime.spec.ts` (FLOOR-002 at 1440/390)
-**Gap.** Every acceptance point runs in the named journeys. Held at partial until ct approves the defaults adopted with no ruling: accounts or the owner alone lock and reopen a period (a manager cannot reopen); a different manager decides every correction (owner excepted); a span is at most sixteen hours; a rate is the one in force when the entry began (falling back to when it was first clocked); clocked time posts nothing to payroll.
+**Evidence.** `src/larder/time-entries.ts`; `src/larder/scheduling/labor-costs.ts`; `src/larder/api.ts`; `src/ui/time-clock.tsx`; `src/ui/work-operations.tsx`; `tests/api/downtime.test.mjs`; `tests/browser/downtime.spec.ts`
+**Gap.** The cited clock/correction journeys show setup, run, pauses, period locks and retained costing. Missing journey: identify a fallback as an assumption where historical rate authority is absent and recover an overlong refused span as complete actual worked segments under RL-102; no payroll posting.
 
 #### FLOOR-003 — WIP and manufacturing backorders
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Supervisors see quantities and actual costs waiting, running, completed, held and scrapped by operation. Partial completion transfers only permitted quantity to downstream work, and uncompleted demand remains a dated manufacturing backorder with material/capacity commitments.
+**Requirement.** Supervisors see quantities and actual costs waiting, running, completed, held and scrapped by operation. Partial completion transfers only permitted quantity to downstream work, and uncompleted demand remains a dated manufacturing backorder with material/capacity commitments. The [operating rules](docs/contract/OPERATING-DETAILS.md#floor-003) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Complete six of ten units at operation one, transfer four downstream, hold two and backorder four; inspect WIP, reservations and remaining dates/costs.
 2. **Exact rules:** Quantities are finished-item base units at six decimals.
 3. Each operation’s units are in exactly one of upstream (not yet received from every predecessor), waiting (received, operation not started), running, backordered, completed (finished here, neither held nor handed on), handed on (the furthest cumulative CAP-003 handoff to any successor), held or scrapped, so the columns always sum to the job quantity.
-4. The assigned person who started an operation, or an owner/manager with a reason, records additional actual good and scrap units while it runs, never more than the units in process; scrap needs a reason.
-5. Reports are actual quantities, separate from FLOOR-007 progress estimates, finished output, stock and customer promises; completing an operation completes every unit still in process.
-6. Once an operation has reports or holds, a handoff cannot exceed its completed units that are not held; operations without them keep the CAP-003 bound.
-7. An operation hold sets aside a quantity of completed, not-yet-handed-on units (recorded by the starter or an owner/manager with a reason; it does not replace a TRACE-004 quality hold).
-8. Only an owner/manager releases it, never the person who placed it (the owner excepted), with a reason and a disposition of continue or scrap. An owner/manager defers uncompleted units at an operation to a dated manufacturing backorder (a date not before today’s server UTC date, with a reason): the units leave waiting/running, the operation cannot complete and the job cannot close until an owner/manager resumes the backorder with a reason, and the job’s material reservations and issued material stay committed. A backorder shows the job’s required-by date and whether its date falls after it, its carried cost, per component the quantity needed (required × units ÷ job quantity), reserved and issued, and for its operation and every downstream operation the capacity minutes (setup + run minutes × units + queue minutes). Cost is the job’s actual issued material cost (net of reversals and WIP transfers) spread evenly over the job quantity and rounded down to six places per column; labor and overhead are not recorded until FLOOR-002 and COST-001 and the screen says so rather than inventing them. Reports, holds and backorders keep person, server time and reason, survive restart and archive restore, and FLOOR-005 split or merge is refused while any report, open hold or open backorder exists (the ledger is never reallocated by guess). Agents never report, hold, release or backorder. Future operation execution doors inherit this ledger and its conservation of units before shipping.
+4. Record evidenced holds and dated manufacturing backorders, release or resume under the documented native authority, and inspect quantities, retained costs, reservations, required dates and capacity consequences without completing unfinished work.
+5. Read the operation ledger after restart and restore and refuse split/merge while reported, held or backordered quantities make the transfer ambiguous.
 
-**Evidence.** `src/larder/operation-ledger.ts`; `src/larder/operation-ledger-commands.ts`; `src/ui/work-ledger.tsx`; `tests/api/wip.test.mjs` (FLOOR-003); `tests/browser/wip.spec.ts` (FLOOR-003)
-**Gap.** Named public Worker and real-dev journeys complete six of ten units at operation one, hand four on, hold two and backorder four, then inspect the by-operation quantity and material-cost ledger (every unit in one column), dated backorder with kept reservations and capacity minutes at 1440/390; only completed unheld units move on, supervisor-only independent hold release, backorder resume, refused completion/close/split around open ledger records, agent/stranger/stale/replay refusal, unchanged stock and output, restart and archive restore. Labor and overhead stay unrecorded until FLOOR-002/COST-001.
+**Evidence.** `tests/api/wip.test.mjs` — “FLOOR-003 six of ten complete at operation one, four handed on, two held, four backordered with dated commitments, through public doors”; `tests/browser/wip.spec.ts` — “FLOOR-003 six of ten complete, four handed on, two held and four backordered, inspected at 1440/390”
+**Gap.** None.
 
 #### FLOOR-004 — Rework repair and unbuild
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Dedicated rework/unbuild orders cite original lot/job, disposition and authorized instructions, recover usable components, capture extra material/labor and segregate rejected stock. Rework never creates free inventory or loses genealogy. Today production/manager drafts an order with its original production lot/job, exact source quantity/location/status, disposition, evidence, immutable instructions, output lots and value allocation; owner/manager independently approves (owner may approve own). Production/manager executes the approved order once, consuming source and actual extra materials before posting recovery/repair into quarantine. Labor records named person, decimal hours and hourly rate; hours × rate rounds half away from zero to six places. Recoveries cannot exceed components actually issued per good original assembly times the consumed source quantity, and each output item appears once. Original movements and links through shipments/returns remain unchanged. Source value plus extra materials plus labor equals allocated output value plus explicit scrap value; output values must be exactly representable at six-place unit-cost precision. Recovery/repair lots retain their source lot dates and allocated unit cost on later consumption and shipment. Rejected source units stay quarantined or use an explicit scrap decision. Owner/manager release needs reason and passing evidence, retains both approvals, and cannot bypass current required inspections, open quality holds or certificate requirements. A quality retest alone does not release repair inventory; the dedicated release remains required. Agents cannot draft, execute, approve or release this workflow. GOV-001 inherits the obligation when specialist roles are added. GOV-001 wage default: the rework hourly rate is read by the owner, managers, accounts and the production person who entered it on their own order; the costs-and-wages restriction removes it for anyone else.
+**Requirement.** Dedicated rework/unbuild orders cite original lot/job, disposition and authorized instructions, recover usable components, capture extra material/labor and segregate rejected stock. Rework never creates free inventory or loses genealogy. The [operating rules](docs/contract/OPERATING-DETAILS.md#floor-004) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Return a defective assembly, unbuild recoverable parts, rework the rest and ship an approved repair; trace extra cost, recovered stock and original lot.
 
-**Evidence.** `src/larder/rework.ts`; `src/ui/rework.tsx`; `tests/api/rework.test.mjs`; `tests/browser/rework.spec.ts`
-**Gap.** Dedicated approved repair/unbuild orders consume source stock, recover parts, record extra material/labor and cost, quarantine and approve repaired output with original genealogy.
+**Evidence.** `tests/api/rework.test.mjs` — “TRACE-001 / FLOOR-004 return defective assemblies, unbuild recovered parts, repair the rest with extra material/labor and ship approved output preserving cost and genealogy”; `tests/browser/rework.spec.ts` — “FLOOR-004 return defective assemblies, authorize unbuild and repair, recover parts, add material/labor and ship approved repair at 1440/390”
+**Gap.** None.
 
 #### FLOOR-005 — Split and merge manufacturing orders
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Planners split or merge compatible unreleased/released work under explicit material/WIP rules, retaining original demand, lots, recorded time and costs. Incompatible revisions, already shipped outputs and duplicate quantities block merging. Owner/manager/production and the GOV-001 planner role split and merge, never agents. An explicit versioned split or merge transfers remaining quantities only, preserving disjoint ranges of each original job’s quantity. Original completed/scrapped output, lots, append-only issues and operation clocks remain on original jobs; successors retain original demand references and planning-location/customer pegs. Released successors inherit the pinned engineering snapshot; drafts stay drafts and their planned centers are checked again at release. Pending steps use explicitly eligible centers; completed steps inherit references to original evidence, without copying clocks, assignments or acknowledgments for new pending work. Source component requirements are divided proportionally; transferable issued WIP excludes pinned material requirements of completed/scrapped units and divides over remaining units. Quantity and cost divisions round down to six places, leaving the remainder on the source. Existing hard reservations move with new identities; no physical stock posts, new promise/spend decision or silent draft release occurs. Closing attributes original issues plus incoming WIP cost minus outgoing WIP cost exactly once. Merges require the same item, draft/released state, engineering tree, recipe, operation stage and planning location. Active or paused clocks, open holds on any ancestor, duplicate/overlapping origins, excessive quantity and jobs with shipped output are refused. Later ancestor quality failures block successor execution and hold their output lots; only the normal passing-retest release clears those holds.
+**Requirement.** Planners split or merge compatible unreleased/released work under explicit material/WIP rules, retaining original demand, lots, recorded time and costs. Incompatible revisions, already shipped outputs and duplicate quantities block merging. The [operating rules](docs/contract/OPERATING-DETAILS.md#floor-005) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Split a partly completed job for two centers, merge compatible remaining work, then try incompatible revisions; quantities, time and source-order links reconcile.
 
-**Evidence.** `src/larder/work-transfers.ts`; `src/ui/work-transfers.tsx`; `tests/api/work-transfers.test.mjs`; `tests/browser/work-transfers.spec.ts`
-**Gap.** Versioned remaining-work split/merge preserves original quantities, demand, lots, time, material/WIP cost and hard reservations without duplicating physical stock.
+**Evidence.** `tests/api/work-transfers.test.mjs` — “TRACE-001 / FLOOR-005 split partly completed work between centers and merge compatible remaining WIP without duplicating quantities, demand, lots, time, costs or reservations”; `tests/browser/work-transfers.spec.ts` — “FLOOR-005 split partly completed work across two centers, merge remaining WIP and reconcile original demand, lots, time and costs at 1440/390”
+**Gap.** None.
 
 #### FLOOR-006 — Co-products and by-products
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** A manufacturing order records multiple planned outputs, by-products and recoverable scrap with exact yield and approved cost-allocation policy. Each output has its own lot, quality disposition and stock destination. Under ct’s 25 October approval, each batch has an owner-approved allocation policy: managers, accounts or the GOV-001 planner prepare inert plans and exact reviews; the owner explicitly approves and posts once. Outputs are planned before release, each with its own quantity, lot and destination; the actual primary output equals the order quantity, other yields are recorded explicitly, never added across unlike units. Exact per-output component issue allocations consume all issued WIP once, without proportional ancestry. Allocated values sum exactly to the approved actual cost, with exactly representable six-place unit costs. Posting closes the batch and creates quarantined lots; the owner separately releases each lot with evidence under current inspection, hold, certificate and date gates. No automatic posting, journal or outbound action occurs. Serial outputs and split or merge of a planned multi-output batch are refused. Reusable by-products retain their allocated cost on later issue. JSON and CSV archives retain plans, reviews, approvals, lot links and movements and restore them inertly; trace JSON and CSV retain exact consumption. Costs and location scopes apply to every new door. A six-place rounding residue of at most USD 0.000001 per output is assigned to the final planned output; larger differences or an inexact unit cost are refused. The rule and assigned residue remain visible on the exact review and posted result. Any business write permanently voids a pending draft; changing review inputs removes approval until a fresh review, and the owner must approve that new exact review. FLOOR-010 supplies the standard-cost and variance extension; FLOOR-006 remains partial pending its separate completion review.
+**Requirement.** A manufacturing order records multiple planned outputs, by-products and recoverable scrap with exact yield and approved cost-allocation policy. Each output has its own lot, quality disposition and stock destination. The native decision follows RL-14. The [operating rules](docs/contract/OPERATING-DETAILS.md#floor-006) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Produce two co-products and a reusable by-product from one batch, inspect lot links and cost allocations, and verify total output value equals approved actual cost.
 
-**Evidence.** `tests/api/work-transfers.test.mjs` (FLOOR-006 exact multiple-output batch values, lot consumption, quality release and reusable by-product survive archive restore; FLOOR-006 refuses unauthorized, stale, nonconserving and reused input allocations without physical posting); `tests/browser/work-transfers.spec.ts` (FLOOR-006 plan, review and approve two co-products and a reusable by-product at both widths)
+**Evidence.** `tests/api/work-transfers.test.mjs`; `tests/browser/work-transfers.spec.ts`
 **Gap.** Implemented: planned and actual yields, separate lot dispositions and destinations, exact component-lot links and cost allocation, six-place total output value equal to actual cost, evidenced release and by-product reuse, trace and archive. ct APPROVED 25 October: owner approves exact six-decimal values and explicitly posts; managers, accounts and the GOV-001 planner prepare inert drafts; no automatic posting. Rounding residue up to USD 0.000001 per output goes to the final planned output and is shown on review and posted result; larger differences or inexact unit costs refuse. Any changed business records permanently void the draft; edited review inputs require fresh review and owner approval. FLOOR-010 supplies standard-cost and variance allocation; FLOOR-006 stays partial pending its separate completion review. Named page journey proves planned outputs, exact reviewed inputs and values, explicit owner posting, per-output inspection and evidenced by-product release at 1440 and 390.
 
 #### FLOOR-007 — Downtime reasons and production progress
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Operators report breakdown, waiting material, changeover, quality and other lost-time reasons with start/stop and escalation owner. Supervisors see live operation progress and revised remaining effort; reported delay updates planning without inventing completion. Production people and GOV-001 operators report only their own running operation and never acknowledge escalations; owner/manager reports require a reason, and agents cannot report or acknowledge. A pause selects an active owner/manager for escalation, rechecked in the atomic write. Replaying a recorded command returns its original outcome even after that escalation owner loses the role; it creates no new notice or write. Its notice is labelled “recorded in app”, appears in that supervisor’s Today queue and retains acknowledgment; it does not claim an email. Intervals start and stop at server UTC timestamps; one operation cannot have overlapping pauses, and resuming closes its open interval. Reasons are breakdown, waiting-material, changeover, quality or other, with a note. Lost-time minutes derive from elapsed integer milliseconds, rounded half up to six decimal places; open intervals show their as-of timestamp. Operation completed quantities are nondecreasing reports bounded by the job quantity, separate from good output, scrap and stock. Remaining effort is whole-job minutes (not per-unit), including zero as an estimate only; history is retained. On the next read the current weekday schedule uses reported effort and the anticipated resume time for the affected operation and downstream bookings. Unreported effort remains pinned setup + run minutes × outstanding output quantity + queue minutes. A running/paused task starts no earlier than the read’s current time; a paused projection assumes its resume estimate while its task remains paused. Completion requires the explicit operation command; customer promises, output and stock never change from a delay/progress report.
+**Requirement.** Operators report breakdown, waiting material, changeover, quality and other lost-time reasons with start/stop and escalation owner. Supervisors see live operation progress and revised remaining effort; reported delay updates planning without inventing completion. The [operating rules](docs/contract/OPERATING-DETAILS.md#floor-007) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Pause a running operation for a broken tool, notify and acknowledge its supervisor in app, revise remaining effort and inspect lost-time report and the affected plan dates at 1440/390.
 2. Assert all reason categories, real start/stop duration, stale/duplicate/unauthorized and overlapping-pause refusal, progress history and bounds, supervisor revocation, zero-effort non-completion and unchanged stock/output/promises.
 
-**Evidence.** `src/larder/downtime.ts`; `src/larder/operation-effort.ts`; `tests/api/downtime.test.mjs`; `tests/browser/downtime.spec.ts` (FLOOR-007)
-**Gap.** Named Worker and real-dev journeys exercise real pause/resume intervals and reasons, supervisor notice/ack, progress/effort history and bounds, schedule effects, current supervisor authority and unchanged physical completion/promises at 1440/390.
+**Evidence.** `tests/api/downtime.test.mjs` — “FLOOR-007 broken-tool pause, supervisor notice/ack, real intervals, progress history and unchanged physical completion”; `tests/browser/downtime.spec.ts` — “FLOOR-007 pause for broken tool, notify supervisor in app, revise effort, inspect lost time and changed plan at 1440 with both-width proof”
+**Gap.** None.
 
 #### FLOOR-008 — Barcode scanning workflows
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-INPUT-001, BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8 · Register R-9
 
-**Requirement.** USB or Bluetooth scanners and phone or tablet cameras scan item, bin, job, lot and serial codes for receiving, issue, count, transfer, pick and output. GS1 data separates identifier, lot and expiry; wrong, stale or held codes are refused with a recoverable reason. As built so far (24 October 2026): `GET /api/larder/scan` resolves a scanned code (an item SKU or barcode, with UPC, EAN and GTIN-14 compared as 14 digits; a bin; a job, sales order or purchase order reference; a lot; a serial; or a GS1 element string, raw with FNC1 or in parentheses, carrying (01) or (02), (10), (11), (15), (17), (21), (30) or (37)) and never moves stock. Against a purchase order, job or sales order it refuses an item not on it (`SCAN_WRONG_ITEM`); for a transfer it refuses stock not in the bin being emptied, and for output a label of another product or a used serial; a lot under quality hold, recall or quarantine (`QUALITY_HOLD`, `RECALL_HOLD`, `SCAN_HELD`), an expired, used up, shipped or closed code (`SCAN_STALE`), a serial already received or picked (`SCAN_DUPLICATE`) and a bad GS1 check digit or date (`SCAN_GS1`), each with its reason. The receipt, issue, pick and transfer screens take a USB or Bluetooth scanner's keystrokes into a scan list, where a scanned bin label chooses the location, refuse a serial scanned twice and post the list as one receipt, issue or pick or one transfer per line; the output form fills its serial, batch and expiry from the job's own GS1 label; a blind count is scanned in the browser against the line's own item, barcode and lot, adding units and serials without asking the server for a quantity; a scanned job or order reference in the top search opens it; a camera button decodes frames locally with a bundled reader, without requiring a native browser barcode detector or a remote service.
+**Requirement.** USB or Bluetooth scanners and phone or tablet cameras scan item, bin, job, lot and serial codes for receiving, issue, count, transfer, pick and output. GS1 data separates identifier, lot and expiry; wrong, stale or held codes are refused with a recoverable reason. The [operating rules](docs/contract/OPERATING-DETAILS.md#floor-008) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Scan a receipt and issue or pick it through the shop-floor UI using a hardware scanner and camera; reject a wrong item, held lot and duplicate scan without an extra movement.
 
-**Evidence.** `src/larder/gs1.ts`; `src/larder/scan.ts`; `src/ui/scan.tsx`; `tests/api/receiving.test.mjs` — FLOOR-008 scanned GS1 codes resolve item, lot, expiry and serial for receipt, issue and pick; wrong, held, stale and duplicate scans are refused without a movement; `tests/browser/receiving.spec.ts` — FLOOR-008 hardware and camera receipt, issue and pick refuse wrong, held, stale and duplicate scans without an extra movement at 1440/390 (real QR camera frames decoded by the bundled reader, accepted receipt and issue totals, picked serial readback, output serial and bin labels, and job and order search navigation); `tests/browser/counts.spec.ts` — STOCK-002 schedule, blind count, busy-bin stale refusal, recount and independent valued approval at 1440/390 (barcode and lot matching, serial accumulation, duplicate and wrong-lot refusal, with no scan request or stock quantity disclosure). The named scanner API test asserts UPC normalization, GS1 identifiers 02, 11, 15, 30 and 37, all document kinds, wrong sales items, used output serials, quality and recall holds, shipped serials, closed work and sales documents, duplicate receipt on an open PO, malformed dates, and generated records through JSON and CSV with inert restore.
-**Gap.** —
+**Evidence.** `tests/api/receiving.test.mjs` — “FLOOR-008 scanned GS1 codes resolve item, lot, expiry and serial for receipt, issue and pick; wrong, held, stale and duplicate scans are refused without a movement”; `tests/browser/receiving.spec.ts` — “FLOOR-008 hardware and camera receipt, issue and pick refuse wrong, held, stale and duplicate scans without an extra movement at 1440/390”
+**Gap.** None.
 
 #### FLOOR-009 — Zebra and printable labels
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001, BASE-AUDIT-001 · Rules D-2, D-3, D-4, D-6, D-8 · Register R-9
 
 **Requirement.** Operators print Zebra ZPL and PDF labels for bins, items, lots, serials, WIP travelers and packages with buyer templates and reprint audit. Codes resolve to authorized live records; label printing alone never posts stock or a shipment.
 
 **Acceptance.**
-1. Print/read back a Zebra lot label and PDF traveler, reprint with reason and scan on another station; verify no stock change until its authorized movement.
+1. Generate/read back a Zebra lot label and PDF traveler, reprint with reason and scan the rendered label on another station fixture; verify no stock change until its authorized movement.
 
 **Evidence.** None.
 **Gap.** Zebra and printable labels workflow and its acceptance journey are not implemented.
 
 #### FLOOR-010 — Standard-cost and variance allocation
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Compare standard cost with actual batch cost, compute the variance and allocate it by a stated rule. The exact review shows standard cost, actual cost, variance, allocation rule and allocated values before the owner approves; nothing posts automatically. Posting, quarantine and separate evidenced release inherit FLOOR-006’s owner approval and release gates. The exact review records expected standard output values at actual yield. Actual cost is allocated in proportion to those reviewed standard values; each value rounds down to an exact six-place unit-cost increment and the final planned output receives the remaining residue (at most USD 0.000001 per output), shown on review and posted result. Total standard cost must be positive; a negative variance is retained, and an inexact final unit cost is refused. Changed inputs void the draft and require fresh owner approval.
 
 **Acceptance.**
 1. Review a batch with different standard and actual costs, inspect the computed variance and its allocation by the stated rule, verify no automatic posting, then explicitly approve as owner and verify quarantined outputs and separate evidenced release under FLOOR-006.
 
-**Evidence.** `tests/api/work-transfers.test.mjs` (FLOOR-006 refuses unauthorized, stale, nonconserving and reused input allocations without physical posting: standard and actual comparison, positive and negative variance, proportional output values, zero-standard refusal, owner-only posting, stale refusal and restricted costs; FLOOR-006 exact multiple-output batch values, lot consumption, quality release and reusable by-product survive archive restore: conservation, quarantine and evidenced release); `tests/browser/work-transfers.spec.ts` (FLOOR-006 plan, review and approve two co-products and a reusable by-product at both widths: exact standard, actual, variance, allocation rule and residue, no automatic posting, changed-input invalidation, explicit approval, quarantine and separate inspection and evidenced release at 1440 and 390)
-**Gap.** All acceptance points proven through the exact batch review and owner posting doors; standard and actual values, signed variance, proportional allocation and final-output residue remain recorded.
+**Evidence.** `tests/api/work-transfers.test.mjs` — “FLOOR-006 exact multiple-output batch values, lot consumption, quality release and reusable by-product survive archive restore”; `tests/api/work-transfers.test.mjs` — “FLOOR-006 refuses unauthorized, stale, nonconserving and reused input allocations without physical posting”; `tests/browser/work-transfers.spec.ts` — “FLOOR-006 plan, review and approve two co-products and a reusable by-product at both widths”
+**Gap.** None.
 
 ### Stock trace and quality
 
 #### TRACE-001 — Lot and batch genealogy
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** From any receipt, output or shipment lot, buyers trace upstream inputs and suppliers and downstream split and merged batches, subcontract work, rework, shipments and customers with quantities and dates. Searches handle a lot spread across locations and consumption across multiple input lots. Every new production output report records exact component issue movement IDs, lot IDs and quantities against its output batch; a single final batch can retain all remaining issued inputs without a choice. Partial or ambiguous batches require the operator's actual allocation. Allocation cannot reuse reversed/previously allocated issues, exceed a job's issued component WIP, or leave issued quantities unallocated at final output/close. Split/merge work shares the original issue pool within its connected work lineage, constrained by each job's recorded component WIP; it never invents a proportional component-lot assignment. Historical outputs without batch input records are labelled "job-level ancestry; component lots per output batch not recorded". Their original quantities and movements remain intact; production/manager may add an evidence-backed, dated, attributed historical allocation once, with a reason, and only a uniquely identified original output movement can acquire that allocation. New output/closure waits until missing historical allocations in its work lineage are resolved. Forward/backward queries for new exact batches include only the affected output/input lots. The graph distinguishes physical movements and zero-owned-value customer custody from relationship, production/scrap-report and WIP-allocation rows. Each physical row occurs once, compensating reversals remain visible, and balances sum signed quantities per lot/item/location/status; component and output units are never summed together. JSON, Stock screens and CSV use the same selected-lot/direction result with stable record IDs, dates, suppliers/customers and production/shipment/order references. Future lot/serial records and doors in TRACE-002, FLOOR-006, CONN-011, CONN-012 and MOVE-001–MOVE-006 inherit exact genealogy and matching export obligations before shipping.
+**Requirement.** From any receipt, output or shipment lot, buyers trace upstream inputs and suppliers and downstream split and merged batches, subcontract work, rework, shipments and customers with quantities and dates. Searches handle a lot spread across locations and consumption across multiple input lots. The [operating rules](docs/contract/OPERATING-DETAILS.md#trace-001) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Make one batch from two input lots, split it across shipments and rework one return; query both forward and backward trace and reconcile every quantity.
 2. From either forward or backward trace, download CSV retaining the selected lot, linked input/output lots, production and shipment/order references, quantities and dates; reconcile every exported row with the displayed trace and physical movements.
 
-**Evidence.** `src/larder/trace.ts`; `src/larder/trace-graph.ts`; `src/larder/production-trace.ts`; `src/ui/lot-trace.tsx`; `tests/api/trace.test.mjs`; `tests/api/rework.test.mjs`; `tests/api/work-transfers.test.mjs`; `tests/api/subcontract.test.mjs`; `tests/browser/trace.spec.ts` (TRACE-001 upstream/downstream trace and matching physical CSV at 1440/390; legacy disclosure journey retained)
-**Gap.** —
+**Evidence.** `tests/api/subcontract.test.mjs` — “TRACE-001 / BUY-004 two-lot free issue, partial good/scrap, service bill, customer ownership and finished-lot genealogy”; `tests/api/trace.test.mjs` — “TRACE-001 exact batch allocations isolate forward/backward recall and refuse incomplete or reused component lots”; `tests/api/work-transfers.test.mjs` — “TRACE-001 / FLOOR-005 split partly completed work between centers and merge compatible remaining WIP without duplicating quantities, demand, lots, time, costs or reservations”; `tests/api/rework.test.mjs` — “TRACE-001 / FLOOR-004 return defective assemblies, unbuild recovered parts, repair the rest with extra material/labor and ship approved output preserving cost and genealogy”; `tests/browser/trace.spec.ts` — “TRACE-001 legacy disclosure, evidenced allocation and exact continuation at 1440/390”; `tests/browser/trace.spec.ts` — “TRACE-001 upstream/downstream trace and matching physical CSV at 1440/390”
+**Gap.** None.
 
 #### TRACE-002 — Serial-number lifecycle
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Items can require unique serials at receipt/output, issue, assembly, shipment, service and return. Serial-to-assembly/component relationships and warranty/customer history are searchable; duplicate serials and impossible serial quantities are refused. Every serial-aware physical door honors ENG-007’s configured serial policy before shipping; until then a configured serial item refuses physical receipt/output rather than creating untracked stock. As built (24 October 2026): a serial is a one-unit lot of a serial-tracked item, so TRACE-001's genealogy, trace CSV, holds and recalls and MOVE-008's archive carry it. `receipt.create`, `wo.issue`, `wo.output`, `shipment.pick` and `return.receive` take `serials`, one per whole unit; an output report records one serialized unit with its exact component allocation, and a return names serials that left on that order line. Every physical movement of a serial item is one named unit, so an unnamed, fractional or repeated serial is refused, a serial code an item has used is never received or made again, and a shipped serial cannot be picked again. `serial.service` records service, warranty repair or inspection against an existing serial (owner, manager or quality, as GOV-001 gives managers operations and quality inspection; agents never), with the customer holding it. `GET /api/larder/serials?q=` searches serials by code and returns origin, exact components, assemblies, customers, returns and service history; the Stock screen shows it.
+**Requirement.** Items can require unique serials at receipt/output, issue, assembly, shipment, service and return. Serial-to-assembly/component relationships and warranty/customer history are searchable; duplicate serials and impossible serial quantities are refused. The [operating rules](docs/contract/OPERATING-DETAILS.md#trace-002) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Assemble serialized components into two serialized products, ship and return one; trace the exact customer/component and refuse a duplicate or previously shipped serial.
 
-**Evidence.** `src/larder/serials.ts`; `src/larder/stock.ts`; `src/ui/serials.tsx`; `tests/api/trace.test.mjs` (TRACE-002: serialized components received, issued and assembled one unit per output into two serialized products; one shipped and returned; the serial search names the exact customer and component; TRACE-001 trace and CSV carry the serial genealogy; unnamed, fractional, repeated, reused, shipped and not-shipped serials refused; service recorded and refused to an agent; archive restore reproduces the serial history); `tests/browser/trace.spec.ts` (TRACE-002 receive, assemble, ship, return and service serials with exact customer and component history at 1440/390)
-**Gap.** Opening counts, kits, rework and subcontract take no serial list: they move a serial item only as one named serial per movement and otherwise refuse it, never creating untracked stock.
+**Evidence.** `tests/api/trace.test.mjs` — “TRACE-002 serialized components assemble into two serialized products; one ships and returns with exact customer and component history; duplicate and shipped serials are refused”; `tests/browser/trace.spec.ts` — “TRACE-002 receive, assemble, ship, return and service serials with exact customer and component history at 1440/390”
+**Gap.** None.
 
 #### TRACE-003 — Expiry and FEFO
 
-Core · target · **done**
+Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Food, cosmetic and supplement makers record manufacture, expiry/retest and supplier shelf-life dates, storage conditions and customer minimum remaining shelf life. FEFO proposes eligible lots and blocks expired/held stock unless a qualified documented disposition permits it. Receipts, opening counts and production output record optional manufacture, expiry and retest dates, supplier shelf-life days and storage conditions on a named lot; manufacture cannot be in the future or after expiry, retest cannot follow expiry, a supplier shelf life without an explicit expiry sets expiry to manufacture plus those days, and output lots take the output's day as manufacture. Every date is a UTC calendar day; a lot is usable through its expiry and retest dates and blocked from the next day. A customer's minimum remaining shelf life is whole days (0–3650); remaining shelf life is expiry minus ship day in whole days, and a customer minimum needs a recorded expiry, so undated or unlotted stock is not eligible for that customer. FEFO governs an item once any of its lots carries dates or its customer has a minimum: it orders unlotted stock first, then dated lots by earliest expiry, then undated lots in receipt order. The plan and the pick judge eligibility on the order's promise date or today, whichever is later; a pick takes a named eligible lot or eligible lots in FEFO order net of quantities already picked into unshipped shipments, and dispatch rechecks expiry, retest and the customer minimum on the current UTC day. Expired or retest-due available stock stays on hand but is excluded from availability, reservation, planning supply, shipment, issue and transfer; counts still record it. Today alerts each lot with stock expiring within 30 days (acknowledgeable) and each expired or retest-due lot with stock (cleared only by its disposition). Only the owner, a manager or a GOV-001 quality-role holder records the documented disposition, with a reason and at least one evidence file: extend after a passed retest (new expiry/retest dates after today that unblock the lot) or scrap (the lot's available stock at one location written off as a compensating movement); agents and other roles cannot. Each decision retains the before/after dates, evidence digests, person and time. The GOV-001 quality role carries this disposition authority.
+**Requirement.** Food, cosmetic and supplement makers record manufacture, expiry/retest and supplier shelf-life dates, storage conditions and customer minimum remaining shelf life. FEFO proposes eligible lots and blocks expired/held stock unless a qualified documented disposition permits it. The [operating rules](docs/contract/OPERATING-DETAILS.md#trace-003) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Receive two dated lots, plan and pick FEFO for a customer shelf-life rule, advance past expiry and inspect blocked stock, alerts and an authorized disposition.
 
-**Evidence.** `src/larder/lot-dates.ts`; `src/ui/lot-expiry.tsx`; `tests/api/expiry.test.mjs`; `tests/browser/expiry.spec.ts`
-**Gap.** None.
+**Evidence.** `tests/api/expiry.test.mjs` — “TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; expired and retest-due stock stays blocked until a documented disposition”; `tests/browser/expiry.spec.ts` — “TRACE-003 receive dated lots, pick FEFO for a customer shelf-life rule and dispose of an expired lot at 1440/390”
+**Gap.** The cited expiry journeys pick FEFO, refuse already-expired/retest-due stock and inspect alerts and evidenced disposition. Missing: advance a previously usable lot past its expiry and then read its blocked stock and alert before disposition.
 
 #### TRACE-004 — Quality checkpoints and measurements
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Quality staff define receipt, in-process and final inspection plans by SKU and revision with sample size, measurements, tolerance, attachments and qualified signoff. Required failures hold related stock and operations and prevent shipment until authorized release. Before any new operation material/quality gate ships, expose its exact live blocked reason in FLOOR-001 dispatch and enforce the same condition at operation start.
+**Requirement.** Quality staff define receipt, in-process and final inspection plans by SKU and revision with sample size, measurements, tolerance, attachments and qualified signoff. Required failures hold related stock and operations and prevent shipment until authorized release. Before any new operation material/quality gate ships, expose its exact live blocked reason in FLOOR-001 dispatch and enforce the same condition at operation start. The [operating rules](docs/contract/OPERATING-DETAILS.md#trace-004) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Fail a dimensional in-process check, attach measurements, attempt a downstream start or shipment and see refusal; record an authorized retest and release and preserve both results.
 2. During production record a fill-weight inspection with target, unit, limits and individual samples; display actual sample count, calculated mean and pass/fail against the approved sampling rule on the batch, retaining qualified signoff and prior results.
 3. Verify both a passing sample set and a failure that holds the lot.
-4. **Exact rules:** a plan names one SKU, one BOM revision (or every revision; receipt plans for bought items use every revision), a stage (receipt, in-process after a named operation, or final), a whole sample size from 1 to 1000, one to twenty named measurements with unit, target and inclusive lower/upper limits, optional specification files, and whether a failure is required (holding) or advisory.
-5. The qualified person is an owner, manager or GOV-001 quality-role holder: owner, manager, production or quality prepares a plan, and a different owner, manager or quality-role holder approves it (the owner may approve their own); agents never prepare, approve, record or release.
-6. Only the current approved plan applies; a newly approved plan for the same SKU, revision, stage and operation supersedes the previous one, and earlier results keep the plan version they were scored under.
-7. Owner, manager, production or quality records a result with exactly the plan's sample count per measurement, each sample an exact decimal to six places; the mean is sum ÷ count rounded half away from zero to six places; a measurement passes when every sample lies within its inclusive limits, and a result passes when every measurement passes.
-8. An in-process result needs its operation started. A failed required result opens a quality hold on the work order or received lot: the lot's available stock (every production lot of that work order) moves to quarantine and any reservations it covered are released and named on the hold; the work order's pending operations refuse to start with the same reason shown in FLOOR-001 dispatch; further output, picking or shipping that lot and quarantine release of it are refused. Output of a work order with a required in-process or final plan needs a batch lot. An owner, manager or quality-role holder other than the person who recorded the failure (the owner excepted) releases the hold only after a later passing retest under the same plan, with a reason and at least one evidence file; release returns the held stock to available and restores the lot's prior status, does not re-reserve orders, and keeps every result. A held lot may still leave without a retest through the existing quarantine rejection (scrap or return), which is audited and removes it from stock; a use-as-is deviation is not offered on a TRACE-004 hold, and GOV-001's quality role approves use-as-is deviations only through a TRACE-005 case under its rules.
+4. Inspect the documented sampling, plan-version and independent release rules through a required failed inspection, its held quantities, a later passing retest and an evidenced release; earlier results and displaced reservations remain explicit.
 
-**Evidence.** `src/larder/quality.ts`; `src/larder/operations.ts`; `src/ui/quality.tsx`; `tests/api/quality.test.mjs`; `tests/browser/quality.spec.ts` (TRACE-004)
-**Gap.** Named public Worker and native-dev journeys prove approved plans, a failed dimensional check with measurement evidence refusing the next start (same live dispatch reason), output, pick/ship and quarantine release, authorized release after a passing retest with both results kept, and passing/failing 20-sample fill-weight batches with count, mean and pass/fail at 1440/390.
+**Evidence.** `tests/api/quality.test.mjs` — “TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest”; `tests/browser/quality.spec.ts` — “TRACE-004 define and approve a fill-weight plan, record passing and failing batches, see the dispatch hold, retest and release at 1440/390”
+**Gap.** None.
 
 #### TRACE-005 — Nonconformance and disposition
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Quality owns nonconformances with affected quantities, root cause, supplier/customer complaint, corrective action, due date and disposition: hold, reject, rework, return or approved deviation. Closure verifies effectiveness and retains evidence without an agent granting release. Case ownership is the owner, manager or GOV-001 quality-role holder who opens it; the quality role carries TRACE-004 release evidence and independence. A case holds an exact base-unit quantity at one lot/location, releases displaced reservations explicitly, and protects that quantity from other quarantine commands. Case release requires a current passing case inspection for exactly the released units, reason and evidence, a manager or quality-role holder other than the case opener and the latest failing inspector (owner excepted), and existing recall, quality, expiry and certificate gates. Supplier follow-up is recorded in app, never claimed sent. A linked draft repair independently approves and executes through FLOOR-004, consuming only its case-held source quantity; case closure waits for its passing inspection and authorized release. Supplier returns remove the exact held quantity with a named supplier, return reference, reason and evidence, labelled recorded in app rather than provider-confirmed; BUY-006 retains supplier RMA/credit reconciliation. Case closure requires all affected units disposed, recorded root cause/CAPA and an evidenced positive effectiveness check. Owner, manager or quality may record a versioned deviation proposal on an open case for an exact quantity no greater than its remaining hold. The proposal retains lot/location, reviewed case/lot versions and held quantity, linked failing case inspections and their plan versions, reason, evidence digests, proposer and server time. A proposal grants no approval, passes no inspection and moves no stock. Only a live GOV-001 quality-role holder or the owner approves a proposal, with an approval note, and then executes the approved deviation; managers, other roles and agents can do neither, so no manager deviation release is offered. The approver differs from the proposer (including owner proposals), the case opener and the latest failing case inspector, with an owner exception only for the latter two; the executor may be the approver. Approval and execution each recheck the live session, role and case version, refuse a closed case, and apply the recall, quality-hold, expiry/retest and certificate gates on the current UTC day. Approval is refused with STALE_INPUTS when the lot version, the case-held quantity or the case's failing inspections (identity, version and plan version) differ from the proposal; execution is refused the same way when the lot version, held quantity or any case inspection differs from the approval snapshot, so a changed or superseded approval needs a new proposal. Execution is one atomic write that moves only the proposal's exact base-unit quantity of the case-held lot/location quarantine to available at the case's unit cost, without re-reservation or WIP effects; every inspection result keeps its failed outcome, and the decision, proposal and both movements are labelled released under deviation, never passed. The case records proposer, approver (and role), executor, server times in UTC, evidence digests and linked inspection IDs. The deviation reference appears on its trace event and both movements in trace JSON, the lot trace screen and CSV, and is frozen into every later shipment pack line of that lot at dispatch (lot-level, because units of a lot are fungible); the deviation record and reference survive replay, restart and archive restore. Closure still needs every unit disposed, root cause, corrective action and positive effectiveness evidence.
+**Requirement.** Quality owns quantity-scoped nonconformances with root cause, supplier/customer complaint, corrective action, owner, due date and disposition. Closure verifies effectiveness and retains evidence. Passing-unit release, case-linked repair and recorded supplier returns keep their own evidenced authority; BUY-006 owns remote supplier settlement. The [operating rules](docs/contract/OPERATING-DETAILS.md#trace-005) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Open a nonconformance on part of a lot, route rework and supplier action, approve release of only passing units and close after a recorded effectiveness check.
 
-**Evidence.** `src/larder/nonconformance.ts`; `src/larder/deviations.ts`; `src/ui/nonconformance.tsx`; `tests/api/quality.test.mjs`; `tests/api/authority.test.mjs`; `tests/browser/quality.spec.ts` (TRACE-005, 1440/390)
-**Gap.** Named public Worker and native-dev journeys prove quantity-scoped cases, complaint/owner/due date, CAPA, supplier action, executed case-linked repair with passing release, evidenced release/rejection/recorded supplier return and effectiveness closure, and the complete deviation journey: exact proposals, independent live quality-role or owner approval refusing agents, managers, the proposer, opener and failing inspector, revoked roles, stale/changed inputs, excess, closed cases, recall/expiry/certificate blocks and changed replay with unchanged stock; atomic quarantine-to-available release of only the held units without re-reservation, failed results retained and labelled released under deviation; references in trace JSON/CSV/screen and frozen shipment packs; restart and archive restore. External supplier RMA/credit reconciliation remains BUY-006 work.
+**Evidence.** `tests/api/authority.test.mjs` — “GOV-001 TRACE-005 quality role inherits TRACE-003/004/006/007 authority with independence and live revocation, and nothing outside quality”; `tests/api/quality.test.mjs` — “TRACE-005 quantity-scoped cases retain complaints, CAPA, supplier/rework routing, passing-only independent release and evidenced effectiveness across restart and restore”; `tests/browser/quality.spec.ts` — “TRACE-005 contain part of a lot, record CAPA and supplier action, release only inspected units and close with effectiveness at 1440/390”
+**Gap.** None.
+
+#### TRACE-008 — Evidenced use-as-is deviation
+
+Core · target · **done** · From TRACE-005 · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
+
+**Requirement.** A versioned use-as-is proposal identifies exact held lot units and their failing inspections. Independent quality authority binds the reviewed evidence and current gates; execution releases only those units under deviation, retains their failed result and never labels them passed. Trace and later shipment packs retain the decision. The [operating rules](docs/contract/OPERATING-DETAILS.md#trace-008) retain the detailed bounds and record semantics.
+
+**Acceptance.**
+1. Propose, independently decide and execute an exact deviation; refuse stale quantities, changed inspections, unauthorised actors and blocking recall, quality, expiry or certificate conditions without stock effects.
+2. Read proposer, decision-maker, executor, reasons, evidence and failed-result labels in trace JSON, CSV, the screen and a later frozen shipment packet; replay, restart and restore retain them.
+
+**Evidence.** `tests/api/quality.test.mjs` — “TRACE-008 quality-role deviations: exact proposals, independent approval and gated atomic execution release only held units under deviation, with trace, shipment pack, restart and archive restore”; `tests/browser/quality.spec.ts` — “TRACE-008 owner proposes a deviation; an independent quality-role holder approves and releases only held units under deviation, with trace and reload at 1440/390”
+**Gap.** None.
 
 #### TRACE-006 — Recall execution and reconciliation
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Quality can place an immediate scoped hold, expand it using genealogy, identify affected customers/shipments and generate/send approved recall notices with response tracking. Returned, destroyed, unrecovered and cleared quantities reconcile; US food/cosmetic/supplement trace records export for the responsible compliance team. **Current partial delivery:** The public command API uses the owner/manager/quality quality-hold authority to open an evidenced source-lot recall and explicitly re-expand recorded downstream genealogy. It atomically quarantines all currently available units of affected lots at each location, records displaced reservations, protects their quarantine from other disposition doors, and conservatively blocks work that has issued affected material (including split/merge successors). Dispatch and operation start expose the same recall reason and owner. Existing exact output-batch allocations determine affected finished lots; legacy job ancestry is labelled rather than proportionally allocated. The versioned JSON containment download lists affected shipments/customers, original/net shipment movements, linked return records, current lot/location quantities in their own units and retained expansion evidence. It explicitly reports incomplete notice delivery, response/disposition reconciliation and final compliance export; it is not a complete recall pack. Customer-property custody is refused atomically pending its own containment workflow.
+**Requirement.** Quality can place an immediate scoped hold, expand it using genealogy, identify affected customers/shipments and generate/send approved recall notices with response tracking. Returned, destroyed, unrecovered and cleared quantities reconcile; US food/cosmetic/supplement trace records export for the responsible compliance team. The [operating rules](docs/contract/OPERATING-DETAILS.md#trace-006) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Recall one contaminated ingredient spanning two batches/customers; hold unsent goods, send approved notices, record acknowledgments/returns/destruction and export a complete quantity-balanced recall pack.
 
-**Evidence.** `src/larder/recall.ts`; `src/larder/recall-policy.ts`; `src/larder/stock.ts`; `tests/api/quality.test.mjs`; `tests/browser/quality.spec.ts` (TRACE-006, 1440/390)
+**Evidence.** `src/larder/recall.ts`; `src/larder/recall-policy.ts`; `src/larder/stock.ts`; `tests/api/quality.test.mjs`; `tests/browser/quality.spec.ts`
 **Gap.** Public API source-lot containment, genealogy expansion, two-customer exposure download, protected stock/WIP and matching dispatch/start gates with restart/archive restore ship. Approved notices and real delivery, acknowledgments, returned/destroyed/unrecovered/cleared reconciliation, customer-property/vendor custody, unlotted legacy reconciliation, recall management screens and final complete compliance pack remain unimplemented.
 
 #### TRACE-007 — Certificates and controlled release records
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-INPUT-003, BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Receipts and finished lots retain supplier CoAs, SDSs, test reports, specifications and certificates of conformance with versions, digest and expiry. Customer-required certificates accompany approved shipments, and missing required evidence blocks release. Owner, manager or a GOV-001 quality-role holder configures required types per SKU and optional customer and independently approves or revokes exact lot documents (the owner may approve their own); quality, production, warehouse and agents can prepare original files, and production, warehouse and agents cannot approve, revoke or configure requirements. Existing operational readers retain their scopes. Repair/quality documents are local human evidence decisions, never provider verification or regulatory certification. Each immutable content revision retains issuer, declared lot, source version, original bytes/digest and an inclusive UTC expiry date. A document declaring another lot or already expired cannot be approved. General SKU requirements force named-lot receipts, openings, returned stock and finished output into quarantine; missing current approved documents block release and positive available-stock count adjustments. Customer requirements add to the SKU requirements at shipment. Preparing a replacement does not remove a current approval; the newest approved/revoked logical revision controls use, and revoking it never revives an older approval. Release and dispatch recheck matching SKU/lot and expiry. Every physical shipment movement pins exact approved document revisions and their file digests at dispatch; a downloadable trace pack includes lot, SKU, quantities, order/shipment references and those original files. Later approval, expiry or revocation never rewrites an earlier shipment. The complete business archive preserves policies, documents, original files and shipment snapshots. The GOV-001 quality role carries these configuration/independent approval/revocation obligations.
+**Requirement.** Receipts and finished lots retain supplier CoAs, SDSs, test reports, specifications and certificates of conformance with versions, digest and expiry. Customer-required certificates accompany approved shipments, and missing required evidence blocks release. The [operating rules](docs/contract/OPERATING-DETAILS.md#trace-007) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. At 1440/390 require a CoA and final CoC on one SKU, upload a mismatched lot document and refuse approval/release; approve correct records, release, ship and export the exact versions and original files with trace after reload and archive restore.
-2. Assert controlled receipts/finished output are quarantined, additive customer requirements block unsupported dispatch without stock mutation, expired and wrong-lot approval refusal, inclusive expiry metadata, all five document types/digests, independent approval, agent/unauthorized/revoked-role and stale refusal, shipment replay and unchanged historical packets after newer approval/revocation.
+2. Assert controlled receipts/finished output are quarantined, additive customer requirements block unsupported dispatch without stock mutation, expired and wrong-lot approval refusal, inclusive expiry metadata, all five document types/digests, independent approval, unauthorized/revoked-role and stale refusal, shipment replay and unchanged historical packets after newer approval/revocation.
 
-**Evidence.** `src/larder/certificates.ts`; `src/larder/certificate-policy.ts`; `src/larder/certificate-pack.ts`; `tests/api/certificates.test.mjs`; `tests/browser/certificates.spec.ts` (TRACE-007)
-**Gap.** Named public Worker/native-dev journeys cover controlled receipt/finished lots, mismatched/expired document refusal, current independent approvals, immutable shipment versions and original trace packets at 1440/390 with archive restore.
+**Evidence.** `tests/api/certificates.test.mjs` — “TRACE-007 controlled receipt and finished lots require exact approved certificates; shipment export pins original versions and trace”; `tests/browser/certificates.spec.ts` — “TRACE-007 require CoA and CoC, refuse a mismatched lot, approve exact records, release/ship and download pinned versions at 1440/390”
+**Gap.** None.
 
 ### Warehouse operations
 
 #### STOCK-001 — Bins sites and replenishment
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** A manufacturer manages multiple US sites, warehouses/bins, transit and third-party locations with owned/customer-owned/consigned stock separated. Bin putaway and replenishment rules respect quality, lot, capacity and site permissions; in-transit goods are unavailable until received. Batch and wave picking of several reserved orders is STOCK-004 (split on ct's ruling of 23 October 2026). GOV-001 site scope: a site is a named group of locations, including ones added later; this clause carries a member's site scope through its own sites, transit, putaway and consignment doors and proves it in its own acceptance.
+**Requirement.** A manufacturer manages multiple US sites, warehouses/bins, transit and third-party locations with owned/customer-owned/consigned stock separated. Bin putaway and replenishment rules respect quality, lot, capacity and site permissions; in-transit goods are unavailable until received. Batch and wave picking of several reserved orders is STOCK-004 . GOV-001 site scope: a site is a named group of locations, including ones added later; this clause carries a member's site scope through its own sites, transit, putaway and consignment doors and proves it in its own acceptance. The native decision follows RL-15.
 
 **Acceptance.**
 1. Transfer a lot between two sites with an intermediate transit state, put it away by bin rule and reconcile owned versus consigned balances.
 2. Confirm the in-transit quantity is unavailable until it is received; replenish a bin by its rule; see a putaway that breaks a quality, lot, capacity or site-permission rule refused; keep customer-owned stock separate from owned and consigned balances; and restrict a member to one site, including a location added to it later, and prove that scope through the sites, transit, putaway and consignment doors.
 
-**Evidence.** `tests/api/flows.test.mjs` — “STOCK-001 transit receipt and ruled putaway conserve lots, refuse unsafe bins and replenish exactly within current site scope” (two-site transfer, unavailable transit, exact one-time receipt, lot and quality and capacity refusals, exact replenishment, live scope including later-added bins and narrowed replay, rule and transit archive restore); “STOCK-001 customer-owned and consigned custody stays separate from owned availability, honors capacity and live site scope and survives restore” (separate owner balances, no owned movement or availability, capacity, all custody doors and site configuration refusals, restricted cross-site derived totals, narrowed replay, original custody records restored); `tests/browser/work-transfers.spec.ts` — “STOCK-001 receive unavailable transit, put away and replenish by rule and reconcile separate property through the warehouse screens” (Settings rules, transit and received states, putaway and capacity refusal, replenishment and separate ownership reconciliation at 1440; browser proof at 1440 and 390)
+**Evidence.** `tests/api/flows.test.mjs`; `tests/browser/work-transfers.spec.ts`
 **Gap.** Local transit, ruled putaway and replenishment, separate property balances and site-scoped warehouse journeys ship. Complete third-party custody quality and recall lifecycle, connected fulfillment and external valuation remain unproved.
 
 #### STOCK-002 — Cycle counts and stocktake
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Warehouse teams schedule blind cycle counts by value/risk/bin, freeze or reconcile intervening movements, recount exceptions and obtain independent approval. By risk means the manager records a risk classification for the selected item or bin in the scheduled session; by value filters and sorts actual position values. A blind count retains validated observed serial IDs, unique and matching the physical count, as count evidence against the existing item/location/lot ledger. This is count evidence and does not complete STOCK-003's serial lifecycle. Count variances retain counted basis, time, person, lot/serial evidence and approved financial adjustments, with independent approval.
+**Requirement.** Warehouse teams schedule blind cycle counts by value/risk/bin, freeze or reconcile intervening movements, recount exceptions and obtain independent approval. By risk means the manager records a risk classification for the selected item or bin in the scheduled session; by value filters and sorts actual position values. A blind count retains validated observed serial IDs, unique and matching the physical count, as count evidence against the existing item/location/lot ledger. Count variances retain counted basis, time, person, lot/serial evidence and approved financial adjustments, with independent approval. Serial count observations are evidence; TRACE-002 owns serial lifecycle execution. The [operating rules](docs/contract/OPERATING-DETAILS.md#stock-002) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Count a busy bin blind while a receipt occurs, reject a stale result, recount and approve a variance; inspect quantity/value reconciliation and independent approval.
 2. Schedule by value and verify filtering and sorting use actual position values; schedule by risk and inspect the manager's recorded classification for the selected item or bin.
 3. Retain unique observed serial IDs matching the physical count against the existing item/location/lot ledger, refuse duplicate IDs or a mismatch with the physical count, and inspect counted basis, time, person, lot/serial evidence and independently approved financial adjustments.
-4. These serial observations are count evidence, not completion of STOCK-003's serial lifecycle.
 
-**Evidence.** `tests/api/counts.test.mjs`; `tests/browser/counts.spec.ts` — STOCK-002
-**Gap.** Scheduled value/risk/bin blind sessions, server-enforced blind reads, stale receipt/recount handling, retained lot/serial observations, independent quantity/value approval, handoff and restore.
+**Evidence.** `tests/api/counts.test.mjs` — “STOCK-002 blind busy-bin stocktake rejects stale counts, retains recounts and independently approves exact quantity/value adjustments”; `tests/browser/counts.spec.ts` — “STOCK-002 schedule, blind count, busy-bin stale refusal, recount and independent valued approval at 1440/390”
+**Gap.** None.
 
 #### STOCK-004 — Batch and wave picking
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** (Split from STOCK-001 on ct's ruling of 23 October 2026; the sentence, the pick part of its site scope and its acceptance are STOCK-001's, word for word.) Warehouse staff batch- or wave-pick several reserved orders in one bin-sequenced pick list and sort the picked stock back to each order. Managers and warehouse staff review exact reserved quantities, collect the displayed bin list and explicitly confirm sorting; one atomic confirmation creates separate picked shipments for the orders, without consuming physical stock or releasing reservations before shipment. Any business change expires the review. Site configuration and member scope remain owner-controlled; a site is a named group of bins and scope includes bins added later. STOCK-001 inherits this foundation for its other warehouse doors. GOV-001 site scope: a site is a named group of locations, including ones added later; this clause carries a member's site scope through its own pick doors and proves it in its own acceptance.
+**Requirement.** Warehouse staff batch- or wave-pick several reserved orders in one bin-sequenced pick list and sort the picked stock back to each order. Managers and warehouse staff review exact reserved quantities, collect the displayed bin list and explicitly confirm sorting; one atomic confirmation creates separate picked shipments for the orders, without consuming physical stock or releasing reservations before shipment. The native decision follows RL-16. The [operating rules](docs/contract/OPERATING-DETAILS.md#stock-004) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Wave-pick three reserved orders in one list, sort to each order and confirm each order's picked quantity and remaining reservation.
 
-**Evidence.** `tests/api/flows.test.mjs` (STOCK-004 exact bin-sequenced wave sorts three orders and carries current site scope: three-order sequence and atomic sort, partial picked quantities and remaining reservations, no premature movement, stale and duplicate refusal, later-added bins, out-of-site refusal and narrowing on replay, archive restore); `tests/browser/work-transfers.spec.ts` (STOCK-004 review a bin-sequenced three-order wave and sort exact picks at both widths: site and bin setup, scope controls, one sequenced list, explicit sort and per-order picked and remaining quantities at 1440 and 390)
-**Gap.** Three-order bin list and explicit atomic sort retain exact per-order picked quantities and remaining reservations; current named-site scope includes later-added bins and applies on replay.
+**Evidence.** `tests/api/flows.test.mjs` — “STOCK-004 exact bin-sequenced wave sorts three orders and carries current site scope”; `tests/browser/work-transfers.spec.ts` — “STOCK-004 review a bin-sequenced three-order wave and sort exact picks at both widths”
+**Gap.** None.
 
 ### Actual costs and reporting
 
 #### COST-001 — Actual job costing
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-5, D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Each job accumulates actual material, approved labor, machine/service and overhead costs under versioned allocation rules in USD. Cost roll-up follows multilevel/subcontract production and partial good output/scrap; closing posts transparent correcting valuations rather than rewriting stock history. GOV-001 costs scope: this clause's costs, values, variances and margins read `restricted` for a member the owner restricts, in state, screens, API and downloads, a figure mixing restricted inputs is itself restricted, and its acceptance proves it.
+**Requirement.** Each job accumulates actual material, approved labor, machine/service and overhead costs under versioned allocation rules in USD. Cost roll-up follows multilevel/subcontract production and partial good output/scrap; closing posts transparent correcting valuations rather than rewriting stock history. GOV-015 protects this capability’s costs and mixed derived values. The native decision follows RL-17. The [operating rules](docs/contract/OPERATING-DETAILS.md#cost-001) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Finish a job with extra material, labor overtime, subcontract service and scrap; compare calculated unit/job totals with movements/time/service charges and approved valuation adjustments.
-2. Allocation policies are immutable approved versions pinned at release.
-3. Under ct’s 23 October approval, financial decisions are owner-only: policy, evidenced additional service charge, job-to-order cost link, commercial charge and exact closed-job output-lot valuation decisions show the exact entry they change.
-4. Managers/accounts prepare inert drafts; preparation grants no financial authority.
-5. Active clock hours carry retained wages/burden; overtime is an explicit per-entry threshold and premium for costing only; machine and overhead USD tariffs allocate per active labor hour.
-6. Good/scrap share completed cost equally per unit under the displayed allocation rule; uncompleted units retain WIP cost.
-7. Cost-link and commercial-charge recordings are audited immutable entries; any reversal must be recorded as a new entry, never an edit or deletion.
-8. The owner can close and approve the exact actual valuation in one atomic decision through `costing.close`; existing physical closure can be followed by explicit correcting review. Approved valuation records correct financial rates across the exact output lot, its stock and consumed/downstream units, without changing physical movements; handoff exports the separate correcting value once. Unapproved production lots retain their existing weighted-average stock basis; only explicit approved valuations change their financial lot basis. Legacy unlotted output is refused rather than guessed. Costing retains no payroll data beyond the rate used and posts no payroll, journals or automatic stock adjustment. COST-002/005, FLOOR-006, GOV-010/012 and AGENT-004 inherit their own approvals and reconciliation duties.
+2. Inspect immutable allocation versions, retained labor/burden and overtime, machine/service/overhead sources, equal-unit good/scrap allocation and unfinished WIP under the documented costing rules.
+3. As native owner, decide exact evidenced service, cost-link, charge and closed-job valuation records; preparation by managers/accounts changes no approved value. Refuse stale or unsupported valuations.
+4. Inspect separate correcting financial values across stock, consumed and downstream output, unchanged physical movements and once-only handoff; refuse unsupported legacy unlotted valuation and exclude payroll and journal posting.
 
-**Evidence.** `tests/api/flows.test.mjs` (COST-001 approved time overtime and service costs roll through scrap and downstream work as correcting valuations: retained rates, ten-hour corrected time/overtime, service approval, partial output, scrap, downstream price roll-up, stale/self/agent refusal, immutable movements and handoff correction); `tests/browser/journey.spec.ts` (COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390: policy/valuation forms and source drills at 1440/390; 1440/390 passed); `tests/api/subcontract.test.mjs` (TRACE-001 / BUY-004 two-lot free issue, partial good/scrap, service bill, customer ownership and finished-lot genealogy: subcontract material/service rate enters final-job cost once);
-**Gap.** ct approved COST-001 on 23 October: owner-only financial decisions showing the exact entry changed; managers/accounts prepare inert drafts; overtime per entry; machine/overhead use active hours; displayed equal-unit good/scrap rule; audited immutable cost-link/commercial-charge entries with reversals only by a new entry; no payroll data beyond the rate used and no journals. Named assertions prove material, overtime, service, partial good/scrap, multilevel/subcontract roll-up, approved correcting valuations, six-place conservation and 1440/390 screens. FLOOR-002 retains its separate period/correction policy gap.
+**Evidence.** `tests/api/flows.test.mjs` — “COST-001 approved time overtime and service costs roll through scrap and downstream work as correcting valuations”; `tests/api/flows.test.mjs` — “COST-001 unvalued production lots keep weighted average until an actual valuation is approved”; `tests/browser/journey.spec.ts` — “COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390”
+**Gap.** None.
 
 #### COST-002 — WIP valuation and aging
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-5, D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Accounts sees opening WIP, additions, transfers to finished goods, scrap and closing WIP by job/operation/period with aging. Part completion, rework and subcontract balances reconcile to the inventory subledger and external WIP control accounts. GOV-001 costs scope: this clause's costs, values, variances and margins read `restricted` for a member the owner restricts, in state, screens, API and downloads, a figure mixing restricted inputs is itself restricted, and its acceptance proves it.
+**Requirement.** Accounts sees opening WIP, additions, transfers to finished goods, scrap and closing WIP by job/operation/period with aging. Part completion, rework and subcontract balances reconcile to the inventory subledger and external WIP control accounts. GOV-015 protects this capability’s costs and mixed derived values.
 
 **Acceptance.**
 1. Run a month spanning partial completion and rework, export WIP roll-forward, drill to transactions and reconcile opening plus additions less transfers/write-offs to closing.
 
-**Evidence.** `src/larder/costing/wip.ts`; `tests/api/wip.test.mjs` — "WIP material roll-forward carries January issues through February partial output and repair into March, with source drilldown and unchanged history" proves exact-period roll-forward, aging, partial good and scrap, repair, transaction drilldown, CSV, read-only history, restart and archive restore; "WIP report and CSV enforce live cost and location scopes and deny invalid periods and unauthenticated reads" proves public-report authority and redaction
+**Evidence.** `src/larder/costing/wip.ts`; `tests/api/wip.test.mjs`
 **Gap.** Recorded material WIP now has explicit-period opening, additions, output transfers, scrap, closing, source transactions, aging, exact partial-batch allocations, atomic repair and owned subcontract receipts through the report API and CSV. Remaining: production labor and overhead, later valuation corrections, operation-level allocation, WIP screens, and inventory and external WIP control-account reconciliation. Historical output without exact component allocations stays explicitly unresolved; no account balance is inferred.
 
 #### COST-003 — Estimate to actual variance
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-5, D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Managers compare quoted and pinned standard material, labor, setup, overhead, yield and subcontract cost to actual by job/SKU/revision/customer. Variances separate price, usage, efficiency, volume, scrap and downtime, with source drill-through and export. GOV-001 costs scope: this clause's costs, values, variances and margins read `restricted` for a member the owner restricts, in state, screens, API and downloads, a figure mixing restricted inputs is itself restricted, and its acceptance proves it.
+**Requirement.** Managers compare quoted and pinned standard material, labor, setup, overhead, yield and subcontract cost to actual by job/SKU/revision/customer. Variances separate price, usage, efficiency, volume, scrap and downtime, with source drill-through and export. GOV-015 protects this capability’s costs and mixed derived values. The [operating rules](docs/contract/OPERATING-DETAILS.md#cost-003) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Close two jobs with known price/usage/time/scrap differences, open variance report and drill/export every component back to recorded quantities and rates.
 2. For one sales order spanning multiple production jobs, compare its pinned quoted and actual margin percentages and USD cost variance to the cent, using COST-004's revenue and cost allocations; drill the difference to the source quantities, time, rates and recognized revenue.
 3. Component price and usage variances retain movement quantities and pinned rates; labor sources keep phase, elapsed hours, retained wage/burden and explicit overtime premium, with separate price/efficiency, overhead, volume and scrap figures.
 4. Reports retain linked job allocations and issued revenue sources; exports contain the same filtered drill.
-5. COST-001 retains the approval obligation for any actual valuation correction.
 
-**Evidence.** `tests/api/flows.test.mjs` (COST-003 component usage and price variances reconcile two jobs to one order and export their sources: component drill, two-job quoted/actual margin to cents, CSV and restore; COST-001 approved time overtime and service costs roll through scrap and downstream work as correcting valuations: labor rates/time, overhead, scrap and downstream price source); `tests/browser/journey.spec.ts` (COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390: 1440/390 passed)
-**Gap.** Named API journey proves two jobs with nonzero price, usage, time, overhead and scrap differences; component and time/rate source drills and exports; pinned quoted versus actual order margins and cent variance across both jobs; archive restore. The named 1440/390 journey proves the screen and source drill. COST-001 still owns approval of actual valuation corrections.
+**Evidence.** `tests/api/flows.test.mjs` — “COST-003 component usage and price variances reconcile two jobs to one order and export their sources”; `tests/browser/journey.spec.ts` — “COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390”
+**Gap.** None.
 
 #### COST-004 — Order and customer margins
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-5, D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Authorized accounts/managers see estimated, committed and actual gross margin by sales order, line, product, customer and channel, including discounts, returns, freight, fees and allocated production costs. Partial shipments do not recognize all remaining costs/revenue prematurely. GOV-001 costs scope: this clause's costs, values, variances and margins read `restricted` for a member the owner restricts, in state, screens, API and downloads, a figure mixing restricted inputs is itself restricted, and its acceptance proves it.
+**Requirement.** Authorized accounts/managers see estimated, committed and actual gross margin by sales order, line, product, customer and channel, including discounts, returns, freight, fees and allocated production costs. Partial shipments do not recognize all remaining costs/revenue prematurely. GOV-015 protects this capability’s costs and mixed derived values. The [operating rules](docs/contract/OPERATING-DETAILS.md#cost-004) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Partly ship an order then return one unit; compare USD margin by channel/customer with actual job costs, recognized shipment quantities and remaining commitments, denying an operator access.
@@ -1074,16 +1148,15 @@ Core · target · **done**
 5. Discounts and freight revenue change revenue; fees and freight costs change cost.
 6. Charges prorate by line units and a return refunds them only when explicitly marked refundable; returned units do not create replacement demand.
 7. Order, line, SKU, customer and channel reports and CSV share the same filters.
-8. Only owner, manager and accounts can open reports; GOV-001 scopes reconcile locations and redact mixed costs.
 
-**Evidence.** `tests/api/flows.test.mjs` (COST-004 shipment and return margins keep open commitments, channel/customer totals and costs scope: partial shipment/return, four charge types, order/SKU/customer/channel totals, pinned quote, CSV, operator denial and restricted JSON/CSV/state; COST-003 component usage and price variances reconcile two jobs to one order and export their sources: actual job cost allocations); `tests/browser/journey.spec.ts` (COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390: 1440/390 passed)
-**Gap.** Named API journey proves partial shipment then return, retained quoted estimates, remaining commitments, discounts/freight/fees, order/line/product/customer/channel totals, operator denial, cost and location scopes, downloads and restart; actual job allocation is also proved by COST-003. The named browser journey proves both widths, readable source drills and CSV.
+**Evidence.** `tests/api/flows.test.mjs` — “COST-004 shipment and return margins keep open commitments, channel/customer totals and costs scope”; `tests/browser/journey.spec.ts` — “COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390”
+**Gap.** None.
 
 #### COST-005 — Inventory valuation and close controls
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001, BASE-AUDIT-001 · Rules D-5, D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Accounts chooses documented weighted-average or FIFO policy with explicit cutover, landed-cost treatment and opening reconciliation. Period close locks cost changes, reconciles inventory/WIP/COGS to books and routes late entries to approved current-period corrections or audited reopen. GOV-001 costs scope: this clause's costs, values, variances and margins read `restricted` for a member the owner restricts, in state, screens, API and downloads, a figure mixing restricted inputs is itself restricted, and its acceptance proves it.
+**Requirement.** Accounts chooses documented weighted-average or FIFO policy with explicit cutover, landed-cost treatment and opening reconciliation. Period close locks cost changes, reconciles inventory/WIP/COGS to books and routes late entries to approved current-period corrections or audited reopen. GOV-015 protects this capability’s costs and mixed derived values.
 
 **Acceptance.**
 1. Close a month with WIP and finished stock, post a late receipt charge and reversal, and reconcile valuation/subledger/journals; refuse a warehouse user's backdated change.
@@ -1093,32 +1166,37 @@ Core · target · **partial**
 
 #### COST-006 — Production and supplier performance
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-5, D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Managers filter dashboards/reports by site, center, SKU, period and owner for on-time delivery, schedule adherence, utilization, OEE availability/performance/quality, downtime, yield, supplier OTIF and forecast error. Every metric shows denominator, missing data and source records; exports/scheduled reports retain filters. GOV-001 costs scope: this clause's costs, values, variances and margins read `restricted` for a member the owner restricts, in state, screens, API and downloads, a figure mixing restricted inputs is itself restricted, and its acceptance proves it.
+**Requirement.** Managers filter performance reports by site, center, SKU, period and owner for on-time delivery, schedule adherence, utilization, OEE, downtime, yield, supplier OTIF and forecast error. Each metric shows its denominator, missing data and source records; exports retain the filters. The native decision follows RL-18. The [operating rules](docs/contract/OPERATING-DETAILS.md#cost-006) retain the detailed bounds and record semantics.
 
 **Acceptance.**
-1. Run jobs and receipts with known late, downtime and reject events; inspect each metric, drill to records and download/schedule the same filtered report without converting missing time into perfect OEE.
-2. Reports use UTC event periods; site currently means an existing stock location.
-3. Job OTD compares closed work to its required date; adherence needs retained booked ends.
-4. Machine-slot calendar milliseconds supply utilization capacity; incomplete clocks, missing calendars and unallocated person capacity remain unknown.
-5. OEE uses operation-ledger quantities and availability × performance × operation quality; final-job yield stays separate, with uncapped ratios and their source/missing disclosures.
-6. Supplier OTIF counts full accepted or quality-released lines by the first receipt’s pinned promise (the current promise for an undelivered line) and forecast error is absolute unit error over recorded demand.
-7. CT ruling, 23 October 2026: Larder COST-006 APPROVED + riders: a snapshot schedule exists only while the consenting owner's native sign-in is live and stops on sign-out, expiry, revocation, owner change or restore (restored schedules arrive paused); each due snapshot is attributed to that owner, in-app only, no external send; the screen states that snapshots stop when the owner signs out.
-8. Explicit owner consent binds a daily report to that native session; the native Worker runner generates due snapshots with the saved filters and attributes each immutable snapshot to that owner. Sign-out, session expiry, revocation, deactivation or owner change stops generation at the atomic write. The screen states that snapshots stop at sign-out; development and review sessions require manual generation. Restored schedules are paused, contain no native session reference and grant no authority. Nothing is sent externally. COST-007 inherits branded report documents and authorized external delivery; AUTO-002 inherits notification delivery and its stop conditions.
+1. Run jobs and receipts with known late, downtime and reject events; inspect each metric, drill to records and export the same filters without converting missing time into perfect OEE.
 
-**Evidence.** `tests/api/flows.test.mjs` — “COST-006 filtered performance retains denominators and missing clocks, receipt rejects and in-app scheduled snapshots”: late jobs, downtime and rejects; positive and missing OEE and calendars, booked adherence, yield, supplier OTIF and forecast error; site, center, SKU, period and owner inclusion and exclusion; exact denominators, missing data, source records, pinned supplier promise, UTC clipping and CSV contents; explicit owner consent, native cron generation despite a manager preusing the old predictable command identity, client rejection of reserved cron identities, immutable attributed snapshots, concurrent ticks, next-day generation, audit and restart; refusal after sign-out, expiry, revocation, deactivation, owner change or consent cancellation; no outbound send, private session-reference exclusion, restricted state and report reads, and paused restore. `tests/browser/journey.spec.ts` — “COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390”: report filtering, exact visible numerators and denominators, missing evidence, all metric source controls, CSV, sign-out warning, consenting owner, snapshot attribution and restricted-manager access; browser proof at both widths.
+**Evidence.** `tests/api/flows.test.mjs` — “COST-006 COST-008 filtered performance retains denominators and missing clocks, receipt rejects and in-app scheduled snapshots”; `tests/browser/journey.spec.ts` — “COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390”
+**Gap.** None.
+
+#### COST-008 — Session-bound report snapshots
+
+Core · target · **done** · From COST-006 · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-5, D-2, D-3, D-4, D-6, D-8
+
+**Requirement.** A native owner explicitly binds a daily in-app report to their live native session and saved filters. Generation stops on sign-out, expiry, revocation, deactivation, owner change or restore; restored schedules are paused. Each immutable snapshot names its owner; the screen discloses the sign-out stop. External delivery belongs to COST-007 and AUTO-002. The native decision follows RL-18. The [operating rules](docs/contract/OPERATING-DETAILS.md#cost-008) retain the detailed bounds and record semantics.
+
+**Acceptance.**
+1. Consent to a daily in-app report and inspect due snapshots with their saved filters and attribution; sign out and verify generation stops.
+2. Inspect paused restored schedules without a session reference or authority, and verify that development/review generation is manual and no report is sent outside.
+
+**Evidence.** `tests/api/flows.test.mjs` — “COST-006 COST-008 filtered performance retains denominators and missing clocks, receipt rejects and in-app scheduled snapshots”; `tests/browser/journey.spec.ts` — “COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390”
 **Gap.** None.
 
 #### COST-007 — Custom reports and documents
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-5, D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Buyers save report layouts, columns, filters and permitted calculations; personalize quotes, sales-order confirmations, POs, travelers, pick lists, packing slips and invoices with branding and US addresses. CSV/PDF exports and scheduled delivery honor the viewer's role and redact restricted cost/rate fields. GOV-001 costs scope: this clause's costs, values, variances and margins read `restricted` for a member the owner restricts, in state, screens, API and downloads, a figure mixing restricted inputs is itself restricted, and its acceptance proves it.
+**Requirement.** Buyers save report layouts, columns, filters and permitted calculations; personalize quotes, sales-order confirmations, POs, travelers, pick lists, packing slips and invoices with branding and US addresses. CSV/PDF exports and scheduled delivery honor the viewer's role and redact restricted cost/rate fields. GOV-015 protects this capability’s costs and mixed derived values. The [operating rules](docs/contract/OPERATING-DETAILS.md#cost-007) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Create a margin layout and a branded PO, order confirmation and packing slip, schedule the layout to accounts, then open as warehouse; totals match source records and restricted data never appears in screen/export/email.
-2. COST-007 inherits branded report documents and authorized external delivery from COST-006; in-app snapshots supply neither.
 
 **Evidence.** None.
 **Gap.** Custom reports and documents workflow and its acceptance journey are not implemented.
@@ -1127,7 +1205,7 @@ Core · target · **missing**
 
 #### CONN-001 — QuickBooks Online live sync
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-DATA-004, BASE-ROLE-001 · Rules D-6, D-8 · Register R-2
 
 **Requirement.** Connect a US QuickBooks Online company with scoped OAuth, reviewed item/customer/vendor/tax/account mappings and opening reconciliation. Post bills/invoices/credits and inventory, COGS and WIP journals from approved operations with stable source IDs, linked receipts and visible sync state; external books remain authoritative. Each DEMAND-007 invoice becomes exactly one QBO invoice; QBO payments, partial payments, credits and voids are read back on a schedule and on webhook so every order shows its payment status and outstanding amount, and every bill's billed/paid state reaches its PO (BUY-003). Customers and vendors created in QBO after go-live are offered for import or matching to existing Larder parties, never silently duplicated.
 
@@ -1143,7 +1221,7 @@ Core · target · **missing**
 
 #### CONN-002 — Xero live sync
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-DATA-004, BASE-ROLE-001 · Rules D-6, D-8 · Register R-2
 
 **Requirement.** Connect a US Xero organization with scoped OAuth and reviewed accounts/tax/contact mappings. Approved bills, invoices, credits and inventory/COGS/WIP journals sync with two-way settlement/document status, provider restrictions made visible and all source-to-ledger balances reconciled. DEMAND-007 invoices sync one-to-one, Xero payments drive the order's Unpaid/Partially paid/Paid status, bill payments drive the PO billing status (BUY-003), and new Xero contacts are offered for import or matching.
 
@@ -1157,7 +1235,7 @@ Core · target · **missing**
 
 #### CONN-003 — Shopify orders and stock
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-6, D-8 · Register R-3
 
 **Requirement.** A Shopify app connects one or more Shopify stores to one installation, mapping each store's locations to Larder sites. It imports orders, line options, customer/address/tax/shipping data, edits, cancellations, refunds and fulfillment state. SKU/location mapping exports only sellable availability per store and location, preserving channel buffers and idempotent order/fulfillment references; historic orders can be backfilled before cutover.
 
@@ -1171,7 +1249,7 @@ Core · target · **missing**
 
 #### CONN-004 — WooCommerce orders and stock
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8 · Register R-3
 
 **Requirement.** Connect WooCommerce REST/webhooks for orders, variations, taxes, shipping, edits, cancellations/refunds and fulfillments. Mapped available stock refreshes on events and at least hourly reconciliation; outages show the last successful sync and unresolved differences.
 
@@ -1184,7 +1262,7 @@ Core · target · **missing**
 
 #### CONN-005 — Amazon demand and fulfillment
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8 · Register R-3
 
 **Requirement.** An authorized Amazon Selling Partner API connection imports merchant-fulfilled orders/changes, SKU/ASIN mapping and shipment confirmation, fees and returns; FBA inventory and fulfillment reconcile separately from factory stock with transfer/receipt differences visible. Provider app approval is delivery work.
 
@@ -1199,7 +1277,7 @@ Core · target · **missing**
 
 #### CONN-006 — BigCommerce and eBay orders and stock
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8 · Register R-3
 
 **Requirement.** Connect BigCommerce and eBay orders, variants/listings, addresses, tax/shipping, edits/refunds and shipment state with reviewed SKU/location mapping, sellable stock and historic backfill. Events and periodic reconciliation use the same stable source identity.
 
@@ -1212,7 +1290,7 @@ Core · target · **missing**
 
 #### CONN-007 — ShipStation and Shippo labels and tracking
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8 · Register R-3
 
 **Requirement.** ShipStation, Shippo or 2Ship receives approved packages/addresses/service choices and returns US carrier rates, purchased labels, void/refund outcomes and tracking for USPS, UPS and FedEx. Partial/multi-package shipments and delivery exceptions retain job/order/lot links; an uncertain label purchase is reconciled before retry.
 
@@ -1227,9 +1305,9 @@ Core · target · **missing**
 
 #### CONN-008 — HubSpot, Salesforce and Pipedrive deal-to-order
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8 · Register R-4
 
-**Requirement.** A HubSpot app (OAuth with deal, line-item, product and company scopes) creates exactly one linked Larder sales order when a deal enters a mapped Closed Won stage, mapping line items to SKUs by product SKU/ID, companies and contacts to customers, and amounts to the order currency. A later amendment to the won deal becomes a versioned order change under DEMAND-002, never a second order. Larder writes back to the deal its order reference, promise date, DEMAND-006 status, and shipment and tracking status. Won Salesforce opportunities and Pipedrive deals map the same way. Fields the CRM user's mapped role may not see, such as wage rates, labor cost and margin, never leave Larder. The CRM remains the sales pipeline authority.
+**Requirement.** A HubSpot app  creates exactly one linked Larder sales order when a deal enters a mapped Closed Won stage, mapping line items to SKUs by product SKU/ID, companies and contacts to customers, and amounts to the order currency. A later amendment to the won deal becomes a versioned order change under DEMAND-002, never a second order. Larder writes back to the deal its order reference, promise date, DEMAND-006 status, and shipment and tracking status. Won Salesforce opportunities and Pipedrive deals map the same way. Fields the CRM user's mapped role may not see, such as wage rates, labor cost and margin, never leave Larder. The CRM remains the sales pipeline authority.
 
 **Acceptance.**
 1. In an authorized HubSpot developer test portal, close-win a deal with two line items, replay its webhook, then amend a quantity.
@@ -1242,7 +1320,7 @@ Core · target · **missing**
 
 #### CONN-009 — SPS Commerce EDI
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8 · Register R-4
 
 **Requirement.** Use SPS Commerce for customer purchase orders, acknowledgments, changes, ASNs and invoices with partner mappings, control numbers and acknowledgments. Validation failures route to an owner; accepted/rejected network messages remain distinct from shipped goods or paid invoices.
 
@@ -1255,7 +1333,7 @@ Core · target · **missing**
 
 #### CONN-010 — Third-party warehouse reconciliation
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8 · Register R-4
 
 **Requirement.** Named adapters for ShipBob, ShipHero, Mintsoft and Amazon Multi-Channel Fulfillment exchange fulfillment requests, receipts, transfers, lot inventory, tracking and returns. Mismatched 3PL quantities/costs open reconciliation cases; external stock is not inferred from an unacknowledged request.
 
@@ -1268,7 +1346,7 @@ Core · target · **missing**
 
 #### CONN-011 — SolidWorks BOM and drawing intake
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-6, D-8 · Register R-4
 
 **Requirement.** Import SolidWorks exported BOM CSV/XLSX with drawing/revision references and optional PDM integration, mapping parts, quantities, units and configurations into reviewed Larder revisions. CAD remains authoritative for geometry; ambiguous units/parts require engineering resolution.
 
@@ -1281,7 +1359,7 @@ Core · target · **missing**
 
 #### CONN-012 — ProNest and TruTops nesting intake
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-6, D-8 · Register R-4
 
 **Requirement.** Import ProNest and TRUMPF TruTops Boost nesting reports/PDFs and supported structured exports, preserving source files and extracting material, sheet, part counts, offcuts, setup/run estimates and job mappings. A person verifies extraction before consumption or schedule changes.
 
@@ -1294,7 +1372,7 @@ Core · target · **missing**
 
 #### CONN-013 — Datanomix machine observations
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8 · Register R-4
 
 **Requirement.** Consume Datanomix machine cycle/utilization events with machine/time/job mapping, duplicate detection and gap/clock warnings. Observed time suggests progress/downtime and costing corrections; a supervisor confirms unmatched jobs and physical output.
 
@@ -1307,21 +1385,21 @@ Core · target · **missing**
 
 #### CONN-014 — Versioned public API and webhooks
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-OPS-003, BASE-ROLE-001, BASE-DATA-001, BASE-AUDIT-001 · Rules D-6, D-8
 
-**Requirement.** Document a versioned, paginated API for catalog, planning, operations, trace, costs and migration with scoped service credentials, idempotent writes and optimistic concurrency. Signed outbound events have stable IDs, retry and backoff, replay and delivery inspection; failed automation stays visible. An MCP server exposes the same scoped reads and draft-only actions to external assistants such as Claude and ChatGPT under the connecting person’s role, so an assistant can never approve, post stock or read restricted fields. The interim credential is for an explicitly selected read-only integration or export: only the native owner may issue it with explicit consent to its named purpose, selected catalog, order, operation and trace resources and duration. Cost and wage fields and their derived values are hidden or withheld even when the owner may view them. The credential permits no writes, approvals, stock posting, broader state access or business archive download. It expires within 60 minutes of issuance and also dies with its live native issuing session; sign-out, session expiry, identity deactivation or explicit revocation refuses the next request. Restart extends neither expiry nor session authority. Show the credential once, retain only its hash and non-secret metadata server-side, return metadata only on command replay, and audit issuance and revocation without secret material. Business archives exclude the credential and authentication hash; restored grant metadata is revoked and confers no authority.
+**Requirement.** Document a versioned, paginated API for catalog, planning, operations, trace, costs and migration with scoped service credentials, idempotent writes and optimistic concurrency. Signed outbound events have stable IDs, retry and backoff, replay and delivery inspection; failed automation stays visible. The native decision follows RL-19. The [operating rules](docs/contract/OPERATING-DETAILS.md#conn-014) retain the detailed bounds and record semantics.
 
 **Acceptance.**
-1. Use a scoped integration credential to create and read an order and consume a signed production event; deny an out-of-scope cost read, replay the event and restart mid-retry without duplicating effects; connect an external assistant over MCP as a warehouse user, read order status, create a draft PO and see its wage-rate read and approval refused.
+1. Use a scoped integration credential to create/read an order and consume a signed production event; refuse an out-of-scope cost read and replay/restart without duplicate effects. Through MCP as a warehouse sponsor, read status and prepare a draft; role limits refuse wage reads, and the company’s policy decides commitment calls.
 2. Verify owner-only explicit issuance, selected read resources, withheld costs and wages, show-once and hash-only custody, expiry within 60 minutes, live-session termination, revocation, credential-free audit and archives, and revoked restored metadata.
 3. Before this capability ships, its failed or uncertain sync outcomes must satisfy AUTO-001 ownership, due date and next action, evidence, escalation and provider-confirmed closure; replay submission alone cannot close a case.
 
-**Evidence.** `src/larder/public-api.ts`; `src/larder/service-keys.ts`; `API.md`; `tests/api/authority.test.mjs` (Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors; Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore)
-**Gap.** CT approves the interim policy with riders: owner-only explicit issuance for a named read-only integration or export, selected resource scope, hidden or withheld costs and wages and derived values, expiry within 60 minutes, live native issuing-session dependency, show-once and hash-only custody, revocation, credential-free audit and archives, and revoked restored metadata. CONN-014 remains PARTIAL. Gaps: scoped service writes with idempotency and optimistic concurrency; planning, cost and migration resource coverage; signed outbound events with stable IDs, durable retry and backoff, replay and delivery inspection; AUTO-001 owned failed or uncertain sync follow-up and provider-confirmed closure; and permission-filtered draft-only MCP. The complete target and every original acceptance point remain required. Policy approval supplies no implementation or provider proof.
+**Evidence.** `src/larder/public-api.ts`; `src/larder/service-keys.ts`; `API.md`; `tests/api/authority.test.mjs`
+**Gap.** Versioned resource reads and exact native-owner bounded read credentials ship. Missing journeys: scoped service writes, remaining planning/cost/migration resources, signed durable outbound events and owned failure follow-up, and the policy-governed MCP door.
 
 #### CONN-015 — Zapier workflow integration
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8
 
 **Requirement.** A published Zapier integration offers authenticated triggers for new/late orders, shortages, QC holds, job completion and shipment, and scoped actions to draft orders/POs and update approved metadata. Zapier never bypasses stock, spend or approval controls.
 
@@ -1336,32 +1414,32 @@ Core · target · **missing**
 
 #### AUTO-001 — Owned exception follow-up
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-OPS-004, BASE-ROLE-001 · Rules D-6, D-8
 
-**Requirement.** Shortage, late supplier, blocked work, QC hold, missed promise, invoice difference and failed sync cases have named owner, due/next action, evidence, escalation and closure criteria. Resolution follows accepted material, completed work and reconciled books; a note cannot hide an ongoing derived failure. Under current roles the owner or manager assigns a case to a named active human with write authority (owner, manager, sales, planner, buyer, engineer, production, operator, warehouse, quality or accounts; viewers and agents cannot be assignees) with a due date, next action and escalation owner/manager; that assignee records next action and original evidence, while agents prepare only. Cases have stable source identities independent of changing quantities, versions and ETAs, retained notes/files/digests and assignment/escalation/closure history in the complete archive. A note never hides a continuing source condition, including a legacy LARDER-013 resolution note. Due dates are UTC calendar days, usable through that day: an overdue follow-up appears as an in-app Today escalation on the next UTC day, with its named escalation owner, and never claims an external send. Reads recompute current closure and due notices, including after a restart or a date boundary; the next business write records observed closure/reopening and due escalation in history. Current shortage follow-up nets physical usable stock and hard reservations against current demand; draft/expected supply does not satisfy it. A late-purchase case remains open across ETA changes until all its ordered lines have non-reversed accepted receipts. Held receipt chunks are attributed by item/location/lot in stock-movement sequence order (FIFO, including other held inbound stock); only an authorized release credits acceptance, and rejection does not. Expired/retest-due stock cannot earn acceptance on its receipt/release UTC day; later natural expiry does not undo an earlier valid acceptance. A saved blocked-work case needs a closed work order with its full recorded good-plus-scrap quantity; current execution gates still apply. QC holds need actual authorized disposition; missed-promise cases need actual shipment or an authorized customer-attested amendment clearing the overdue delivery obligation. Each invoice-difference/handoff-line case closes only when its latest accountant acknowledgment names the ledger reference and matches that exact issued amount; a different line's match cannot close it. Today's books evidence is this recorded accountant acknowledgment, not a claim of provider verification. Every future provider capability in CONN-001, CONN-002, CONN-003, CONN-004, CONN-005, CONN-006, CONN-007, CONN-008, CONN-009, CONN-010, CONN-011, CONN-012, CONN-013, CONN-014 and CONN-015 inherits named ownership, due/next action, evidence, escalation and closure only on confirmed provider readback of its failed/uncertain sync before it ships.
+**Requirement.** Shortage, late supplier, blocked work, QC hold, missed promise, invoice difference and failed sync cases have named owner, due/next action, evidence, escalation and closure criteria. Resolution follows accepted material, completed work and reconciled books; a note cannot hide an ongoing derived failure. The [operating rules](docs/contract/OPERATING-DETAILS.md#auto-001) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Create one late PO that blocks two orders, assign/escalate its case, receive/inspect/produce/ship and reconcile; restart during follow-up and verify only the satisfied cases close.
 
-**Evidence.** `src/larder/follow-up.ts`; `src/larder/follow-up-criteria.ts`; `src/larder/follow-up-material.ts`; `src/larder/follow-up-state.ts`; `tests/api/follow-up.test.mjs`; `tests/browser/follow-up.spec.ts`; `tests/api/flows.test.mjs` (AUTO-001 / LARDER-013)
-**Gap.** Stable source conditions, live human ownership and atomic target checks, UTC due in-app escalation, original evidence/history, source-only closure through accepted receipts/QC, completed work, actual shipments and exact line reconciliation; cold restart/replay and archive restore, including legacy notes remaining visible. Future CONN-001–CONN-015 inherit provider-confirmed failed-sync closure.
+**Evidence.** `tests/api/follow-up.test.mjs` — “AUTO-001 and LARDER-013 owned cases survive restart and close only after accepted material, completed work, shipment and exact ledger reconciliation”; `tests/api/flows.test.mjs` — “LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation”; `tests/browser/follow-up.spec.ts` — “AUTO-001 LARDER-013 assign, evidence, in-app escalation and source-cleared history at 1440/390”
+**Gap.** None.
 
 #### AUTO-002 — Scheduled alerts and action policies
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-MAIL-001, BASE-ROLE-001 · Rules D-6, D-8
 
 **Requirement.** Managers configure low-stock, expiry, overdue PO/job, quality and integration notifications with recipient/role, US working hours, escalation, snooze and stop condition. Durable jobs prepare replenishment and rescheduling under explicit policy; sends report accepted/failed/uncertain and never imply human receipt.
 
 **Acceptance.**
 1. Run a clock across low-stock and overdue thresholds, snooze one case, restart before escalation and resolve another; inspect one due notification per policy and stopped follow-up after resolution.
-2. AUTO-002 inherits notification delivery and its stop conditions from COST-006; in-app snapshots supply no external delivery authority.
+2. AUTO-002 inherits notification delivery and its stop conditions from COST-008; in-app snapshots supply no external delivery authority.
 
 **Evidence.** None.
 **Gap.** Scheduled alerts and action policies workflow and its acceptance journey are not implemented.
 
 #### AUTO-003 — Integration repair queue
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-OPS-003, BASE-OPS-004, BASE-ROLE-001 · Rules D-6, D-8
 
 **Requirement.** Every connector exposes last success, lag, credentials/scopes, pending work, rate limits and per-record error. A repair queue supports remapping and safe replay with external readback; disconnect stops new work, and reconnect reconciles missing events before declaring current.
 
@@ -1375,7 +1453,7 @@ Core · target · **missing**
 
 #### MOVE-001 — Katana move-in
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8 · Register R-1
 
 **Requirement.** Import Katana downloaded CSV/XLSX product/material/variant, recipe/BOM, stock and order tables plus authorized JSON API captures for locations, batches, manufacturing operations and open orders not covered by exports. Preserve source IDs, costs, BOM versions, lots, committed quantities and attachments; take recipe units from item cards, include archived records explicitly and reconcile recipes omitted by export eligibility rules. Unsupported fields are explicit exceptions.
 
@@ -1387,185 +1465,209 @@ Core · target · **missing**
 
 #### MOVE-002 — MRPeasy move-in
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8 · Register R-1
 
 **Requirement.** Import MRPeasy CSV exports of articles, BOMs, routings, stock lots, customers/vendors and orders, supplemented by authorized REST JSON captures for detailed open work, operation state/time and reservations. Preserve IDs/relations and source history; clear active export filters and capture API v1/v2 coverage explicitly. The required API plan/access and unavailable fields are named before cutover.
 
 **Acceptance.**
-1. Load a real MRPeasy CSV/JSON package with a partly finished MO, reconcile material, operation/time, cost and sales/PO commitments, then complete and ship without reissuing already consumed material.
+1. Load a verified source-format fixture of the MRPeasy CSV/JSON package with a partly finished MO, reconcile material, operation/time, cost and sales/PO commitments, then complete and ship without reissuing already consumed material.
 
 **Evidence.** None.
 **Gap.** MRPeasy move-in workflow and its acceptance journey are not implemented.
 
 #### MOVE-003 — Fishbowl Manufacturing move-in
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8 · Register R-1
 
 **Requirement.** Import Fishbowl CSV exports using each export type's actual header layout for parts/products, BOMs, inventory, customers/vendors and orders, plus authorized API/report captures of work/manufacture orders and history. Preserve part/product distinction, UOM, tracking fields, BOM stages and open balances; source version is recorded, and current-cost allocation reports are not accepted as historical WIP valuation.
 
 **Acceptance.**
-1. Preview a real Fishbowl package including tracked inventory and partial work/shipment, reconcile part/product mappings and actual quantities/costs, then complete the migrated job without duplicate receipts.
+1. Preview a verified source-format fixture of the Fishbowl package including tracked inventory and partial work/shipment, reconcile part/product mappings and actual quantities/costs, then complete the migrated job without duplicate receipts.
 
 **Evidence.** None.
 **Gap.** Fishbowl Manufacturing move-in workflow and its acceptance journey are not implemented.
 
 #### MOVE-004 — Complete Odoo Manufacturing move-in
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8 · Register R-1
 
 **Requirement.** Extend the published import-compatible Odoo CSV kit to nested BOMs, work centers/calendars, work orders, stock moves/reservations, lot/serial/expiry, QC records, actual times and WIP costs using relational External IDs and authorized JSON API/report supplements. Distinguish kits/subcontract BOMs, inspect unrestricted export fields as well as import-compatible columns and preserve open manufacturing state. Discover installed models/custom fields; use the documented API for that source version (including JSON-2 for Odoo 19) and identify required API access.
 
 **Acceptance.**
-1. Load a real Odoo CSV/API export with partial work and delivery, reconcile External-ID relationships, inventory/WIP and open commitments, then finish work and shipment after cutover.
+1. Load a verified source-format fixture of the Odoo CSV/API export with partial work and delivery, reconcile External-ID relationships, inventory/WIP and open commitments, then finish work and shipment after cutover.
 
 **Evidence.** `src/larder/odoo/map.ts`; `src/larder/odoo/imports.ts`; `MOVE-IN.md`; `tests/api/move-in.test.mjs`
 **Gap.** Basic Odoo CSV kit is tested; manufacturing state, work centers, QC, expiry, actual time and full WIP migration are absent.
 
 #### MOVE-005 — Fulcrum move-in
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8 · Register R-1
 
 **Requirement.** Move Fulcrum customer/vendor, item/BOM/routing, inventory, job/operation, time, quote/order and cost records from authorized API JSON exports and available report CSV downloads. Keep source jobs/revisions and job-specific routing snapshots, tracking timers and operation progress; documented POST search endpoints are permitted read captures. Enumerate unavailable fields and obtain owner-approved supplementary exports rather than inventing them.
 
 **Acceptance.**
-1. Preview a real Fulcrum API/report package, reconcile open operation quantities/time, lot stock, job costs and customer due dates, approve mappings and continue one job without resetting progress.
+1. Preview a verified source-format fixture of the Fulcrum API/report package, reconcile open operation quantities/time, lot stock, job costs and customer due dates, approve mappings and continue one job without resetting progress.
 
 **Evidence.** None.
 **Gap.** Fulcrum move-in workflow and its acceptance journey are not implemented.
 
 #### MOVE-006 — DOSS move-in
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2, D-3, D-4, D-6, D-8 · Register R-1
 
 **Requirement.** Move DOSS inventory, procurement, order, co-manufacturing and workflow records from owner-generated table exports in their actual supplied format, plus authorized API JSON where an outbound API is provisioned. Capture table/column definitions, data types and relationship keys before mapping; public documentation confirms table export but does not establish its file schema or outbound API, so the importer must implement the verified supplied schema rather than assume CSV/XLSX. Map custom object relationships, external ledger/3PL IDs, owned versus third-party stock, open commitments and source history explicitly.
 
 **Acceptance.**
-1. Preview a real DOSS export/API package with custom links and subcontract stock, map references, reconcile ledger-linked inventory/open orders and continue one manufacturing fulfillment after cutover.
+1. Preview a verified source-format fixture of the DOSS export/API package with custom links and subcontract stock, map references, reconcile ledger-linked inventory/open orders and continue one manufacturing fulfillment after cutover.
 
 **Evidence.** None.
 **Gap.** DOSS move-in workflow and its acceptance journey are not implemented.
 
 #### MOVE-007 — Migration rehearsal and parallel cutover
 
-Core · target · **done**
+Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8 · Register R-1
 
-**Requirement.** Every named importer stages originals/digests, source schema/version, row errors/skips and relationship maps without live effects. A parallel run compares dated stock, reservations, BOMs, capacity, open work, WIP and order totals; owner chooses cutover boundary and write authority per channel/ledger. Undo before dependence remains atomic; afterward use reviewed corrections.
+**Requirement.** Every named importer stages originals/digests, source schema/version, row errors/skips and relationship maps without live effects. A parallel run compares dated stock, reservations, BOMs, capacity, open work, WIP and order totals; owner chooses cutover boundary and write authority per channel/ledger. Undo before dependence remains atomic; afterward use reviewed corrections. The [operating rules](docs/contract/OPERATING-DETAILS.md#move-007) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Rehearse a migration twice, compare a day's source/Larder outcomes, approve opening totals and one cutover time, route live orders to one system and inspect refused undo after a real shipment.
 2. For every named importer preview items, BOMs, lots, open orders and dated stock values; show source and proposed Larder stock valuation totals, their USD difference to the cent and row-level exceptions with a review count.
 3. Show matched only when the valuation difference is zero; a nonzero difference blocks cutover until reconciled and approved.
 4. Preserve source currencies and the recorded conversion rates for any non-USD amounts.
-5. *As built:* the Odoo kit (LARDER-016) is the only importer today and carries every importer obligation: it stages each original file with its digest, the file's Odoo model and columns under the versioned mapping `odoo-import-compatible-1`, rejected and skipped rows and External-ID relationship maps without live effects, and its preview lists items, BOMs, lots, open orders and dated stock values with the stock valuation.
-6. Rehearsal, the day comparison, the valuation block, cutover approval and channel routing are provider-neutral (`src/larder/cutover.ts`).
-7. Stock is compared as of the day; reservations, active BOMs, open work, WIP value, capacity minutes and open order counts and values are compared on the day itself.
-8. The owner approves the opening total and the one cutover time and routes each channel (sales orders with their reservations, shipments and returns; purchase orders and receipts; the stock ledger; the accounting handoff) to Larder or the source system; from the cutover time any command that would write a channel routed to the source is refused before anything is saved. MOVE-001, MOVE-002, MOVE-003, MOVE-005 and MOVE-006, and MOVE-004's extension of the Odoo kit, inherit the staging, preview, valuation, rehearsal and cutover obligations before they ship.
+5. Compare dated stock, same-day reservations, active BOMs, open work, WIP, capacity and order quantities and values; bind the opening total, cutover time and channel routing, then refuse a write still routed to the source.
 
-**Evidence.** `src/larder/odoo/imports.ts`; `src/larder/odoo/valuation.ts`; `src/larder/cutover.ts`; `src/larder/cutover-guard.ts`; `src/larder/day-totals.ts`; `src/ui/cutover.tsx`; `src/ui/valuation.tsx`; `MOVE-IN.md`; `tests/api/move-in.test.mjs` (LARDER-016 "Odoo move-in: preview rejects with source IDs, commit journals originals, undo is dependency-safe": staged originals and digests, models and columns, row errors and skips and relationship maps with no live effect; atomic undo before dependence); `tests/api/move-in.test.mjs` (MOVE-007 "rehearsed Odoo move-in reconciles stock value to the cent, blocks cutover until a difference is accepted, then routes live orders to one system": two identical rehearsals with no live effect; preview of items, BOMs, lots, open orders and dated stock values; source and Larder totals, the USD difference to the cent, row exceptions and review count, matched only at zero; source currency and recorded rate kept; dated stock and same-day reservations, BOMs, capacity, open work, WIP and order totals compared; cutover blocked until the exact difference is accepted; owner-approved opening total and one cutover time; owner routing with refused sales, stock and handoff writes; refused undo after a real shipment); `tests/browser/cutover.spec.ts` (MOVE-007 "preview shows the stock valuation to the cent and the cutover is rehearsed twice at 1440/390": totals, difference, exceptions and review count, matched only at zero, rehearsal)
-**Gap.** The Odoo kit, the only importer today, conforms; MOVE-001, MOVE-002, MOVE-003, MOVE-005, MOVE-006 and MOVE-004's extension of the Odoo kit inherit staging, valuation, rehearsal and cutover before they ship.
+**Evidence.** `tests/api/move-in.test.mjs` — “MOVE-007 rehearsed Odoo move-in reconciles stock value to the cent, blocks cutover until a difference is accepted, then routes live orders to one system”; `tests/browser/cutover.spec.ts` — “MOVE-007 preview shows the stock valuation to the cent and the cutover is rehearsed twice at 1440/390”
+**Gap.** The cited Odoo migration journey previews, rehearses twice, reconciles valuation, compares the day, routes cutover and refuses undo after shipment. Missing: equivalent staging/valuation/cutover journeys for every other named importer; these source-format workflows remain required, with real-owner cutover receipts recorded separately.
 
 #### MOVE-008 — History attachments and portable exports
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-DATA-001, BASE-ROLE-001, BASE-AUDIT-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Moved-in closed jobs, shipments, bills, quality records and attachments remain labeled source history with original IDs/time/currency and searchable references. Complete business exports include all target records, settings, links, audit, agent decisions and integration outcomes in documented CSV/JSON plus original files, without reusable secrets.  Current source-history interchange covers closed jobs, shipments, bills, quality records and lots; it retains original source ID/reference, offset-bearing timestamp, declared currency, exact quantities/amounts and original files as source evidence, never executable stock or provider work. Complete means every capability and business record/settings/outcome that exists today conforms; future capabilities and doors in US-001–US-003, ENG-003/006, DEMAND-001/005/007/008, MRP-001–MRP-004, CAP-001–CAP-008, BUY-001–BUY-007, FLOOR-002/006/008/009, TRACE-002/006, STOCK-001/004, COST-001–COST-007, CONN-001–CONN-015, AUTO-002/003, MOVE-001–MOVE-007, GOV-001–GOV-007, MOB-002, OPS-001, LINK-001/002 and AGENT-001–AGENT-009 inherit this obligation before shipping; each receiving clause must carry and assert that coverage in its own contract and acceptance before its new capability ships. Historical currency is never inferred or converted; totals remain separate by declared currency. Business exports exclude reusable installation/provider credentials; original evidence stays byte-for-byte. Restore retains unmapped role records as inert history and never replays commands or connects providers.
+**Requirement.** Moved-in closed jobs, shipments, bills, quality records and attachments remain labelled source history with original IDs, times, currencies and searchable references. The [operating rules](docs/contract/OPERATING-DETAILS.md#move-008) retain source-record shapes, lossless CSV/JSON interchange, original-file custody and inert unmapped identities; the shared export/restore duty covers completeness.
 
 **Acceptance.**
 1. Import history, search a closed lot/job, export and restore to an empty installation, then compare records/files/totals and confirm no live provider credential or duplicate remote action.
 
-**Evidence.** `src/larder/history.ts`; `src/larder/archive.ts`; `src/larder/archive-csv.ts`; `src/ui/source-history.tsx`; `MOVE-IN.md`; `tests/api/backup.test.mjs`; `tests/browser/history.spec.ts`
-**Gap.** Current capabilities conform; future receiver clauses inherit export/restore coverage before shipping.
+**Evidence.** `tests/api/backup.test.mjs` — “MOVE-008 source history searches original IDs/files, exports every record and restores without credentials or remote actions”; `tests/browser/history.spec.ts` — “MOVE-008 preview and commit source history, find closed job/lot, download original and portable exports at 1440/390”
+**Gap.** None.
 
 ### Roles security and ownership
 
 #### OPEN-001 — Free MIT-licensed software, run by one command
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-DATA-005, BASE-OPS-002, BASE-INSTALL-001 · Rules D-6, D-8
 
-**Requirement.** Larder is free and open source under the MIT license: anyone can run, modify and redistribute the complete product source. All capabilities in this contract ship without a Larder license key, seat limit, paid feature tier or upgrade fee. The buyer runs `npx -y @runeditrun/rer dev just-every/run-larder` on a supported computer to start their own empty local installation and reach setup. The source, project metadata and public /run page agree on the MIT license, repository and command. Connected providers and hosting may charge their own fees, identified before enabling the connection. The switch-from journeys and manufacturing capabilities in MOVE-001 through MOVE-007, MRP-001, CAP-004, LARDER-008, LARDER-009 and CONN-001 define the alternative to Katana, MRPeasy and Fishbowl.
+**Requirement.** Larder is MIT-licensed; anyone may run, modify and redistribute its complete source. Its manufacturing capabilities have no seat limit, paid feature tier or upgrade fee; the license and published run page agree. The named incumbent move-in and manufacturing journeys define the promised alternative.
 
 **Acceptance.**
-1. Read LICENSE and rer-project.json and find MIT; build /run and copy its command into a clean directory on a supported computer; reach setup with no sample business records or Larder billing entitlement.
-2. Exercise the delivered product without a license key or paid feature gate, and inspect each provider connection's fee disclosure before enabling it.
+1. Read the MIT license and published run page, follow its documented command from a clean directory to an empty manufacturing setup, and inspect the manufacturing feature availability and connection fee disclosures.
 
-**Evidence.** `LICENSE`; `rer-project.json`; `src/site/run.json`; `rer-setup.json`; `scripts/installer/local.mjs`; `tests/browser/journey.spec.ts` — HTTP-001 MRP-001 public Lobby, health and docs stay separate from private app and exports covers the owner identity-settings disclosure before enabling sign-in at 1440 and 390.
+**Evidence.** `LICENSE`; `rer-project.json`; `src/site/run.json`; `rer-setup.json`; `scripts/installer/local.mjs`; `tests/browser/journey.spec.ts`
 **Gap.** MIT source and the published command ship. Mail and identity setup disclose provider-plan charges; owner-account deployment discloses Cloudflare usage charges before provider work. Clean-directory execution is unproved: pinned rer 0.2.80 completes the native owner claim but its owned-process cleanup fails during setup. Under the Base hold, no pin change is made. Complete launch and mail and hosting connection-door proof remain pending; future CONN-001 through CONN-015 inherit pre-connection provider-fee disclosure.
 
 #### GOV-001 — Manufacturing roles and permissions
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ACCESS-004, BASE-ROLE-001 · Rules D-6, D-8
 
-**Requirement.** Owner controls membership, settings and delegation; manager runs operations; sales quotes and promises; planner manages MRP and capacity; buyer controls suppliers and POs; engineer controls revisions; operator executes assigned tasks; warehouse receives/moves/ships; quality inspects/releases/recalls; accounts controls rates, costs and journals; viewer reads permitted records; agent only prepares. Site and field scopes and custom roles apply in API, screens, downloads and jobs. The planner role carries DEMAND-003 forecast and MPS preparation, maintenance and independent human release authority; agents remain preparation-only. The planner role also carries DEMAND-004 inventory-policy maintenance, supply location, preparation and exact independent approval. The engineer role carries ENG-007 catalog export, preparation and independent human approval. The quality role ships with TRACE-005: it carries TRACE-007 certificate requirement configuration, exact-lot independent approval and revocation with live authority (preparation never grants an approval right); TRACE-004 inspection plan preparation and approval, result recording and hold release with its qualified signoff, evidence and independence rules; TRACE-003 expiry disposition; TRACE-006 recall containment; TRACE-005 case ownership, case release and deviation approval and execution; and AUTO-001 follow-up ownership. It cannot quote, buy, approve purchases, revise engineering, assign roles or download restricted exports. Any use-as-is deviation offered by GOV-001 runs through a TRACE-005 case and carries TRACE-004's requirement for a reason and at least one evidence file, retention of every result and release by a person other than the person who recorded the failure (the owner excepted). The planner role carries FLOOR-005 authority to split or merge compatible unreleased or released work under its explicit material and WIP rules. The planner, engineer and operator roles ship with these doors. A planner also drafts LARDER-006 shortage supply and manual work orders, sets DEMAND-005 order ranks, declares DEMAND-006 expected work completion, and prepares LARDER-015 proposals and independently approves reschedules; purchase drafts from these planning doors wait for buyer approval, and a planner cannot release work, quote, draft purchase orders directly or approve them, post stock, revise engineering, assign roles or download the archive, catalog, BOM or handoff exports. An engineer saves BOM and routing revisions with instructions (ENG-002), exports BOM CSV and prepares and independently approves ENG-004 bulk revisions, and proposes ENG-005 changes that only the owner or a manager approves; an engineer cannot draft or release work, plan, quote, buy, post stock, assign roles or download the archive or handoff exports. An operator acknowledges, starts and completes (ENG-002, FLOOR-001) and pauses, resumes and reports progress on (FLOOR-007) only operations assigned to them; an operator never assigns operations, acknowledges escalations, issues materials, records output or otherwise posts stock, drafts or releases work, quotes, buys, revises engineering, assigns roles or downloads the archive, catalog, BOM or handoff exports. Independent approval means a person other than the preparer, except the owner. Planners, engineers and operators are AUTO-001 follow-up owners. Scopes apply to non-owner human members: the owner is never scoped and agents stay preparation-only. Site scope uses the owner's named site groups, including bins added later, with any explicit location scope intersecting that reach; a record is in scope only if every location it names is in scope, records with no location (items, parties, BOMs, price lists) follow the role alone, and a derived figure shows only if every source row behind it is in scope, otherwise it reads "restricted (includes other locations)" with no partial total and no count, existence or ID of an out-of-scope record. A command naming any out-of-scope location is refused inside the atomic write; an independently approved write needs the preparer and the approver each to cover the exact locations (a preview binds the scope version); trace, recall-pack and certificate-pack nodes outside scope read "restricted record" and a recall touching one is refused; the archive, audit, handoff and import downloads need an unscoped owner or manager, so a scoped manager's rights do not widen. The costs-and-wages restriction covers wages (labor, burden and rework hourly rates, read by default by the owner, managers, accounts and the production person who entered the rate on their own rework order) and costs (unit costs, values, valuations, standard, actual and WIP cost, variances, purchase and sales prices, margins, cash exposure and anything computed from them): for a member the owner restricts they read `restricted` in state, screens, API and downloads, a door that needs one (quoting, purchase pricing and approval, rework with a rate, handoffs, imports) is refused without echoing a value, and a total mixing restricted inputs is restricted. A custom role is an owner-named copy of one built-in role other than owner or agent that can only be narrowed by location scope, the costs-and-wages restriction or removed approval doors; a member holds exactly one role and removed doors stay removed. Role, custom role and both scopes are read live on every request and again inside the atomic write, so narrowing or revoking takes effect on the next request, and a recorded outcome that names a location the member has lost stays closed to their replay. STOCK-001 (sites as location groups), FLOOR-002 and CAP-002 (wages), COST-001 to COST-007 (costs, derived values and margins) and OPS-001 (jobs use the requester's current scopes) carry these obligations in their own clauses and acceptance; TRACE-001/006/007 pack redaction is proven here. The planner inherits FLOOR-006 preparation of inert output plans and exact batch reviews; owner-only approval, posting and evidenced release remain separate.
+**Requirement.** The manufacturing role matrix gives owner, manager, sales, planner, buyer, engineer, operator, warehouse, quality, accounts and viewer their stated jobs and separation of duties. Planners manage forecasts, policies and schedules; engineers control revisions; operators execute assigned tasks; quality controls inspection and disposition; accounts controls rates, costs and journals. The documented role matrix retains every allowed and refused manufacturing action. The native decision follows RL-20. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-001) retain the detailed bounds and record semantics.
 
 **Acceptance.**
-1. Invite each role, execute its permitted flow and directly call a forbidden command or download; restrict one site and wage fields, revoke membership mid-task and verify no cross-site or restricted-field leak.
+1. Invite each manufacturing role, execute its permitted flow and call a forbidden command or download; revoke membership mid-task and verify the manufacturing boundaries.
 
-**Evidence.** `src/larder/roles.ts`; `src/larder/scope.ts`; `src/larder/scope-cost.ts`; `src/larder/scope-view.ts`; `src/larder/scope-gate.ts`; `src/larder/api.ts`; `src/larder/view.ts`; `src/larder/storage.ts`; `src/ui/scopes.tsx`; `src/ui/people.tsx`; `tests/api/authority.test.mjs` (invite each role, run its permitted flow and call a forbidden command or download: LARDER-014 roles and sessions are checked on every command and read; GOV-001 TRACE-005 quality role; GOV-001 planner role; GOV-001 engineer role; GOV-001 operator role; restrict one site: GOV-001 location scope, which proves a scoped member's state, derived figures, commands, trace, recall and download doors, the live preview binding, the preparer's reach judged live at a quality release, a replay refused after narrowing, and mid-task deactivation; restrict wage fields: GOV-001 costs-and-wages scope and custom roles, which proves state, downloads, doors and replay hold no cost or wage value, a custom role only narrows its base and a lifted restriction applies at once); `tests/api/rework.test.mjs` (FLOOR-004 wage default: the entering production person reads the rate, another production person and an operator do not); `tests/browser/scopes.spec.ts` (GOV-001 the owner limits a person at 1440/390)
-**Gap.** Conforms to ct scope-review-50: location scope until STOCK-001 ships site records; costs-and-wages scope on today's fields; custom roles; live authority. STOCK-001, FLOOR-002, CAP-002, COST-001 to COST-007 and OPS-001 carry their obligations in their own clauses; no OPS-001 job runner exists yet.
+**Evidence.** `tests/api/authority.test.mjs` — “GOV-001 roles and sessions are checked on every command and read”; `tests/api/authority.test.mjs` — “GOV-001 TRACE-005 quality role inherits TRACE-003/004/006/007 authority with independence and live revocation, and nothing outside quality”; `tests/api/authority.test.mjs` — “GOV-001 planner role inherits DEMAND-003 forecast/MPS, DEMAND-004 policy and FLOOR-005 split/merge authority with independent approval, and nothing outside planning”; `tests/api/authority.test.mjs` — “GOV-001 engineer role inherits ENG-007 catalog export, preparation and independent approval and controls ENG-002/004/005 revisions, never change approval or anything outside engineering”; `tests/api/authority.test.mjs` — “GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007 operations, posts no stock and loses access when revoked”
+**Gap.** None.
+
+#### GOV-014 — Site and location scope
+
+Core · target · **partial** · From GOV-001 · Cites BASE-ROLE-001 · Rules D-6, D-8
+
+**Requirement.** The owner scopes a member to named site groups, including locations added later, intersected with any explicit location restriction. A record and any derived figure require all source locations in scope; trace and recall packets disclose restricted records without out-of-scope totals, identities or counts. Exact writes require both preparer and decision-maker reach. The native decision follows RL-20. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-014) retain the detailed bounds and record semantics.
+
+**Acceptance.**
+1. Restrict a member to one site, exercise reads, commands, trace, recall and downloads, add a bin and narrow scope; inspect refusals and redaction, including a saved outcome replay and a mid-task revocation.
+
+**Evidence.** `tests/api/authority.test.mjs` — “GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live”
+**Gap.** The cited scope journeys cover explicit location restrictions, derived-value redaction, preparer/approver checks, replay and revocation. Missing: named site-group scope including a location added after the grant. The site-group journey in tests/api/flows.test.mjs is outside GOV-001’s old evidence set.
+
+#### GOV-015 — Costs and wages scope
+
+Core · target · **done** · From GOV-001 · Cites BASE-ROLE-001 · Rules D-6, D-8
+
+**Requirement.** The owner can restrict costs and wages, including prices, rates, value, WIP, variance, margin, cash exposure and any mixed derived figure. A door needing a restricted value refuses without revealing it. Existing rework-rate authorship remains the disclosed production-person exception. The native decision follows RL-20. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-015) retain the detailed bounds and record semantics.
+
+**Acceptance.**
+1. Restrict wages and costs and inspect state, screens, API, files and saved outcomes; verify that neither a direct field nor a derived total reveals the restricted value.
+
+**Evidence.** `tests/api/authority.test.mjs` — “GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live”; `tests/api/rework.test.mjs` — “a person without wage authority reads no rework labor cost, total, output value or valued movement that the hourly rate follows from”
+**Gap.** None.
+
+#### GOV-016 — Narrow custom manufacturing roles
+
+Core · target · **done** · From GOV-001 · Cites BASE-ROLE-001 · Rules D-6, D-8
+
+**Requirement.** An owner-named custom role copies one non-owner, non-agent built-in role and only narrows it through site/location reach, costs-and-wages restrictions or removed decision doors. A member holds one role; removed authority cannot be recovered through delegation. The native decision follows RL-20. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-016) retain the detailed bounds and record semantics.
+
+**Acceptance.**
+1. Create and narrow a custom role, exercise an allowed flow and a removed door, then change the role and inspect the next request and delegated decision.
+
+**Evidence.** `tests/api/authority.test.mjs` — “GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live”; `tests/api/authority.test.mjs` — “a deputy holds a delegated approval only while the principal's custom role still includes it”
+**Gap.** None.
 
 #### GOV-002 — Approval policies and delegated authority
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-6, D-8
 
-**Requirement.** Owner sets spend, margin, count inventory adjustment and quarantine quality-release approval thresholds, dual approval, deputies and expiry. Exact inputs and separation of duties bind decisions; changed/stale inputs invalidate approval and every emergency override names its accountable human. The quality-hold/nonconformance/deviation release journeys (GOV-008), schedule thresholds (GOV-009), the ledger threshold (GOV-010) and the inventory-adjustment threshold on non-count write-offs (GOV-011) use this engine and its signature, deputy, expiry and override rules.
+**Requirement.** Owner sets spend, margin, count inventory adjustment and quarantine quality-release approval thresholds, dual approval, deputies and expiry. Exact inputs and separation of duties bind decisions; changed/stale inputs invalidate approval and every emergency override names its accountable human. The quality-hold/nonconformance/deviation release journeys (GOV-008), schedule thresholds (GOV-009), the ledger threshold (GOV-010) and the inventory-adjustment threshold on non-count write-offs (GOV-011) use this engine and its signature, deputy, expiry and override rules. The native decision follows RL-21. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-002) retain the detailed bounds and record semantics. Native-person signatures remain exact; an equivalent agent action carries money, commitment or destructive under the company’s policy.
 
 **Acceptance.**
-1. Route a high-value PO and stock write-off through dual approval with a deputy, change the input after one signature and inspect invalidation; deny agent approval and log an owner override; confirm a below-floor (or unknown-margin) sales order and a high-value quarantine release need the policy signatures on exact terms and a below-floor amendment needs the owner override.
-2. *As built:* per category the owner sets a USD threshold (margin: a percentage floor over standard cost; unknown never passes), one or two signatures and a signature lifetime; distinct people sign the exact current version, inputs and terms; a changed input, expiry or lost authority voids a signature; deputies sign a principal's seat within a dated delegation of at most 30 days; agents never sign; only the owner overrides, naming an accountable owner or manager and a reason (`src/larder/approval-policy.ts`).
-3. Ruled by ct (22 October 2026): only the owner sets thresholds; signers come from the door's approving roles, never the preparer, an agent, a viewer or an operator; a signature lives 1 to 43,200 minutes; a deputy holds only the principal's own authority for that door (a deputy cannot name a deputy for a seat they hold only by delegation), for at most 30 days and revocably; a change to a threshold, signature count or lifetime never revalidates or voids a signature already given on exact terms, a decision already holding a valid signature completes under the policy it began under and the change applies to the next decision; every threshold, deputy and override change is recorded in the audit (GOV-004) with actor, reason and exact before and after; and one person never supplies two signatures on one decision, directly or as principal and deputy in either order.
+1. Route a high-value PO and stock write-off through dual approval with a deputy, change the input after one signature and inspect invalidation; log an owner override; confirm a below-floor (or unknown-margin) sales order and a high-value quarantine release need the policy signatures on exact terms and a below-floor amendment needs the owner override.
+2. Inspect exact signatures, current authority, expiry, one person per seat, bounded revocable deputies and the recorded owner override; a policy edit governs the next decision and does not rewrite an existing exact decision.
 
-**Evidence.** `src/larder/approval-policy.ts`; `src/larder/margin.ts`; `src/larder/roles.ts`; `src/larder/proposals.ts`; `src/larder/purchasing.ts`; `src/larder/counts.ts`; `src/larder/sales.ts`; `src/larder/order-changes.ts`; `src/larder/quality.ts`; `src/larder/nonconformance.ts`; `src/ui/approvals.tsx`; `tests/api/authority.test.mjs` (GOV-002 "high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human"; GOV-002 "orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override"); `tests/browser/approvals.spec.ts` (GOV-002) — the first journey proves the dual-signature PO and stock write-off with a deputy, invalidation after one signature, agent denial, the owner override, no sub-delegation, one person never twice (principal and deputy in either order), a threshold change leaving a given signature valid and applying to the next decision, and the audit of every policy, deputy and override change; the second proves the below-floor order, the high-value quarantine release and the below-floor amendment override; `tests/browser/approvals.spec.ts` (GOV-002) proves the screen at 1440/390
-**Gap.** Conforms: every acceptance point and ct's riders (22 October 2026) are asserted through the named journeys. GOV-008, GOV-009, GOV-010 and GOV-011 keep their own statuses; GOV-002 does not wait on them.
+**Evidence.** `tests/api/authority.test.mjs` — “GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human”; `tests/api/authority.test.mjs` — “GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override”; `tests/browser/approvals.spec.ts` — “GOV-002 the owner sets a two-signature policy, a signature is given and then invalidated by a changed input at 1440/390”
+**Gap.** None.
 
 #### GOV-003 — Single sign-on and strong authentication
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-ACCESS-001, BASE-SIGNIN-001, BASE-SIGNIN-002, BASE-ROLE-001 · Rules D-6, D-8 · Register R-5
 
-**Requirement.** Connect Microsoft Entra ID, Google Workspace and sibling Auth via OIDC/SAML, require passkeys or MFA for privileged users and step up before journal/role/credential changes. SCIM provisioning/deprovisioning and lost-device revocation stop sessions and service access promptly.
+**Requirement.** Manufacturing planners can use Microsoft Entra ID, Google Workspace or Auth identity, with privileged step-up before journals, roles and credentials. Standards identity, MFA and lifecycle use the shared duties; actual vendor-tenant proof is in the register.
 
 **Acceptance.**
-1. Sign in through an authorized identity tenant, require MFA, provision/deprovision a planner and revoke a tablet; its next read/write/download is refused server-side.
+1. Through run-auth, sign in a planner, apply the privileged step-up rule, provision/deprovision the planner and revoke a tablet; inspect refusal of its next manufacturing read, write and download.
 
 **Evidence.** `src/auth.server.ts`; `src/modules/operator-auth/index.mjs`; `tests/api/authority.test.mjs`
 **Gap.** Native session authentication/revocation ships; these IdP connections, enforced MFA/step-up and SCIM are not product-wired.
 
 #### GOV-004 — Auditable production decisions
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-OPS-005, BASE-AUDIT-001, BASE-ROLE-001, BASE-DATA-001 · Rules D-6, D-8
 
-**Requirement.** An exportable append-only audit records actor, time, source, before/after or exact approved inputs, reason and linked evidence for stock, revisions, time corrections, quality, schedules, roles, integrations and agent work. Search/filter preserve traceability without logging credentials or unnecessary document content. Journal adjustments are audited under GOV-012 and retention is governed by GOV-013.
+**Requirement.** A changed manufacturing decision can be followed across BOMs, schedules, time corrections, quality and stock, retaining its exact inputs, reasons and linked evidence. GOV-012 adds ledger adjustments and GOV-013 defines manufacturing retention. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-004) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Follow a changed BOM through scheduling, operator correction, quality release and a stock adjustment; query/export its audit, deny unauthorized deletion and confirm planted secrets are absent.
-2. *As built:* `larder_audit`, written in each command's atomic batch, owner/manager-readable, filterable by area, actor, source, record link, command, time and text, exported as JSON and CSV; no role edits or deletes an entry and the database aborts any such write; credentials and document bodies are never stored.
 
-**Evidence.** `src/larder/audit.ts`; `src/larder/audit-read.ts`; `src/larder/storage.ts`; `src/ui/audit-trail.tsx`; `migrations/core/0016_audit.sql`; `tests/api/authority.test.mjs` (GOV-004); `tests/api/move-in.test.mjs` (LARDER-016); `tests/browser/audit.spec.ts` (GOV-004)
-**Gap.** Conforms; journal adjustments are GOV-012 and retention is GOV-013.
+**Evidence.** `tests/api/authority.test.mjs` — “GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets”; `tests/browser/audit.spec.ts` — “GOV-004 and GOV-005 owner audit and exact retention decisions preserve history”
+**Gap.** None.
 
 #### GOV-005 — Erasure and retention
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-DATA-002, BASE-DATA-003, BASE-DATA-006, BASE-ROLE-001, BASE-DATA-001, BASE-AUDIT-001 · Rules D-6, D-8
 
-**Requirement.** Owner-configured US retention periods and legal holds preserve required production and financial trace records while erasing eligible contacts, documents, messages and model context where lawful. Erasure removes controlled search, cache and provider copies, anonymizes former operators without corrupting movements, and reports retained categories and reasons. The interim default requires explicit consent from the native owner to the exact current contact-erasure review and retains production and financial trace records and all documents indefinitely. It provides no automatic deletion, purge schedule or outbound request and does not authorize erasure of records the business must keep. The recorded decision identifies the owner, time, subject ID, reviewed version, scope, reason and outcome without retaining erased personal values. A legal hold prevents changes or deletion of the identified held record and never expires automatically. Only the owner may explicitly release its current version with a reason and an audit of actor, time and before and after state; release removes that hold only and performs no erasure. Future archives reflect completed anonymization and retain holds, decisions, required trace records and preserved document bytes; restore retains those outcomes without repeating erasure, releasing holds or contacting providers. Previously downloaded archives and uncontrolled copies are not retroactively erased. Credentials, sessions and reusable secrets never enter business archives, audit, logs or model prompts, and erasure consent alone authorizes no outbound disclosure. The interim policy does not certify records-retention, tax or manufacturing-compliance obligations.
+**Requirement.** US retention and legal holds preserve production and financial trace while eligible contacts, documents, messages and model context are erased lawfully. Former-operator anonymization leaves stock history intact; controlled search, cache and provider outcomes are read back. Native-owner exact-review consent and explicit audited hold release retain the ruled production/document preservation boundary; credentials and link expiry grant no erasure authority. The native decision follows RL-22. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-005) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Erase a former employee or contact with linked lots and financial records, retain a legal-held CoA, and inspect archive, search and provider deletion outcomes and intact anonymized stock history.
 2. Verify exact current-review owner consent, refusal of stale or held erasure, retained categories and reasons, explicit audited owner hold release without deletion, future archive outcomes and inert restore.
-3. Inspect the complete retention and lawful erasure target as its remaining capabilities ship.
-4. CT retains explicit native-owner consent to the exact current contact-erasure review, indefinite preservation of production and financial trace records and documents, and explicit audited owner release of a current legal hold without erasure.
-5. Credential replacement, credential revocation and link expiry grant no erasure authority and perform no deletion.
-6. Operational staff retain document access under their current native roles.
-7. Configurable lawful retention and complete eligible erasure remain required.
-8. This ruling adopts no Mallet credential or customer-media policy and accepts no completion.
 
-**Evidence.** `src/larder/retention.ts`; `tests/api/audit-retention.test.mjs` (Retention settings and contact erasure require owner consent and a current review, preserves legal-held certificates and linked stock and financial history, and replaces future archive contact outcomes); `tests/api/audit-retention.test.mjs` (GOV-013 operator journey extended through inactive native anonymization); `tests/browser/audit.spec.ts` (GOV-004 and GOV-005 owner audit and exact retention decisions preserve history); `tests/api/flows.test.mjs` (Cited variance explanations require exact owner consent and capped single sends, retain repeat causes and compare approved future work without rewriting history — held revocation and retained evidence)
-**Gap.** CT retains explicit native-owner consent to the exact current contact-erasure review, indefinite preservation of production and financial trace records and documents, and explicit audited owner release of a current legal hold without erasure. Credential replacement, credential revocation and link expiry grant no erasure authority and perform no deletion. Operational staff retain document access under their current native roles. Configurable lawful retention and complete eligible erasure remain required. This ruling adopts no Mallet credential or customer-media policy and accepts no completion. Implemented partial evidence includes US minimum preservation floors without expiry, exact-review contact erasure, inactive native display-label replacement, held follow-up preservation across automatic observation, and model-consent withdrawal without altering held sources or prior consent evidence. The Settings journey displays linked records before consent. These bounded flows do not prove complete lawful subject erasure or every controlled copy. Gap — GOV-005: configurable US retention periods; lawful subject erasure, including former-operator live anonymization and eligible document, message and model-context erasure; complete legal-hold lifecycle coverage; controlled search, cache and provider deletion outcomes; and the page journey. Actual provider deletion and legal sufficiency of retention remain unestablished.
+**Evidence.** `src/larder/retention.ts`; `tests/api/audit-retention.test.mjs`; `tests/api/audit-retention.test.mjs`; `tests/browser/audit.spec.ts`; `tests/api/flows.test.mjs`
+**Gap.** The bounded native flows preserve US production/document records, legal holds and prior model-consent evidence while anonymizing reviewed contacts. Missing: configurable lawful retention, complete eligible subject/document/message/model-context erasure, every controlled search/cache/provider copy, complete hold lifecycle and page journey. Legal sufficiency and actual provider deletion remain field proof.
 
 #### GOV-006 — Provider and model secret custody
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-SECRET-001, BASE-SECRET-002, BASE-ROLE-001, BASE-DATA-001 · Rules D-6, D-8
 
-**Requirement.** Provider credentials are encrypted in installation-owned secret storage, least scoped, hidden after entry and rotatable/revocable without source edits. Logs, exports and agent/model prompts exclude credentials; destination and data scopes require owner approval.
+**Requirement.** Ledger, mail and model connections keep installation-owned encrypted, least-scoped credential custody with rotation/revocation without source edits. Destination and data-scope configuration carries security and access; the company’s policy decides corresponding agent calls.
 
 **Acceptance.**
 1. Connect and rotate ledger/mail/model credentials, provoke an error and export the installation; inspect redacted UI/logs/archive and denied use of revoked scopes.
@@ -1575,9 +1677,9 @@ Core · target · **missing**
 
 #### GOV-007 — Backup restore and recovery
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-DATA-001, BASE-BACKUP-001, BASE-ROLE-001 · Rules D-6, D-8
 
-**Requirement.** Owner schedules encrypted backups with retention and restore drills for domain data, files, revision/audit/trace and configuration. Restore to an isolated installation reconciles stock/WIP and marks remote actions for readback, never replaying physical shipments, payments or journals.
+**Requirement.** Recovery reconciles a partial manufacturing job, shipment, WIP, trace and files in an isolated installation. Remote effects remain pending readback so recovery cannot ship, pay or post a journal twice.
 
 **Acceptance.**
 1. Back up during a partial production/shipment, restore into an empty installation and reconcile balances/files; connect in recovery mode and confirm no second provider effect.
@@ -1587,57 +1689,57 @@ Core · target · **partial**
 
 #### GOV-008 — Quality-release approval journeys
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-6, D-8
 
-**Requirement.** (Split from GOV-002.) Quality-hold release, nonconformance release and approved-deviation release honour the owner's quality threshold: at or above it, the policy signatures from the door's approving roles, never the preparer, failure recorder or an agent, bind the exact lot, quantity and decision terms; changed holds, quantities or results invalidate; owner override names its accountable human. *As built:* the quality-hold release is signed by a manager or quality-role holder other than the person who recorded the failure; the nonconformance release by a manager or quality-role holder other than the case opener and the latest failing inspector, on the exact quantity and passing inspection; the deviation approval by a quality-role holder other than the proposer, the case opener and the latest failing inspector, on the exact deviation.
+**Requirement.** Quality hold, nonconformance and use-as-is release honor the owner’s quality-value threshold and exact native signature rules. Changed held quantities or results invalidate signatures, and an owner override names its accountable person; the documented quality-role and failure-recorder separation remains specific to each release. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-008) retain the detailed bounds and record semantics. Native-person signatures remain exact; an equivalent agent action carries commitment under the company’s policy.
 
 **Acceptance.**
-1. With a two-signature quality threshold, release a high-value quality hold, a nonconformance and a deviation; change the held quantity after one signature and inspect invalidation; deny agent and preparer signatures; log an owner override.
+1. With a two-signature quality threshold, release a high-value quality hold, a nonconformance and a deviation; change the held quantity after one signature and inspect invalidation; log an owner override.
 
-**Evidence.** `src/larder/quality.ts`; `src/larder/nonconformance.ts`; `src/larder/approval-policy.ts`; `tests/api/quality-approval.test.mjs` (GOV-008); `tests/browser/approvals.spec.ts` (GOV-008)
-**Gap.** Conforms: a quality-hold release, a nonconformance release and a deviation approval each need two signatures above the quality threshold, the first signature is invalidated by a changed held quantity and an owner override names its accountable manager.
+**Evidence.** `tests/api/quality-approval.test.mjs` — “GOV-008 quality-hold, nonconformance and deviation releases under a two-signature quality threshold need independent signatures on exact terms, invalidate when the held quantity changes and take the named owner override”; `tests/browser/approvals.spec.ts` — “GOV-008 a quality-hold release under a two-signature quality threshold is signed once and then invalidated by a changed held quantity at 1440/390”
+**Gap.** None.
 
 #### GOV-009 — Schedule approval thresholds
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-6, D-8
 
-**Requirement.** (Split from GOV-002.) The owner sets a schedule threshold in minutes of per-job delay; adopting a reschedule or plan, or switching on a CAP-007 grant, whose largest per-job delay is at or above it needs the policy signatures on its exact changes; the owner's schedule threshold, signature count and signature lifetime cap every CAP-007 grant's delay/displacement limits and expiry. *As built (ct ruling, 22 October 2026):* the owner sets the threshold in whole minutes (`approval.policy` with `thresholdMinutes`), one or two signatures and a signature lifetime. The unit is the largest per-job finish delay: a plan's or reschedule's delay is the largest increase of any job's finish between its before and after schedules, and a job left unscheduled counts as unbounded; a grant's is the larger of its per-job delay and displacement limits. At or above the threshold `schedule.adopt`, an approved reschedule proposal and `schedule.grant.approve` need the policy signatures on the exact plan (its changes and the planning inputs it was built on), the exact proposal (the work and calendars it moves) or the exact grant terms; a deputy for a manager, planner or production principal signs that principal's seat, a grant is authorized by the seat that signed last, and only the owner overrides, naming an accountable owner or manager. "Capped at the threshold per required signature" means: a grant needing no signature stays under the threshold; a grant carrying one signature reaches at most one threshold and one carrying two at most two, never above the owner's policy (its signatures times the threshold), and the owner's override is one signature, so an overridden grant reaches at most one threshold. A grant's life is at most one signature lifetime from the moment it is prepared or approved, and it ends (the next recorded event suspends it until a fresh approval) if its protection plan changes or any person who signed it, or the principal a deputy stood in for, loses authority (`src/larder/scheduling/{delay,grants,recovery}.ts`).
+**Requirement.** The owner’s schedule-delay threshold, signature count and lifetime bound exact schedule decisions and internal automatic-booking grants. Delay and displacement use the largest per-job change; a grant’s scope, cap, expiry and live signers bind each application, with no authority for customer dates, spending or physical stock. The native decision follows RL-23. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-009) retain the detailed bounds and record semantics. Native-person signatures remain exact; an equivalent agent action carries standard, access or commitment under the company’s policy.
 
 **Acceptance.**
-1. Set a two-signature schedule threshold; route an above-threshold reschedule adoption and a grant through dual approval with a deputy; change the plan after one signature and inspect invalidation; refuse a grant exceeding the cap; deny agent approval; log an owner override.
+1. Set a two-signature schedule threshold; route an above-threshold reschedule adoption and a grant through dual approval with a deputy; change the plan after one signature and inspect invalidation; refuse a grant exceeding the cap; log an owner override.
 
-**Evidence.** `src/larder/approval-policy.ts`; `src/larder/scheduling/delay.ts`; `src/larder/scheduling/grants.ts`; `src/larder/scheduling/recovery.ts`; `src/larder/proposals.ts`; `src/ui/approvals.tsx`; `tests/api/schedule-approval.test.mjs` (GOV-009 plan and grant journey; GOV-009 reschedule proposal journey); `tests/browser/approvals.spec.ts` (GOV-009) — the plan-and-grant journey proves the two-signature adoption and grant with a deputy, invalidation by a changed planning input or a revised grant, the one-signature (override) cap, the one-threshold cap of a one-signature policy, the grant that needs no signature, the lifetime cap, suspension when the protection plan changes or a first signer loses authority, agent denial and the owner override; `tests/browser/approvals.spec.ts` (GOV-009) proves the screen at 1440/390
-**Gap.** Conforms to the ruled cap and life: every acceptance point runs in the named journeys in push Verify.
+**Evidence.** `tests/api/schedule-approval.test.mjs` — “GOV-009 a two-signature schedule threshold gates an above-threshold plan adoption and a grant with a deputy, invalidates on changed inputs, caps every grant, denies agents and takes the named owner override”; `tests/api/schedule-approval.test.mjs` — “GOV-009 a reschedule proposal delaying a job past the schedule threshold needs two signatures, a deputy and an unchanged finite preview”; `tests/browser/approvals.spec.ts` — “GOV-009 a reschedule under a two-signature schedule threshold is signed once and then invalidated by a changed work order at 1440/390”
+**Gap.** None.
 
 #### GOV-010 — Ledger approval threshold
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-6, D-8
 
-**Requirement.** (Split from GOV-002.) Every ledger posting or journal adjustment at or above the owner's USD ledger threshold needs the policy signatures on its exact lines, with deputies, expiry, invalidation and the named owner override; CONN-001, CONN-002 and AGENT-004 post only through it.
+**Requirement.** Every ledger posting or journal adjustment at or above the owner's USD ledger threshold needs the policy signatures on its exact lines, with deputies, expiry, invalidation and the named owner override; CONN-001, CONN-002 and AGENT-004 post only through it. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-010) retain the detailed bounds and record semantics. Native-person signatures remain exact; an equivalent agent action carries money and commitment under the company’s policy.
 
 **Acceptance.**
-1. Through the first ledger door, route an above-threshold journal adjustment through dual approval with a deputy, change one line after one signature and inspect invalidation; deny agent approval; log an owner override.
+1. Through the first ledger door, route an above-threshold journal adjustment through dual approval with a deputy, change one line after one signature and inspect invalidation; log an owner override.
 
 **Evidence.** None.
 **Gap.** No Larder door posts to a ledger.
 
 #### GOV-011 — Inventory-adjustment threshold on every write-off
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ROLE-001, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-6, D-8
 
-**Requirement.** (Split from GOV-002.) Every door that writes stock off outside a count, including expiry-disposition scrap, honours the inventory-adjustment threshold on the USD value written off, binding the exact lot, location and quantity. *As built:* the doors that write stock off outside a count are the expiry-disposition scrap (`lot.dispose`, signed by a manager or quality-role holder or a deputy for one), the quarantine rejection (`quarantine.decide`, manager or warehouse) and the nonconformance rejection (`nonconformance.reject`, manager or quality); each measures the USD value written off (quantity times average cost) and binds the exact item, lot, location and quantity, so a changed balance, lot version or case quantity voids a signature. A return to a supplier is a credit, not a write-off, and `movement.reverse` reverses a document someone already authorised.
+**Requirement.** Non-count write-offs use the inventory-adjustment threshold on the USD value and exact item, lot, location and quantity disposed. Changed balances or case quantities invalidate the decision; supplier credits and reversing an already authorized document remain distinct operations. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-011) retain the detailed bounds and record semantics. Native-person signatures remain exact; an equivalent agent action carries destructive and commitment under the company’s policy.
 
 **Acceptance.**
-1. Scrap a high-value expired lot under a two-signature policy with a deputy; move stock at that location after one signature and inspect invalidation; deny agent approval; log an owner override.
+1. Scrap a high-value expired lot under a two-signature policy with a deputy; move stock at that location after one signature and inspect invalidation; log an owner override.
 
-**Evidence.** `src/larder/lot-dates.ts`; `src/larder/purchasing.ts`; `src/larder/nonconformance.ts`; `src/larder/approval-policy.ts`; `src/ui/approvals.tsx`; `tests/api/expiry.test.mjs` (GOV-011); `tests/browser/approvals.spec.ts` (GOV-011)
-**Gap.** Conforms: expiry-disposition scrap, quarantine rejection and nonconformance rejection each honour the inventory-adjustment threshold alongside the count door; supplier returns are not write-offs and `movement.reverse` reverses an already authorised document.
+**Evidence.** `tests/api/expiry.test.mjs` — “GOV-011 expiry scrap and quarantine and nonconformance rejections honour the inventory-adjustment threshold: two signatures on the exact lot, location and quantity, a deputy, invalidation when stock moves, agents denied and a named owner override”; `tests/browser/approvals.spec.ts` — “GOV-011 an expired-lot write-off under a two-signature inventory-adjustment threshold is signed once and then invalidated by a stock movement at 1440/390”
+**Gap.** None.
 
 #### GOV-012 — Auditable journal adjustments
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-AUDIT-001, BASE-ROLE-001, BASE-DATA-001 · Rules D-6, D-8
 
-**Requirement.** (Split from GOV-004.) Each ledger posting and journal adjustment writes audit entries (actor, time, source, exact lines before/after, reason, evidence) in its own atomic write, without provider credentials.
+**Requirement.** A ledger adjustment stays linked to the manufacturing source decision and its exact before/after lines, reason and evidence.
 
 **Acceptance.**
 1. Extend the GOV-004 changed-BOM thread with a journal adjustment through the first ledger door; query it by record link, export JSON/CSV, refuse its deletion and confirm a planted provider token is absent.
@@ -1647,59 +1749,59 @@ Core · target · **missing**
 
 #### GOV-013 — Audit retention and purge authority
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-DATA-002, BASE-DATA-003, BASE-AUDIT-001, BASE-DATA-006, BASE-ROLE-001, BASE-DATA-001 · Rules D-6, D-8
 
-**Requirement.** (Split from GOV-004.) Retention preserves traceability: the audit keeps every entry for the life of the installation, and no door purges it for any role, the owner included. One exception, mirroring the Blotter ERASURE-002 ruling: an erasure request for a data subject may replace that person's personal values inside entries with a tombstone through the erasure door only; the entry, actor id, time, command, record link and the fact of replacement stay, and the replacement is itself audited. The export states the period ("kept for the life of the installation") and the purge authority ("none"; erasure replacement noted). On closing an installation the owner may export the full audit first. *As built (ct ruling, 22 October 2026):* the owner alone passes `erasure.audit` for one data subject, a person invited to the installation or a party; the replaced values are the person's email, display name and every name they appear under in the audit, or the party's email and name, wherever they sit in an entry's before, after, reason, evidence or actor name. A database trigger lets an entry change only those columns and only while it names a recorded request (`larder_audit_erasures`, itself append-only); every other statement against the audit is refused, and `audit.*` commands and non-read HTTP methods are refused for every role. The request is an `auditErasures` record that holds no personal value, so its own audit entry is the audit of the replacement, and each replaced entry carries the request id in the export. Confirmed by ct on 22 October 2026 with two riders, both built: the erasure request is itself retained as a record (request id, date, subject id, scope `audit`, the owner who ran it, entry count) that never holds the erased values (the owner's free-text reference and reason are scrubbed of them), read from the audit's retention block, the export and the owner's state; the audit entry of the replacement names the door (`erasure.audit`), never the values; and when the sole owner is the subject the door still runs, is audited, and the person's entries read by actor id with the tombstone in place of their name (an erased person's later work names them again only if they act again). The door's scope is the audit: live records, documents and provider copies belong to GOV-005, which reuses this door (`src/larder/audit-erasure.ts`, `src/larder/audit-read.ts`, `migrations/core/0017_audit_erasure.sql`, `migrations/core/0018_audit_erasure_scope.sql`).
+**Requirement.** Manufacturing audit entries remain for the installation’s life with no purge authority, including for the owner. The sole exception replaces a subject’s personal values with a tombstone through the erasure door, retaining entry identity, actor ID, time, command, record links, the request without erased values and an audit of replacement. A sole owner can be the subject. GOV-005 owns erasure outside the audit. The native decision follows RL-24. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-013) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Export the audit and read its retention period and purge authority; attempt a purge as every role, the owner included, and inspect refusal at the command, HTTP and database doors; pass an erasure request and confirm the entry stays with the personal values replaced and an audit of the replacement.
 
-**Evidence.** `src/larder/audit-erasure.ts`; `src/larder/audit-read.ts`; `src/larder/storage.ts`; `src/ui/audit-trail.tsx`; `migrations/core/0017_audit_erasure.sql`; `migrations/core/0018_audit_erasure_scope.sql`; `tests/api/audit-retention.test.mjs` (GOV-013: the export's period and purge authority as JSON and CSV header, every role's purge refused at command, HTTP and database, an operator and a party erasure that keep the entries and are audited, the request record without the erased values, and a sole owner erasing themselves; the same file's second test); `tests/browser/audit.spec.ts` (GOV-004: the period and purge authority on the audit screen at 1440/390)
-**Gap.** Conforms to the ruled form: kept for the life of the installation, no purge door for any role, one erasure exception through the erasure door only. Erasing live records, documents and provider copies is GOV-005.
+**Evidence.** `tests/api/audit-retention.test.mjs` — “GOV-013 the export states the life-of-installation period and no purge authority, every role is refused at command, HTTP and database, and an erasure replaces personal values and leaves the entry and an audit of the replacement”; `tests/api/audit-retention.test.mjs` — “GOV-013 a sole owner who is the data subject still runs the erasure, it is audited, and they are addressable only by id afterwards”
+**Gap.** None.
 
 #### HTTP-001 — Preserve Base public and private paths
 
-Core · target · **done**
+Core · target · **done** · Cites BASE-ACCESS-002, BASE-ACCESS-003, BASE-PUBLIC-001, BASE-OPS-001, BASE-ROLE-001, BASE-DOCS-001 · Rules D-6, D-8
 
-**Requirement.** Base supplies native identity, sessions, setup, mail and import/portability primitives; Larder supplies domain screens/API and manufacturing authorization. Public Lobby, health and documentation stay separate from private app/exports; unknown paths return real 404s and all direct transport access is checked.
+**Requirement.** The manufacturing Lobby, health and on-site documentation are public while the app, manufacturing records and archives stay private. Larder owns its domain dispatch and manufacturing authorization.
 
 **Acceptance.**
 1. Open Lobby/health/docs signed out, request app/state/archive without a session and a nonexistent route, then sign in and use domain commands; verify privacy, real 404 and origin enforcement.
 
-**Evidence.** `src/server.ts`; `src/larder/api.ts`; `tests/browser/journey.spec.ts` (HTTP-001); `tests/runtime.mjs`
-**Gap.** Named browser journey opens signed-out Lobby, health and built docs, refuses private app/state/archive and direct commands, verifies real document/API/site 404s, signs in through native setup, posts a domain command and refuses cross-origin writes without mutation; Lobby/docs/private app inspected at 1440 and 390 pixels.
+**Evidence.** `tests/browser/journey.spec.ts` — “HTTP-001 MRP-001 public Lobby, health and docs stay separate from private app and exports”
+**Gap.** None.
 
 ### Mobile accessibility and operations
 
 #### MOB-001 — Responsive accessible manufacturing
 
-Core · target · **partial**
+Core · target · **partial** · Cites BASE-PUBLIC-003, BASE-ACCESSIBILITY-001, BASE-ROLE-001 · Rules D-6, D-8 · Register R-6, R-7
 
-**Requirement.** Every planning, purchasing, trace, costing and administration screen works at 1440 and 390 pixels with keyboard/screen-reader access, labeled errors, focus recovery, zoom and usable tables/Gantt alternatives. WCAG 2.2 AA is an acceptance target with recorded manual checks.
+**Requirement.** Planning, purchasing, trace, costing and administration remain usable on desktop and phone, including recoverable focus/errors, zoom and table/Gantt alternatives. The shared accessibility bar governs these manufacturing scenarios.
 
 **Acceptance.**
-1. At both widths run quote to plan, scan/produce, inspect a hold, ship and reconcile using keyboard and screen reader; inspect focus/errors and no hidden required columns/actions.
+1. At 1440 and 390 run quote-to-plan, scan/produce, inspect a hold, ship and reconcile with the shared keyboard and accessibility-tree checks; no required column or action is hidden.
 
 **Evidence.** `src/ui/make.tsx`; `tests/browser/journey.spec.ts`
 **Gap.** Current order/stock/material/shipment journeys run at both widths; new target screens and full accessibility acceptance are absent.
 
 #### MOB-002 — iOS and Android shop-floor apps
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8 · Register R-8
 
 **Requirement.** Native iOS/Android apps provide secure dispatch, camera/barcode capture, documents, time/quantity reporting and assigned alerts with device/session revocation. Offline captured work is visibly pending and version-checked on reconnect; it cannot claim posted stock, shipment or approval before server acceptance.
 
 **Acceptance.**
-1. On real iOS/Android devices execute a shift, lose connectivity while reporting time/quantity, change the job elsewhere and reconnect; resolve conflict once and revoke the lost device.
+1. On iOS/Android emulator fixtures execute a shift, lose connectivity while reporting time/quantity, change the job elsewhere and reconnect; resolve conflict once and revoke the lost device.
 
 **Evidence.** None.
 **Gap.** iOS and Android shop-floor apps workflow and its acceptance journey are not implemented.
 
 #### OPS-001 — Durable scheduling and sync jobs
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-OPS-004, BASE-ROLE-001, BASE-DATA-001 · Rules D-6, D-8
 
-**Requirement.** MRP, scheduling, large imports, reports, connector reconciliation and follow-up run as durable bounded jobs with progress, cancellation, restart recovery and measured limits. Size is defined by the Larder reference manufacturer dataset, produced by a deterministic documented generator kept with the tests (test data only): 3 US sites with 250 bins; 4,000 items (300 product templates with 1,500 sellable variants, 2,000 purchased materials and 500 made subassemblies); 600 active BOMs up to 5 levels deep, averaging 12 and at most 80 lines, with shared subassemblies; 20 work centers (35 machines) and 45 operators on two shifts, routings averaging 5 operations; 800 open SOs (3,500 lines), 300 open MOs (1,500 operations, 120 in progress) and 400 open POs (1,600 lines); 24 months of history (250,000 stock movements, 30,000 closed SO lines, 6,000 closed MOs, 40,000 time entries, 15,000 lots/serials); and 30 concurrent users including 12 shop-floor tablets. On the shipped deployment and that dataset: a state change appears in the DEMAND-006 order status on the next read; p95 list/screen reads finish within 2 seconds and p95 commands within 1 second at 30 concurrent users; a full regenerative MRP finishes within 5 minutes; finite scheduling of all open MOs within 10 minutes; one day's connector catch-up (2,000 Shopify order events and their QuickBooks Online postings) within 15 minutes; and a complete export within 10 minutes. Each job reports progress, rows, duration and peak use, resumes from its checkpoint after a restart without duplicate effects, and can be canceled. A measured-limits report records the numbers per release, and the operator sees stale/incomplete plans and cloud/provider USD usage budgets before adoption. GOV-001 job authority: a job uses the requesting member's current location and costs-and-wages scopes, re-checked at each step and at commit, and never keeps the authority it had when queued.
+**Requirement.** MRP, scheduling, large imports, reports, connector reconciliation and follow-up run as durable bounded jobs with progress, cancellation, restart recovery and measured limits. Size is defined by the Larder reference manufacturer dataset, produced by a deterministic documented generator kept with the tests (test data only): 3 US sites with 250 bins; 4,000 items ; 600 active BOMs up to 5 levels deep, averaging 12 and at most 80 lines, with shared subassemblies; 20 work centers (35 machines) and 45 operators on two shifts, routings averaging 5 operations; 800 open SOs (3,500 lines), 300 open MOs (1,500 operations, 120 in progress) and 400 open POs (1,600 lines); 24 months of history (250,000 stock movements, 30,000 closed SO lines, 6,000 closed MOs, 40,000 time entries, 15,000 lots/serials); and 30 concurrent users including 12 shop-floor tablets. The [operating rules](docs/contract/OPERATING-DETAILS.md#ops-001) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Generate the reference dataset into an empty installation; run MRP, finite scheduling, one day's Shopify/QBO catch-up and a full export within the stated budgets while 30 simulated users read and command; stop the worker mid-MRP and mid-sync and verify each resumes from its checkpoint with no duplicate posting or partial plan adoption; cancel a report; exhaust a configured USD budget; compare the measured-limits report with the budgets stated here.
@@ -1711,7 +1813,7 @@ Core · target · **missing**
 
 #### LINK-001 — General ledger and wholesale boundaries
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8
 
 **Requirement.** Larder owns factory planning/execution/trace/cost; Pantry remains a separate general ledger and Pier remains the separate finished-goods wholesale/distribution product. Optional versioned links send approved operational journals to Pantry and factory availability/jobs/shipments to Pier without sharing product authority or duplicating a physical stock movement.
 
@@ -1723,7 +1825,7 @@ Core · target · **missing**
 
 #### LINK-002 — CRM identity and workflow boundaries
 
-Core · target · **missing**
+Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-6, D-8
 
 **Requirement.** Orbit remains the CRM, Auth the identity provider, Crank workflow automation, Nook team chat and Chest document storage. Larder links approved demand, alerts and document IDs through scoped adapters; none becomes an embedded replacement of that sibling.
 
@@ -1737,28 +1839,28 @@ Core · target · **missing**
 
 #### AGENT-001 — Maintain a feasible recovery plan
 
-Core · push-further · **done**
+Core · push-further · **partial** · Cites BASE-ROLE-001, BASE-AGENT-002, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** A planning agent continuously reads approved demand, supplier ETAs, reservations, operation progress and machine/labor calendars. It proposes alternate suppliers/routings, resequencing, overtime or partial delivery, showing displaced jobs, dates, capacity, USD cost/cash and uncertainty. Planner/buyer/sales approve their exact consequences before execution. Implemented recovery is a deterministic planning agent: within an explicitly configured window it continuously records one inert comparison per relevant human demand, material, progress, breakdown or calendar command. It recomputes shared material allocation at every event, compares up to 64 qualified alternate-machine combinations and retains up to two feasible options with their source identities and counts, named machine and person intervals, new sequence, displacement, public USD planning estimate, zero new purchase cash and uncertainty. A limited search never claims no recovery exists. Running and protected work stays fixed; unavailable or unqualified capacity stays explicit. Each retained option shows its linked original customer dates and production feasibility. Exact human selection inherits CAP-005 and GOV-009 independent authority and signatures, full-state and live-person stale checks and atomic bookings; signatures for different options cannot combine. New demand, stock and calendar triggers never use automatic grants, and alternate-machine choices always require human approval. Buyer spend and sales promise amendments retain their existing separate approval doors; these options authorize neither. MOVE-008 retains comparisons, selected options, decisions and bookings in JSON and CSV and restores them without provider actions.
+**Requirement.** A planning agent continuously reads demand, supplier ETAs, reservations, progress and machine/labor calendars, and offers feasible recovery options with displaced jobs, dates, capacity, USD cost/cash and uncertainty. Internal reversible sequencing is standard; changed customer commitments carry commitment and external, and changed purchasing carries money. The company’s policy decides those calls; the documented protection and exact-input rules still bind each selected option. Under the held company policy, a person takes the decision steps in the journey below. The [operating rules](docs/contract/OPERATING-DETAILS.md#agent-001) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Delay a supplier and stop a machine; inspect two feasible recovery options, approve one across the responsible roles and follow it through revised work/customer promises.
 2. Change an input before approval and refuse stale execution.
 3. With sufficient eligible alternate capacity, recover from a supplier slip or machine outage while preserving the original customer ship date: show the affected jobs moved to an eligible alternate machine, their new sequence and the still-feasible unchanged promise before approval, then verify the adopted plan retains it.
 
-**Evidence.** `tests/api/schedule-approval.test.mjs` — “AGENT-001 supplier slip and breakdown continuously compute two material-feasible alternate plans, bind human selection, preserve the ship date and restore inert evidence”; `tests/api/flows.test.mjs` — “Event recovery persists once after restart, preserves frozen and manual work, exposes displacement and refuses automatic or external authority” and “Isolated outage scenarios protect this week and manual locks, atomically book next week and reject an ETA-stale adoption without a partial schedule”; `tests/browser/maintenance.spec.ts` — “AGENT-001 computed supplier-slip and breakdown recovery preserves the unchanged ship date through stale refusal and exact human adoption at 1440/390”
-**Gap.** — Computed alternatives after supplier slips and breakdowns, continuous source reprojection, independent exact-option signatures, original-date retention, stale refusal and inert archives are proven through the named HTTP and both-width screen journeys.
+**Evidence.** `tests/api/schedule-approval.test.mjs` — “AGENT-001 supplier slip and breakdown continuously compute two material-feasible alternate plans, bind human selection, preserve the ship date and restore inert evidence”; `tests/api/flows.test.mjs` — “Qualified alternate comparison keeps pinned instructions, setup transitions, tools, labor, delivery and USD estimates through approval and restore”; `tests/api/flows.test.mjs` — “Event recovery persists once after restart, preserves frozen and manual work, exposes displacement and refuses automatic or external authority”
+**Gap.** The cited recovery journeys compare feasible alternatives, preserve ship dates and exercise exact native approvals and stale refusals. Missing: server-computed risk classes and equivalent execution decided by two company policies, including all-autonomous agent execution.
 
 #### AGENT-002 — Chase supply to usable material
 
-Core · push-further · **partial**
+Core · push-further · **partial** · Cites BASE-ROLE-001, BASE-AGENT-002, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Using approved POs, supplier threads, receipt and QC evidence, the agent drafts/sends only buyer-approved chases, extracts cited ETA commitments, maintains next actions and proposes downstream changes until accepted material is available. It never infers physical receipt or grants a quality release.
+**Requirement.** From PO, supplier-thread, receipt and quality evidence, an agent follows supply to usable material, retains cited ETA commitments and next actions, and tracks downstream changes. Outside chases carry external, customer or supplier commitments add commitment, and purchasing changes add money; the company’s policy decides each call. A supplier statement never invents physical receipt or a passing inspection. Under the held company policy, a person takes the decision steps in the journey below.
 
 **Acceptance.**
 1. Run a late PO through a supplier reply, failed delivery, partial receipt and inspection hold; approve messages/date changes and verify the agent keeps follow-up open until a quality person releases usable quantity.
 2. Show the next chase date and triggering condition on the PO.
-3. At that date, absence of a ship notice produces a buyer-approval-bound chase; a received ship notice updates the next action without treating it as physical receipt.
+3. At that date, absence of a ship notice produces an external chase decided by the company’s policy; a received ship notice updates the next action without treating it as physical receipt.
 4. Retain the cited supplier reply, extracted old/new ETA and authorized change.
 
 **Evidence.** `src/larder/purchasing.ts`; `src/larder/exceptions.ts`
@@ -1766,22 +1868,22 @@ Core · push-further · **partial**
 
 #### AGENT-003 — Reconcile actual cost against the plan
 
-Core · push-further · **partial**
+Core · push-further · **partial** · Cites BASE-DATA-004, BASE-ROLE-001, BASE-AGENT-002, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-2, D-3, D-4, D-6, D-8 · Register R-11
 
-**Requirement.** The agent compares pinned BOM/routing/quote estimates with actual materials, labor, overhead, downtime, scrap and subcontract bills, explains repeat causes with cited records and proposes new standards or process experiments. Engineers/accounts approve revisions; prior work and actuals never change silently. The native order-variance door prepares a frozen minimized numeric snapshot of the order, linked production and up to ten comparable recent jobs, pinned BOMs and cost policies, material movements, completed time, downtime and approved service charges. Every deterministic measure and model hypothesis links to its cited snapshot records; the displayed source count is the distinct cited record count. Missing evidence is explicit; causality remains a hypothesis. No names, customer identities, notes, drawings, attachments or operator identities enter the provider request. Adopted default pending ct: only the native owner may prepare, consent, explicitly send once, revoke an unsent run or record improvement follow-through. Consent pins the exact snapshot, declared model destination, token ceiling and USD ceiling and acknowledges provider retention terms; source changes require fresh review. Destinations are direct Anthropic Haiku 5.5 or explicitly selected OpenRouter to Anthropic Haiku 5.5 only, with provider fallback disabled, data collection denied and a maximum price on the routed request. Conservative byte-based input bounds and a bounded output enforce each owner-selected run cap, no more than USD 0.02 and 44000 total tokens. There is no automatic send, retry, standard change, financial posting or revision approval. Failed or unconfirmed attempts remain visible and never resend automatically. Model output is an inert cited experiment proposal; the existing engineer proposal and human engineering approval doors create future revisions. Follow-through links an approved later revision and completed next job, compares retained costs and scrap and refuses a claim of unchanged history if its source costs changed. MOVE-008 exports the snapshots, results and decisions without credentials; restore revokes unsent consent and never sends. Existing business archive administrators retain their established archive access, and the shared audit contains only analysis digests. AGENT-006 and AGENT-009 inherit this minimization, exact consent, citation, cap and inert-restore boundary before using this model door.
+**Requirement.** An agent compares pinned estimates with actual material, labor, overhead, downtime, scrap and subcontract bills, cites repeat causes and proposes future experiments. Under RL-101, one explicitly consented minimized snapshot goes only to its exact declared processor route, selected token/USD ceilings and disclosed retention terms; source or destination changes require fresh review. The native analysis screen returns a hypothesis for a separate future engineering decision and never changes historical actuals; a native person’s approval binds that person’s exact revision. For an agent’s disclosure call, external and sensitive apply, adding money for provider spend; the company’s policy decides the call. Native-owner consent records remain exact and attributable; future revision calls carry commitment under that same company policy. Under the held company policy, a person takes the decision steps in the journey below. The [operating rules](docs/contract/OPERATING-DETAILS.md#agent-003) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Produce repeated high-scrap/overtime jobs, inspect cited cause/cost analysis, approve a future BOM/routing/rate revision and compare next-job results while historical variances remain unchanged.
 2. Open the agent explanation for one order's quoted-to-actual result; verify its arithmetic and links to the material and time records supporting each stated cause, with missing evidence identified and the displayed source count equal to the distinct cited records.
 
-**Evidence.** `tests/api/flows.test.mjs` — “Cited variance explanations require exact owner consent and capped single sends, retain repeat causes and compare approved future work without rewriting history”; `tests/browser/journey.spec.ts` — “Owner reviews exact variance sources and destination, then inspects the live cited explanation and approved improvement at both widths”; `scripts/live-variance.mjs` — generated high-scrap and overtime jobs, real Haiku 5.5 through explicitly selected OpenRouter to Anthropic, 16 source records, 6719 tokens, USD 0.00093406, provider request gen-1792971200-umKC5lQrc73hck7rd9pu; approved next-job cost 190 to 50 with historical variances unchanged
-**Gap.** Native cited single-order arithmetic, repeat-job hypotheses, labor and overhead sources and approved future-revision follow-through are implemented. Both-width live-result, exact consent, revocation and approved improvement screens pass. Remaining: ct approval of the adopted owner-only exact outbound consent, destination and retention default. Direct Anthropic failed exactly: “anthropic HTTP 400 invalid_request_error: This API key is not scoped to a workspace, so this request must include the anthropic-workspace-id header with the ID of the workspace to use. Add the header, or use an API key that is scoped to a workspace.” The separately selected routed call succeeded.
+**Evidence.** `tests/api/flows.test.mjs`; `tests/browser/journey.spec.ts`; `scripts/live-variance.mjs`
+**Gap.** The cited native journeys show exact bounded disclosure, cited arithmetic, repeat-cause hypotheses and future-revision follow-through. Missing journeys: server-computed classes and both company policies for the corresponding agent calls. Direct Anthropic integration requires the declared workspace configuration; the separately selected routed success proves only that route (RL-101).
 
 #### AGENT-004 — Close the production to books loop
 
-Core · push-further · **partial**
+Core · push-further · **partial** · Cites BASE-ROLE-001, BASE-AGENT-002, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** The agent matches receipts, WIP, output, shipments, returns and adjustments to QBO/Xero/Pantry documents/journals, investigates missing/duplicate amounts and proposes exact correcting entries with period/cash consequences. Accounts approves; the agent verifies remote readback and reconciled totals before closing.
+**Requirement.** An agent compares production, stock and financial sources to QBO, Xero and Pantry records, investigates missing or duplicate amounts and prepares exact corrections with period/cash consequences. Corrections carry money and commitment and the company’s policy decides them; closure requires accepted remote IDs and reconciled totals. Under the held company policy, a person takes the decision steps in the journey below.
 
 **Acceptance.**
 1. Lose a journal response and import a mismatched supplier bill, inspect the agent's source-to-ledger explanation, approve one correction and verify accepted remote IDs and balanced period totals with no duplicate.
@@ -1791,9 +1893,9 @@ Core · push-further · **partial**
 
 #### AGENT-005 — Engineering intake from documents
 
-Core · push-further · **missing**
+Core · push-further · **missing** · Cites BASE-INPUT-002, BASE-ROLE-001, BASE-AGENT-002, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** An agent extracts BOMs, routings, quote requirements and quality tolerances from authorized drawings, CSV/XLSX/PDF and supplier documents, citing source pages/cells and uncertain units/parts. Engineers approve every resolved item/revision; embedded instructions are data and cannot authorize actions.
+**Requirement.** An agent extracts BOMs, routings, quote needs and quality tolerances from authorized drawings, CSV, XLSX, PDF and supplier documents with page/cell citations and uncertainty. Filing the interpretation is standard and adopting a binding revision is commitment; the company’s policy decides each call. ENG-002 and ENG-005 retain pinned instructions and change outcomes. Under the held company policy, a person takes the decision steps in the journey below.
 
 **Acceptance.**
 1. Upload a real drawing/BOM with ambiguous units and malicious instruction text; inspect citations/questions, resolve and approve as engineer, then release a pinned job with no unapproved item/stock changes.
@@ -1803,21 +1905,21 @@ Core · push-further · **missing**
 
 #### AGENT-006 — Cited shop-data answers
 
-Core · push-further · **missing**
+Core · push-further · **missing** · Cites BASE-ROLE-001, BASE-AGENT-002, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Staff ask why an order is late, what can be promised, where a lot went or why margin changed. The agent answers from permission-filtered live records with as-of time, quantities, calculations and links, distinguishes missing data, and offers a separate approval-bound action proposal.
+**Requirement.** Staff ask why an order is late, what can be promised, where a lot went or why margin changed. Answers retain as-of time, calculations, links and explicit missing data; GOV-014 and GOV-015 govern source reach. Reversible drafts are standard, changed promises are commitment and external, and protected payroll/identity reads are sensitive; the company’s policy decides them. Model disclosure follows AGENT-003. Under the held company policy, a person takes the decision steps in the journey below.
 
 **Acceptance.**
-1. Ask the same margin/trace question as accounts and a restricted operator, inspect citations/calculation and denied rate disclosure; a follow-up request to expedite creates a draft requiring approval.
+1. Ask the same margin/trace question as accounts and a restricted operator, inspect citations/calculation and denied rate disclosure; a follow-up request to expedite creates a standard draft, with any commitment decided by the company’s policy.
 
 **Evidence.** None.
 **Gap.** Cited shop-data answers workflow and its acceptance journey are not implemented.
 
 #### AGENT-007 — Forecast and inventory policy improvement
 
-Core · push-further · **missing**
+Core · push-further · **missing** · Cites BASE-ROLE-001, BASE-AGENT-002, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** An agent compares demand history, forecast error, lead-time/yield distributions and service/cash targets to propose safety-stock, reorder and batch policies. It replays historical outcomes and simulates stockout/overstock/cash consequences; planners approve effective-dated policy changes and monitor results.
+**Requirement.** An agent compares demand, forecast errors, lead times and yields to propose effective-dated inventory policies, backtests service/cash effects and follows observed results without rewriting forecasts. Reversible internal policy preparation is standard; purchasing consequences add money and commitment, decided by the company’s policy. Under the held company policy, a person takes the decision steps in the journey below.
 
 **Acceptance.**
 1. Backtest two policies on actual demand/receipts, review service/cash outcomes, approve one for next month and inspect observed results without modifying past forecasts.
@@ -1827,9 +1929,9 @@ Core · push-further · **missing**
 
 #### AGENT-008 — Recall and quality investigation
 
-Core · push-further · **missing**
+Core · push-further · **missing** · Cites BASE-ROLE-001, BASE-AGENT-002, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** An agent assembles affected genealogy, inspection/CoA records, customer shipments and recurring defects into a cited containment/recall/CAPA proposal. Quality approves scope, holds/releases and external notices; the agent tracks responses and quantity reconciliation without claiming legal certification.
+**Requirement.** An agent assembles cited genealogy, inspection/certificate evidence, affected customers and recurring defects into a containment, recall or CAPA investigation and tracks quantity reconciliation. A binding quality disposition carries commitment, outside notices external and irreversible disposal destructive; the company’s policy decides each call. Records never claim regulatory certification. Under the held company policy, a person takes the decision steps in the journey below.
 
 **Acceptance.**
 1. Introduce a failed ingredient test, inspect the proposed impacted lots/customers, approve a hold and recall notice and follow responses/returns to a quantity-balanced investigation pack.
@@ -1839,9 +1941,9 @@ Core · push-further · **missing**
 
 #### AGENT-009 — Controlled agent execution and cost
 
-Core · push-further · **missing**
+Core · push-further · **missing** · Cites BASE-ROLE-001, BASE-AGENT-002, BASE-AGENT-006, BASE-AGENT-007, BASE-AGENT-008, BASE-AGENT-005, BASE-AGENT-011 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** Owner selects model/provider, allowed data destinations, per-role scopes, USD/token budgets, retention and approval policy. Agent runs retain sources, proposed/executed steps and outcomes, can be paused/canceled, and cannot approve themselves, grant roles, invent physical evidence or treat source text as instructions.
+**Requirement.** A manufacturing planning run retains its shop-record sources, selected model destination, proposed/executed manufacturing steps and outcomes; cancellation leaves pending manufacturing drafts identifiable. AGENT-003 owns bounded cost-analysis disclosure once. Under the held company policy, a person takes any decision step the planning journey returns; the equivalent agent action carries the tool table’s computed classes under the company’s policy.
 
 **Acceptance.**
 1. Run a planning task with a constrained model budget and restricted customer documents, cancel mid-run and inspect charged usage/sources and pending drafts; reject prompt injection and forbidden direct stock/role writes.
@@ -1851,7 +1953,179 @@ Core · push-further · **missing**
 
 ## Agent surface
 
-None.
+### Agent surface
+
+#### SURFACE-001 — Manufacturing registry
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-002, BASE-AGENT-006, BASE-AGENT-013
+
+**Requirement.** The manufacturing action registry equals the tool table and its non-tool reasons, and the shared conformance harness exercises it on Larder records.
+
+**Acceptance.**
+1. Compare the registry with every Core job in the table, including the documented device, connector, import and installation boundaries; a missing manufacturing job fails conformance.
+2. Run the shared harness against the manufacturing fixtures with results matching the corresponding native manufacturing actions.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+
+#### SURFACE-002 — Physical stock classes
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-006
+
+**Requirement.** A reversible internal reservation, transfer, receipt or compensating correction is standard. Actual irreversible destruction adds destructive, measured in the exact item/lot units disposed, while a quality release or recorded sign-off also carries commitment.
+
+**Acceptance.**
+1. Compare reversible internal moves with actual scrap and a binding lot-release decision; inspect standard, destructive and commitment with item, lot and quantity facts.
+2. A mere model prediction never supplies the physical receipt, inspection or disposal evidence required by those calls.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+
+#### SURFACE-003 — Commercial and outside consequences
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-006, BASE-AGENT-007
+
+**Requirement.** Purchase terms, charges, refunds and ledger postings carry money with amount, currency and counterparty. A binding quote, promise, signature or quality sign-off adds commitment. Sending a document or changing what a supplier, customer or public reader can see adds external.
+
+**Acceptance.**
+1. Compare a draft purchase, an approved purchase charge and a changed customer promise; inspect the money amount/currency and commitment value/counterparty.
+2. Compare an internal document with a known customer, a new supplier and public exposure; inspect external recipient count and known, new or public counterparty facts.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+
+#### SURFACE-004 — Protected manufacturing data
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-003, BASE-AGENT-006
+
+**Requirement.** Reading or disclosing regulated identity or payroll records adds sensitive, measured by record count and data kind; GOV-014 and GOV-015 still bound the manufacturing sources. Cost-analysis disclosure uses AGENT-003 once.
+
+**Acceptance.**
+1. Read a permitted regulated identity/payroll fixture and a non-sensitive production record; inspect sensitive only for the former, with record count and kind.
+2. Attempt the same restricted-rate and mixed-location queries as a limited operator; no derived cost or cross-site fact escapes.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+
+#### SURFACE-005 — Authority and provider classes
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-005, BASE-AGENT-006
+
+**Requirement.** Manufacturing membership, site/custom-role changes, devices and grants carry access with people count and widening/narrowing direction. Protective configuration or credential handling carries security. Creating an outside account or paid resource carries accounts. Provider-retained consent, verification, personal terms or hosted card-entry steps are gated. Changing running connector behavior carries live.
+
+**Acceptance.**
+1. Change another member’s manufacturing scope and inspect access people/direction; rotate a permitted connection credential and inspect security setting facts.
+2. Create an outside resource and inspect accounts with provider; inspect gated with provider and exact step when its provider keeps consent, verification or hosted checkout for a person.
+3. Change a running connector and inspect live with the affected service; supplying an agent’s own confirmation changes none of those computed classes.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+
+#### SURFACE-006 — Planning uncertainty and execution
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-006, BASE-AGENT-007
+
+**Requirement.** Planning tools distinguish an informational dated projection, a feasible finite option and an actual adopted booking. Search limits, missing capacity and unproven supply remain visible; the company’s policy decides each computed class.
+
+**Acceptance.**
+1. Run dated netting, alternate-machine comparison and recovery adoption, retaining pegs, original promises, scope and uncertainty; no informational result is labelled an adopted schedule.
+2. Run the same internal standard action under the held and all-autonomous company policies and inspect the different decisions with identical manufacturing invariants.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+
+#### SURFACE-007 — Manufacturing resource projections
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-003, BASE-ROLE-001
+
+**Requirement.** Manufacturing resources expose exact item, party, order, purchase, job, operation, lot, inspection, case, valuation and source-history records within GOV-014 and GOV-015.
+
+**Acceptance.**
+1. Follow the resource links from a partial receipt, work output and shipment to their exact lots, pegs, costs and retained files.
+2. Read the same records as accounts and a site/cost-restricted operator; reconcile the resource projection with each actor’s manufacturing screen.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+
+#### SURFACE-008 — Evidence-bearing quality and engineering
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-007, BASE-AGENT-008
+
+**Requirement.** Engineering revision and quality disposition calls carry commitment; physical and inspection evidence remains linked to exact versions, including a failed result released under deviation. The company’s policy decides the agent’s consequential call.
+
+**Acceptance.**
+1. Complete an engineering change and a use-as-is deviation with original files and exact versions; read the decision and its attribution on the revision, lot and shipment pack.
+2. Under the held policy, a signed-in person takes the policy’s decision step; under the all-autonomous policy, the agent’s equivalent act is truthfully attributed and never recorded as that person’s signature.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+
+#### SURFACE-009 — Manufacturing change events
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-010
+
+**Requirement.** The manufacturing event vocabulary identifies orders, purchases, receipts, work, quality, stock and reconciliation transitions and their resource links.
+
+**Acceptance.**
+1. Receive, produce, hold, release and partly ship seeded goods; follow the corresponding typed manufacturing events back to the same record revisions.
+2. Observe supplier-date, material-usable and ledger-reconciled events in the handoffs below without inventing physical arrival or accepted books.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+
+#### SURFACE-010 — Bounded cost-analysis tool
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-006, BASE-AGENT-011
+
+**Requirement.** The cost-analysis tool follows AGENT-003’s exact minimized disclosure and route boundary. It reports the selected token/USD estimate before the company-policy decision, retaining cited hypotheses and separate future revision authority.
+
+**Acceptance.**
+1. Run exact allowed and over-cap snapshots, source/destination changes and an unsent revocation; inspect refusal or the single permitted send without history changes.
+2. Under both company policies, inspect external, sensitive and any money facts and the company’s decision; direct and routed providers remain distinct evidence routes.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+
+#### SURFACE-011 — Manufacturing specialist handoffs
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-010
+
+**Requirement.** The specialist listens for approved demand and supplier dates and emits material-usable, shipment and reconciliation events for linked specialists. Pantry owns books, Pier wholesale, Orbit CRM, Nook messages and Chest source documents.
+
+**Acceptance.**
+1. Follow approved demand through a late supplier, usable receipt, job completion and shipment, linking each receiving specialist to manufacturing evidence.
+2. A failed or uncertain ledger readback leaves its owned follow-up case open; a retried submission alone closes nothing.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+
+#### SURFACE-012 — Manufacturing prompts and capacity limits
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-011, BASE-AGENT-013
+
+**Requirement.** Registry-derived prompts offer order-to-shipment planning, supplier follow-up, cost investigation and quality investigation. Capacity bounds are the documented installation rate/body/byte limits; business thresholds and provider spend are company policy.
+
+**Acceptance.**
+1. Discover each named manufacturing job and follow its clauses, resource templates, events and documented capacity limits from the agent documentation.
+2. Inspect an oversized import or model snapshot and a bounded planning search, retaining explicit recoverable limits rather than an invented business-volume cap.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+
+#### SURFACE-013 — A seeded manufacturing week through MCP
+
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-001, BASE-AGENT-004, BASE-AGENT-009, BASE-AGENT-012, BASE-AGENT-013 · Register R-10
+
+**Requirement.** A stranger manufacturing planner given only the installation URL completes a seeded week through MCP under two company policies, including one autonomous for every class.
+
+**Acceptance.**
+1. Discover the specialist, plan a quoted job, handle a supplier slip, receive usable lots, recover production, inspect actual costs and partly ship with all source and trace links.
+2. Under the all-autonomous company policy, complete the permitted tool calls without a person’s policy decision step; under the held company policy, complete the same work after the named person takes the returned decision steps.
+3. Exercise declared access/security/provider and destruction fixtures within the week, retain their class facts and truthful physical evidence, and reconcile the class overview with the week’s actions.
+4. Recover an interrupted call and refuse unsafe changed inputs without duplicate stock, money or customer commitments.
+
+**Evidence.** None.
+**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
 
 ## Later
 
@@ -1859,4 +2133,16 @@ None.
 
 ## Field proof register
 
-No field proof is recorded yet.
+| ID | Proof | Clauses | State | Date | Receipt |
+| --- | --- | --- | --- | --- | --- |
+| R-1 | Real-owner parallel migration/cutover and current source-export provenance from all six named incumbents | MOVE-001, MOVE-002, MOVE-003, MOVE-004, MOVE-005, MOVE-006, MOVE-007 | not run | | |
+| R-2 | Production QBO/Xero organization acceptance and permitted live readback | CONN-001, CONN-002 | not run | | |
+| R-3 | Live commerce, marketplace and shipping-provider accounts/app approvals | CONN-003, CONN-004, CONN-005, CONN-006, CONN-007 | not run | | |
+| R-4 | Licensed vendor tenants and real CAD/nesting/machine/EDI/3PL access | CONN-008, CONN-009, CONN-010, CONN-011, CONN-012, CONN-013 | not run | | |
+| R-5 | Microsoft Entra ID and Google Workspace vendor-tenant conformance receipts | GOV-003 | not run | | |
+| R-6 | Human screen-reader pass | MOB-001 | not run | | |
+| R-7 | VPAT | MOB-001 | not run | | |
+| R-8 | iOS and Android store listings and physical-device shift observation | MOB-002 | not run | | |
+| R-9 | Physical Zebra printing and hardware-scanner observation | FLOOR-008, FLOOR-009 | not run | | |
+| R-10 | Claude, ChatGPT, Codex and Copilot client receipts | SURFACE-013 | not run | | |
+| R-11 | Direct and separately selected routed model-provider production acceptance | AGENT-003 | not run | | |
