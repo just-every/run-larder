@@ -146,3 +146,17 @@ their maintenance.
 
 Pinned reference: https://github.com/runeditrun/base/blob/79f61faef682f9d6cdb64e843cfbd3cf02887982/TANSTACK-START-MIGRATION.md
 Native-session/runtime evidence: https://github.com/runeditrun/base/tree/79f61faef682f9d6cdb64e843cfbd3cf02887982/default-seed
+
+## Landing metadata regeneration
+
+Lander-Regenerate: after resolving CONTRACT.md, project each touched clause with
+`node scripts/contract-docs.mjs write STOCK-001` and then
+`node scripts/contract-docs.mjs check STOCK-001` (replace STOCK-001 with the
+touched clause IDs). This seed generates ACCEPTANCE.md and the contract summary
+counts; it does not have a separate generated claims document. Preserve other
+clause rows and judgments.
+
+After the final source, test or documentation edit, stage the intended files, run
+`node scripts/edition-authoring/cli.mjs lock`, stage sources.lock.json and run
+`node scripts/edition-authoring/cli.mjs check`. Commit the resolved contract,
+generated acceptance and fresh source lock together. Keep the current Base pin.

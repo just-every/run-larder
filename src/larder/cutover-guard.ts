@@ -14,7 +14,7 @@ const rows = (s: State, k: Collection) => s[k].map(r => `${r.id}:${r.version}`).
 const written: Record<Channel, (s: State) => string> = {
   'sales-orders': s => [rows(s, 'salesOrders'), rows(s, 'orderChanges'), rows(s, 'shipments'), rows(s, 'returns'), s.reservations.filter(r => r.demandKind === 'sales').map(r => `${r.id}:${r.quantity}`).join()].join('|'),
   'purchase-orders': s => [rows(s, 'purchaseOrders'), rows(s, 'receipts')].join('|'),
-  'stock-ledger': s => s.movements.map(m => m.id).join(),
+  'stock-ledger': s => [s.movements.map(m => m.id).join(), rows(s, 'custodyLedger')].join('|'),
   'accounting-handoff': s => rows(s, 'handoffs'),
 }
 
