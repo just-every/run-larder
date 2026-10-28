@@ -35,7 +35,7 @@ export function Schedule({ larder, mode }: { larder: Larder; mode: Mode }) {
       <h1>Schedule</h1>
       <div className="range">
         <p className="num">{mode === 'week' ? `${dayName(from)} – ${dayName(last)}, ${last.getFullYear()}` : `${dayName(from)}, ${from.getFullYear()}`}</p>
-        <div className="paired"><button type="button" className="button icon-only" aria-label={`Previous ${mode}`} onClick={() => setOffset(offset - span)}><Icon name="back" /></button><button type="button" className="button icon-only" aria-label={`Next ${mode}`} onClick={() => setOffset(offset + span)}><Icon name="chevron" /></button></div>
+        <div className="paired"><button type="button" className="button icon-only has-tooltip" aria-label={`Previous ${mode}`} aria-describedby="schedule-previous-tooltip" onClick={() => setOffset(offset - span)}><Icon name="back" /><span className="control-tooltip" id="schedule-previous-tooltip" role="tooltip">Previous {mode}</span></button><button type="button" className="button icon-only has-tooltip" aria-label={`Next ${mode}`} aria-describedby="schedule-next-tooltip" onClick={() => setOffset(offset + span)}><Icon name="chevron" /><span className="control-tooltip" id="schedule-next-tooltip" role="tooltip">Next {mode}</span></button></div>
         <button type="button" className="button" disabled={offset === 0} onClick={() => setOffset(0)}>Today</button>
       </div>
     </header>

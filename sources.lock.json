@@ -3821,7 +3821,7 @@
       "executable": false
     },
     "src/ui/schedule/schedule.tsx": {
-      "sha256": "1bdf1fb7d71bdffd43dac67a01ecbe16dae7d8b4036a94b969d4f4a22691989e",
+      "sha256": "b0ddf6f115ab42d5ef1b06cb4d7f6e1f0625d87ed78189d6bcdc5bb5139d455f",
       "executable": false
     },
     "src/ui/scopes.tsx": {
@@ -4113,7 +4113,7 @@
       "executable": false
     },
     "tests/browser/downtime.spec.ts": {
-      "sha256": "531fd254284096c6bf16647f182e38a3ff34185112404d7f9810b2e0f8c1a038",
+      "sha256": "7c85d1918cfc349df227581f44a0928d046c009842ee0c5f189f8a1efcf0dffe",
       "executable": false
     },
     "tests/browser/drawing.ts": {
