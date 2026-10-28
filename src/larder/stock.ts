@@ -1,3 +1,4 @@
+import { binRoom } from './bin-policy'
 import { valuedRate, valuedAmount } from './costing/valuation'
 // Stock truth: positions are sums of append-only movements; available stock is
 // on-hand available status minus reservations. Every write goes through move().
@@ -67,6 +68,10 @@ export function move(c: Context, x: MoveInput): Movement {
   const item = get(c.s, 'items', x.itemId, 'item')
   if (x.quantity === 0n) fail('INPUT', 'A movement needs a non-zero quantity.')
   const lotId = x.lotId ?? ''
+  // A status change moves no physical units into the bin. Quality containment
+  // must remain possible even after its owner narrows the bin rule.
+  const reclassifying = c.s.movements.filter(m => m.commandId === c.commandId && m.itemId === x.itemId && m.locationId === x.locationId && m.lotId === lotId && m.documentId === x.documentId).reduce((n, m) => n + m.quantity, 0n) <= -x.quantity
+  if (x.quantity > 0n && !reclassifying) binRoom(c, x.itemId, x.locationId, lotId, x.quantity)
   if (c.s.lots.some(l => l.id === lotId && l.ownerId)) fail('OWNERSHIP', 'Customer property cannot enter owned inventory.')
   const recall = lotRecalls(c.s, lotId)[0]
   const containment = x.kind === 'recall-hold' && x.documentKind === 'recalls' && c.s.recalls.some(r => r.id === x.documentId)

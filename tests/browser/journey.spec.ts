@@ -94,7 +94,7 @@ test('HTTP-001 MRP-001 public Lobby, health and docs stay separate from private 
     // The location was created through the API after this document loaded.
     // A hash-only navigation keeps the document and its original records.
     await page.reload()
-    await expect(page.getByText(name, { exact: true })).toBeVisible()
+    await expect(card(page, 'Locations').getByText(name, { exact: true })).toBeVisible()
     await shot(page, 'HTTP-001-private-app')
     await page.goto(origin + '/auth/settings/identity')
     await expect(page.getByRole('heading', { name: 'Provider setup', exact: true })).toBeVisible()

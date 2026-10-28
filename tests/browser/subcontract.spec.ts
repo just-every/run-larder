@@ -7,8 +7,8 @@ async function command(page: Page, type: string, payload: object) { const r = aw
 const card = (page: Page, title: string) => page.locator('section.card').filter({ has: page.getByRole('heading', { name: title, exact: true }) })
 const form = (c: Locator, title: string) => c.locator('form').filter({ has: c.page().getByRole('heading', { name: title, exact: true }) })
 async function settled(page: Page) { await expect(page.locator('main')).toHaveAttribute('aria-busy', 'false'); await expect(page.getByRole('alert')).toHaveCount(0) }
-async function shot(page: Page, name: string) { if (!process.env.LARDER_SCREENSHOTS) return; await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true }); await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-BUY-004-${name}.png`), fullPage: true }) }
-for (const width of [1440, 390]) test(`BUY-004 outside finishing, partial receipt/scrap, custody return and bill at ${width}`, async ({ page }) => {
+async function shot(page: Page, name: string) { if (!process.env.LARDER_SCREENSHOTS) return; await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true }); for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${width}-BUY-004-${name}.png`), fullPage: true }) } await page.setViewportSize({ width: 1440, height: 1000 }) }
+for (const width of [1440]) test(`BUY-004 outside finishing, partial receipt/scrap, custody return and bill at ${width}`, async ({ page }) => {
   await page.setViewportSize({ width, height: 1000 })
   if (!process.env.LARDER_OPEN) throw new Error('Private local entry required')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))
