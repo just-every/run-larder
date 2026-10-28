@@ -122,7 +122,7 @@ test('LARDER-006 shortages are reviewed and drafted into purchase and work order
   assert.equal(timber.shortage, '4'); assert.equal(timber.supplierId, w.supplier.id)
   assert.equal(timber.requiredBy, '2026-10-28')
   assert.deepEqual(timber.reasons, [{ document: 'workOrders', reference: wo.reference, quantity: '4', date: '2026-10-28' }])
-  const po = await h.command('plan.draft', { itemId: w.timber.id })
+  const po = await h.command('plan.draft', { itemId: w.timber.id }, { commandId: 'synthetic-larder-6006' })
   assert.equal(po.status, 'draft'); assert.equal(po.lines[0].unitPrice, '9.5'); assert.match(po.reason, /WO-0001 needs 4/)
   s = await h.state()
   const purchase = s.purchaseOrders.find(x => x.id === po.id)
@@ -134,6 +134,12 @@ test('LARDER-006 shortages are reviewed and drafted into purchase and work order
   assert.deepEqual(purchase.lines.map(({ itemId, quantity, unitPrice }) => ({ itemId, quantity, unitPrice })), [{ itemId: w.timber.id, quantity: '4', unitPrice: '9.5' }])
   assert.equal(purchase.reason, `Covers shortage: ${wo.reference} needs 4 by Oct 28, 2026`)
   assert.equal(s.shortages.find(x => x.itemId === w.timber.id), undefined)
+  const replay = await h.command('plan.draft', { itemId: w.timber.id }, { commandId: 'synthetic-larder-6006' })
+  assert.deepEqual(replay, po)
+  await h.command('plan.draft', { itemId: w.timber.id }, { error: 'NO_SHORTAGE' })
+  const covered = await h.state()
+  assert.deepEqual(covered.purchaseOrders, s.purchaseOrders)
+  assert.deepEqual(covered.movements, s.movements)
 })
 
 test('LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded', async t => {

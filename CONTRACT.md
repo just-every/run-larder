@@ -1953,13 +1953,13 @@ Actual vendor, physical-device and human-review receipts are field proof. Standa
 
 ## Status
 
-Judged from the code and tests at commit `3d7042b28d5946a90401b8e3e5359f69c78921ca` (28 October 2026).
+Judged from the code and tests at commit `34e8116bb94e821e8a975a2e5a55e3cbd4bf7322` (28 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 13 | 6 | 0 | 19 |
+| Published | 17 | 2 | 0 | 19 |
 | Target and push further | 65 | 26 | 53 | 144 |
-| All | 78 | 32 | 53 | 163 |
+| All | 82 | 28 | 53 | 163 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -1968,14 +1968,14 @@ Judged from the code and tests at commit `3d7042b28d5946a90401b8e3e5359f69c78921
 | `LARDER-003` | Versioned BOM and routing | published | done | `tests/api/flows.test.mjs` — “LARDER-003 versioned BOM and routing; released work keeps its revision” |  |
 | `LARDER-004` | Quote and confirm | published | done | `tests/api/flows.test.mjs` — “LARDER-004 quote and confirm an order; physical, reserved and expected stock stay separate”; `tests/api/flows.test.mjs` — “LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded”; `tests/api/flows.test.mjs` — “LARDER-008 partial receipts record supplier lots and quarantine decisions”; `tests/api/flows.test.mjs` — “LARDER-009 released work issues materials and records output and scrap” |  |
 | `LARDER-005` | Atomic reservation | published | done | `tests/api/flows.test.mjs` — “LARDER-005 reservations are atomic: competing orders never consume the same stock” |  |
-| `LARDER-006` | Shortages | published | partial | `tests/api/flows.test.mjs` — “LARDER-006 shortages are reviewed and drafted into purchase and work orders with dates and reasons” | The cited shortage journey checks work required dates, shortages, draft quantities and reasons. Missing: read back the component purchase draft’s required delivery date from the shortage action. |
+| `LARDER-006` | Shortages | published | done | `tests/api/flows.test.mjs` — “LARDER-006 shortages are reviewed and drafted into purchase and work orders with dates and reasons” |  |
 | `LARDER-007` | Purchase approval | published | done | `tests/api/flows.test.mjs` — “LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded” |  |
-| `LARDER-008` | Partial receipt, lots and quarantine | published | partial | `tests/api/flows.test.mjs` — “LARDER-008 partial receipts record supplier lots and quarantine decisions” | The cited receipt journey reads partial receipts, lot balances, quarantine release and rejection. Missing: attempt reservation and pick while that same received quantity remains quarantined and verify refusal without a stock change. |
+| `LARDER-008` | Partial receipt, lots and quarantine | published | done | `tests/api/flows.test.mjs` — “LARDER-008 partial receipts record supplier lots and quarantine decisions” |  |
 | `LARDER-009` | Production | published | done | `tests/api/flows.test.mjs` — “LARDER-009 released work issues materials and records output and scrap” |  |
-| `LARDER-010` | Pick, pack and partial shipment | published | partial | `tests/api/flows.test.mjs` — “LARDER-010 pick, pack and partially ship against reservations; the rest stays committed” | The cited dispatch journey completes partial shipment, retains the balance and refuses excess picking. Missing: read back shipped carton count, departure time, carrier and tracking details after dispatch. |
+| `LARDER-010` | Pick, pack and partial shipment | published | done | `tests/api/flows.test.mjs` — “LARDER-010 pick, pack and partially ship against reservations; the rest stays committed” |  |
 | `LARDER-011` | Customer returns | published | done | `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit” |  |
 | `LARDER-017` | Free-stock transfers | published | done | `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit” |  |
-| `LARDER-018` | Independently approved stock counts | published | partial | `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit” | The cited returns/transfers/count journey checks count variance, independent approval and the posted adjustment. Missing: execute a stale-count refusal with unchanged movements through a journey in that old evidence set; tests/api/authority.test.mjs and tests/api/counts.test.mjs contain this scenario but were not cited by LARDER-011. |
+| `LARDER-018` | Independently approved stock counts | published | done | `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit” |  |
 | `LARDER-019` | Compensating corrections | published | done | `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit” |  |
 | `LARDER-012` | Accountant handoff | published | done | `tests/api/flows.test.mjs` — “LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile” |  |
 | `LARDER-013` | Operational exception queue | published | done | `tests/api/flows.test.mjs` — “LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation” |  |
