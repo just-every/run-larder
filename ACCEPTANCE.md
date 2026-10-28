@@ -8,10 +8,10 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 79 | 31 | 40 | 150 |
+| Core | 81 | 29 | 40 | 150 |
 | Agent surface | 0 | 0 | 13 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 79 | 31 | 53 | 163 |
+| Full target | 81 | 29 | 53 | 163 |
 
 Judged from the code and tests at commit `3d7042b28d5946a90401b8e3e5359f69c78921ca` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
@@ -105,7 +105,7 @@ Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6
 
 #### LARDER-008 — Partial receipt, lots and quarantine
 
-Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A warehouse person receives part of a purchase order into a location, records supplier lots and either accepts or holds stock in quarantine; a recorded release or rejection decision moves it on. Over-receipt is refused.
 
@@ -113,7 +113,7 @@ Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, 
 1. Part-receive a PO with supplier lot into quarantine; release part and reject part with reasons; refuse over-receipt and prevent held stock from reservation/picking.
 
 **Evidence.** `tests/api/flows.test.mjs` — “LARDER-008 partial receipts record supplier lots and quarantine decisions”
-**Gap.** The cited receipt journey reads partial receipts, lot balances, quarantine release and rejection. Missing: attempt reservation and pick while that same received quantity remains quarantined and verify refusal without a stock change.
+**Gap.** None.
 
 #### LARDER-009 — Production
 
@@ -166,7 +166,7 @@ Core · published · **done** · From LARDER-011 · Cites BASE-ROLE-001 · Rules
 
 #### LARDER-018 — Independently approved stock counts
 
-Core · published · **partial** · From LARDER-011 · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · published · **done** · From LARDER-011 · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A count adjustment needs a different person's approval, except that the owner may approve their own count. A changed counted position requires a fresh count.
 
@@ -174,7 +174,7 @@ Core · published · **partial** · From LARDER-011 · Cites BASE-ROLE-001 · Ru
 1. Approve another person’s count and inspect its adjustment; refuse a stale count.
 
 **Evidence.** `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit”
-**Gap.** The cited returns/transfers/count journey checks count variance, independent approval and the posted adjustment. Missing: execute a stale-count refusal with unchanged movements through a journey in that old evidence set; tests/api/authority.test.mjs and tests/api/counts.test.mjs contain this scenario but were not cited by LARDER-011.
+**Gap.** None.
 
 #### LARDER-019 — Compensating corrections
 
