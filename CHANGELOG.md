@@ -635,3 +635,7 @@ Homepage claim coverage was completed on 18 October 2026. The baseline retained 
 | `AGENT-007` | Forecast and inventory policy improvement | push-further | missing |  | Forecast and inventory policy improvement workflow and its acceptance journey are not implemented. |
 | `AGENT-008` | Recall and quality investigation | push-further | missing |  | Recall and quality investigation workflow and its acceptance journey are not implemented. |
 | `AGENT-009` | Controlled agent execution and cost | push-further | missing |  | Controlled agent execution and cost workflow and its acceptance journey are not implemented. |
+
+## STOCK-001 completion carried from main, 28 October 2026
+
+STOCK-001 completion uses the source and journeys at `2da7f61955bc9ed85eddf5c3dfd87f427201a13e`; main `9844981abbe8f247c1883fe1f821fad72de89965` judged it done with an empty Gap. The contract cleanup carries that judgment and evidence to STOCK-001.

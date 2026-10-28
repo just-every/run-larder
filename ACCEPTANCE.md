@@ -8,10 +8,10 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 77 | 33 | 40 | 150 |
+| Core | 78 | 32 | 40 | 150 |
 | Agent surface | 0 | 0 | 13 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 77 | 33 | 53 | 163 |
+| Full target | 78 | 32 | 53 | 163 |
 
 Judged from the code and tests at commit `3d7042b28d5946a90401b8e3e5359f69c78921ca` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
@@ -1053,16 +1053,16 @@ Core · target · **done** · Cites BASE-INPUT-003, BASE-ROLE-001, BASE-DATA-001
 
 #### STOCK-001 — Bins sites and replenishment
 
-Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
-**Requirement.** A manufacturer manages multiple US sites, warehouses/bins, transit and third-party locations with owned/customer-owned/consigned stock separated. Bin putaway and replenishment rules respect quality, lot, capacity and site permissions; in-transit goods are unavailable until received. Batch and wave picking of several reserved orders is STOCK-004 . GOV-001 site scope: a site is a named group of locations, including ones added later; this clause carries a member's site scope through its own sites, transit, putaway and consignment doors and proves it in its own acceptance. The native decision follows RL-15.
+**Requirement.** A manufacturer manages multiple US sites, warehouses/bins, transit and third-party locations with owned/customer-owned/consigned stock separated. Bin putaway and replenishment rules respect quality, lot, capacity and site permissions; in-transit goods are unavailable until received. Batch and wave picking of several reserved orders is STOCK-004 . GOV-001 site scope: a site is a named group of locations, including ones added later; this clause carries a member's site scope through its own sites, transit, putaway and consignment doors and proves it in its own acceptance. The native decision follows RL-15. See GOV-001 and MOVE-008.
 
 **Acceptance.**
 1. Transfer a lot between two sites with an intermediate transit state, put it away by bin rule and reconcile owned versus consigned balances.
 2. Confirm the in-transit quantity is unavailable until it is received; replenish a bin by its rule; see a putaway that breaks a quality, lot, capacity or site-permission rule refused; keep customer-owned stock separate from owned and consigned balances; and restrict a member to one site, including a location added to it later, and prove that scope through the sites, transit, putaway and consignment doors.
 
-**Evidence.** `tests/api/flows.test.mjs`; `tests/browser/work-transfers.spec.ts`
-**Gap.** Local transit, ruled putaway and replenishment, separate property balances and site-scoped warehouse journeys ship. Complete third-party custody quality and recall lifecycle, connected fulfillment and external valuation remain unproved.
+**Evidence.** `tests/api/flows.test.mjs` — “STOCK-001 transit receipt and ruled putaway conserve lots, refuse unsafe bins and replenish exactly within current site scope” (two-site transfer, unavailable transit, exact one-time receipt, lot and quality and capacity refusals, exact replenishment, live scope including later-added bins and narrowed replay, rule and transit archive restore, outstanding transit after restart and inert restore, explicit one-time receipt after restore and changed-content refusal); “STOCK-001 customer-owned and consigned custody stays separate from owned availability, honors capacity and live site scope and survives restore” (separate owner balances, no owned movement or availability, capacity, all custody doors and site configuration refusals, restricted cross-site derived totals, narrowed replay, original custody records restored); `tests/browser/work-transfers.spec.ts` — “STOCK-001 receive unavailable transit, put away and replenish by rule and reconcile separate property through the warehouse screens” (Settings rules, transit and received states, putaway and capacity refusal, replenishment and separate ownership reconciliation at 1440; browser proof at 1440 and 390)
+**Gap.** None.
 
 #### STOCK-002 — Cycle counts and stocktake
 
