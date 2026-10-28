@@ -189,6 +189,8 @@ test('LARDER-008 partial receipts record supplier lots and quarantine decisions'
   assert.equal(s.lots.find(l => l.id === lot.id).status, 'rejected')
   assert.equal(avail(s, w.timber.id).onHand, '12')
   assert.deepEqual(s.approvals.filter(a => a.subjectKind === 'lots').map(a => a.decision), ['released', 'rejected'])
+  assert.deepEqual(s.approvals.filter(a => a.subjectKind === 'lots').map(a => [a.quantity, a.note, a.createdBy]), [['6', 'Moisture 9%', warehouse.id], ['2', 'Split ends', warehouse.id]])
+  assert.equal(s.positions.find(p => p.itemId === w.timber.id && p.lotId === lot.id && p.status === 'available').quantity, '6')
 })
 
 test('LARDER-009 released work issues materials and records output and scrap', async t => {

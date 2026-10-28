@@ -8,12 +8,12 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 78 | 32 | 40 | 150 |
+| Core | 79 | 31 | 40 | 150 |
 | Agent surface | 0 | 0 | 13 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 78 | 32 | 53 | 163 |
+| Full target | 79 | 31 | 53 | 163 |
 
-Judged from the code and tests at commit `3d7042b28d5946a90401b8e3e5359f69c78921ca` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
+Judged from the code and tests at commit `14e91ae089eba16fb201de11d7ef6b7f69325acb` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
 ## Core
 
@@ -105,7 +105,7 @@ Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6
 
 #### LARDER-008 — Partial receipt, lots and quarantine
 
-Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · published · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** A warehouse person receives part of a purchase order into a location, records supplier lots and either accepts or holds stock in quarantine; a recorded release or rejection decision moves it on. Over-receipt is refused.
 
@@ -113,7 +113,7 @@ Core · published · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, 
 1. Part-receive a PO with supplier lot into quarantine; release part and reject part with reasons; refuse over-receipt and prevent held stock from reservation/picking.
 
 **Evidence.** `tests/api/flows.test.mjs` — “LARDER-008 partial receipts record supplier lots and quarantine decisions”
-**Gap.** The cited receipt journey reads partial receipts, lot balances, quarantine release and rejection. Missing: attempt reservation and pick while that same received quantity remains quarantined and verify refusal without a stock change.
+**Gap.** None.
 
 #### LARDER-009 — Production
 
