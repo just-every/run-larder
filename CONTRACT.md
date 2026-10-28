@@ -1953,13 +1953,13 @@ Actual vendor, physical-device and human-review receipts are field proof. Standa
 
 ## Status
 
-Judged from the code and tests at commit `1d1ee8f51e15a0b3b56324efecd91bf9a14dfc97` (28 October 2026).
+Judged from the code and tests at commit `c6413fa79c3368a2e4548858ef72318fb6c67613` (28 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 17 | 2 | 0 | 19 |
-| Target and push further | 65 | 26 | 53 | 144 |
-| All | 82 | 28 | 53 | 163 |
+| Target and push further | 66 | 25 | 53 | 144 |
+| All | 83 | 27 | 53 | 163 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -1992,7 +1992,7 @@ Judged from the code and tests at commit `1d1ee8f51e15a0b3b56324efecd91bf9a14dfc
 | `ENG-005` | Engineering change approval and obsolescence | target | done | `tests/api/engineering.test.mjs` — “ENG-005 safety replacement review, eligibility/evidence, effectivity, stock disposition, draft treatment, acknowledgment and immutable released revisions”; `tests/browser/engineering.spec.ts` — “ENG-005 review a safety replacement, evidence and stock/work dispositions, approve effectivity, acknowledge and release at 1440/390” |  |
 | `ENG-006` | Kits and sale-triggered assembly | target | done | `tests/api/engineering.test.mjs` — “ENG-006 a kit sold twice through one replayed channel event and a separate second sale assembles twice only, consumes exact components and never oversells”; `tests/browser/engineering.spec.ts` — “ENG-006 prepare and approve a kit, then record a channel sale twice with one event id and once more, and see two assemblies and no oversell at 1440/390” |  |
 | `ENG-007` | Catalog export, bulk edit and re-import | target | done | `tests/api/catalog.test.mjs` — “ENG-007 export/edit catalog by Larder ID at two locations, preview all field/record impacts and errors, approve valid groups atomically and preserve blanks, units, history and stale protection”; `tests/browser/catalog.spec.ts` — “ENG-007 real catalog export/edit/preview/approve/re-export with two locations, errors, preserved history and stale refusal at 1440/390” |  |
-| `ENG-008` | Tracking policy selection | target | partial | `tests/api/catalog.test.mjs` — “ENG-007 export/edit catalog by Larder ID at two locations, preview all field/record impacts and errors, approve valid groups atomically and preserve blanks, units, history and stale protection” | The cited catalog journeys refuse batch tracking on an unlotted balance and require serials at receipt/output. Missing: a covering selected batch/serial policy journey through receipt, issue, output and shipment with one-unit serial lifecycle and refused unsafe changes; the serial lifecycle in tests/api/trace.test.mjs is outside ENG-007’s old evidence set. |
+| `ENG-008` | Tracking policy selection | target | done | `tests/api/catalog.test.mjs` — “ENG-008 approved catalog batch and serial policies govern receipt, issue, output and shipment without unsafe stock changes”; `tests/browser/catalog.spec.ts` — “ENG-007 real catalog export/edit/preview/approve/re-export with two locations, errors, preserved history and stale refusal at 1440/390” |  |
 | `DEMAND-001` | Costed quotes and credible promise dates | target | partial | `tests/api/flows.test.mjs`; `tests/browser/order-amendments.spec.ts` | The cited costed-quote journeys cover configured items, fractional currency arithmetic and reasoned review disposition through the page. Missing: immediate/partial/overtime alternatives with distinct cost, margin and date outcomes; exact acceptance with current material, machine, qualified-person and upstream/quality checks; once-only supply and capacity bookings; customer-currency confirmation/invoice and complete preparation audit/export/restore. Unsupported alternatives remain explicit. |
 | `DEMAND-002` | Order changes and cancellations | target | done | `tests/api/order-amendments.test.mjs` — “DEMAND-002 approved amendments split promises, preserve issued terms and production costs, cancel only unconsumed commitments, and reject stale or unsafe changes”; `tests/api/order-amendments.test.mjs` — “DEMAND-002 dated quantities net once, stale review is refused, and unpick resolves a blocked cancellation without posting stock”; `tests/browser/order-amendments.spec.ts` — “DEMAND-002 customer-approved split dates, prospective prices and cancellation retain shipments and incurred work at 1440/390” |  |
 | `DEMAND-003` | Master production schedule and forecasts | target | done | `tests/api/forecast.test.mjs` — “DEMAND-003 DEMAND-004 twelve-week CSV forecast, order consumption, seasonal overrides/undo, error, approved stale-safe MPS and real supply linkage”; `tests/browser/forecast.spec.ts` — “DEMAND-003 DEMAND-004 import twelve weeks, consume real orders, adjust and undo forecasts, review and release linked MPS at 1440/390” |  |

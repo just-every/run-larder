@@ -8,12 +8,12 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 82 | 28 | 40 | 150 |
+| Core | 83 | 27 | 40 | 150 |
 | Agent surface | 0 | 0 | 13 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 82 | 28 | 53 | 163 |
+| Full target | 83 | 27 | 53 | 163 |
 
-Judged from the code and tests at commit `1d1ee8f51e15a0b3b56324efecd91bf9a14dfc97` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
+Judged from the code and tests at commit `c6413fa79c3368a2e4548858ef72318fb6c67613` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
 ## Core
 
@@ -383,7 +383,7 @@ Core · target · **done** · Cites BASE-INPUT-001, BASE-ROLE-001, BASE-DATA-001
 
 #### ENG-008 — Tracking policy selection
 
-Core · target · **partial** · From ENG-007 · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · target · **done** · From ENG-007 · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Tracking selection is a declared catalog policy:  batch requires a valid lot on current physical receipts/output, while serial is labelled “serial policy configured; one serial per unit at every stock door” and every physical movement of a serial item is one named serial unit through TRACE-002's doors; a door that cannot name serials refuses. Enabling batch is refused for any nonzero unlotted position across all locations/dispositions; serial selection is refused while any nonzero physical stock exists. TRACE-002 owns serial-aware execution and must honor the configured serial policy before shipping. The [operating rules](docs/contract/OPERATING-DETAILS.md#eng-008) retain the detailed bounds and record semantics.
 
@@ -391,8 +391,8 @@ Core · target · **partial** · From ENG-007 · Cites BASE-ROLE-001 · Rules D-
 1. Select batch tracking only with no nonzero unlotted position; refuse serial selection while physical stock exists.
 2. Require named lots for batch receipts/output and exactly one named serial per unit through every physical serial door; an unsupported door refuses rather than creating untracked stock.
 
-**Evidence.** `tests/api/catalog.test.mjs` — “ENG-007 export/edit catalog by Larder ID at two locations, preview all field/record impacts and errors, approve valid groups atomically and preserve blanks, units, history and stale protection”
-**Gap.** The cited catalog journeys refuse batch tracking on an unlotted balance and require serials at receipt/output. Missing: a covering selected batch/serial policy journey through receipt, issue, output and shipment with one-unit serial lifecycle and refused unsafe changes; the serial lifecycle in tests/api/trace.test.mjs is outside ENG-007’s old evidence set.
+**Evidence.** `tests/api/catalog.test.mjs` — “ENG-008 approved catalog batch and serial policies govern receipt, issue, output and shipment without unsafe stock changes”; `tests/browser/catalog.spec.ts` — “ENG-007 real catalog export/edit/preview/approve/re-export with two locations, errors, preserved history and stale refusal at 1440/390”
+**Gap.** None.
 
 ### Demand and sales
 

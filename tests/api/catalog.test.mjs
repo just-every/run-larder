@@ -160,9 +160,10 @@ test('ENG-008 approved catalog batch and serial policies govern receipt, issue, 
   const lotted = await item('synthetic-larder-853'), lottedPo = await purchase(lotted, '1')
   await h.command('receipt.create', { poId: lottedPo.id, supplierReference: 'Existing named batch', lines: [{ lineId: lottedPo.lines[0].id, quantity: '1', locationId: receiving.id, lot: 'synthetic-larder-853-lot', inspection: 'quarantine' }] })
   await select([lotted], 'batch')
+  const beforeSerialSelection = physical(await h.state())
   const serialReview = await preview([lotted], 'serial')
   assert.equal(serialReview.groups.length, 0); assert.match(serialReview.errors[0].reason, /physical stock/)
-  assert.equal((await h.state()).items.find(i => i.id === lotted.id).tracking, 'batch')
+  assert.deepEqual(physical(await h.state()), beforeSerialSelection)
 
   for (const tracking of ['batch', 'serial']) {
     const part = await item(`synthetic-larder-854-${tracking}`), product = await item(`synthetic-larder-855-${tracking}`, 'make')
@@ -246,8 +247,11 @@ test('ENG-008 approved catalog batch and serial policies govern receipt, issue, 
       }
       const returned = { orderId: order.id, lineId: order.lines[0].id, quantity: '1', locationId: dispatch.id, disposition: 'quarantine', reason: 'Named unit return' }
       await refused('return.receive', returned, 'SERIAL_REQUIRED')
+      await refused('return.receive', { ...returned, quantity: '2', serials: ['synthetic-larder-861', 'SYNTHETIC-LARDER-861'] }, 'DUPLICATE_SERIAL')
       await refused('return.receive', { ...returned, quantity: '0.5', serials: ['synthetic-larder-861'] }, 'SERIAL_QUANTITY')
       await h.command('return.receive', { ...returned, serials: ['synthetic-larder-861'] })
+      const afterReturn = await h.invariant()
+      assert.deepEqual(afterReturn.movements.filter(m => m.itemId === product.id && m.kind === 'return').map(m => [m.lotId, m.quantity, m.status]), [[outputLots.find(l => l.code === 'synthetic-larder-861').id, '1', 'quarantine']])
       const history = await (await h.request('/api/larder/serials?q=synthetic-larder-861')).json()
       assert.deepEqual(history[0].components.map(c => c.lotId), [inputs[0].lotId])
       assert.equal(history[0].place.state, 'quarantine'); assert.equal(history[0].customers[0].shipmentId, shipment.id)
