@@ -665,6 +665,12 @@ test('GOV-014 site and location scope: later bins join live reach, explicit limi
   await p2.run('inventory.approve', { planId: plan.id, version: plan.version }, { error: 'STALE' })
   await h.command('member.scope', { operatorId: p1.id, sites: [site.id, otherSite.id], locations: [w.loc.id, annex.id] })
   const fresh = await p1.run('inventory.preview', { policyId: policy.id, orderIds: [], reason: 'Replenish boards again' })
+  // The decision-maker must also still reach the prepared record; refusal has no approval or supply effects.
+  await h.command('member.scope', { operatorId: p2.id, sites: [otherSite.id] })
+  const beforeApprovalRefusal = await h.state()
+  await p2.run('inventory.approve', { planId: fresh.id, version: fresh.version }, { error: 'FORBIDDEN' })
+  assert.deepEqual(await h.state(), beforeApprovalRefusal)
+  await h.command('member.scope', { operatorId: p2.id, sites: [site.id], locations: [w.loc.id] })
   await p2.run('inventory.approve', { planId: fresh.id, version: fresh.version })
   // The preparer's reach is judged live too: a hold released by a person who covers it is refused once the person who failed the lot no longer does.
   const q1 = await h.person('quin@example.test', 'quality'), q2 = await h.person('quade@example.test', 'quality'), file = text => ({ name: 'qa.txt', contentType: 'text/plain', base64: Buffer.from(text).toString('base64') })

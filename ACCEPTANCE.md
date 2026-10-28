@@ -8,12 +8,12 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 78 | 32 | 40 | 150 |
+| Core | 79 | 31 | 40 | 150 |
 | Agent surface | 0 | 0 | 13 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 78 | 32 | 53 | 163 |
+| Full target | 79 | 31 | 53 | 163 |
 
-Judged from the code and tests at commit `3d7042b28d5946a90401b8e3e5359f69c78921ca` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
+Judged from the code and tests at commit `d6585feb7fbec5de68ad197a530f2dc5dd667a0b` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
 ## Core
 
@@ -1579,15 +1579,15 @@ Core · target · **done** · Cites BASE-ACCESS-004, BASE-ROLE-001 · Rules D-6,
 
 #### GOV-014 — Site and location scope
 
-Core · target · **partial** · From GOV-001 · Cites BASE-ROLE-001 · Rules D-6, D-8
+Core · target · **done** · From GOV-001 · Cites BASE-ROLE-001 · Rules D-6, D-8
 
 **Requirement.** The owner scopes a member to named site groups, including locations added later, intersected with any explicit location restriction. A record and any derived figure require all source locations in scope; trace and recall packets disclose restricted records without out-of-scope totals, identities or counts. Exact writes require both preparer and decision-maker reach. The native decision follows RL-20. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-014) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Restrict a member to one site, exercise reads, commands, trace, recall and downloads, add a bin and narrow scope; inspect refusals and redaction, including a saved outcome replay and a mid-task revocation.
 
-**Evidence.** `tests/api/authority.test.mjs` — “GOV-014 site and location scope: later bins join live reach, explicit limits intersect, and reads, writes, downloads, approvals and replay obey narrowing and revocation”
-**Gap.** Native site grants, later bins, explicit-location intersection, derived-value and trace redaction, recall and evidence access, independent approvals, saved replay and revocation are covered by the expanded HTTP journey. Candidate browser proof remains to run.
+**Evidence.** `tests/api/authority.test.mjs` — “GOV-014 site and location scope: later bins join live reach, explicit limits intersect, and reads, writes, downloads, approvals and replay obey narrowing and revocation”; `tests/browser/scopes.spec.ts` — “GOV-014 GOV-015 GOV-016 the owner limits a person to one location and the costs-and-wages restriction, and that person sees only their reach at 1440/390”
+**Gap.** None.
 
 #### GOV-015 — Costs and wages scope
 
