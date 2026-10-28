@@ -8,12 +8,12 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 83 | 27 | 40 | 150 |
+| Core | 84 | 26 | 40 | 150 |
 | Agent surface | 0 | 0 | 13 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 83 | 27 | 53 | 163 |
+| Full target | 84 | 26 | 53 | 163 |
 
-Judged from the code and tests at commit `c6413fa79c3368a2e4548858ef72318fb6c67613` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
+Judged from the code and tests at commit `83c9278ea058b58a1265eb8bcfc6de3a32493415` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
 ## Core
 
@@ -974,7 +974,7 @@ Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D
 
 #### TRACE-003 — Expiry and FEFO
 
-Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Food, cosmetic and supplement makers record manufacture, expiry/retest and supplier shelf-life dates, storage conditions and customer minimum remaining shelf life. FEFO proposes eligible lots and blocks expired/held stock unless a qualified documented disposition permits it. The [operating rules](docs/contract/OPERATING-DETAILS.md#trace-003) retain the detailed bounds and record semantics.
 
@@ -982,7 +982,7 @@ Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6
 1. Receive two dated lots, plan and pick FEFO for a customer shelf-life rule, advance past expiry and inspect blocked stock, alerts and an authorized disposition.
 
 **Evidence.** `tests/api/expiry.test.mjs` — “TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; expired and retest-due stock stays blocked until a documented disposition”; `tests/browser/expiry.spec.ts` — “TRACE-003 receive dated lots, pick FEFO for a customer shelf-life rule and dispose of an expired lot at 1440/390”
-**Gap.** The cited expiry journeys pick FEFO, refuse already-expired/retest-due stock and inspect alerts and evidenced disposition. Missing: advance a previously usable lot past its expiry and then read its blocked stock and alert before disposition.
+**Gap.** None.
 
 #### TRACE-004 — Quality checkpoints and measurements
 

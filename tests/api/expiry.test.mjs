@@ -178,6 +178,8 @@ test('TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; ex
   assert.equal(renewed.dispositions[0].by, manager.id)
   assert.equal(renewed.dispositions[0].at, '2026-10-29T00:00:00.000Z')
   assert.equal(renewed.dispositions[0].evidence[0].name, 'count-sheet.txt')
+  const renewedPick = await warehouse.run('shipment.pick', { orderId: boundaryOrder.id, lines: [{ lineId: boundaryOrder.lines[0].id, locationId: cold.id, quantity: '1', lotId: todayLot }] })
+  assert.deepEqual(renewedPick.lines.map(l => [l.lotId, l.quantity]), [[todayLot, '1']])
   s = await h.invariant()
   assert.equal(s.availability.find(a => a.itemId === boundary.id).expired, '0')
   assert.equal(s.lotStatuses.find(l => l.lotId === todayLot).state, 'expiring')
