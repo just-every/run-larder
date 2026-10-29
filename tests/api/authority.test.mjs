@@ -622,6 +622,19 @@ test('GOV-014 location scope: a scoped member sees, changes and downloads nothin
   assert.ok(!JSON.stringify(restrictions).includes('scopeClassification'))
   assert.ok(!restrictions.locations.some(l => l.id === w.loc.id))
   assert.ok(restrictions.positions.every(p => p.unitCost === undefined || p.unitCost === 'restricted'))
+  // A cost-only edit changes this person's authority without changing bins.
+  const costWidening = await h.command('member.scope', { ...scopePayload, locations: [w.store.id, annex.id], costsRestricted: false })
+  assert.deepEqual(costWidening.scopeClassification.access, { people: 1, direction: 'widening', widening: true, narrowing: false, addedLocations: [], removedLocations: [] })
+  const costNarrowing = await h.command('member.scope', { ...scopePayload, locations: [w.store.id, annex.id], costsRestricted: true })
+  assert.deepEqual(costNarrowing.scopeClassification.access, { people: 1, direction: 'narrowing', widening: false, narrowing: true, addedLocations: [], removedLocations: [] })
+  // Removing a bin while restoring costs must preserve both directions,
+  // even though the edit adds no location and affects only one person.
+  const mixedAuthority = await h.command('member.scope', { ...scopePayload, locations: [w.store.id], costsRestricted: false })
+  assert.deepEqual(mixedAuthority.scopeClassification.access, { people: 1, direction: 'mixed', widening: true, narrowing: true, addedLocations: [], removedLocations: [annex.id] })
+  assert.deepEqual(mixedAuthority.scopeClassification.before.effective.locations, [w.store.id, annex.id].sort())
+  assert.equal(mixedAuthority.scopeClassification.before.effective.costsRestricted, true)
+  assert.deepEqual(mixedAuthority.scopeClassification.after.effective.locations, [w.store.id])
+  assert.equal(mixedAuthority.scopeClassification.after.effective.costsRestricted, false)
   const agent = await h.person('synthetic-larder-905' + String.fromCharCode(64) + 'example.test', 'agent')
   const unchanged = await h.state()
   for (const forged of [{ classification: { classes: ['standard'] } }, { access: { people: 0, direction: 'unchanged' } }, { classes: ['standard'] }, { confirmation: true }])
@@ -770,6 +783,65 @@ test('GOV-014 location scope: a scoped member sees, changes and downloads nothin
   assert.equal(inactive.scopeClassification.target.status, 'inactive')
   assert.equal(inactive.scopeClassification.access.people, 0)
   assert.equal(inactive.scopeClassification.access.direction, 'unchanged')
+  // Erasure preserves non-personal historical scope facts but cannot revive
+  // the former member or their session when an owner recovers an old outcome.
+  const review = await (await h.request('/api/larder/retention/operator?operatorId=' + lead.id)).json()
+  const outbound = h.outboundCount()
+  await h.command('erasure.operator', { operatorId: lead.id, operatorVersion: review.operatorVersion, reviewedVersion: review.version, consent: true, reason: 'Former member privacy request' })
+  const erased = await h.state()
+  assert.ok(!JSON.stringify(erased).includes(review.subject.email))
+  assert.deepEqual(await h.command('member.scope', scopePayload, { commandId: scopeCommandId }), narrowedScope)
+  assert.deepEqual(await h.state(), erased)
+  assert.equal((await h.request('/api/larder/state', { as: lead.cookie })).status, 401)
+  await h.restart()
+  assert.deepEqual(await h.command('member.scope', scopePayload, { commandId: scopeCommandId }), narrowedScope)
+  await lead.run('member.scope', scopePayload, { commandId: scopeCommandId, error: 'AUTH' })
+  assert.deepEqual(await h.state(), erased)
+  const erasedAudit = (await (await h.request('/api/larder/audit?commandId=' + scopeCommandId)).json()).entries
+  assert.deepEqual(erasedAudit, audit.entries)
+  assert.equal(h.outboundCount(), outbound)
+  // Keep full decision facts when a real scope switch spans many bins.
+  const scoped = await h.person('synthetic-larder-928' + String.fromCharCode(64) + 'example.test', 'manager')
+  const bins = []
+  for (let i = 0; i < 64; i++) bins.push((await h.command('location.save', { name: `synthetic-larder-${930 + i}` })).id)
+  const firstBins = bins.slice(0, 32).sort(), nextBins = bins.slice(32).sort()
+  const firstId = 'synthetic-larder-scope-audit-1', nextId = 'synthetic-larder-scope-audit-2'
+  const firstPayload = { operatorId: scoped.id, locations: firstBins, costsRestricted: false }
+  const firstScope = await h.command('member.scope', firstPayload, { commandId: firstId })
+  const nextScope = await h.command('member.scope', { operatorId: scoped.id, locations: nextBins, costsRestricted: true }, { commandId: nextId })
+  const switched = nextScope.scopeClassification
+  assert.deepEqual(switched.access, { people: 1, direction: 'mixed', widening: true, narrowing: true, addedLocations: nextBins, removedLocations: firstBins })
+  assert.deepEqual(switched.before.member.locations, firstBins)
+  assert.deepEqual(switched.before.effective.locations, firstBins)
+  assert.deepEqual(switched.after.member.locations, nextBins)
+  assert.deepEqual(switched.after.effective.locations, nextBins)
+  const scopeTrail = await (await h.request('/api/larder/audit?commandId=' + nextId)).json()
+  assert.equal(scopeTrail.entries.length, 1)
+  const entry = scopeTrail.entries[0]
+  assert.deepEqual(entry.before.scopeClassification, firstScope.scopeClassification)
+  assert.deepEqual(entry.after.scopeClassification, switched, 'The audit retains full scope facts instead of a digest')
+  assert.equal(entry.actorId, owner.id); assert.equal(entry.source, 'person')
+  assert.equal(entry.subjectId, scoped.id); assert.equal(entry.subjectVersion, nextScope.version)
+  assert.equal(switched.target.operatorId, scoped.id)
+  assert.equal(switched.basis.memberVersion, firstScope.version)
+  assert.equal(switched.memberVersion, nextScope.version)
+  assert.deepEqual((await h.state()).roles.find(r => r.id === scoped.id).scopeClassification, switched)
+  const exportedScope = await (await h.request('/api/larder/audit.json?commandId=' + nextId)).json()
+  assert.deepEqual(exportedScope.entries, scopeTrail.entries)
+  const scopeCsv = await (await h.request('/api/larder/audit.csv?commandId=' + nextId)).text()
+  assert.ok(scopeCsv.includes(JSON.stringify(switched).replaceAll('"', '""')))
+  assert.deepEqual((await h.state(scoped.cookie)).locations.map(l => l.id).sort(), nextBins)
+  assert.equal((await h.request('/api/larder/audit?commandId=' + nextId, { as: scoped.cookie })).status, 403)
+  const switchedState = await h.state()
+  assert.deepEqual(await h.command('member.scope', firstPayload, { commandId: firstId }), firstScope)
+  assert.deepEqual(await h.state(), switchedState)
+  await h.restart()
+  assert.deepEqual((await (await h.request('/api/larder/audit?commandId=' + nextId)).json()).entries, scopeTrail.entries)
+  const returnedId = 'synthetic-larder-scope-audit-3'
+  const returnedScope = await h.command('member.scope', firstPayload, { commandId: returnedId })
+  const returnedTrail = await (await h.request('/api/larder/audit?commandId=' + returnedId)).json()
+  assert.deepEqual(returnedTrail.entries[0].before.scopeClassification, switched)
+  assert.deepEqual(returnedTrail.entries[0].after.scopeClassification, returnedScope.scopeClassification)
 })
 
 // GOV-015 GOV-016 costs-and-wages scope and custom roles (ct scope-review-50 b, c).

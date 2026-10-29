@@ -27,18 +27,27 @@ export function scrubText(t: string) {
 }
 
 // A value as the audit keeps it.
-export function scrub(value: unknown, depth = 0): unknown {
+export function scrub(value: unknown, depth = 0, retainStructure = false): unknown {
   if (value === null || value === undefined || typeof value === 'boolean' || typeof value === 'number') return value ?? null
   if (typeof value === 'bigint') return format(value)
   if (typeof value === 'string') { const t = scrubText(value); return t.length > 240 ? digest(t) : t }
   if (depth > 6) return digest(value)
   if (Array.isArray(value)) {
-    const items = value.map(v => scrub(v, depth + 1))
-    return JSON.stringify(items).length > 4000 ? { ...digest(value), count: value.length } : items
+    const items = value.map(v => scrub(v, depth + 1, retainStructure))
+    return !retainStructure && JSON.stringify(items).length > 4000 ? { ...digest(value), count: value.length } : items
   }
   const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(value as object)) out[k] = credentialKey.test(k) ? withheld : bodyKey.test(k) && v ? digest(v) : scrub(v, depth + 1)
-  return JSON.stringify(out).length > 8000 ? { ...digest(value), keys: Object.keys(out).length } : out
+  for (const [k, v] of Object.entries(value as object)) out[k] = credentialKey.test(k) ? withheld : bodyKey.test(k) && v ? digest(v) : scrub(v, depth + 1, retainStructure)
+  return !retainStructure && JSON.stringify(out).length > 8000 ? { ...digest(value), keys: Object.keys(out).length } : out
+}
+
+function scrubRecord(kind: string, value: unknown): unknown {
+  if (kind !== 'roles' || !value || typeof value !== 'object' || !('scopeClassification' in value)) return scrub(value)
+  const { scopeClassification, ...rest } = value
+  // These server-computed authority facts must remain inspectable at any
+  // supported scope size. Preserve them outside the generic record size cap;
+  // credential, body, text and depth scrubbing still apply to every value.
+  return { ...scrub(rest) as object, scopeClassification: scrub(scopeClassification, 0, true) }
 }
 
 const byKind: Record<string, string> = {
@@ -93,7 +102,7 @@ export function auditEntries(c: Context, before: State, type: string, payload: a
     out.push({
       id: `${c.commandId}:${out.length}`, at: c.now, actorId: c.actor.id, actorName: c.actor.name, actorRole: c.actor.role, source, commandId: c.commandId, commandType: type,
       domain: source === 'agent' && type === 'proposal.prepare' ? 'agent' : domainOf(c, kind, type, payload), subjectKind: kind, subjectId, subjectVersion, op,
-      before: scrub(was), after: scrub(now), reason, evidence, refs: refsOf(subjectId, full).join(' '),
+      before: scrubRecord(kind, was), after: scrubRecord(kind, now), reason, evidence, refs: refsOf(subjectId, full).join(' '),
     })
   }
   for (const kind of collections) {
