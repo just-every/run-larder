@@ -1089,7 +1089,7 @@
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "95010b52f9511118f0b0705f19c34963779e550114087449f093e65a99a8c62a",
+      "sha256": "c2e60b617d138284cc093e6145037b54432bcd7ef0f4e0b91249303af2e5ccb1",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -3981,7 +3981,7 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "886bd513e3994c133eb2c80d7a5c3547c1edabda2a40be281d6c8822e7dcafbc",
+      "sha256": "4ba341b9e86eaa3e6410225c3e1b6e47fa351535b870c4d0d82faf86b4397c0d",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
