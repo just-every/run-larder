@@ -1948,7 +1948,7 @@ Core · push-further · **partial** · Cites BASE-ROLE-001, BASE-AGENT-002, BASE
 **Acceptance.**
 1. Run a planning task with a constrained model budget and restricted customer documents, cancel mid-run and inspect charged usage/sources and pending drafts; reject prompt injection and forbidden direct stock/role writes.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** Declared core tools, signed policy, audit, Pause and replay are integrated; paid spend, long jobs, provider execution, events and subscriptions remain undeclared.
 
 ## Agent surface
@@ -1965,7 +1965,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-002, BASE
 1. Compare the registry with every Core job in the table, including the documented device, connector, import and installation boundaries; a missing manufacturing job fails conformance.
 2. Run the shared harness against the manufacturing fixtures with results matching the corresponding native manufacturing actions.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** Declared core planner subset only; the target table includes human signatures and unbuilt/provider work. No events, subscriptions, multi-sponsor or refresh family is declared.
 
 #### SURFACE-002 — Physical stock classes
@@ -1978,7 +1978,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006
 1. Compare reversible internal moves with actual scrap and a binding lot-release decision; inspect standard, destructive and commitment with item, lot and quantity facts.
 2. A mere model prediction never supplies the physical receipt, inspection or disposal evidence required by those calls.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** Physical-stock execution remains on native human/device doors; the declared tools prepare internal work and never assert physical evidence.
 
 #### SURFACE-003 — Commercial and outside consequences
@@ -1991,7 +1991,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006, BASE
 1. Compare a draft purchase, an approved purchase charge and a changed customer promise; inspect the money amount/currency and commitment value/counterparty.
 2. Compare an internal document with a known customer, a new supplier and public exposure; inspect external recipient count and known, new or public counterparty facts.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** Commercial/external/money/commitment execution families are undeclared; purchase and service drafts neither send nor pay nor commit.
 
 #### SURFACE-004 — Protected manufacturing data
@@ -2004,7 +2004,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-003, BASE
 1. Read a permitted regulated identity/payroll fixture and a non-sensitive production record; inspect sensitive only for the former, with record count and kind.
 2. Attempt the same restricted-rate and mixed-location queries as a limited operator; no derived cost or cross-site fact escapes.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** Native scoped projections and sensitive payroll reads are declared; multiple sponsor and restricted-person conformance families remain undeclared.
 
 #### SURFACE-005 — Authority and provider classes
@@ -2018,7 +2018,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-005, BASE
 2. Create an outside resource and inspect accounts with provider; inspect gated with provider and exact step when its provider keeps consent, verification or hosted checkout for a person.
 3. Change a running connector and inspect live with the affected service; supplying an agent’s own confirmation changes none of those computed classes.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** Standing access/security and provider account/gated/live tool families are undeclared; preparing a grant never activates it.
 
 #### SURFACE-006 — Planning uncertainty and execution
@@ -2031,7 +2031,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006, BASE
 1. Run dated netting, alternate-machine comparison and recovery adoption, retaining pegs, original promises, scope and uncertainty; no informational result is labelled an adopted schedule.
 2. Run the same internal standard action under the held and all-autonomous company policies and inspect the different decisions with identical manufacturing invariants.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** Dated materials, pegging, replenishment, finite scenarios and planning drafts are declared; adoption and native signatures remain separate.
 
 #### SURFACE-007 — Manufacturing resource projections
@@ -2044,7 +2044,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-003, BASE
 1. Follow the resource links from a partial receipt, work output and shipment to their exact lots, pegs, costs and retained files.
 2. Read the same records as accounts and a site/cost-restricted operator; reconcile the resource projection with each actor’s manufacturing screen.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** Native primary-record resources are declared with policy, classification, redaction and visibility; resource refresh and multi-sponsor conformance are undeclared.
 
 #### SURFACE-008 — Evidence-bearing quality and engineering
@@ -2057,7 +2057,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-007, BASE
 1. Complete an engineering change and a use-as-is deviation with original files and exact versions; read the decision and its attribution on the revision, lot and shipment pack.
 2. Under the held policy, a signed-in person takes the policy’s decision step; under the all-autonomous policy, the agent’s equivalent act is truthfully attributed and never recorded as that person’s signature.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** Kit and certificate preparation are internal drafts. Engineering/quality sign-off, disposition and physical evidence execution are undeclared.
 
 #### SURFACE-009 — Manufacturing change events
@@ -2070,8 +2070,8 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-010
 1. Receive, produce, hold, release and partly ship seeded goods; follow the corresponding typed manufacturing events back to the same record revisions.
 2. Observe supplier-date, material-usable and ledger-reconciled events in the handoffs below without inventing physical arrival or accepted books.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
-**Gap.** UNDECLARED family: manufacturing events and subscriptions. Base 0.2.86 still requires BASE-AGENT-010.1.effects for core-only adoptions; await subset-aware Base.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
+**Gap.** UNDECLARED family: manufacturing events and subscriptions. Base 0.2.87 still requires BASE-AGENT-010.1.effects for core-only adoptions; await subset-aware Base.
 
 #### SURFACE-010 — Bounded cost-analysis tool
 
@@ -2083,7 +2083,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006, BASE
 1. Run exact allowed and over-cap snapshots, source/destination changes and an unsent revocation; inspect refusal or the single permitted send without history changes.
 2. Under both company policies, inspect external, sensitive and any money facts and the company’s decision; direct and routed providers remain distinct evidence routes.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** UNDECLARED families: provider spend, paid model execution and provider mail edges. No cost is registered; spend none does not enforce caps.
 
 #### SURFACE-011 — Manufacturing specialist handoffs
@@ -2096,7 +2096,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-010
 1. Follow approved demand through a late supplier, usable receipt, job completion and shipment, linking each receiving specialist to manufacturing evidence.
 2. A failed or uncertain ledger readback leaves its owned follow-up case open; a retried submission alone closes nothing.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** UNDECLARED families: cross-specialist handoffs, subscriptions and multi-sponsor delivery. No sibling/provider effect is claimed.
 
 #### SURFACE-012 — Manufacturing prompts and capacity limits
@@ -2109,7 +2109,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-011, BASE
 1. Discover each named manufacturing job and follow its clauses, resource templates, events and documented capacity limits from the agent documentation.
 2. Inspect an oversized import or model snapshot and a bounded planning search, retaining explicit recoverable limits rather than an invented business-volume cap.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** Registry-backed core planning prompt and transport capacities are declared; autonomous supplier sends, paid cost investigation and the wider specialist week remain undeclared.
 
 #### SURFACE-013 — A seeded manufacturing week through MCP
@@ -2124,7 +2124,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-001, BASE
 3. Exercise declared access/security/provider and destruction fixtures within the week, retain their class facts and truthful physical evidence, and reconcile the class overview with the week’s actions.
 4. Recover an interrupted call and refuse unsafe changed inputs without duplicate stock, money or customer commitments.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; 65 touched native journeys passed. Full Base conformance remains partial.
+**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — production-door journey, replay, conflict, stale revision and local Pause; released CLI 0.2.87 shared production verifier passed 2002/2003 points, with only undeclared-family BASE-AGENT-010.1.effects failing; 22 touched authorization/backup journeys and typecheck passed. Full Base conformance remains partial.
 **Gap.** Declared core journey covers every registered tool/class pair; the target physical/commercial week and stranger client receipts remain unproved. Base event-family check still fails.
 
 ## Later

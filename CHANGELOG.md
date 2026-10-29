@@ -1,5 +1,10 @@
 # Changelog
 
+## Company-agent runtime refresh
+
+- Refresh the adopted agent-door runtime and pinned CLI to released Base 0.2.87, retaining the declared core planner subset and native authority.
+- Keep manufacturing events, subscriptions, multiple sponsors, resource refresh and provider execution explicitly partial; the shared harness still requires record-change events for core-only adoption.
+
 ## Company-agent planner door
 
 - Add the shared MCP and company-policy door with native owner-id sponsorship, current manufacturing permissions, Pause, audit and once-only command replay.
