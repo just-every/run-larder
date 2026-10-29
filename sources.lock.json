@@ -1465,7 +1465,7 @@
       "executable": false
     },
     "src/larder/order-supply.ts": {
-      "sha256": "e17964fc51b43afb5c9fbbc881b08ef3afdffae69f6a677feb380e9d47762ef5",
+      "sha256": "c50c2c869f0500819da4a703c8225e718d4ccc205bedb05a0a5bd3cb421fb0fa",
       "executable": false
     },
     "src/larder/planning.ts": {
@@ -4025,7 +4025,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "b049aa7aa83856d2592af46b3093cd3c0f038b8b1b10001a5ba256ba9bb33a23",
+      "sha256": "da1013a167a32d4dbeff5d24651044361f4d064ed3b3c4b77d98f7ff38feeae7",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {

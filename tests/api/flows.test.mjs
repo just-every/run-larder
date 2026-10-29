@@ -361,6 +361,12 @@ test('LARDER-012 handoff exports costs and invoice preparation; acknowledgements
   const refusalBaseline = await h.state()
   await denied.run('so.invoice', invoicePayload, { error: 'FORBIDDEN' })
   assert.deepEqual(await h.state(), refusalBaseline)
+  // The foreign-currency fixture shares its SKU with its other-location
+  // label. That label stays hidden without breaking a scoped state read.
+  await h.command('member.scope', { operatorId: accounts.id, costsRestricted: true, locations: [w.store.id] })
+  const located = await h.state(accounts.cookie)
+  assert.equal(located.salesOrders.some(o => o.id === fx.orderId), false)
+  assert.equal(Object.hasOwn(located.salesMoney, fx.orderId), false)
   await h.command('member.scope', { operatorId: accounts.id, costsRestricted: true, locations: null })
   const scopedBaseline = await h.state()
   await accounts.run('so.invoice', fx.lastInvoiceCommand.payload, { commandId: fx.lastInvoiceCommand.commandId, error: 'FORBIDDEN' })

@@ -9,10 +9,12 @@ export type Supply = { kind: 'stock' | 'reservation' | 'purchase' | 'work'; docu
 export type StatusLine = { id: string; itemId: string; ingredientStatus: IngredientStatus; productionStatus: ProductionStatus; required: string; available: string; missing: string; supplies: Supply[]; ingredients?: StatusLine[]; supplyingWork?: { documentId: string; quantity: string; lines: StatusLine[] }[] }
 type Pool = Omit<Supply, 'quantity'> & { itemId: string; left: bigint }
 
+// A location scope can withhold a colliding SKU; an empty reference keeps
+// its stock pool sortable without exposing the hidden label.
 // Local pools exist for this read only. All hard reservations are removed from
 // free stock before any ranked demand is considered, including another order's.
 export function supplyAllocator(s: State, on = new Date().toISOString().slice(0, 10)) {
-  const pools: Pool[] = s.items.map(i => ({ itemId: i.id, kind: 'stock', documentId: '', reference: i.sku, date: '',
+  const pools: Pool[] = s.items.map(i => ({ itemId: i.id, kind: 'stock', documentId: '', reference: i.sku ?? '', date: '',
     left: max(0n, usableOnHand(s, i.id, on) - s.reservations.filter(r => r.itemId === i.id).reduce((n, r) => n + r.quantity, 0n)) }))
   for (const p of s.purchaseOrders) if (['approved', 'confirmed', 'part received'].includes(p.status))
     for (const l of p.lines) pools.push({ itemId: l.itemId, kind: 'purchase', documentId: p.id, reference: p.reference, date: purchaseDate(p, l),
