@@ -1604,7 +1604,7 @@ test('CAP-008 controlled source recovery requires current evidence, quarantines 
   // inspections cannot even create a review or an original-file attachment.
   for (const mode of ['expired', 'certificate', 'inspection']) {
     const h = await installation({ now: '2026-10-25T12:00:00.000Z' }); t.after(() => h.close())
-    const f = await nestingWorkshop(h, mode === 'expired' ? { manufacturedOn: '2019-01-01', expiresOn: '2020-01-01' } : undefined, true)
+    const f = await nestingWorkshop(h, mode === 'expired' ? { manufacturedOn: '2019-01-01', expiresOn: '2020-01-01' } : undefined, mode !== 'inspection')
     if (mode === 'certificate') await h.command('certificate.requirements', { itemId: f.sheet.id, types: ['coa'], note: 'Incoming evidence required' })
     const plan = mode === 'inspection' ? await makePlan(h, f.sheet.id) : null
     const group = await h.command('nest.prepare', f.prepare), before = await h.state(), archive = await (await h.request('/api/larder/archive')).json()
@@ -1617,6 +1617,11 @@ test('CAP-008 controlled source recovery requires current evidence, quarantines 
       const heldGroup = await h.command('nest.prepare', f.prepare), held = await h.state()
       await h.command('nest.import', { ...payload, groupId: heldGroup.id, version: heldGroup.version }, { error: 'QUALITY_HOLD' })
       await unchanged(h, held, 'failed source inspection')
+      const hold = held.qualityHolds.find(x => x.subjectId === f.lot.id)
+      await h.command('quality.inspect', { planId: plan.id, planVersion: plan.version, lotId: f.lot.id, samples: { Surface: ['1'] }, evidence: [evidence('Opening source retested')] })
+      await h.command('quality.release', { holdId: hold.id, version: hold.version, reason: 'Opening source passed its current plan', evidence: [evidence('Source release record')] })
+      const freshGroup = await h.command('nest.prepare', f.prepare)
+      assert.equal((await h.command('nest.import', { ...payload, groupId: freshGroup.id, version: freshGroup.version })).status, 'review')
     }
   }
   const h = await installation({ now: '2026-10-25T12:00:00.000Z' }); t.after(() => h.close())

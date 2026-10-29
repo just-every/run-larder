@@ -1505,7 +1505,7 @@
       "executable": false
     },
     "src/larder/quality.ts": {
-      "sha256": "5a37eb46523c110756e94ddc8aa096ed2aef68751c861a9f4cb2359c9cca90c1",
+      "sha256": "91a4fe6eedb759e9bce40e83ec479364b08bb81bbaed33cc5acfac778f5d17c7",
       "executable": false
     },
     "src/larder/quote-review.ts": {
@@ -3785,7 +3785,7 @@
       "executable": false
     },
     "src/ui/quality.tsx": {
-      "sha256": "7c081838e7c73ab675bea1223defddbbba6de2ac58ace6901d0e1276eb3bc260",
+      "sha256": "bdec8e11a36473ed73d58e6a29c6343f1146b506f17b4317adc1414a762ee19b",
       "executable": false
     },
     "src/ui/quote-review.tsx": {
@@ -4021,7 +4021,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "336486ef7e730eb9a607909ce98cd45d3d5077167fb5fd15882c381dcb12a9a9",
+      "sha256": "1322f7f906b2bd8b735b62709f05747562fe7d46b9d6460185993c20f6ccb8a1",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
