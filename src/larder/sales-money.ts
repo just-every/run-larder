@@ -10,6 +10,10 @@ export function saleCurrency(p: any, asOf?: string) {
   if (currency === 'USD' && usdRate !== SCALE) fail('INPUT', 'USD customer prices require a rate of one.')
   const rateDate = currency === 'USD' ? undefined : date(p.rateDate, 'exchange rate date')
   if (rateDate && (new Date(rateDate + 'T00:00:00Z').toISOString().slice(0, 10) !== rateDate || (asOf && rateDate > asOf))) fail('INPUT', 'Use a real, non-future recorded exchange rate date.')
+  // Preserve the existing implicit-USD record shape. Adding an explicit USD
+  // declaration would make a legacy AUD archive correctly fail its mixed-money
+  // guard instead of following its recorded-rate migration.
+  if (currency === 'USD' && p.currency === undefined) return {}
   return { currency, functionalCurrency: 'USD', usdRate: format(usdRate), ...(currency === 'USD' ? {} : { rateDate, rateReference: text(p.rateReference, 'exchange rate reference', 200) }) }
 }
 
