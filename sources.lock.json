@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "bc051b37806318b84a64c95dbef5ceb4288b5fb5a64c481a8c1ee7d67f96f0a5",
+      "sha256": "aaaddf1a187dea079ccbe3b4959f63b5e25a1f80ceddb55d4fc6ecc20bb12e93",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -193,7 +193,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "18109c748667ce36a840383a5363a3194b0e42641e00889d8358333ec1a0a074",
+      "sha256": "5dcaaeb955ed22730543626eac46e421e1a8ef0c8141da5aafdf080bcb53370c",
       "executable": false
     },
     "base-copies.json": {
@@ -205,7 +205,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "ee706e48b37735e0d0a69dcfd0e481701d02670865fb5d0b794298a4a1a8a0a8",
+      "sha256": "809c997b7e73b60a85263a205d17093aeb8f15ba30d7e7745e97731bda4bf377",
       "executable": false
     },
     "DEMO.md": {
@@ -1621,7 +1621,7 @@
       "executable": false
     },
     "src/larder/scheduling/recovery.ts": {
-      "sha256": "f04ec05206df181dc8a2c89ab4abde6098ea488fd079e23a4b7d24759f9133c7",
+      "sha256": "7dff72133a91fd9a55a9c60c99dbbb5730a435ca0224eee83dd6c190f869533b",
       "executable": false
     },
     "src/larder/scheduling/reschedule.ts": {
@@ -3853,7 +3853,7 @@
       "executable": false
     },
     "src/ui/schedule/recovery.tsx": {
-      "sha256": "6643914a75935fa3c4c9f8980c48d617109231323f00cc81a45c4ade5ea3f639",
+      "sha256": "2db7a7142ba8b90716351105d3e37bd1bb68c7f5e23c0aa80615878d7e80fc3f",
       "executable": false
     },
     "src/ui/schedule/reschedule.tsx": {
@@ -4093,7 +4093,7 @@
       "executable": false
     },
     "tests/api/schedule-approval.test.mjs": {
-      "sha256": "56107d18d0708f25becd7173f3ae6d3a274d02a57e085ad640c7108f088a4a9c",
+      "sha256": "fafe8f27aaf21885fdabc51cf4e7cedbd9f4846792b4f7223f5a7dc18dd03d01",
       "executable": false
     },
     "tests/api/subcontract.test.mjs": {
@@ -4193,7 +4193,7 @@
       "executable": false
     },
     "tests/browser/maintenance.spec.ts": {
-      "sha256": "284cd16b3196bb32c76e2f6848f9aba4ac7885e759a97197cdfcd8dabf65872c",
+      "sha256": "7f6de10ee85250af11550b544e28dcbdb23aa7d9277efe1682607b612adf2e12",
       "executable": false
     },
     "tests/browser/multilevel.spec.ts": {

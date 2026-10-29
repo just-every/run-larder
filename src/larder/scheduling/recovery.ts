@@ -122,6 +122,7 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
   const note=text(p.reason,'decision reason')
   const option=p.optionId===undefined?undefined:plan.recoveryOptions?.find((o:any)=>o.id===p.optionId)
   if(p.optionId!==undefined&&!option)fail('INPUT','Choose an exact retained recovery option.')
+  if(type==='schedule.adopt'&&plan.recoveryOptions?.length&&!option)fail('INPUT','Choose an exact retained recovery option before adopting this comparison.')
   if(type==='schedule.reject') {
     const options=option?[option]:plan.recoveryOptions??[]
     const current=planningDigest(c.s,c.people)

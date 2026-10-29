@@ -203,6 +203,11 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
     }
   }
   proveOptions(first)
+  const unselectedBaseline = await recoveryBusiness(h)
+  const unselected = await h.send('schedule.adopt', { planId: first.id, version: first.version, reason: 'synthetic-larder-835 missing exact recovery selection' }, { as: reviewer.cookie })
+  assert.equal(unselected.body.ok, false, 'An unselected comparison cannot adopt its baseline instead of a feasible option')
+  assert.equal(unselected.body.error?.code, 'INPUT', 'A recovery comparison needs an exact option before any booking or signature')
+  assert.deepEqual(await recoveryBusiness(h), unselectedBaseline, 'Omitting the option cannot book the late baseline or change business records')
   // A real breakdown following the supplier event must retain that same material-ready date.
   const stopped = await h.send('maintenance.create', { workCentre: names[0], kind: 'breakdown', expectedReturnAt: '2026-11-30T00:00:00Z', repairOwner: 'Machine supervisor', note: 'Primary spindle stopped' })
   assert.equal(stopped.body.ok, true)
@@ -213,6 +218,7 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
   const adopt = (who, optionId, more = {}, error) => who.run('schedule.adopt', { planId: second.id, version: second.version, optionId, reason: 'Exact alternate comparison reviewed', ...more }, error && { error })
   await adopt(agent, second.recoveryOptions[0].id, {}, 'FORBIDDEN')
   await adopt(reviewer, 'not-a-retained-option', {}, 'INPUT')
+  await adopt(reviewer, undefined, {}, 'INPUT')
   for (const forged of [{ classification: second.recoveryOptions[0].classification }, { decisionClassification: { classes: ['standard'] } }, { personDecision: { actorId: owner.id } }, { optionDigest: 'synthetic-larder-822' }, { override: { classification: { classes: [] } } }]) await adopt(reviewer, second.recoveryOptions[0].id, forged, 'AUTHORITY')
   assert.deepEqual(await recoveryBusiness(h), refusalBaseline, 'Forged, unauthorized and stale decisions leave every business record and booking unchanged')
   assert.equal(h.outboundCount(), outboundBefore)
@@ -223,6 +229,9 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
   assert.deepEqual(signatureA.terms.classification.classes, ['standard'])
   assert.equal(signatureA.terms.optionDigest, second.recoveryOptions[0].classification.optionDigest)
   assert.equal(signatureA.terms.classification.inputDigest, second.inputDigest)
+  const signedBaseline = await recoveryBusiness(h)
+  await adopt(reviewer, undefined, {}, 'INPUT')
+  assert.deepEqual(await recoveryBusiness(h), signedBaseline, 'Missing selection cannot create or consume an option signature')
   const signatureB = await adopt(reviewer, second.recoveryOptions[1].id)
   assert.equal(signatureB.remainingAtSigning, 1)
   assert.equal((await h.state()).scheduleBookings.length, 0)

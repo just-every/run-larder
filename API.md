@@ -808,8 +808,10 @@ intervals, sequence, displacement, unchanged linked ship dates, public planning
 USD estimates, zero new purchasing cash and explicit uncertainty. Search is
 bounded and never claims that an unsearched recovery is impossible.
 
-`schedule.adopt` additionally accepts `optionId` alongside `planId`, `version`
-and `reason`. It adopts only the exact retained option under existing independent
+`schedule.adopt` requires `optionId` alongside `planId`, `version`
+and `reason` when the review retains recovery options. Omitting the selection
+is refused before booking or signing; the unselected baseline cannot stand in
+for a feasible option. It adopts only the exact retained option under existing independent
 CAP-005 authority and GOV-009 signatures. Signatures for different options cannot
 combine. All current inputs and live people are rechecked before atomic booking.
 A new demand, stock or calendar trigger remains a human review even when an
