@@ -4021,7 +4021,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "5ffe98c03808b298ead56e9c44ea6023465fd3a522d901c00236058677572315",
+      "sha256": "2a50f889f1cdb9455752d69dc638de4285e36c83fd87f67f1bc4928265efa472",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -4205,7 +4205,7 @@
       "executable": false
     },
     "tests/browser/quality.spec.ts": {
-      "sha256": "ad473ea962bcc62953d2e0e7f78159fe5b40bfd248ce809084b037e5f95e286b",
+      "sha256": "38f4fed1e07bde6b69e711de04748b4a33541cee2c22c4582a7c96d01db64fba",
       "executable": false
     },
     "tests/browser/receiving.spec.ts": {
