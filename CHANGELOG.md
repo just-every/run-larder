@@ -1,5 +1,12 @@
 # Changelog
 
+## Company-agent planner door
+
+- Add the shared MCP and company-policy door with native owner-id sponsorship, current manufacturing permissions, Pause, audit and once-only command replay.
+- Expose the supported internal preparation and record-reading registry. Preserve physical-evidence, manufacturing-signature, import, device and connector boundaries. Native activity and records name the agent and sponsoring person separately.
+- Add additive agent/Business/attribution migrations and a production-door conformance journey. Events, subscriptions, provider spend and wider manufacturing execution remain partial; the pinned Base 0.2.86 verifier still requires events for a core-only declaration.
+
+
 ## Contract source before fbc24c7de793f07f5cd93f62ac4856adf7b251da
 
 # Larder product contract
