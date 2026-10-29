@@ -2401,14 +2401,34 @@ test('Costed quote dates compare scarce supply and qualified calendars, then acc
   const futureRequirements = futureMaterials.requirements.filter(requirement => requirement.documentId === futureWork.id && requirement.itemId === shared.id)
   assert.equal(futureRequirements.length, 2)
   assert.ok(futureRequirements.every(requirement => requirement.shortage === '0'), JSON.stringify(futureRequirements))
-  const extraRack = await k.command('location.save', { name: 'Additional committed material rack' })
-  await k.command('opening.record', { locationId: extraRack.id, countedOn: '2026-11-23', countedBy: 'Owner', valuationBasis: 'standard-cost', evidence: evidence(), lines: [{ itemId: shared.id, quantity: '4', unitCost: '5' }] })
-  await k.command('wo.reserve', { workOrderId: futureWork.id })
-  assert.equal((await k.state()).reservations.filter(reservation => reservation.demandId === futureWork.id).reduce((sum, reservation) => sum + Number(reservation.quantity), 0), 4)
   await k.command('receipt.create', { poId: purchase932.id, supplierReference: 'Both insert shares received', lines: [{ lineId: purchase932.lines[0].id, quantity: '4', locationId: rack932.id }] })
   const afterMixedReceipt = await k.state()
   assert.equal(afterMixedReceipt.reservations.filter(reservation => reservation.demandId === futureWork.id).reduce((sum, reservation) => sum + Number(reservation.quantity), 0), 4)
   assert.deepEqual(afterMixedReceipt.workOrders.find(work => work.id === futureWork.id).quoteSupply.map(source => source.received), ['2', '2'])
+
+  // A later purchase receipt cannot reserve material already replaced by stock.
+  let replacementPurchase = await k.command('po.draft', { supplierId: vendor932.id, expectedDate: '2026-11-25', reason: 'Replace future mixed material', lines: [{ itemId: shared.id, quantity: '4', unitPrice: '5' }] })
+  replacementPurchase = await k.command('po.approve', { poId: replacementPurchase.id, version: replacementPurchase.version })
+  let replacementQuote = await k.command('so.quote', { customerId: customer932.id, promiseDate: '2026-12-01', lines: [{ itemId: assembly.id, quantity: '2', unitPrice: '50' }] })
+  replacementQuote = await k.command('so.review', { orderId: replacementQuote.id, version: replacementQuote.version, currency: 'USD', validUntil: '2026-12-01', paymentTerms: 'Net 30', laborCostRate: '1', machineCostRate: '1', overheadCostRate: '1', lines: [{ lineId: replacementQuote.lines[0].id, unitPrice: '50' }] })
+  const replacementOption = replacementQuote.quoteReview.options.find(option => option.kind === 'full-batch')
+  assert.ok(replacementOption)
+  const replacementOrder = await k.command('so.reviewAccept', { orderId: replacementQuote.id, version: replacementQuote.version, optionId: replacementOption.id, optionDigest: replacementOption.digest, reason: 'Commit the replacement purchase', customerApproval: { name: 'Purchasing lead', reference: 'Replacement agreement', approvedOn: '2026-11-23' } })
+  const replacementWork = (await k.state()).workOrders.find(work => work.id === replacementOrder.quoteAcceptance.workOrderIds[0])
+  assert.deepEqual(replacementWork.quoteSupply.map(source => [source.documentId, source.quantity, source.received]), [[replacementPurchase.id, '2', '0'], [replacementPurchase.id, '2', '0']])
+  const extraRack = await k.command('location.save', { name: 'Additional committed material rack' })
+  await k.command('opening.record', { locationId: extraRack.id, countedOn: '2026-11-23', countedBy: 'Owner', valuationBasis: 'standard-cost', evidence: evidence(), lines: [{ itemId: shared.id, quantity: '4', unitCost: '5' }] })
+  await k.command('wo.reserve', { workOrderId: replacementWork.id })
+  assert.equal((await k.state()).reservations.filter(reservation => reservation.demandId === replacementWork.id).reduce((sum, reservation) => sum + Number(reservation.quantity), 0), 4)
+  const replacementReceipt = { poId: replacementPurchase.id, supplierReference: 'Booked replacement material received', lines: [{ lineId: replacementPurchase.lines[0].id, quantity: '4', locationId: rack932.id }] }
+  const replacementReceived = await k.send('receipt.create', replacementReceipt)
+  assert.equal(replacementReceived.res.status, 200, JSON.stringify(replacementReceived.body))
+  const replacementState = await k.state()
+  assert.equal(replacementState.reservations.filter(reservation => reservation.demandId === replacementWork.id).reduce((sum, reservation) => sum + Number(reservation.quantity), 0), 4)
+  assert.deepEqual(replacementState.workOrders.find(work => work.id === replacementWork.id).quoteSupply.map(source => source.received), ['2', '2'])
+  await k.command('receipt.create', replacementReceipt, { commandId: replacementReceived.commandId })
+  const replacementReplay = await k.state()
+  for (const field of ['version', 'movements', 'positions', 'reservations', 'workOrders']) assert.deepEqual(replacementReplay[field], replacementState[field], field)
 
   // Exact accepted cents survive shipping, split dispatch and corrections.
   {
