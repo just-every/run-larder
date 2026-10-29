@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "6438a74baec130fc1a92b25216a41c0c84b28802b076e6d56ad03398d8533955",
+      "sha256": "be7c20c76d164aebbee95172c67ec384d64f356534233072bbf3c2aeb8fc96b8",
       "executable": false
     },
     "agent-surface.json": {
@@ -205,11 +205,11 @@
       "executable": false
     },
     "CHANGELOG.md": {
-      "sha256": "c1557e6ffde6ed40e55384b83e92a191b80bf3794c36fc5fd63b7c60f00afbb2",
+      "sha256": "16cd6893caabd4b40f1a3de1ba051250616d57ee2b53180aa12989b86392dd71",
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "999d07dbead7b6f99241b31703cd9683e60fafef9788ff8ec5cdc57a4ebd7026",
+      "sha256": "f3a878c02fd6d4ed6f8ed36c4dbcb7225042178cf5a85715ad99e0b450fd6813",
       "executable": false
     },
     "DEMO.md": {
@@ -1585,7 +1585,7 @@
       "executable": false
     },
     "src/larder/quote-review.ts": {
-      "sha256": "881a5397fc3eed78cd9b025eeec64d3aaa9d382d947ef47885b2dfe2538ed53f",
+      "sha256": "cd2e888c4e647378102552a096ede365192e3aa2d49e3e16b2c0947827f432b7",
       "executable": false
     },
     "src/larder/recall-policy.ts": {
@@ -4205,7 +4205,7 @@
       "executable": false
     },
     "src/ui/quote-review.tsx": {
-      "sha256": "1f140b3bb5fe982eee059907f705154b6049eded9158e772fbcccd5cd25c89fa",
+      "sha256": "3245729c4d1aa5770db3a6fdc3e15c94e4c18b917e5d80edbee4b9497cdba36c",
       "executable": false
     },
     "src/ui/receipt-job-allocation.tsx": {
@@ -4437,7 +4437,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "87ecbd8840f79c5090b19380a34d849644b29fb0806e14d3de71cb302c8c9674",
+      "sha256": "5684b712a2900fac46c297bb91c108ae802ddfa2b846feeface41853e1af7842",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -4609,7 +4609,7 @@
       "executable": false
     },
     "tests/browser/order-amendments.spec.ts": {
-      "sha256": "c38cb112acebe65884a65148cc6a5c25d8572d984aa69d6fa140f955acb3be9a",
+      "sha256": "24365fe38c743508cd33fbbc3f76c9bf02f7c4246071a044055dbefd7fef5173",
       "executable": false
     },
     "tests/browser/order-status.spec.ts": {
