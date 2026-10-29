@@ -8,10 +8,10 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 85 | 25 | 40 | 150 |
+| Core | 86 | 24 | 40 | 150 |
 | Agent surface | 0 | 0 | 13 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 85 | 25 | 53 | 163 |
+| Full target | 86 | 24 | 53 | 163 |
 
 Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb99` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
@@ -684,15 +684,15 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-AGENT-006, BASE-AGENT-00
 
 #### CAP-008 — Grouped jobs and nesting
 
-Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Planners group compatible operations or batches and import nesting results with material yield, offcuts, setup sharing and per-job quantity and cost allocation. Groups retain each customer and job identity, required revision and due date. The native decision follows RL-7. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-008) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Group three sheet-metal jobs, import a nesting output, approve consumption and recoverable offcuts; trace each output and allocated cost to its original job.
 
-**Evidence.** `tests/api/flows.test.mjs` — “CAP-008 owner-approved nesting consumes once, recovers a traced offcut and attributes each original output cost”; `tests/api/flows.test.mjs` — “CAP-008 controlled source recovery requires current evidence, quarantines independent offcuts and preserves exact genealogy through reuse, restart and inert restore”; `tests/browser/work-transfers.spec.ts` — “CAP-008 grouped nesting preserves three customer jobs and their allocated material costs at both widths”; `tests/browser/quality.spec.ts` — “CAP-008 controlled nesting offcuts require their own certificate, inspection and evidenced stock release before reuse”
-**Gap.** Controlled source and recovered lot evidence gates are implemented; the new covering browser journey is pending its candidate run. Owner-only exact physical approval remains the RL-7 boundary: changed nests need fresh approval, no shared setup-booking authority. Broader batch stages, serial execution and CONN-012 vendor adapters are outside this bounded operation journey.
+**Evidence.** `tests/api/flows.test.mjs` — “CAP-008 owner-approved nesting consumes once, recovers a traced offcut and attributes each original output cost”; `tests/api/flows.test.mjs` — “CAP-008 controlled source recovery requires current evidence, quarantines independent offcuts and preserves exact genealogy through reuse, restart and inert restore”; `tests/browser/work-transfers.spec.ts` — “CAP-008 grouped nesting preserves three customer jobs and their allocated material costs at both widths”; `tests/browser/quality.spec.ts` — “CAP-008 controlled nesting offcuts require their own certificate, inspection and evidenced stock release before reuse”; `tests/api/flows.test.mjs` — “CAP-008 nesting preparation obeys live roles, location scope and cost restrictions including replay”
+**Gap.** None.
 
 #### CAP-009 — Maintenance and downtime planning
 
