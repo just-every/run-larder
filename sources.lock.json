@@ -161,11 +161,11 @@
       "executable": false
     },
     ".github/workflows/run-demo.yml": {
-      "sha256": "41365ec7c002e9451166313b085f9e64ed2e3ea002c27f3d5ead845bc9c302b2",
+      "sha256": "fcc90f33d454dbacf1f645a4b28ccfb9b2088a0b24d8c264c42fa1fe0c014d74",
       "executable": false
     },
     ".github/workflows/run-site.yml": {
-      "sha256": "1466e0cc78eeee30a85f1602c0b4bbb74f053fc9f1aa723635c5f0fc5a0f19b0",
+      "sha256": "f63166fb907bf7746113bb629324b891d0ace89b0e0255808d5095186d1a989b",
       "executable": false
     },
     ".github/workflows/verify.yml": {
@@ -197,7 +197,7 @@
       "executable": false
     },
     "base-copies.json": {
-      "sha256": "16fe902c11d35e72586f3691ce9ecd11a8eca3292d267c5af8aae73308546e8a",
+      "sha256": "a894356b6e9db25d2b20cbd099234d665e730643828624201f8f89cac5605ba3",
       "executable": false
     },
     "CHANGELOG.md": {
@@ -1436,6 +1436,10 @@
       "sha256": "d0e747277142e54d86acd1c01549ee8b76bf15c060366387bd074c57f77f7d2d",
       "executable": false
     },
+    "scripts/install-chromium-deps.py": {
+      "sha256": "d3027108ad8e08ceeddb0ed477d967b1207e40bb6bf5ae941854c534c2cf4004",
+      "executable": false
+    },
     "scripts/install.mjs": {
       "sha256": "ce9c6eb4f127e88b32d538655a3fb3a2dc9fc3e83e48782fd56ffd3377da16fd",
       "executable": false
@@ -1470,6 +1474,26 @@
     },
     "scripts/operations-config.mjs": {
       "sha256": "decbd8619e40c741708b49639d54282bd19edc4581a782b240d96a423ad47f01",
+      "executable": false
+    },
+    "scripts/verify-app.mjs": {
+      "sha256": "4c3a87c809e2b671a555dc36171b60675f87be96362de7d2269d9f5e1c3100b6",
+      "executable": false
+    },
+    "scripts/verify-ci.mjs": {
+      "sha256": "cf1ceb8773ed276f82245fb8fb4c4bdc95bff40ecc0e8ca8ac9e776978b17340",
+      "executable": false
+    },
+    "scripts/verify-evidence.mjs": {
+      "sha256": "9224f772d6a17f043448694eca3c149df83070417b995a2840497e36a9ad0100",
+      "executable": false
+    },
+    "scripts/verify-light.mjs": {
+      "sha256": "4df78fef706b80fd031170013978a3956d17540e58a2dcbbb4cb70a08ac40437",
+      "executable": false
+    },
+    "scripts/verify-plan.mjs": {
+      "sha256": "45fe2ab9c5cbc72d0186bf77fab32c985605caae6ecee50676dd618612c3e78f",
       "executable": false
     },
     "SEED-COMMAND-CONTRACT.md": {
@@ -4864,8 +4888,12 @@
       "sha256": "dca9b788ce557085987ba2e9a24e2e895802bc6395b2ca0675386dcc32fee2b1",
       "executable": false
     },
+    "verification.json": {
+      "sha256": "703a4d0a55cc28ec92acabddbb6908faf6476b7e1a433421250a3f70a7df2485",
+      "executable": false
+    },
     "VERIFY-WORKFLOW.md": {
-      "sha256": "4575ed16327919fdee019935997114276584d1310782bc190dcc53401d7d75bc",
+      "sha256": "2309d4a2a97fd56e00ae9250d7399dddaf83bbd19f5d53c6990dde9912c48e1a",
       "executable": false
     },
     "vite.config.ts": {

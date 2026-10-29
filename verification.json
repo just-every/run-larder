@@ -1,0 +1,78 @@
+{
+  "push": [
+    {
+      "name": "foundation",
+      "browser": true,
+      "hosted": true,
+      "commands": [
+        "pnpm run build",
+        "pnpm run typecheck",
+        "pnpm run test:runtime"
+      ]
+    },
+    {
+      "name": "api",
+      "browser": false,
+      "hosted": false,
+      "commands": [
+        "node --test --test-concurrency=1 tests/api/*.test.mjs"
+      ]
+    },
+    {
+      "name": "browser-1",
+      "browser": true,
+      "hosted": false,
+      "commands": [
+        "node tests/browser/run.mjs --shard=1/2"
+      ]
+    },
+    {
+      "name": "browser-2",
+      "browser": true,
+      "hosted": false,
+      "commands": [
+        "node tests/browser/run.mjs --shard=2/2"
+      ]
+    }
+  ],
+  "nightly": [
+    {
+      "name": "nightly-foundation",
+      "browser": true,
+      "hosted": true,
+      "commands": [
+        "pnpm run build",
+        "pnpm run typecheck",
+        "pnpm run test:runtime"
+      ]
+    },
+    {
+      "name": "nightly-api",
+      "browser": false,
+      "hosted": false,
+      "commands": [
+        "node --test --test-concurrency=1 tests/api/*.test.mjs"
+      ]
+    },
+    {
+      "name": "nightly-browser-1",
+      "browser": true,
+      "hosted": false,
+      "commands": [
+        "node tests/browser/run.mjs --shard=1/2"
+      ]
+    },
+    {
+      "name": "nightly-browser-2",
+      "browser": true,
+      "hosted": false,
+      "commands": [
+        "node tests/browser/run.mjs --shard=2/2"
+      ]
+    }
+  ],
+  "readers": {
+    "tests/api/*.test.mjs": [],
+    "tests/browser/run.mjs": []
+  }
+}
