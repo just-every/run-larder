@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "be7c20c76d164aebbee95172c67ec384d64f356534233072bbf3c2aeb8fc96b8",
+      "sha256": "cac0577e55f0ec086c25f215ef985637cb0b0b304aa39b76069e3066b1603945",
       "executable": false
     },
     "agent-surface.json": {
@@ -205,11 +205,11 @@
       "executable": false
     },
     "CHANGELOG.md": {
-      "sha256": "16cd6893caabd4b40f1a3de1ba051250616d57ee2b53180aa12989b86392dd71",
+      "sha256": "14a31cf37b1cf914bce37152de474c59aab0128057e5ba2f4db0af242511b0b2",
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "f3a878c02fd6d4ed6f8ed36c4dbcb7225042178cf5a85715ad99e0b450fd6813",
+      "sha256": "f038306ce57bfcdb0f4e1ceb6eeddd17ed11a1e0a64558fd204c814e3952697e",
       "executable": false
     },
     "DEMO.md": {
@@ -237,7 +237,7 @@
       "executable": false
     },
     "docs/company-agents.md": {
-      "sha256": "373540511b398c6ea8ea0c80a9f2ab39c03480641bc8237f7e22c6802a8818d1",
+      "sha256": "c0fd6947f6f5e00b154cdb4e246af04206970dacf3fc9be645d0f4d757af2227",
       "executable": false
     },
     "docs/contract/COVERAGE.json": {
@@ -1165,11 +1165,11 @@
       "executable": false
     },
     "src/larder/agent-attribution.ts": {
-      "sha256": "2c29849bcf7043f5a207a14e2892b6611293666e731a58aea8a69102cd8ebf43",
+      "sha256": "f7a85cf6bdfee2c569fa4611bfbd103be977c48c5b6592b183d66e08a64061ed",
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "50d87dd43748000defa9224750b82a41ab985198f5fd33083b795a04f5683970",
+      "sha256": "86fc60e403f1756e1b5273add0fa133e7a6254299e8bc3bd06b725cd0b7ed846",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -1181,7 +1181,7 @@
       "executable": false
     },
     "src/larder/archive.ts": {
-      "sha256": "248e5d125b008132c8e4f1b83baf17253399e9cbd5d1f87c203c013893e277a5",
+      "sha256": "3c849a5d947c320299e34f1a8ac276b099fdf15936a362b5cc703d2037cad311",
       "executable": false
     },
     "src/larder/attachments.ts": {
@@ -1733,7 +1733,7 @@
       "executable": false
     },
     "src/larder/storage.ts": {
-      "sha256": "35e0b08002cd1bf957b0aa3d5e813e170e645e14a55803ef7ca40a6bf882cf66",
+      "sha256": "394e992bbfd7e8692f0f16399e57d5e92192dde5806d0b41bc2b740e902dd66d",
       "executable": false
     },
     "src/larder/subcontract-custody.ts": {
@@ -4673,7 +4673,7 @@
       "executable": false
     },
     "tests/native-agent-journey.mjs": {
-      "sha256": "ca274dc45be8a15fc041baa1bc65e1fc221ef13d0a68f460489e5397e2dc39c4",
+      "sha256": "ddea389a8e592187d24a222f5ec9f456174cc78de4796d7de0f134821f16443d",
       "executable": false
     },
     "tests/runtime.mjs": {

@@ -8,10 +8,10 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 85 | 26 | 39 | 150 |
+| Core | 84 | 27 | 39 | 150 |
 | Agent surface | 0 | 13 | 0 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 85 | 39 | 39 | 163 |
+| Full target | 84 | 40 | 39 | 163 |
 
 Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb99` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
@@ -1749,15 +1749,15 @@ Core · target · **missing** · Cites BASE-AUDIT-001, BASE-ROLE-001, BASE-DATA-
 
 #### GOV-013 — Audit retention and purge authority
 
-Core · target · **done** · Cites BASE-DATA-002, BASE-DATA-003, BASE-AUDIT-001, BASE-DATA-006, BASE-ROLE-001, BASE-DATA-001 · Rules D-6, D-8
+Core · target · **partial** · Cites BASE-DATA-002, BASE-DATA-003, BASE-AUDIT-001, BASE-DATA-006, BASE-ROLE-001, BASE-DATA-001 · Rules D-6, D-8
 
 **Requirement.** Manufacturing audit entries remain for the installation’s life with no purge authority, including for the owner. The sole exception replaces a subject’s personal values with a tombstone through the erasure door, retaining entry identity, actor ID, time, command, record links, the request without erased values and an audit of replacement. A sole owner can be the subject. GOV-005 owns erasure outside the audit. The native decision follows RL-24. The [operating rules](docs/contract/OPERATING-DETAILS.md#gov-013) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Export the audit and read its retention period and purge authority; attempt a purge as every role, the owner included, and inspect refusal at the command, HTTP and database doors; pass an erasure request and confirm the entry stays with the personal values replaced and an audit of the replacement.
 
-**Evidence.** `tests/api/audit-retention.test.mjs` — “GOV-013 the export states the life-of-installation period and no purge authority, every role is refused at command, HTTP and database, and an erasure replaces personal values and leaves the entry and an audit of the replacement”; `tests/api/audit-retention.test.mjs` — “GOV-013 a sole owner who is the data subject still runs the erasure, it is audited, and they are addressable only by id afterwards”
-**Gap.** None.
+**Evidence.** `tests/api/audit-retention.test.mjs` — “GOV-013 the export states the life-of-installation period and no purge authority, every role is refused at command, HTTP and database, and an erasure replaces personal values and leaves the entry and an audit of the replacement”; `tests/api/audit-retention.test.mjs` — “GOV-013 a sole owner who is the data subject still runs the erasure, it is audited, and they are addressable only by id afterwards”; `tests/native-agent-journey.mjs` — retained agent custody refuses native erasure without an effect
+**Gap.** Native-only erasure remains covered by the cited journeys. With retained agent artifacts, AGENT_CUSTODY closes erasure and its transaction fence; Base has no client-scoped custody/redaction hook for retained calls, pending approvals and audit. Agent-artifact erasure is undeclared and must not be reported complete.
 
 #### HTTP-001 — Preserve Base public and private paths
 

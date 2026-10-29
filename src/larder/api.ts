@@ -30,7 +30,7 @@ import { migrateAudArchive } from './currency-migration'
 import { approvalCommand } from './approval-policy'
 import { cutover } from './cutover'
 import { cutoverGuard } from './cutover-guard'
-import { attributeAgentChanges } from './agent-attribution'
+import { attributeAgentChanges, agentCustodyEmptySql } from './agent-attribution'
 import { auditEntries } from './audit'
 import { contactOutcomes, erasureCommand, erasurePlan } from './audit-erasure'
 import { receiptJobAllocation } from './receipt-job-allocation'
@@ -175,6 +175,10 @@ export async function executeCommand(env: Bindings, actor: Actor, body: any, aut
     // A recorded outcome that names a location the member has since lost stays closed to them.
     if (scopeOf(actor).locations !== null && names(previous.result, hiddenLocations(await load(env.DB), scopeOf(actor)))) forbidden('This outcome involves a location outside your location scope.')
     return respond(previous)
+  }
+  if (actor.role === 'owner' && ['erasure.audit','erasure.contact','erasure.operator'].includes(type)) {
+    const custody=await env.DB.prepare(`SELECT CASE WHEN ${agentCustodyEmptySql} THEN 1 ELSE 0 END AS empty`).first<{empty:number}>()
+    if(custody?.empty!==1)fail('AGENT_CUSTODY','Retained agent decisions, approvals or outcomes require a client-scoped custody/redaction mapping before erasure can complete.')
   }
   let erasure = ['erasure.audit', 'erasure.contact', 'erasure.operator'].includes(type) ? await erasurePlan(env.DB, await load(env.DB), actor, payload) : undefined
   if (type === 'exception.assign' || type === 'exception.escalate') {

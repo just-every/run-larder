@@ -11,3 +11,10 @@ export function attributeAgentChanges(c: Context,before: State) {
     for(const record of c.s[kind])if(old.get(record.id)!==JSON.stringify(record))record.agentActivity=[...(record.agentActivity??[]),entry]
   }
 }
+
+// Base retains decision arguments and outcomes outside native client records.
+// Until a client-scoped custody/redaction hook exists, native erasure must not
+// report completion while those retained artifacts can still replay or execute.
+export const agentCustodyEmptySql = ['agent_door_agents','agent_door_calls','agent_door_audit','agent_door_approvals','agent_door_reviews','larder_command_agents']
+  .map(table=>`NOT EXISTS(SELECT 1 FROM ${table})`).join(' AND ')
+  + " AND NOT EXISTS(SELECT 1 FROM larder_records WHERE json_type(data,'$.preparedByAgent') IS NOT NULL OR COALESCE(json_array_length(data,'$.agentActivity'),0)>0)"

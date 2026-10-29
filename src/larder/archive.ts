@@ -25,13 +25,14 @@ const base64 = (bytes: ArrayBuffer | Uint8Array) => { let s = ''; for (const b o
 export async function archive(env: Bindings, actor: Actor) {
   if (!['owner', 'manager'].includes(actor.role)) forbidden('Only the owner or a manager can export the business archive.')
   const s = await load(env.DB)
-  const [commands, attachments, people, historicalPeople, historicalRoles, currencyMigration] = await env.DB.batch<any>([
+  const [commands, attachments, people, historicalPeople, historicalRoles, currencyMigration, commandAgents] = await env.DB.batch<any>([
     env.DB.prepare('SELECT * FROM larder_commands ORDER BY created_at,id'),
     env.DB.prepare('SELECT * FROM larder_attachments ORDER BY created_at,id'),
     env.DB.prepare('SELECT id,display_name AS name FROM oa_operators ORDER BY id'),
     env.DB.prepare("SELECT data FROM larder_records WHERE kind='people' AND id='archive'"),
     env.DB.prepare("SELECT data FROM larder_records WHERE kind='archiveRoleHistory' AND id='archive'"),
     env.DB.prepare("SELECT data FROM larder_records WHERE kind='archiveCurrencyMigration' AND id='archive'"),
+    env.DB.prepare('SELECT * FROM larder_command_agents ORDER BY command_id'),
   ])
   checkFunctionalMoney(s)
   const content = {
@@ -41,6 +42,7 @@ export async function archive(env: Bindings, actor: Actor) {
     ...(currencyMigration.results.length ? { currencyMigration: JSON.parse(currencyMigration.results[0].data) } : {}),
     movements: s.movements.map(m => ({ ...m, quantity: m.quantity.toString(), unitCost: m.unitCost.toString() })),
     reservations: s.reservations.map(r => ({ ...r, quantity: r.quantity.toString() })),
+    commandAgents: commandAgents.results,
     commands: commands.results, people: [...new Map([...historicalPeople.results.flatMap((r: any) => JSON.parse(r.data)), ...people.results].map((p: any) => [p.id, p])).values()].map((p: any) => s.contactErasures.some(e => e.subjectKind === 'operator' && e.subjectId === p.id) ? { ...p, name: '[erased]' } : p),
     unmappedRoles: historicalRoles.results.flatMap((r: any) => JSON.parse(r.data)),
     attachments: attachments.results.map((a: any) => ({ ...a, bytes: base64(a.bytes) })),
@@ -73,6 +75,7 @@ export async function restore(env: Bindings, actor: Actor, request: Request) {
   for (const m of content.movements) statements.push(db.prepare('INSERT INTO larder_movements VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(m.id, m.sequence, m.itemId, m.locationId, m.status, m.lotId, Number(m.quantity), Number(m.unitCost), m.kind, m.documentKind, m.documentId, m.reversesId, m.actorId, m.commandId, m.importId, m.reason, m.createdAt))
   for (const r of content.reservations) statements.push(db.prepare('INSERT INTO larder_reservations VALUES(?,?,?,?,?,?,?)').bind(r.id, r.demandKind, r.demandId, r.lineId, r.itemId, r.locationId, Number(r.quantity)))
   for (const c of content.commands) statements.push(db.prepare('INSERT INTO larder_commands VALUES(?,?,?,?,?,?)').bind(c.id, c.actor_id, c.type, c.digest, c.result, c.created_at))
+  for (const a of content.commandAgents ?? []) statements.push(db.prepare('INSERT INTO larder_command_agents VALUES(?,?,?,?,?,?,?)').bind(a.command_id,a.agent_id,a.agent_name,a.sponsor_id,a.sponsor_name,a.operation_id,a.approvers))
   for (const f of content.attachments) {
     const bytes = Uint8Array.from(atob(f.bytes), ch => ch.charCodeAt(0))
     if (sha256(bytes) !== f.sha256) fail('CHECKSUM', `Attachment ${f.name} does not match its digest.`)
