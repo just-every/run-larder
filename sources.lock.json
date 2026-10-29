@@ -4469,7 +4469,7 @@
       "executable": false
     },
     "tests/api/dispatch.test.mjs": {
-      "sha256": "289ee562e90e7f8e84b09386ec9e715c24ffa66465425db7f094fceed3eeff43",
+      "sha256": "d20701f21c61e528aed190307176e89a1b5d9ce7b250a1dd6c28d53cb09bb05e",
       "executable": false
     },
     "tests/api/downtime.test.mjs": {
@@ -4649,7 +4649,7 @@
       "executable": false
     },
     "tests/browser/journey.spec.ts": {
-      "sha256": "0db224291f895708c35da8c3b2c590ba5d923de0adb760e5d212300603f9c74d",
+      "sha256": "22e7f0dd2f461b5a355a077849938c0a6b927e97f87ae796c9777f3928fe9620",
       "executable": false
     },
     "tests/browser/maintenance.spec.ts": {
