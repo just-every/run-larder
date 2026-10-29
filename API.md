@@ -1144,3 +1144,37 @@ Derived balances that include locations outside a member's reach read
 Rules, transfers, custody entries and original evidence travel in the complete
 JSON and CSV business archive. Restore retains them as records, never repeating
 a dispatch, receipt, movement or external action.
+
+
+## Native physical stock classifications
+
+Successful `so.reserve`, `wo.reserve`, `receipt.create`, `transfer.create`,
+`movement.reverse`, `lot.dispose`, `quarantine.decide` and `quality.release`
+commands include a server-computed `classification` beside `result`. The same
+immutable receipt appears in `stockActions` on authenticated state readback and
+in the stock audit. It retains the command, snapshot version, person, result,
+exact item and lot base units, locations, signed movement legs, reservation
+changes, evidence digests, inspection links and actual approval identities.
+An unallocated reservation has `lotId: null`; it does not claim a selected lot.
+
+`classes` always includes `standard`. Irreversible expiry scrap or quarantine
+rejection adds `destructive`; a binding quality release or evidenced date
+extension adds `commitment`. A compensating reversal stays `standard`: it does
+not claim destruction or an outside delivery. Paired movement quantities count
+once per item and lot while retaining each location and disposition leg.
+
+`proposed` describes the reviewed quantities. `effect: pending` records an
+unfinished approval with empty `applied` movements, quantities and reservations.
+Only actual postings or reservation changes appear under `applied`. A completed
+command can reserve zero units when all supply remains held; proposed demand is
+not reported as reserved stock. Repeating its command identity returns the
+original classification without applying or recording it again. Caller-supplied
+classifications and classes are refused, including nested labels.
+
+Existing native role, location, cost, independence, inspection, certificate,
+physical evidence and approval thresholds continue to govern each command.
+Model predictions grant no authority and cannot replace required evidence.
+Location restrictions hide the entire affected classification; cost restrictions
+continue to redact the command result. Archive restoration retains these facts
+as inert history. Company policy, autonomous agent execution, shared MCP
+conformance and qualification of the other stock doors remain unimplemented.

@@ -46,7 +46,7 @@ const byKind: Record<string, string> = {
   roles: 'roles', customRoles: 'roles', approvalPolicies: 'roles', approvalDelegations: 'roles', approvalSignatures: 'roles', imports: 'integrations', cutovers: 'integrations', historyImports: 'integrations', sourceHistory: 'integrations', handoffs: 'integrations',
   qualityHolds: 'quality', inspections: 'quality', inspectionPlans: 'quality', nonconformances: 'quality', recalls: 'quality', certificates: 'quality', certificatePolicies: 'quality',
   workGroups: 'schedules', scheduleGrants: 'schedules', schedulePolicies: 'schedules', schedulePlans: 'schedules', scheduleBookings: 'schedules', machineCalendars: 'schedules', laborCalendars: 'schedules', laborRates: 'schedules', productionPlans: 'schedules', forecasts: 'schedules',
-  receipts: 'stock', shipments: 'stock', returns: 'stock', transfers: 'stock', counts: 'stock', openings: 'stock', reversals: 'stock', lots: 'stock', countSessions: 'stock', subcontractCustody: 'stock', movements: 'stock',
+  stockActions: 'stock', receipts: 'stock', shipments: 'stock', returns: 'stock', transfers: 'stock', counts: 'stock', openings: 'stock', reversals: 'stock', lots: 'stock', countSessions: 'stock', subcontractCustody: 'stock', movements: 'stock',
   salesOrders: 'commercial', purchaseOrders: 'commercial', parties: 'commercial',
 }
 const byCommand: [RegExp, string][] = [

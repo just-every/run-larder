@@ -1,4 +1,5 @@
 import { business } from './business'
+import { recordStockClassification, rejectStockClassification } from './stock-classification'
 import { warehouseLogistics } from './warehouse-logistics'
 import { serviceActor, serviceKeys } from './service-keys'
 import { publicPage } from './public-api'
@@ -140,6 +141,7 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
   const { commandId, type, payload = {} } = body ?? {}
   if (typeof commandId !== 'string' || !(automaticReport ? /^cron:report:[-a-f0-9]{36}:\d{4}-\d{2}-\d{2}$/ : /^[-a-zA-Z0-9_]{8,100}$/).test(commandId) || typeof type !== 'string') throw new Problem('COMMAND', 'Send a unique commandId and a command type.', null, 400)
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Problem('INPUT', 'The payload must be an object.', null, 400)
+  rejectStockClassification(type, payload)
   if (actor.role === 'viewer') forbidden('Viewers can read but not change records.')
   if (type.startsWith('audit.')) forbidden('The audit is append-only: no role, including the owner, edits or deletes an entry.')
   if (['role.set', 'role.assign', 'member.scope'].includes(type) && actor.role === 'owner') {
@@ -171,7 +173,7 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
   const previous = await saved(env.DB, commandId, digest, actor)
   if (previous) {
     // A recorded outcome that names a location the member has since lost stays closed to them.
-    if (scopeOf(actor).locations !== null && names(previous.result, hiddenLocations(await load(env.DB), scopeOf(actor)))) forbidden('This outcome involves a location outside your location scope.')
+    if (scopeOf(actor).locations !== null && names(previous, hiddenLocations(await load(env.DB), scopeOf(actor)))) forbidden('This outcome involves a location outside your location scope.')
     return respond(previous)
   }
   let erasure = ['erasure.audit', 'erasure.contact', 'erasure.operator'].includes(type) ? await erasurePlan(env.DB, await load(env.DB), actor, payload) : undefined
@@ -207,6 +209,7 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
     let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
+    recordStockClassification(c, before, type, payload, result!)
     enforceScope(c, before)
     if (!c.people && s.schedulePolicies.length && recoveryInputsChanged(before, s)) c.people = (await people(env, actor)).people as any
     observeRecovery(c, before, type, payload)

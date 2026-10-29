@@ -9,9 +9,9 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Core | 85 | 25 | 40 | 150 |
-| Agent surface | 0 | 0 | 13 | 13 |
+| Agent surface | 0 | 1 | 12 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 85 | 25 | 53 | 163 |
+| Full target | 85 | 26 | 52 | 163 |
 
 Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb99` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
@@ -1970,7 +1970,7 @@ Agent surface · target · **missing** · From new · Cites BASE-AGENT-002, BASE
 
 #### SURFACE-002 — Physical stock classes
 
-Agent surface · target · **missing** · From new · Cites BASE-AGENT-006
+Agent surface · target · **partial** · From new · Cites BASE-AGENT-006
 
 **Requirement.** A reversible internal reservation, transfer, receipt or compensating correction is standard. Actual irreversible destruction adds destructive, measured in the exact item/lot units disposed, while a quality release or recorded sign-off also carries commitment.
 
@@ -1978,8 +1978,8 @@ Agent surface · target · **missing** · From new · Cites BASE-AGENT-006
 1. Compare reversible internal moves with actual scrap and a binding lot-release decision; inspect standard, destructive and commitment with item, lot and quantity facts.
 2. A mere model prediction never supplies the physical receipt, inspection or disposal evidence required by those calls.
 
-**Evidence.** None.
-**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-008 partial receipts record supplier lots and quarantine decisions”; `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit”; `tests/api/expiry.test.mjs` — “TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; expired and retest-due stock stays blocked until a documented disposition”; `tests/api/expiry.test.mjs` — “GOV-011 expiry scrap and quarantine and nonconformance rejections honour the inventory-adjustment threshold: two signatures on the exact lot, location and quantity, a deputy, invalidation when stock moves, agents denied and a named owner override”; `tests/api/quality.test.mjs` — “TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest”; `tests/api/authority.test.mjs` — “GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live”; `tests/api/backup.test.mjs` — “LARDER-020 an installation backup restores into a reset installation”
+**Gap.** Native person reservations, receipts, internal transfers, compensating reversals, evidenced expiry dispositions and quality releases retain server-computed classes and exact proposed, pending and applied facts. Missing: corresponding agent-tool declaration and execution, company-policy execution, autonomous consequential execution, shared MCP conformance and remaining stock-door qualification. Existing native human authority and physical evidence requirements remain binding; model text grants neither.
 
 #### SURFACE-003 — Commercial and outside consequences
 

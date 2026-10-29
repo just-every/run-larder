@@ -1958,8 +1958,8 @@ Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 18 | 1 | 0 | 19 |
-| Target and push further | 67 | 24 | 53 | 144 |
-| All | 85 | 25 | 53 | 163 |
+| Target and push further | 67 | 25 | 52 | 144 |
+| All | 85 | 26 | 52 | 163 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -2114,7 +2114,7 @@ Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb
 | `AGENT-008` | Recall and quality investigation | push-further | missing |  | Recall and quality investigation workflow and its acceptance journey are not implemented. |
 | `AGENT-009` | Controlled agent execution and cost | push-further | missing |  | Controlled agent execution and cost workflow and its acceptance journey are not implemented. |
 | `SURFACE-001` | Manufacturing registry | target | missing |  | No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta. |
-| `SURFACE-002` | Physical stock classes | target | missing |  | No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta. |
+| `SURFACE-002` | Physical stock classes | target | partial | `tests/api/flows.test.mjs` — “LARDER-008 partial receipts record supplier lots and quarantine decisions”; `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit”; `tests/api/expiry.test.mjs` — “TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; expired and retest-due stock stays blocked until a documented disposition”; `tests/api/expiry.test.mjs` — “GOV-011 expiry scrap and quarantine and nonconformance rejections honour the inventory-adjustment threshold: two signatures on the exact lot, location and quantity, a deputy, invalidation when stock moves, agents denied and a named owner override”; `tests/api/quality.test.mjs` — “TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest”; `tests/api/authority.test.mjs` — “GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live”; `tests/api/backup.test.mjs` — “LARDER-020 an installation backup restores into a reset installation” | Native person reservations, receipts, internal transfers, compensating reversals, evidenced expiry dispositions and quality releases retain server-computed classes and exact proposed, pending and applied facts. Missing: corresponding agent-tool declaration and execution, company-policy execution, autonomous consequential execution, shared MCP conformance and remaining stock-door qualification. Existing native human authority and physical evidence requirements remain binding; model text grants neither. |
 | `SURFACE-003` | Commercial and outside consequences | target | missing |  | No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta. |
 | `SURFACE-004` | Protected manufacturing data | target | missing |  | No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta. |
 | `SURFACE-005` | Authority and provider classes | target | missing |  | No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta. |

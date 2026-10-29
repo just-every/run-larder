@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "1042e4bc3f16f59bfcdb34cf3f07fa60f9e91edf33aee7d7a32a00241274f4ee",
+      "sha256": "b178a9c5475fbcab8e44486526787f0367940b1862fd7dbd9f0af4b008439b5c",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -193,7 +193,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "de8e38b30b7cfe543ab87a6b2a6ce822c77bb1d8671dfbd05566057c9253b1ac",
+      "sha256": "da0f048c8a9184fc3929e6873cd7238611cf430cdceb3366eaed665efd754792",
       "executable": false
     },
     "base-copies.json": {
@@ -205,7 +205,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "960aa71a4149d151b48775c77d7787e70e5de4754255a95c007f95c8b653b122",
+      "sha256": "bd017e3262bab41706071e8b304f6371aaf5ca44efecf68bdcb63f24f482a86a",
       "executable": false
     },
     "DEMO.md": {
@@ -1089,7 +1089,7 @@
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "95010b52f9511118f0b0705f19c34963779e550114087449f093e65a99a8c62a",
+      "sha256": "ca694525dcbfea28da761f0c2a934c68d279d134f019005b9cea9da47645888f",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -1117,7 +1117,7 @@
       "executable": false
     },
     "src/larder/audit.ts": {
-      "sha256": "3e6dec1e45309e242232016fd7cd7fc1f810b5eb46cf2ac0c147f88e6b16bfdc",
+      "sha256": "1eff7efa903200976ab0fd963f95cc4ab512acc5764aad433765e80d94c7fc97",
       "executable": false
     },
     "src/larder/availability.ts": {
@@ -1389,7 +1389,7 @@
       "executable": false
     },
     "src/larder/model.ts": {
-      "sha256": "911176e7acd3fb4961f431cb713a83a13ca49687e127df39b468fec1b6834278",
+      "sha256": "e30c3e64a57f143e67e72cdd0696be0ff214167afd590d1f57e0feb1513df776",
       "executable": false
     },
     "src/larder/mrp.ts": {
@@ -1648,12 +1648,16 @@
       "sha256": "b4ed951895ad7601f43be7a596648e26e61e4b139e160273a8517bc1fd0a16c0",
       "executable": false
     },
+    "src/larder/stock-classification.ts": {
+      "sha256": "ff3579ec8e15b87169a211dd68951bbb08990720eb788e6dfc1b098643bb3f20",
+      "executable": false
+    },
     "src/larder/stock.ts": {
       "sha256": "f5a12558f69be79a7c85133d9eacae6f2d25ee0f0cbcb3ce528ba032cb7fdf62",
       "executable": false
     },
     "src/larder/storage.ts": {
-      "sha256": "178ed8d60051f98bbd253defa06093a591112a498f5cfb01bd28e34cc906d8d1",
+      "sha256": "68bf4c43a4083b295c95da5bd717cb4e48e32b857c1a744ac6f402a6900655e2",
       "executable": false
     },
     "src/larder/subcontract-custody.ts": {
@@ -3981,11 +3985,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "862bfba7a608ca38d35b556e9448bf0c68a128bb1ccaba8b94d27f07cff98fe8",
+      "sha256": "6b6d9fd492359c1ffebefd7d4e6bd889ed96ea16db7f827de9c8d045e6581f9a",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "e5fcbef940c6f2511136279c95f011af6ab2f2782c4042dcf58d74b13b701d35",
+      "sha256": "c595ade3d61ab731127bc8c6d963c9d2c0123079124856890cc142af712c5c2b",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
@@ -4017,11 +4021,11 @@
       "executable": false
     },
     "tests/api/expiry.test.mjs": {
-      "sha256": "6e44151ca8f991f11ef66768136b041359c8b8674f114d64e63e69714122e0a2",
+      "sha256": "cd480a0caf09f4c7e66302a509a15837b781405e57f9e5ffbb277a7b43bdbcb1",
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "5684b712a2900fac46c297bb91c108ae802ddfa2b846feeface41853e1af7842",
+      "sha256": "9b29e0f6e2e0777bd98497f7fbad22da13c705b457d7568949d615ba563a1703",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -4069,7 +4073,7 @@
       "executable": false
     },
     "tests/api/quality.test.mjs": {
-      "sha256": "0cb5182838f3ef2aa02b7cd39cee0a68d85c869ed884f4d4048b84fc4128334a",
+      "sha256": "6d95042a03ca4de2db9d04cb97b77cc4b93767bcf17f9c2de4bddb10aa1d1895",
       "executable": false
     },
     "tests/api/receiving.test.mjs": {

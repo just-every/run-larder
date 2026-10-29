@@ -600,6 +600,10 @@ test('GOV-014 location scope: a scoped member sees, changes and downloads nothin
   assert.deepEqual(leaks(JSON.stringify(state)), [])
   assert.deepEqual(state.locations.map(l => l.name), ['Workshop'])
   assert.ok(state.movements.length > 0 && state.movements.every(m => m.locationId === w.loc.id))
+  const allActions = (await h.state()).stockActions
+  assert.ok(allActions.some(a => a.applied.movements.some(m => m.locationId === annex.id)))
+  assert.equal(state.stockActions.some(a => a.applied.movements.some(m => m.locationId === annex.id)), false)
+
   assert.ok(state.positions.every(p => p.locationId === w.loc.id))
   assert.equal(state.availability.find(a => a.itemId === w.oil.id).restricted, 'restricted (includes other locations)')
   assert.equal(state.availability.find(a => a.itemId === bolt.id).restricted, 'restricted (includes other locations)')
@@ -616,6 +620,16 @@ test('GOV-014 location scope: a scoped member sees, changes and downloads nothin
   own = await lead.run('po.approve', { poId: own.id, version: own.version })
   const tim1 = { poId: own.id, supplierReference: 'TIM-1', lines: [{ lineId: own.lines[0].id, quantity: '2', locationId: w.loc.id }] }, tim1Id = 'synthetic-larder-scope-1'
   await lead.run('receipt.create', tim1, { commandId: tim1Id })
+  const recordedReceipt = (await h.state(lead.cookie)).stockActions.find(a => a.commandId === tim1Id)
+  assert.equal(recordedReceipt.actorId, lead.id)
+  assert.deepEqual(recordedReceipt.classes, ['standard'])
+  assert.deepEqual(recordedReceipt.applied.movements.map(m => [m.itemId, m.locationId, m.quantity]), [[w.timber.id, w.loc.id, '2']])
+  const fullReplay = await h.send('receipt.create', tim1, { as: lead.cookie, commandId: tim1Id })
+  assert.deepEqual(fullReplay.body.classification, recordedReceipt)
+  await h.command('member.scope', { operatorId: lead.id, locations: [w.loc.id], costsRestricted: true })
+  const restrictedReplay = await h.send('receipt.create', tim1, { as: lead.cookie, commandId: tim1Id })
+  assert.deepEqual(restrictedReplay.body.classification, recordedReceipt, 'Physical facts retain no cost or wage fields')
+  await h.command('member.scope', { operatorId: lead.id, locations: [w.loc.id], costsRestricted: false })
   // Downloads: archive, audit, handoff and import doors need an unscoped person; trace and catalog redact.
   for (const path of ['/archive', '/archive.csv', '/audit', '/audit.json', '/audit.csv', '/handoffs/00000000-0000-0000-0000-000000000000.csv', '/imports/00000000-0000-0000-0000-000000000000.json', `/lots/${hiddenLot.id}/trace`, `/lots/${hiddenLot.id}/trace.csv`, `/recalls/${recall.id}.json`])
     assert.equal((await h.request('/api/larder' + path, { as: lead.cookie })).status, 403, path)
