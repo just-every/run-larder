@@ -1178,3 +1178,23 @@ Location restrictions hide the entire affected classification; cost restrictions
 continue to redact the command result. Archive restoration retains these facts
 as inert history. Company policy, autonomous agent execution, shared MCP
 conformance and qualification of the other stock doors remain unimplemented.
+
+
+## Native member scope classifications
+
+The existing owner-only `member.scope` command returns `classification` beside
+`result` and retains it in `accessActions` and the roles audit. Scope history is
+visible to the owner only. It records the real actor and target, business input
+version, member and custom-role revisions, configured restrictions and effective
+location and cost authority before and after the command.
+
+The server computes `classes: ["access"]`, `affectedPersonCount` and
+`directions`. A change can both widen and narrow authority, such as adding a
+location while removing cost access. A configured edit with no effective
+permission change affects zero people. Site and custom-role intersections govern
+the comparison; unrestricted location access also includes future locations.
+Caller-supplied classes are refused. Retries recompute against the atomic current
+business state; replay returns the historical receipt without reapplying a grant.
+Restored history cannot create members or reinstate their sessions or grants.
+This qualifies only the native person scope door. Other authority, security,
+provider and agent-policy classifications remain open in SURFACE-005.

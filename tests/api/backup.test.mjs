@@ -163,6 +163,11 @@ test('MOVE-008 source history searches original IDs/files, exports every record 
   const agent = await h.person('history-agent@example.test', 'agent')
   const agentBatch = await agent.run('history.preview', { file: { name: 'agent.json', content: JSON.stringify({ ...source, source: 'Second source', records: [{ ...source.records[0], attachments: [] }] }) } })
   await agent.run('history.commit', { importId: agentBatch.id, version: agentBatch.version }, { error: 'FORBIDDEN' })
+  const scopeInput = { operatorId: viewer.id, locations: [w.loc.id], costsRestricted: true }
+  const scopeChange = await h.send('member.scope', scopeInput)
+  const accessHistory = (await h.state()).accessActions
+  assert.deepEqual(scopeChange.body.classification, accessHistory[0])
+  assert.equal(accessHistory[0].targetId, viewer.id)
   const archive = await (await h.request('/api/larder/archive')).json()
   const csv = await (await h.request('/api/larder/archive.csv')).text()
   const decoded = { records: {} }
@@ -187,6 +192,14 @@ test('MOVE-008 source history searches original IDs/files, exports every record 
   const again = await (await target.request('/api/larder/archive')).json()
   assert.deepEqual(again.unmappedRoles, archive.records.roles)
   assert.deepEqual(again.records, { ...archive.records, roles: [] })
+  const restoredState = await target.state()
+  assert.deepEqual(restoredState.accessActions, accessHistory, 'Scope facts restore as inert history')
+  assert.equal(restoredState.roles.some(r => r.id === viewer.id), false, 'Historical access facts do not restore a grant')
+  assert.equal(restoredState.operators.some(o => o.id === viewer.id), false)
+  assert.equal((await target.request('/api/larder/state', { as: viewer.cookie })).status, 401)
+  const beforeReplay = await target.state()
+  await target.command('member.scope', scopeInput, { commandId: scopeChange.commandId, error: 'NOT_FOUND' })
+  assert.deepEqual(await target.state(), beforeReplay, 'A historical scope command cannot create its former member or grant')
   for (const key of ['movements', 'reservations', 'commands', 'attachments', 'reconciliation']) assert.deepEqual(again[key], archive[key], key)
   assert.ok(archive.people.every(p => again.people.some(r => r.id === p.id && r.name === p.name)))
   assert.deepEqual((await target.state()).positions, (await h.state()).positions)

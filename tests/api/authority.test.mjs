@@ -593,7 +593,49 @@ test('GOV-014 location scope: a scoped member sees, changes and downloads nothin
   const recall = await h.command('recall.open', { lotId: hiddenLot.id, reason: 'Annex bolt notice', evidence: [{ name: 'n.txt', contentType: 'text/plain', base64: Buffer.from('notice').toString('base64') }] })
   const lead = await h.person('lena@example.test', 'manager')
   await h.command('member.scope', { operatorId: lead.id, locations: [] }, { error: 'INPUT' })
-  await h.command('member.scope', { operatorId: lead.id, locations: [w.loc.id], costsRestricted: false })
+  const scopeInput = { operatorId: lead.id, locations: [w.loc.id], costsRestricted: false }
+  const narrowedScope = await h.send('member.scope', scopeInput)
+  assert.equal(narrowedScope.res.status, 200)
+  const narrowing = narrowedScope.body.classification
+  assert.deepEqual([narrowing.classes, narrowing.affectedPersonCount, narrowing.directions, narrowing.targetId], [['access'], 1, ['narrowing'], lead.id])
+  assert.equal(narrowing.actorId, (await h.state()).actor.id)
+  assert.equal(narrowing.before.unrestrictedLocations, true)
+  assert.equal(narrowing.after.unrestrictedLocations, false)
+  assert.deepEqual(narrowing.after.effectiveLocationIds, [w.loc.id])
+  assert.equal(narrowing.before.memberVersion + 1, narrowing.after.memberVersion)
+  assert.equal(narrowing.recordedVersion, narrowedScope.body.version)
+  const beforeForgery = await h.state()
+  await lead.run('member.scope', scopeInput, { error: 'FORBIDDEN' })
+  await h.command('member.scope', { ...scopeInput, classes: ['standard'] }, { error: 'CLASSIFICATION' })
+  await h.command('member.scope', { ...scopeInput, classification: { affectedPersonCount: 0 } }, { error: 'CLASSIFICATION' })
+  assert.deepEqual(await h.state(), beforeForgery, 'Refused access edits preserve authority and history')
+  const unchangedScope = await h.send('member.scope', scopeInput)
+  assert.deepEqual([unchangedScope.body.classification.affectedPersonCount, unchangedScope.body.classification.directions], [0, []])
+  const mixedInput = { operatorId: lead.id, locations: [w.loc.id, w.store.id], costsRestricted: true }
+  const mixedId = 'synthetic-larder-2305'
+  const mixed = await h.send('member.scope', mixedInput, { commandId: mixedId })
+  const access = mixed.body.classification
+  assert.deepEqual([access.classes, access.affectedPersonCount, access.directions], [['access'], 1, ['widening', 'narrowing']])
+  assert.deepEqual(access.locationChanges, { added: [w.store.id], removed: [] })
+  assert.deepEqual([access.before.costsRestricted, access.after.costsRestricted], [false, true])
+  assert.ok((await h.state(lead.cookie)).locations.some(l => l.id === w.store.id))
+  assert.deepEqual((await h.state(lead.cookie)).accessActions, [], 'Scope history cannot expose other people or locations')
+  assert.equal((await h.state(lead.cookie)).items.find(i => i.id === w.timber.id).standardCost, 'restricted')
+  await h.command('member.scope', scopeInput)
+  const beforeAccessReplay = await h.state()
+  assert.deepEqual((await h.send('member.scope', mixedInput, { commandId: mixedId })).body, mixed.body, 'Replay returns the historical mixed change')
+  assert.deepEqual(await h.state(), beforeAccessReplay, 'Historical replay cannot regrant a location or alter cost access')
+  assert.deepEqual((await h.state(lead.cookie)).locations.map(l => l.id), [w.loc.id])
+
+  const concurrent = await Promise.all([
+    h.send('member.scope', { operatorId: lead.id, locations: [w.loc.id, w.store.id], costsRestricted: false }),
+    h.send('member.scope', { operatorId: lead.id, locations: [w.loc.id], costsRestricted: true }),
+  ])
+  for (const outcome of concurrent) assert.equal(outcome.res.status, 200, JSON.stringify(outcome.body))
+  const orderedAccess = concurrent.map(o => o.body.classification).sort((a, b) => a.recordedVersion - b.recordedVersion)
+  assert.deepEqual(orderedAccess[1].before, orderedAccess[0].after, 'A concurrent scope edit is recomputed against the preceding committed authority')
+  assert.equal(orderedAccess[1].recordedVersion, orderedAccess[0].recordedVersion + 1)
+  await h.command('member.scope', scopeInput)
   const leaks = text => [annex.id, 'Annex cold room', 'ANNEX-BOLT', hiddenLot.id, recall.id, '13.7771'].filter(x => text.includes(x))
   // State: only the member's location, no hidden record, count or id; derived figures read restricted, never partial.
   const state = await h.state(lead.cookie)
@@ -735,6 +777,12 @@ test('GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted membe
   await h.command('role.custom', { ...custom, customRoleId: floor.id, removedDoors: [], costsRestricted: true })
   await narrowed.run('po.draft', { supplierId: w.supplier.id, expectedDate: day(1), reason: 'Gauge top-up', lines: [{ itemId: gauge.id, quantity: '1', unitPrice: '8.5' }] }, { error: 'FORBIDDEN' })
   assert.deepEqual(found(JSON.stringify(await h.state(narrowed.cookie))), [])
+  const ineffectiveWidening = await h.send('member.scope', { operatorId: narrowed.id, locations: null, costsRestricted: false })
+  assert.deepEqual([ineffectiveWidening.body.classification.affectedPersonCount, ineffectiveWidening.body.classification.directions], [0, []])
+  assert.deepEqual([ineffectiveWidening.body.classification.before.costsRestricted, ineffectiveWidening.body.classification.after.costsRestricted], [true, true])
+  assert.equal(ineffectiveWidening.body.classification.after.customRoleId, floor.id)
+  assert.equal(ineffectiveWidening.body.classification.after.customRoleVersion, (await h.state()).customRoles.find(r => r.id === floor.id).version)
+  await narrowed.run('po.draft', { supplierId: w.supplier.id, expectedDate: day(1), reason: 'Custom restriction remains live', lines: [{ itemId: gauge.id, quantity: '1', unitPrice: '8.5' }] }, { error: 'FORBIDDEN' })
   await h.command('role.set', { operatorId: narrowed.id, role: 'buyer' })
   draft = await narrowed.run('po.draft', { supplierId: w.supplier.id, expectedDate: day(1), reason: 'Gauge top-up', lines: [{ itemId: gauge.id, quantity: '1', unitPrice: '8.5' }] })
   await narrowed.run('po.approve', { poId: draft.id, version: draft.version })

@@ -100,6 +100,13 @@ test('LARDER-005 reservations are atomic: competing orders never consume the sam
   const s = await h.invariant()
   const reserved = s.reservations.filter(r => r.itemId === w.board.id).reduce((n, r) => n + parse(r.quantity), 0n)
   assert.equal(reserved, parse('4'))
+  assert.equal(s.stockActions.filter(a => a.commandType === 'so.reserve').length, orders.length)
+  for (const { body } of results) {
+    assert.deepEqual(body.classification.classes, ['standard'])
+    assert.equal(body.classification.inputVersion, body.version - 1)
+    assert.equal(body.classification.recordedVersion, body.version)
+  }
+  assert.equal(results.flatMap(r => r.body.classification.applied.reservations).reduce((n, r) => n + parse(r.quantity), 0n), parse('4'), 'Retried concurrent commands classify only the stock actually reserved')
   // A retry with the same identity returns the recorded outcome, not a second reservation.
   const again = await h.send('so.reserve', { orderId: orders[0].id }, { commandId: results[0].commandId })
   assert.deepEqual(again.body, results[0].body)
@@ -252,6 +259,11 @@ test('LARDER-009 released work issues materials and records output and scrap', a
   const wo = await h.command('wo.draft', { itemId: w.board.id, quantity: '5', requiredBy: '2026-11-01', reason: 'Market stock' })
   const released = await h.command('wo.release', { workOrderId: wo.id, version: wo.version })
   assert.deepEqual(released.shortages, [])
+  const materialReservation = await h.send('wo.reserve', { workOrderId: wo.id })
+  assert.equal(materialReservation.res.status, 200, JSON.stringify(materialReservation.body))
+  assert.deepEqual(materialReservation.body.classification.classes, ['standard'])
+  assert.deepEqual(materialReservation.body.classification.proposed.map(p => [p.itemId, p.lotId, p.quantity]), [[w.timber.id, null, '0'], [w.oil.id, null, '0']])
+  assert.deepEqual(materialReservation.body.classification.applied.reservations, [])
   await h.command('wo.issue', { workOrderId: wo.id, lines: [{ itemId: w.board.id, locationId: w.loc.id, quantity: '1' }] }, { error: 'NOT_IN_BOM' })
   await h.command('wo.issue', { workOrderId: wo.id, lines: [{ itemId: w.timber.id, locationId: w.loc.id, quantity: '6' }, { itemId: w.oil.id, locationId: w.loc.id, quantity: '300', unit: 'ml' }] })
   let s = await h.state()

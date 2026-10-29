@@ -1,5 +1,6 @@
 import { business } from './business'
 import { recordStockClassification, rejectStockClassification } from './stock-classification'
+import { recordAccessClassification } from './access-classification'
 import { warehouseLogistics } from './warehouse-logistics'
 import { serviceActor, serviceKeys } from './service-keys'
 import { publicPage } from './public-api'
@@ -210,6 +211,7 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
     recordStockClassification(c, before, type, payload, result!)
+    recordAccessClassification(c, before, type, result!)
     enforceScope(c, before)
     if (!c.people && s.schedulePolicies.length && recoveryInputsChanged(before, s)) c.people = (await people(env, actor)).people as any
     observeRecovery(c, before, type, payload)

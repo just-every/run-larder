@@ -2,6 +2,7 @@ import { fail } from './problem'
 
 export const collections = [
   'stockActions',
+  'accessActions',
   'binRules', 'custodyLedger', 'businessProfiles', 'retentionPolicies', 'integrationGrants', 'retentionHolds', 'contactErasures', 'sites', 'pickWaves', 'varianceAnalyses',
   'workGroups', 'costPolicies', 'jobCharges', 'costLinks', 'marginCharges', 'costValuations', 'reportSchedules', 'scheduleGrants', 'replenishmentPlans', 'schedulePolicies', 'schedulePlans', 'scheduleBookings', 'machineCalendars', 'laborCalendars', 'laborRates', 'sourceHistory', 'historyImports', 'items', 'locations', 'parties', 'partyItems', 'boms', 'salesOrders', 'purchaseOrders', 'workOrders',
   'receipts', 'lots', 'shipments', 'returns', 'transfers', 'counts', 'openings', 'reversals', 'handoffs',
@@ -22,7 +23,7 @@ export type Reservation = { id: string; demandKind: 'sales' | 'work'; demandId: 
 export type Attachment = { id: string; name: string; contentType: string; size: number; sha256: string; bytes: Uint8Array; createdBy: string; createdAt: string }
 export type State = Record<Collection, Row[]> & { version: number; movements: Movement[]; reservations: Reservation[] }
 export type Actor = { id: string; name: string; role: string; sessionId: string; operatorVersion: number; scope?: import('./scope').Scope }
-export type Context = { s: State; actor: Actor; commandId: string; type?: string; now: string; attachments: Attachment[]; reportAuthority?: Actor; automaticReport?: boolean; serviceSecret?: string; stockClassification?: Row; preparedBy?: string; people?: { id: string; name: string; role: string }[]; erasure?: import('./audit-erasure').ErasurePlan }
+export type Context = { s: State; actor: Actor; commandId: string; type?: string; now: string; attachments: Attachment[]; reportAuthority?: Actor; automaticReport?: boolean; serviceSecret?: string; actionClassification?: Row; preparedBy?: string; people?: { id: string; name: string; role: string }[]; erasure?: import('./audit-erasure').ErasurePlan }
 
 export const newId = () => crypto.randomUUID()
 

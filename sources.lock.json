@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "b178a9c5475fbcab8e44486526787f0367940b1862fd7dbd9f0af4b008439b5c",
+      "sha256": "3c14c22f8e6c8f2c2d52ed0de8c5bb77e124fff8ab9ef32892ed4a1f8875b974",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -193,7 +193,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "da0f048c8a9184fc3929e6873cd7238611cf430cdceb3366eaed665efd754792",
+      "sha256": "0b065d910318735f0341f3e3039047fd3486f4a9543619b3c51c32739d263300",
       "executable": false
     },
     "base-copies.json": {
@@ -205,7 +205,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "bd017e3262bab41706071e8b304f6371aaf5ca44efecf68bdcb63f24f482a86a",
+      "sha256": "3f9fa34176328c9656c6c164370a3817b1dbb8daf2133030369bcdb8e44a49c1",
       "executable": false
     },
     "DEMO.md": {
@@ -1088,8 +1088,12 @@
       "sha256": "b2f0e3233a67087914f189fd02d28154fffeabdaf06c4415b12123a2366fbde6",
       "executable": false
     },
+    "src/larder/access-classification.ts": {
+      "sha256": "4801005d7b4b44bdad41052296730cb73936dce2f07c9ee73d5faa477bc3d35c",
+      "executable": false
+    },
     "src/larder/api.ts": {
-      "sha256": "ca694525dcbfea28da761f0c2a934c68d279d134f019005b9cea9da47645888f",
+      "sha256": "8b8d351a578144fd170a45ef5e93081607615787b9d531f798a650ede602a546",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -1117,7 +1121,7 @@
       "executable": false
     },
     "src/larder/audit.ts": {
-      "sha256": "1eff7efa903200976ab0fd963f95cc4ab512acc5764aad433765e80d94c7fc97",
+      "sha256": "364964d2746df93e5699fcde1059f18f8d98395a8168ff78ad2e64116e5796a1",
       "executable": false
     },
     "src/larder/availability.ts": {
@@ -1389,7 +1393,7 @@
       "executable": false
     },
     "src/larder/model.ts": {
-      "sha256": "e30c3e64a57f143e67e72cdd0696be0ff214167afd590d1f57e0feb1513df776",
+      "sha256": "3fcbdbfcd3a2a62338d2d6837a39e9805aabdf96f950d0ffe6aa15dbca90efb4",
       "executable": false
     },
     "src/larder/mrp.ts": {
@@ -1649,7 +1653,7 @@
       "executable": false
     },
     "src/larder/stock-classification.ts": {
-      "sha256": "ff3579ec8e15b87169a211dd68951bbb08990720eb788e6dfc1b098643bb3f20",
+      "sha256": "4f132581c8523f4c4e713c47ff95ab73a49f10b3fc75be7d44e2463eb7ee1ca7",
       "executable": false
     },
     "src/larder/stock.ts": {
@@ -1657,7 +1661,7 @@
       "executable": false
     },
     "src/larder/storage.ts": {
-      "sha256": "68bf4c43a4083b295c95da5bd717cb4e48e32b857c1a744ac6f402a6900655e2",
+      "sha256": "e58546df4d287cab2d9fe6c7613814fc338002d3941edec2a2ab6456cad71b6b",
       "executable": false
     },
     "src/larder/subcontract-custody.ts": {
@@ -1693,7 +1697,7 @@
       "executable": false
     },
     "src/larder/view.ts": {
-      "sha256": "e429886a2a3300ae107908b50d88cd6c9544b60a8036108aa7d2af15b5b52b50",
+      "sha256": "9277780367a03dd861ad7834fc59aa2b40e71e4e4a0de26419ad72a4c04fdb0b",
       "executable": false
     },
     "src/larder/wage-view.ts": {
@@ -3985,11 +3989,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "6b6d9fd492359c1ffebefd7d4e6bd889ed96ea16db7f827de9c8d045e6581f9a",
+      "sha256": "d3998e95ce730ddfc87faca44a4f98b43acec48494066227bd91129c9c1ba957",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "c595ade3d61ab731127bc8c6d963c9d2c0123079124856890cc142af712c5c2b",
+      "sha256": "82e5be5ec7729f61b8599d85dfd06b62772eeb1265c111fd3597c2ae64d43a7d",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
@@ -4025,7 +4029,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "9b29e0f6e2e0777bd98497f7fbad22da13c705b457d7568949d615ba563a1703",
+      "sha256": "0a7f8b4e63f991fcc8e7d1d53b62e1dbb55479327d504b67f3f41b738eca3260",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {

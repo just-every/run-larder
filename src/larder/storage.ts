@@ -73,7 +73,7 @@ export function changes(db: D1Database, c: Context, before: State): D1PreparedSt
 export async function commit(db: D1Database, c: Context, before: State, type: string, digest: string, result: unknown, audit: AuditEntry[], erasure?: ErasurePlan) {
   const a = authority(c.actor)
   const report = c.reportAuthority ? authority(c.reportAuthority) : undefined
-  const response = { ok: true, result, ...(c.stockClassification ? { classification: c.stockClassification } : {}), version: before.version + 1 }
+  const response = { ok: true, result, ...(c.actionClassification ? { classification: c.actionClassification } : {}), version: before.version + 1 }
   await db.batch([
     db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${a.sql}) AND (SELECT version FROM larder_meta WHERE id=1)=? THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...a.params, before.version),
     // Original report consent is fenced with the snapshot, audit and replay.

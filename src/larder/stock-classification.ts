@@ -7,12 +7,12 @@ import { fail } from './problem'
 import { get, row, type Context, type Movement, type Row, type State } from './model'
 
 const doors = new Set(['so.reserve', 'wo.reserve', 'receipt.create', 'transfer.create', 'movement.reverse', 'lot.dispose', 'quarantine.decide', 'quality.release'])
-const supplied = new Set(['classification', 'classes', 'riskClass', 'riskClasses', 'stockClassification'])
+const supplied = new Set(['classification', 'classes', 'riskClass', 'riskClasses', 'actionClassification', 'stockClassification', 'accessClassification'])
 
 export function rejectStockClassification(type: string, payload: unknown) {
-  if (!doors.has(type)) return
+  if (!doors.has(type) && type !== 'member.scope') return
   const visit = (v: unknown): boolean => !!v && typeof v === 'object' && Object.entries(v).some(([key, value]) => supplied.has(key) || visit(value))
-  if (visit(payload)) fail('CLASSIFICATION', 'Stock classes are computed by the server; do not supply them.')
+  if (visit(payload)) fail('CLASSIFICATION', 'Action classes are computed by the server; do not supply them.')
 }
 
 const fact = (s: State, itemId: string, lotId: string | null, quantity: bigint) => ({ itemId, lotId, unit: get(s, 'items', itemId).baseUnit, quantity: format(quantity) })
@@ -77,7 +77,7 @@ export function recordStockClassification(c: Context, before: State, type: strin
   const movements = posted.map(m => ({ ...fact(c.s, m.itemId, m.lotId, m.quantity), movementId: m.id, locationId: m.locationId, status: m.status, kind: m.kind, documentKind: m.documentKind, documentId: m.documentId, reversesId: m.reversesId }))
   const hold = type === 'quality.release' ? get(c.s, 'qualityHolds', p.holdId) : undefined
   const inspections = hold ? c.s.inspections.filter(i => i.planId === hold.planId && i.subjectId === hold.subjectId) : []
-  c.stockClassification = row(c, 'stockActions', {
+  c.actionClassification = row(c, 'stockActions', {
     commandId: c.commandId, commandType: type, inputVersion: before.version, recordedVersion: before.version + 1,
     actorId: c.actor.id, actorRole: c.actor.role, source: 'person', resultId: result.id,
     classes: ['standard', ...(destructive ? ['destructive'] : []), ...(commitment ? ['commitment'] : [])],

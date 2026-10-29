@@ -9,9 +9,9 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Core | 85 | 25 | 40 | 150 |
-| Agent surface | 0 | 1 | 12 | 13 |
+| Agent surface | 0 | 2 | 11 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 85 | 26 | 52 | 163 |
+| Full target | 85 | 27 | 51 | 163 |
 
 Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb99` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
@@ -1978,7 +1978,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006
 1. Compare reversible internal moves with actual scrap and a binding lot-release decision; inspect standard, destructive and commitment with item, lot and quantity facts.
 2. A mere model prediction never supplies the physical receipt, inspection or disposal evidence required by those calls.
 
-**Evidence.** `tests/api/flows.test.mjs` — “LARDER-008 partial receipts record supplier lots and quarantine decisions”; `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit”; `tests/api/expiry.test.mjs` — “TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; expired and retest-due stock stays blocked until a documented disposition”; `tests/api/expiry.test.mjs` — “GOV-011 expiry scrap and quarantine and nonconformance rejections honour the inventory-adjustment threshold: two signatures on the exact lot, location and quantity, a deputy, invalidation when stock moves, agents denied and a named owner override”; `tests/api/quality.test.mjs` — “TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest”; `tests/api/authority.test.mjs` — “GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live”; `tests/api/backup.test.mjs` — “LARDER-020 an installation backup restores into a reset installation”
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-005 reservations are atomic: competing orders never consume the same stock”; `tests/api/flows.test.mjs` — “LARDER-009 released work issues materials and records output and scrap”; `tests/api/flows.test.mjs` — “LARDER-008 partial receipts record supplier lots and quarantine decisions”; `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit”; `tests/api/expiry.test.mjs` — “TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; expired and retest-due stock stays blocked until a documented disposition”; `tests/api/expiry.test.mjs` — “GOV-011 expiry scrap and quarantine and nonconformance rejections honour the inventory-adjustment threshold: two signatures on the exact lot, location and quantity, a deputy, invalidation when stock moves, agents denied and a named owner override”; `tests/api/quality.test.mjs` — “TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest”; `tests/api/authority.test.mjs` — “GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live”; `tests/api/backup.test.mjs` — “LARDER-020 an installation backup restores into a reset installation”
 **Gap.** Native person reservations, receipts, internal transfers, compensating reversals, evidenced expiry dispositions and quality releases retain server-computed classes and exact proposed, pending and applied facts. Missing: corresponding agent-tool declaration and execution, company-policy execution, autonomous consequential execution, shared MCP conformance and remaining stock-door qualification. Existing native human authority and physical evidence requirements remain binding; model text grants neither.
 
 #### SURFACE-003 — Commercial and outside consequences
@@ -2009,7 +2009,7 @@ Agent surface · target · **missing** · From new · Cites BASE-AGENT-003, BASE
 
 #### SURFACE-005 — Authority and provider classes
 
-Agent surface · target · **missing** · From new · Cites BASE-AGENT-005, BASE-AGENT-006
+Agent surface · target · **partial** · From new · Cites BASE-AGENT-005, BASE-AGENT-006
 
 **Requirement.** Manufacturing membership, site/custom-role changes, devices and grants carry access with people count and widening/narrowing direction. Protective configuration or credential handling carries security. Creating an outside account or paid resource carries accounts. Provider-retained consent, verification, personal terms or hosted card-entry steps are gated. Changing running connector behavior carries live.
 
@@ -2018,8 +2018,8 @@ Agent surface · target · **missing** · From new · Cites BASE-AGENT-005, BASE
 2. Create an outside resource and inspect accounts with provider; inspect gated with provider and exact step when its provider keeps consent, verification or hosted checkout for a person.
 3. Change a running connector and inspect live with the affected service; supplying an agent’s own confirmation changes none of those computed classes.
 
-**Evidence.** None.
-**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+**Evidence.** `tests/api/authority.test.mjs` — “GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live”; `tests/api/authority.test.mjs` — “GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live”; `tests/api/backup.test.mjs` — “MOVE-008 source history searches original IDs&#47;files, exports every record and restores without credentials or remote actions”
+**Gap.** Owner-only native member.scope changes retain computed access classes, affected-person count, effective widening and narrowing, exact target and actor, restriction revisions and inert history. Missing: other membership, site, custom-role, device and grant classifications; protective-setting and credential-handling security classes; outside account and paid-resource creation; provider-retained consent, verification, personal terms and hosted card entry; running-connector live classes; corresponding agent-tool declaration and execution, company-policy execution, autonomous consequential execution and shared MCP conformance.
 
 #### SURFACE-006 — Planning uncertainty and execution
 
