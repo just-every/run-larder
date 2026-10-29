@@ -115,7 +115,7 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
 
 // MOVE-008: every existing business collection, source originals and portable
 // table cells go through authenticated HTTP, including restore into a second DB.
-test('MOVE-008 source history searches original IDs/files, exports every record and restores without credentials or remote actions', async t => {
+test('MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h)
   const originalFile = { name: 'job-closed.txt', contentType: 'text/plain', base64: Buffer.from('Closed job ✓\nQty 3; quality signoff; invoice 712').toString('base64') }

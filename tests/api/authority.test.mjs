@@ -578,7 +578,8 @@ test('GOV-002 orders below the margin floor and high-value quarantine releases n
 
 // GOV-014 location scope (ct scope-review-50 a): a scoped member reads, acts and downloads only inside their locations.
 test('GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live', async t => {
-  const h = await installation(); t.after(() => h.close())
+  let interleave = async () => {}
+  const h = await installation({ beforeCommit: facts => interleave(facts) }); t.after(() => h.close())
   const w = await workshop(h)
   const annex = await h.command('location.save', { name: 'Annex cold room' })
   const bolt = await h.command('item.save', { sku: 'BOLT', name: 'Anchor bolt', kind: 'buy', baseUnit: 'each' })
@@ -637,8 +638,8 @@ test('GOV-014 location scope: a scoped member sees, changes and downloads nothin
   assert.equal(futureWidening.scopeClassification.access.people, 1)
   assert.deepEqual(futureWidening.scopeClassification.before.effective.locations, [])
   assert.deepEqual(futureWidening.scopeClassification.after.effective.locations, [])
-  const futureMixed = await h.command('member.scope', { operatorId: lead.id, sites: [otherSite.id] })
-  assert.equal(futureMixed.scopeClassification.access.direction, 'narrowing')
+  const futureNarrowing = await h.command('member.scope', { operatorId: lead.id, sites: [otherSite.id] })
+  assert.equal(futureNarrowing.scopeClassification.access.direction, 'narrowing')
   const futureBin = await h.command('location.save', { name: 'synthetic-larder-909', siteId: otherSite.id, binCode: 'SYN', binSequence: 1 })
   assert.deepEqual((await h.state(lead.cookie)).locations.map(l => l.id), [futureBin.id])
   const finite = await h.command('member.scope', { operatorId: lead.id, sites: [otherSite.id], locations: [futureBin.id] })
@@ -708,26 +709,47 @@ test('GOV-014 location scope: a scoped member sees, changes and downloads nothin
   const definition = { name: 'synthetic-larder-906', base: 'manager', locations: [w.loc.id], costsRestricted: true, removedDoors: [] }
   const custom = await h.command('role.custom', definition)
   await h.command('role.assign', { operatorId: p1.id, customRoleId: custom.id })
+  await h.command('member.scope', { operatorId: p1.id, locations: null, costsRestricted: false })
   const raceScopeId = 'synthetic-larder-scope-race-1', raceRoleId = 'synthetic-larder-scope-race-2'
-  const [scopeRace, roleRace] = await Promise.all([
-    h.send('member.scope', { operatorId: p1.id, locations: [w.loc.id], costsRestricted: false }, { commandId: raceScopeId }),
-    h.send('role.custom', { ...definition, customRoleId: custom.id, locations: [w.store.id] }, { commandId: raceRoleId }),
-  ])
-  assert.equal(scopeRace.res.status, 200, JSON.stringify(scopeRace.body)); assert.equal(roleRace.res.status, 200, JSON.stringify(roleRace.body))
+  const attempts = []
+  interleave = async ({ commandId, stateVersion }) => {
+    if (commandId !== raceScopeId) return
+    attempts.push(stateVersion)
+    if (attempts.length === 1) await h.command('role.custom', { ...definition, customRoleId: custom.id, locations: [w.store.id] }, { commandId: raceRoleId })
+  }
+  const scopeRace = await h.send('member.scope', { operatorId: p1.id, locations: [w.loc.id], costsRestricted: false }, { commandId: raceScopeId })
+  interleave = async () => {}
+  assert.equal(scopeRace.res.status, 200, JSON.stringify(scopeRace.body))
+  assert.equal(attempts.length, 2); assert.ok(attempts[1] > attempts[0], 'A real competing write requires recomputation')
   const scopeAudit = (await (await h.request('/api/larder/audit?commandId=' + raceScopeId)).json()).entries[0]
   const roleAudit = (await (await h.request('/api/larder/audit?commandId=' + raceRoleId)).json()).entries[0]
-  const raced = scopeRace.body.result.scopeClassification, roleChangedFirst = roleAudit.seq < scopeAudit.seq
-  assert.equal(raced.basis.customRoleVersion, roleChangedFirst ? 2 : 1)
-  assert.deepEqual(raced.before.effective.locations, [roleChangedFirst ? w.store.id : w.loc.id])
-  assert.deepEqual(raced.after.effective.locations, roleChangedFirst ? [] : [w.loc.id])
-  assert.equal(raced.access.direction, roleChangedFirst ? 'narrowing' : 'unchanged')
-  assert.equal(raced.access.people, roleChangedFirst ? 1 : 0)
+  const raced = scopeRace.body.result.scopeClassification
+  assert.ok(roleAudit.seq < scopeAudit.seq)
+  assert.equal(raced.basis.customRoleVersion, 2); assert.equal(raced.basis.stateVersion, attempts[1])
+  assert.deepEqual(raced.before.effective.locations, [w.store.id])
+  assert.deepEqual(raced.after.effective.locations, [])
+  assert.equal(raced.access.direction, 'narrowing'); assert.equal(raced.access.people, 1)
   // Raw widening hidden by a custom-role limit changes nobody's effective access.
   const masked = await h.command('member.scope', { operatorId: p1.id, locations: null, costsRestricted: false })
   const same = await h.command('member.scope', { operatorId: p1.id, locations: [w.store.id], costsRestricted: true })
   assert.deepEqual(same.scopeClassification.before.effective, masked.scopeClassification.after.effective)
   assert.deepEqual(same.scopeClassification.after.effective, masked.scopeClassification.after.effective)
   assert.equal(same.scopeClassification.access.people, 0); assert.equal(same.scopeClassification.access.direction, 'unchanged')
+  // Native deactivation changes no business version, but the target fence must
+  // still retry and must not claim it changed an active person's authority.
+  const nativeRaceId = 'synthetic-larder-scope-race-3', nativeAttempts = []
+  interleave = async ({ commandId, stateVersion }) => {
+    if (commandId !== nativeRaceId) return
+    nativeAttempts.push(stateVersion)
+    if (nativeAttempts.length === 1) await deactivate(h, p1)
+  }
+  const nativeRace = await h.command('member.scope', { operatorId: p1.id, locations: null }, { commandId: nativeRaceId })
+  interleave = async () => {}
+  assert.equal(nativeAttempts.length, 2); assert.equal(nativeAttempts[0], nativeAttempts[1])
+  assert.equal(nativeRace.scopeClassification.target.status, 'inactive')
+  assert.ok(nativeRace.scopeClassification.target.operatorVersion > raced.target.operatorVersion)
+  assert.equal(nativeRace.scopeClassification.access.people, 0)
+  assert.equal(nativeRace.scopeClassification.before.active, false)
   // Narrowing takes effect on the very next request; deactivation revokes mid-task.
   await h.command('member.scope', { operatorId: lead.id, locations: [w.store.id], costsRestricted: false })
   await lead.run('receipt.create', { poId: own.id, supplierReference: 'TIM-2', lines: [{ lineId: own.lines[0].id, quantity: '1', locationId: w.loc.id }] }, { error: 'FORBIDDEN' })
