@@ -1,5 +1,5 @@
 import {readFile, writeFile} from 'node:fs/promises';
-import {businessTeamRoleSchema} from '../modules/business-settings/role-domain.mjs';
+import {businessTeamRoleSchema} from "../../../../src/modules/business-settings/role-domain.mjs";
 
 const file = new URL('./SETUP.schema.json', import.meta.url);
 const source = await readFile(file, 'utf8');

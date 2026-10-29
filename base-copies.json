@@ -11,18 +11,18 @@
       "modes": {
         ".github/workflows/run-demo.yml": "100644"
       },
-      "originFiles": [
-        "export/run-demo.yml"
-      ],
       "adapted": {
-        ".github/workflows/run-demo.yml": "114ef7a61f080da053af783c5fbe06f625d692cc"
+        ".github/workflows/run-demo.yml": "11f94fec479228d71ba6d7dd6ea7796c0d42c544"
       },
       "acknowledged": {
         ".github/workflows/run-demo.yml": {
           "sha256": "fcc90f33d454dbacf1f645a4b28ccfb9b2088a0b24d8c264c42fa1fe0c014d74",
           "mode": "100644"
         }
-      }
+      },
+      "originFiles": [
+        "export/run-demo.yml"
+      ]
     },
     {
       "path": ".github/workflows/verify.yml",
@@ -514,6 +514,15 @@
         "scripts/delivery/base/schema/json-schema.mjs": "100644",
         "scripts/delivery/base/schema/setup-validation.mjs": "100644",
         "scripts/delivery/base/schema/SETUP.schema.json": "100644"
+      },
+      "adapted": {
+        "scripts/delivery/base/schema/generate-business-role.mjs": "114ef7a61f080da053af783c5fbe06f625d692cc"
+      },
+      "acknowledged": {
+        "scripts/delivery/base/schema/generate-business-role.mjs": {
+          "sha256": "d7323ab81e4f36e861907636600a1af0c44b29e220c0f9e940c79bd303def2b4",
+          "mode": "100644"
+        }
       },
       "originFiles": [
         "schema/COMPOSITION.example.json",
@@ -1752,6 +1761,34 @@
       ]
     },
     {
+      "path": "src/modules/business-settings/role-domain.d.mts",
+      "originPath": "modules/business-settings/role-domain.d.mts",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/business-settings/role-domain.d.mts": "4e318e9b1b6fccb9eb7c17e7dbcbd1c3e0d51267dd9de3fbdf0531f48980f091"
+      },
+      "modes": {
+        "src/modules/business-settings/role-domain.d.mts": "100644"
+      },
+      "originFiles": [
+        "modules/business-settings/role-domain.d.mts"
+      ]
+    },
+    {
+      "path": "src/modules/business-settings/role-domain.mjs",
+      "originPath": "modules/business-settings/role-domain.mjs",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/business-settings/role-domain.mjs": "0ea6ac07a8b6c7197327cec34ab7b1b47a09996c3fd77ff175d0def6c06d1b71"
+      },
+      "modes": {
+        "src/modules/business-settings/role-domain.mjs": "100644"
+      },
+      "originFiles": [
+        "modules/business-settings/role-domain.mjs"
+      ]
+    },
+    {
       "path": "src/modules/d1-transport",
       "originPath": "modules/d1-transport",
       "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
@@ -2061,6 +2098,20 @@
       },
       "originFiles": [
         "modules/import-kit/schema/importers.schema.json"
+      ]
+    },
+    {
+      "path": "src/modules/import-kit/src/d1/apply-effects.ts",
+      "originPath": "modules/import-kit/src/d1/apply-effects.ts",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/import-kit/src/d1/apply-effects.ts": "4d384011459557e64530728be72fc309e1c6f8e2419ae04b9cb1af29923dd553"
+      },
+      "modes": {
+        "src/modules/import-kit/src/d1/apply-effects.ts": "100644"
+      },
+      "originFiles": [
+        "modules/import-kit/src/d1/apply-effects.ts"
       ]
     },
     {
@@ -4038,6 +4089,90 @@
       ]
     },
     {
+      "path": "src/modules/import-kit/src/door/intake-policy.ts",
+      "originPath": "modules/import-kit/src/door/intake-policy.ts",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/import-kit/src/door/intake-policy.ts": "c8814605021d9bd32b7f36af0d344530154707e736c93c863a3a4bc693021f59"
+      },
+      "modes": {
+        "src/modules/import-kit/src/door/intake-policy.ts": "100644"
+      },
+      "originFiles": [
+        "modules/import-kit/src/door/intake-policy.ts"
+      ]
+    },
+    {
+      "path": "src/modules/import-kit/src/door/intake-upload.ts",
+      "originPath": "modules/import-kit/src/door/intake-upload.ts",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/import-kit/src/door/intake-upload.ts": "e0c740e9650a649f36d640cdeb8dad5dfa11ed934d2086caa59c2acb58ac8131"
+      },
+      "modes": {
+        "src/modules/import-kit/src/door/intake-upload.ts": "100644"
+      },
+      "originFiles": [
+        "modules/import-kit/src/door/intake-upload.ts"
+      ]
+    },
+    {
+      "path": "src/modules/import-kit/src/door/intake/csv.ts",
+      "originPath": "modules/import-kit/src/door/intake/csv.ts",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/import-kit/src/door/intake/csv.ts": "5f34704d2e9e3814330342e50e8866471c924c0bab423109470f6bf48165d9f2"
+      },
+      "modes": {
+        "src/modules/import-kit/src/door/intake/csv.ts": "100644"
+      },
+      "originFiles": [
+        "modules/import-kit/src/door/intake/csv.ts"
+      ]
+    },
+    {
+      "path": "src/modules/import-kit/src/door/intake/json.ts",
+      "originPath": "modules/import-kit/src/door/intake/json.ts",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/import-kit/src/door/intake/json.ts": "a5eea8e5c5fd5dae01275a8fe7b6ca1c66841f5ea1b41751da3f0d79e80de415"
+      },
+      "modes": {
+        "src/modules/import-kit/src/door/intake/json.ts": "100644"
+      },
+      "originFiles": [
+        "modules/import-kit/src/door/intake/json.ts"
+      ]
+    },
+    {
+      "path": "src/modules/import-kit/src/door/intake/projection.ts",
+      "originPath": "modules/import-kit/src/door/intake/projection.ts",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/import-kit/src/door/intake/projection.ts": "cd9c439f60c9c5180acea395d8ed0edd285624851a56b942197d3ea2c063a039"
+      },
+      "modes": {
+        "src/modules/import-kit/src/door/intake/projection.ts": "100644"
+      },
+      "originFiles": [
+        "modules/import-kit/src/door/intake/projection.ts"
+      ]
+    },
+    {
+      "path": "src/modules/import-kit/src/door/intake/types.ts",
+      "originPath": "modules/import-kit/src/door/intake/types.ts",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/import-kit/src/door/intake/types.ts": "97fea2ccdb3bfb85bec82f8429fe11ebbdbcff437383ea20b1293d2e147426a1"
+      },
+      "modes": {
+        "src/modules/import-kit/src/door/intake/types.ts": "100644"
+      },
+      "originFiles": [
+        "modules/import-kit/src/door/intake/types.ts"
+      ]
+    },
+    {
       "path": "src/modules/import-kit/src/door/inventory.ts",
       "originPath": "modules/import-kit/src/door/inventory.ts",
       "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
@@ -5212,6 +5347,34 @@
       ]
     },
     {
+      "path": "src/modules/operator-auth/accounts/audit.mjs",
+      "originPath": "modules/operator-auth/accounts/audit.mjs",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/operator-auth/accounts/audit.mjs": "0861a959a6f3838f573029ce70a74aaed4530e4af6f71affb1bb50a68400cf44"
+      },
+      "modes": {
+        "src/modules/operator-auth/accounts/audit.mjs": "100644"
+      },
+      "originFiles": [
+        "modules/operator-auth/accounts/audit.mjs"
+      ]
+    },
+    {
+      "path": "src/modules/operator-auth/accounts/business-team.mjs",
+      "originPath": "modules/operator-auth/accounts/business-team.mjs",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/operator-auth/accounts/business-team.mjs": "2074b728bc0856a4fb4bc87199944e0f1f30b10da1cf217fef1a456456527ebc"
+      },
+      "modes": {
+        "src/modules/operator-auth/accounts/business-team.mjs": "100644"
+      },
+      "originFiles": [
+        "modules/operator-auth/accounts/business-team.mjs"
+      ]
+    },
+    {
       "path": "src/modules/operator-auth/accounts/credentials.mjs",
       "originPath": "modules/operator-auth/accounts/credentials.mjs",
       "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
@@ -5251,6 +5414,20 @@
       },
       "originFiles": [
         "modules/operator-auth/accounts/display-name.mjs"
+      ]
+    },
+    {
+      "path": "src/modules/operator-auth/accounts/domain-audit.mjs",
+      "originPath": "modules/operator-auth/accounts/domain-audit.mjs",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/operator-auth/accounts/domain-audit.mjs": "43a832463e6caea4d6205f5535c302c32862bb8de319486f6416fdf54d8db519"
+      },
+      "modes": {
+        "src/modules/operator-auth/accounts/domain-audit.mjs": "100644"
+      },
+      "originFiles": [
+        "modules/operator-auth/accounts/domain-audit.mjs"
       ]
     },
     {
@@ -5643,6 +5820,20 @@
       },
       "originFiles": [
         "modules/operator-auth/branding.mjs"
+      ]
+    },
+    {
+      "path": "src/modules/operator-auth/business-settings.mjs",
+      "originPath": "modules/operator-auth/business-settings.mjs",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/operator-auth/business-settings.mjs": "dc753078a93a6560cebde2e31a6a53a1927581163cbcd6698ec485f14b245f98"
+      },
+      "modes": {
+        "src/modules/operator-auth/business-settings.mjs": "100644"
+      },
+      "originFiles": [
+        "modules/operator-auth/business-settings.mjs"
       ]
     },
     {
@@ -6105,6 +6296,20 @@
       },
       "originFiles": [
         "modules/operator-auth/identity/index.mjs"
+      ]
+    },
+    {
+      "path": "src/modules/operator-auth/identity/oidc/admin-audit.mjs",
+      "originPath": "modules/operator-auth/identity/oidc/admin-audit.mjs",
+      "revision": "114ef7a61f080da053af783c5fbe06f625d692cc",
+      "files": {
+        "src/modules/operator-auth/identity/oidc/admin-audit.mjs": "666db8c483d4c3a1f24d87a67ececf36863c60da855f809ae738f88cd9afd8cd"
+      },
+      "modes": {
+        "src/modules/operator-auth/identity/oidc/admin-audit.mjs": "100644"
+      },
+      "originFiles": [
+        "modules/operator-auth/identity/oidc/admin-audit.mjs"
       ]
     },
     {
