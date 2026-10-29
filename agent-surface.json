@@ -15,17 +15,6 @@
       ]
     },
     {
-      "name": "larder.events.list",
-      "scope": "events:read",
-      "readOnly": true,
-      "classes": [
-        "standard"
-      ],
-      "clauses": [
-        "BASE-AGENT-010"
-      ]
-    },
-    {
       "name": "larder.inventory.preview",
       "scope": "manufacturing:write",
       "readOnly": false,
@@ -313,30 +302,7 @@
       ]
     }
   ],
-  "resources": [
-    "larder://items/{id}",
-    "larder://parties/{id}",
-    "larder://orders/{id}",
-    "larder://purchases/{id}",
-    "larder://jobs/{id}",
-    "larder://lots/{id}",
-    "larder://inspections/{id}",
-    "larder://cases/{id}",
-    "larder://valuations/{id}",
-    "larder://history/{id}",
-    "larder://proposals/{id}",
-    "larder://subcontracts/{id}",
-    "larder://kits/{id}",
-    "larder://certificates/{id}",
-    "larder://replenishment/{id}",
-    "larder://inventory_plans/{id}",
-    "larder://production_plans/{id}",
-    "larder://schedule_plans/{id}",
-    "larder://schedule_grants/{id}",
-    "larder://work_groups/{id}",
-    "larder://labor_rates/{id}",
-    "larder://operations/{id}"
-  ],
+  "resources": [],
   "schema": "rer-agent-surface/1",
   "seed": "larder",
   "specialist": "manufacturing planner",
@@ -929,21 +895,6 @@
           "pointer": "/version"
         },
         "reason": "Withdraw internal review; original jobs unchanged"
-      },
-      "expect": [
-        {
-          "class": "standard",
-          "facts": {
-            "measure": 1
-          }
-        }
-      ]
-    },
-    {
-      "id": "events",
-      "tool": "larder.events.list",
-      "args": {
-        "limit": 100
       },
       "expect": [
         {
