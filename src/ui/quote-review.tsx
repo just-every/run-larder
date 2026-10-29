@@ -1,7 +1,7 @@
 import { Card, Field, Form, Choose, Table, Details, text } from './controls'
 import { can, itemName, type Rec } from './api'
 import type { Larder } from './app'
-import { day, money, qty } from './format'
+import { day, money, qty, plus, minus } from './format'
 
 export function QuoteReview({ larder, order }: { larder: Larder; order: Rec }) {
   const s = larder.state!, review = order.quoteReview
@@ -80,6 +80,8 @@ export function QuoteReview({ larder, order }: { larder: Larder; order: Rec }) {
 export function QuoteCommitment({ larder, order }: { larder: Larder; order: Rec }) {
   const s = larder.state!, terms = order.customerTerms, accepted = order.quoteAcceptance
   if (!terms || !accepted || (s.actor as any).scope?.costs) return null
+  const packed = s.shipments.filter((sh: Rec) => sh.orderId === order.id && ['packed', 'shipped'].includes(sh.status)).flatMap((sh: Rec) => sh.lines)
+  const invoiceReady = terms.lines.every((line: any) => minus(plus(...packed.filter((p: any) => p.lineId === line.lineId).map((p: any) => p.quantity)), line.quantity) === '0')
   return <Card title="Accepted customer terms">
     <section aria-label="Accepted quote commitment">
       <p><strong>{terms.currency} {money(terms.totalAmount)}</strong> · USD {money(terms.totalUsdAmount)}</p>
@@ -93,7 +95,7 @@ export function QuoteCommitment({ larder, order }: { larder: Larder; order: Rec 
       {accepted.workOrderIds.map((id: string) => <p key={id}><a href={`#make/wo/${id}`}>Open {s.workOrders.find((w: Rec) => w.id === id)?.reference ?? 'booked work'}</a></p>)}
       <Details label="Accepted supply and capacity" value={accepted.option} s={s} />
       <p>Accepted costed terms are fixed. Customer-currency amendments require a separate exact review.</p>
-      {order.invoice ? <section aria-label="Customer invoice"><h3>{order.invoice.reference}</h3><p>Issued locally · {terms.currency} {money(order.invoice.terms.totalAmount)} · USD {money(order.invoice.terms.totalUsdAmount)}</p><p>{order.invoice.semantics}</p></section> : s.actor.role === 'owner' && <Form submit="Issue local customer invoice" busy={larder.busy} onSubmit={d => larder.run('so.invoice', { orderId: order.id, version: order.version, reason: text(d, 'invoiceReason') })}><Field label="Invoice reason" name="invoiceReason" /><p>Issue the accepted full-order amount once. No tax determination, email, payment or ledger posting.</p></Form>}
+      {order.invoice ? <section aria-label="Customer invoice"><h3>{order.invoice.reference}</h3><p>Issued locally · {terms.currency} {money(order.invoice.terms.totalAmount)} · USD {money(order.invoice.terms.totalUsdAmount)}</p><p>{order.invoice.semantics}</p></section> : s.actor.role === 'owner' && (invoiceReady ? <Form submit="Issue local customer invoice" busy={larder.busy} onSubmit={d => larder.run('so.invoice', { orderId: order.id, version: order.version, reason: text(d, 'invoiceReason') })}><Field label="Invoice reason" name="invoiceReason" /><p>Issue the accepted amount once for the linked packed or shipped quantities. No tax determination, email, payment or ledger posting.</p></Form> : <p>Pack or ship every quoted quantity before issuing this complete-order invoice. Partial and bulk invoices require their separate qualification.</p>)}
     </section>
   </Card>
 }

@@ -17,16 +17,21 @@ export function quoteAcceptance(c: Context, type: string, p: any): Row | undefin
   if (type === 'so.invoice') {
     if (!order.quoteAcceptance || !['confirmed', 'part shipped', 'shipped'].includes(order.status)) fail('STATE', 'An accepted costed order is required.')
     if (order.invoice) fail('STATE', 'This exact order already has its local invoice.')
+    const shipments = c.s.shipments.filter(sh => sh.orderId === order.id && ['packed', 'shipped'].includes(sh.status))
+    const shipmentLines = shipments.flatMap(sh => sh.lines.map((line: any) => ({ shipmentId: sh.id, lineId: line.lineId, quantity: line.quantity })))
+    if (order.lines.some((line: any) => shipmentLines.filter((sh: any) => sh.lineId === line.id).reduce((n: bigint, sh: any) => n + decimal(sh.quantity), 0n) !== decimal(line.quantity)))
+      fail('INVOICE_QUANTITY', 'Pack or ship every quoted quantity before issuing this complete-order invoice. Partial and bulk invoicing remain separate unqualified doors.')
     return bump(order, { invoice: { id: crypto.randomUUID(), reference: nextReference(c.s.salesOrders.filter(o => o.invoice).map(o => o.invoice), 'INV'),
-      issuedAt: c.now, issuedBy: c.actor.id, reason, orderId: order.id, acceptanceDigest: order.quoteAcceptance.optionDigest,
+      issuedAt: c.now, issuedBy: c.actor.id, reason, orderId: order.id, shipmentLines, acceptanceDigest: order.quoteAcceptance.optionDigest,
       terms: structuredClone(order.customerTerms), status: 'issued locally', semantics: 'Local customer invoice; no tax determination, outbound send, payment or external ledger posting.' } })
   }
   const review = order.quoteReview
   if (order.status !== 'quote' || !review) fail('STATE', 'Prepare a current quote before accepting an option.')
-  if (p.reviewVersion !== review.inputVersion || review.inputVersion !== c.s.version || review.peopleDigest !== sha256(canonicalJson(c.people)) || review.validUntil < c.now.slice(0, 10) || review.asOf < c.now)
+  if (p.reviewVersion !== review.inputVersion || review.inputVersion !== c.s.version || review.peopleDigest !== sha256(canonicalJson(c.people)) || review.validUntil < c.now.slice(0, 10))
     fail('STALE', 'Quote inputs, live people, validity or planning time changed. Prepare fresh options.')
   const option = review.options.find((o: any) => o.id === p.optionId)
   if (!option || !option.feasible || !option.workDrafts?.length) fail('QUOTE_OPTION', 'Choose a feasible saved option; unavailable comparisons cannot be accepted.')
+  if (option.operations.some((op: any) => op.startsAt < c.now)) fail('STALE', 'A selected interval has already started. Prepare fresh options.')
   const { digest, ...bound } = option
   if (p.optionDigest !== digest || digest !== sha256(canonicalJson(bound))) fail('QUOTE_OPTION', 'The exact saved option digest is required.')
   if (option.estimate.totalCost === null || option.marginPercent === null) fail('QUOTE_COST', 'Resolve unknown costs before a customer commitment.')

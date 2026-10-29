@@ -1010,14 +1010,61 @@ unoffered. Expected receipts still require physical receipt and quality release.
 
 `quoteReview` retains totals, costs, margins, material sources and exact named
 machine and person intervals. Its `inputVersion` identifies its business inputs;
-any later write requires fresh preparation. It has no acceptance authority and
+any later write requires fresh preparation. Preparation has no acceptance authority and
 changes no price on the original USD order. Confirmation refuses while a review
 is attached. `so.reviewClear` (`orderId`, `version`, `reason`) retains review
 history and reopens the original USD quote without applying reviewed terms.
 Native archive and empty restore preserve the review as inert history. Scoped
 members cannot prepare or replay reviews; location-scoped state omits them.
 
-Explicit review disposition: editing an existing quote through `so.quote` refuses while a current costed review is attached, even when the edit includes a reason. Use `so.reviewClear` first with the exact current order version and a nonblank reason. Discard retains the complete review with disposition actor, time, reason, order version and review input version. It leaves original USD lines unchanged and creates no reservation or booking. A stale version, missing review, agent or restricted commercial scope refuses discard. Refreshing preparation retains the earlier review as history and keeps the confirmation block. A later edit or confirmation is a separate current-version command under existing authority and margin policy.
+Explicit review disposition: editing an existing quote through `so.quote` refuses while a current costed review is attached, even when the edit includes a reason. Use `so.reviewClear` first with the exact current order version and a nonblank reason. Discard retains the complete review with disposition actor, time, reason, order version and review input version. It leaves original USD lines unchanged and creates no reservation or booking. A stale version, missing review, agent or restricted commercial scope refuses discard. Refreshing preparation requires a nonblank `reason`, retains the earlier review with its reasoned disposition and keeps the confirmation block. A later edit or confirmation is a separate current-version command under existing authority and margin policy.
+
+
+### Exact costed acceptance and local invoices
+
+`so.acceptOption` is a separate owner-only decision with unrestricted location
+and commercial access. Send `orderId`, current order `version`, the saved
+`reviewVersion`, `optionId`, `optionDigest`, a nonblank `reason`, and
+`customerApproval` with `name`, `reference` and `approvedOn`. Assumed overtime
+also requires `authorizeOvertime: true` for the exact saved windows. This is
+locally recorded customer approval, never provider-verified consent. The
+conservative owner-only boundary remains pending policy qualification in RL-1.
+
+The decision refuses expired terms, already-started intervals, unavailable or
+changed options, changed material, calendars, qualified people or business state,
+and unknown costs. The existing margin policy still applies. When that policy
+requires an owner override, supply its existing `override` object with `reason`
+and `accountableId`; this door does not bypass it or grant new signature seats.
+
+Successful acceptance publishes one confirmed order with original customer
+prices, recorded rate, exact net cents, freight and USD valuation; its estimated
+margin uses the selected option's occupied intervals and tariffs. It releases
+the exact work identities, reserves available components, retains identified
+future-supply planning shares, books joint intervals and audits the decision in
+one guarded transaction. Future receipts still need their manual allocation and
+quality doors. Replaying the same command returns its outcome without another
+booking. A revoked session or weaker role cannot recover that outcome. The
+ordinary quote-confirmation command cannot consume a prepared review.
+
+`so.invoice` takes `orderId`, current `version` and `reason`. Only the owner can
+issue this local complete-order invoice, once every quoted quantity is packed
+or shipped. Earlier issuance, duplicate issuance and weaker authority refuse
+without effects. The invoice retains exact accepted CAD or USD terms, USD
+valuation, rate, estimated margin and each source shipment quantity. Partial,
+bulk and automatic provider invoices, tax determination and payment readback
+remain DEMAND-007 duties; issuing locally sends and posts nothing. Accepted
+costed terms are immutable through the ordinary amendment and cancellation
+doors pending exact customer-currency amendment qualification. The legacy
+movement handoff refuses these shipment and return financial lines until exact
+invoice reconciliation is qualified, rather than emitting guessed values.
+
+JSON and lossless CSV business archives now retain the bounded audit entries
+and audit-erasure facts, alongside complete preparation, accepted terms,
+bookings, reservations and local invoices. Empty restore writes these as inert
+facts in its guarded transaction; it executes no decision, restores no session
+and grants no historical person authority. Scoped commercial state withholds
+cross-site accepted planning details; archive and audit downloads retain their
+existing owner or unrestricted-manager gates.
 
 
 Legal holds preserve saved follow-up rows during automatic observation; reads still

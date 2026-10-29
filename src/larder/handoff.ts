@@ -62,6 +62,17 @@ function pendingValuations(s: State) {
 }
 export function handoffLines(s: State) {
   const done = handedOff(s)
+  // The local costed invoice retains exact customer cents. The legacy movement
+  // handoff has no reviewed foreign-currency reconciliation; refuse rather
+  // than emit an inferred unit price or a second invoice preparation.
+  const unsupported = s.movements.some(m => {
+    if (done.has(m.id)) return false
+    const original = m.reversesId ? s.movements.find(old => old.id === m.reversesId) ?? m : m
+    const shipment = original.documentKind === 'shipments' ? s.shipments.find(sh => sh.id === original.documentId) : undefined
+    const returned = original.documentKind === 'returns' ? s.returns.find(r => r.id === original.documentId) : undefined
+    return s.salesOrders.some(o => o.quoteAcceptance && (o.id === shipment?.orderId || o.id === returned?.orderId))
+  })
+  if (unsupported) fail('CUSTOMER_CURRENCY_HANDOFF', 'An accepted costed order needs exact invoice reconciliation before accountant handoff. Its local invoice and original customer terms remain available; no inferred financial lines were prepared.')
   const movementLines = s.movements.filter(m => !done.has(m.id) && !internal.has(m.kind)).map(m => {
     const d = describe(s, m), corrects = m.reversesId ? done.get(m.reversesId) ?? null : null
     return { id: newId(), movementIds: [m.id], ...d, quantity: format(m.quantity), amount: format(d.amount), amountCents: cents(d.amount), corrects, date: m.createdAt.slice(0, 10) }
