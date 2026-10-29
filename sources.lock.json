@@ -4205,7 +4205,7 @@
       "executable": false
     },
     "tests/browser/quality.spec.ts": {
-      "sha256": "d4c28c9545e3fd14ba6e2750f6eaaea9bb8e6b6ff0071cd4cd6b2558c81e225d",
+      "sha256": "ad473ea962bcc62953d2e0e7f78159fe5b40bfd248ce809084b037e5f95e286b",
       "executable": false
     },
     "tests/browser/receiving.spec.ts": {
