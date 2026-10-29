@@ -1144,3 +1144,34 @@ Derived balances that include locations outside a member's reach read
 Rules, transfers, custody entries and original evidence travel in the complete
 JSON and CSV business archive. Restore retains them as records, never repeating
 a dispatch, receipt, movement or external action.
+
+
+### Exact costed-quote acceptance
+
+`so.reviewAccept` is an explicit native-owner decision on an unconfirmed quote.
+Supply `orderId`, current `version`, a retained `optionId` and `optionDigest`, a
+`reason`, and `customerApproval` with `name`, `reference` and `approvedOn`.
+The recorded approval is a local customer attestation. For an overtime option,
+`authorizeOvertime: true` separately authorizes its exact machine and person
+windows. Preparation itself grants no authority. Existing margin policies still
+apply; a required owner override names the accountable person and its reason.
+
+Acceptance rechecks the state version, current day, quote validity, live active
+qualified people, material shares and exact machine and person intervals. One
+atomic command confirms the reviewed terms, releases linked work through the
+normal engineering gates, reserves its physical stock share, commits its future
+purchase shares and books its exact intervals. A repeated identical command
+recovers its recorded result without another booking. A changed command identity
+or stale review does not authorize another decision. Actual receipt converts a
+usable booked purchase share into a work reservation once; it never manufactures
+physical stock. Prepared assumptions and unsupported cases remain visible.
+
+`so.invoice` takes the accepted `orderId`, current `version` and `reason` and
+issues one native customer invoice retaining the accepted customer currency,
+recorded rate, exact lines, discounts, freight, total, USD valuation and estimated
+margin. It sends nothing and posts no tax or external journal. Native operational
+prices remain USD; the original customer terms are retained independently.
+Ordinary USD amendment and cancellation commands refuse these accepted terms
+until a separate reviewed customer-currency correction door is implemented.
+Owner-only acceptance and issuance are the conservative interim authority floor;
+scoped and delegated decisions remain unqualified pending policy review.

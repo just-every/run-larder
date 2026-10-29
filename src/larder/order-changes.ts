@@ -73,6 +73,7 @@ export function orderChanges(c: Context, type: string, p: any): Row | undefined 
   if (type === 'so.changePreview') {
     allow(c, ['manager', 'sales'])
     const order = get(c.s, 'salesOrders', p.orderId, 'order'); fresh(order, p.version)
+    if (order.customerTerms) fail('QUOTE_TERMS', 'Accepted customer-currency terms require their own reviewed amendment; the ordinary USD amendment door cannot change them.')
     if (!['confirmed', 'part shipped', 'shipped', 'cancelled'].includes(order.status)) fail('STATE', 'Confirm the order before preparing an amendment.')
     const after = changedOrder(c, order, p), customerApproval = customerAttestation(c, p.customerApproval)
     for (const previous of c.s.orderChanges.filter(change => change.orderId === order.id && change.status === 'preview')) bump(previous, { status: 'superseded', supersededAt: c.now, supersededBy: c.actor.id })

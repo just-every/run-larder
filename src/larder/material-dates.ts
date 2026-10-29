@@ -1,3 +1,4 @@
+import { quotePurchaseShares } from './quote-supply'
 import { purchaseDate } from './supplier-terms'
 // MRP-001's dated physical/purchase projection. Read-only: reservations stay
 // bin-level commitments, and the suggested lots are never a physical pick.
@@ -102,6 +103,18 @@ function project(s: State, proven: Set<string>) {
     // The completion day is a declared expectation, exactly like a PO's; quality and receipt still gate use.
     ...s.workOrders.filter(w => proven.has(w.id)).map(w => ({ kind: 'work' as const, itemId: w.itemId as string, documentId: w.id, lineId: 'output', reference: w.reference as string, date: (w.expectedOn ?? w.requiredBy) as string, left: remainingOutput(w) })),
   ].filter(p => p.left > 0n).sort((a, b) => a.date.localeCompare(b.date) || a.reference.localeCompare(b.reference) || a.lineId.localeCompare(b.lineId))
+  // Remove every committed purchase share before assigning free supply. A
+  // delayed share remains held, with a shortage on its owner, not resold.
+  for (const share of quotePurchaseShares(s)) {
+    let held = share.left
+    const demand = demands.find(d => d.documentId === share.workOrderId && d.lineId === share.lineId && d.itemId === share.itemId)
+    for (const purchase of purchases) if (purchase.kind === 'purchase' && purchase.documentId === share.documentId && purchase.itemId === share.itemId) {
+      const take = min(held, purchase.left); held -= take; purchase.left -= take
+      if (!demand || purchase.date < today || purchase.date > demand.date) continue
+      const allocated = min(demand.left, take); demand.left -= allocated
+      if (allocated > 0n) demand.sources.push({ kind: 'purchase', documentId: purchase.documentId, lineId: purchase.lineId, reference: purchase.reference, date: purchase.date, quantity: format(allocated), reserved: true })
+    }
+  }
   const latePurchases = (d: Demand) => purchases.filter(p => p.itemId === d.itemId && p.left > 0n && (p.date > d.date || p.date < today)).map(p => ({ kind: p.kind, documentId: p.documentId, lineId: p.lineId, reference: p.reference, date: p.date, quantity: format(p.left), reason: p.date < today ? 'overdue; receipt not recorded' : 'after required date' }))
   const unavailablePurchases = new Map<Demand, ReturnType<typeof latePurchases>>()
   // DEMAND-004 already protects max(safetyStock, minStock) at the default

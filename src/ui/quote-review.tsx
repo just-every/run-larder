@@ -5,10 +5,12 @@ import { day, money, qty } from './format'
 
 export function QuoteReview({ larder, order }: { larder: Larder; order: Rec }) {
   const s = larder.state!, review = order.quoteReview
-  if (order.status !== 'quote' || !can(s, ['manager', 'sales'])) return null
+  if (!can(s, ['manager', 'sales'])) return null
   const scope = (s.actor as { scope?: { locations: string[] | null; costs: boolean } }).scope
   const scoped = scope?.locations !== null && scope?.locations !== undefined || scope?.costs
   if (scoped) return null
+  if (order.customerTerms) return <AcceptedQuote larder={larder} order={order} />
+  if (order.status !== 'quote') return null
   const stale = review && review.inputVersion !== s.version
   return <Card title="Costed quote preparation">
     <p>Compare customer terms, full delivery, partial delivery and assumed overtime before making a commitment. This review books no supply or capacity and sends nothing.</p>
@@ -31,7 +33,21 @@ export function QuoteReview({ larder, order }: { larder: Larder; order: Rec }) {
       </tr>)}</Table>
       <details><summary>Unavailable comparisons</summary>{review.rejected?.map((item: any, i: number) => <p key={i}>{item.kind} · {item.reason}</p>)}</details>
       <p>{review.rounding}</p>
-      <p>Acceptance, overtime authorization and invoicing are not available from this review. Partial delivery is an estimate only. Confirmation stays closed while it is attached.</p>
+      {review.options.length === 0 ? <p>Acceptance, overtime authorization and invoicing are not available for an unsupported comparison. Confirmation stays closed while it is attached.</p> : <>
+        <p>Preparation grants no overtime or customer-commitment authority. The owner may accept one exact option with recorded customer approval; overtime requires its own explicit consent below.</p>
+        {s.actor.role === 'owner' && <Form title="Accept reviewed commitment" submit="Accept selected option" busy={larder.busy || stale} onSubmit={d => {
+          const option = review.options.find((option: any) => option.id === text(d, 'optionId'))
+          return larder.run('so.reviewAccept', { orderId: order.id, version: order.version, optionId: option.id, optionDigest: option.digest, reason: text(d, 'acceptReason'), authorizeOvertime: d.get('authorizeOvertime') === 'on', ...(text(d, 'marginOverride') ? { override: { reason: text(d, 'marginOverride'), accountableId: s.actor.id } } : {}), customerApproval: { name: text(d, 'customerApprover'), reference: text(d, 'customerApprovalReference'), approvedOn: text(d, 'customerApprovedOn') } })
+        }}>
+          <Choose label="Reviewed delivery option" name="optionId" options={review.options.map((option: any) => ({ value: option.id, label: `${option.name} · ${day(option.shipDate)}` }))} />
+          <Field label="Customer acceptance name" name="customerApprover" />
+          <Field label="Customer acceptance reference" name="customerApprovalReference" />
+          <Field label="Customer acceptance date" name="customerApprovedOn" type="date" defaultValue={review.preparedAt.slice(0, 10)} />
+          <Field label="Reason to accept commitment" name="acceptReason" />
+          <Field label="Owner margin override reason" name="marginOverride" required={false} hint="Only when the configured margin policy requires it. You remain the accountable owner." />
+          <label className="field wide"><span><input type="checkbox" name="authorizeOvertime" /> Authorize the selected option's exact overtime windows</span></label>
+        </Form>}
+      </>}
       <Form submit="Discard preparation" quiet busy={larder.busy} onSubmit={d => larder.run('so.reviewClear', { orderId: order.id, version: order.version, reason: text(d, 'discardReason') })}><Field label="Reason to discard preparation" name="discardReason" hint="Returns to the original USD quote; reviewed prices and dates are not applied." /></Form>
     </section>}
     <Form key={order.version} title={review ? 'Refresh preparation' : 'Customer terms and estimates'} submit="Prepare costed options" busy={larder.busy} onSubmit={d => larder.run('so.review', { orderId: order.id, version: order.version, currency: text(d, 'currency'), usdRate: text(d, 'usdRate'), rateDate: text(d, 'rateDate'), rateReference: text(d, 'rateReference'), validUntil: text(d, 'validUntil'), paymentTerms: text(d, 'paymentTerms'), discountPercent: text(d, 'discountPercent'), freight: text(d, 'freight'), laborCostRate: text(d, 'laborCostRate'), machineCostRate: text(d, 'machineCostRate'), overheadCostRate: text(d, 'overheadCostRate'),
@@ -63,5 +79,25 @@ export function QuoteReview({ larder, order }: { larder: Larder; order: Rec }) {
       </fieldset>
       {order.lines.map((line: any, i: number) => <Field key={line.id} label={`Line ${i + 1} customer currency unit price`} name={`price.${line.id}`} defaultValue={review?.lines.find((quoted: any) => quoted.lineId === line.id)?.unitPrice ?? line.unitPrice} inputMode="decimal" />)}
     </Form>
+  </Card>
+}
+
+function AcceptedQuote({ larder, order }: { larder: Larder; order: Rec }) {
+  const terms = order.customerTerms, accepted = order.quoteAcceptance
+  return <Card title="Accepted costed commitment">
+    <section aria-label="Accepted quote terms">
+      <p><strong>{terms.currency} {money(terms.totalAmount)}</strong> · USD {money(terms.totalUsdAmount)}</p>
+      <p>USD {terms.usdRate} per {terms.currency} · {day(terms.rateDate)} · {terms.rateReference} · {terms.paymentTerms}</p>
+      <p>Estimated cost: USD {money(terms.estimate.totalCost)} · Estimated margin: {terms.currency} {money(terms.marginAmount)} · USD {money(terms.marginUsdAmount)}</p>
+      <p>{accepted.option.name} · {accepted.customerApproval.name} · {accepted.customerApproval.reference}</p>
+      <Table head={['Product', 'Quantity', 'Customer amount', 'USD value']} numeric={[1, 2, 3]}>{terms.lines.map((line: any) => <tr key={line.lineId}><td>{itemName(larder.state!, line.itemId)}</td><td>{qty(line.quantity)}</td><td>{terms.currency} {money(line.amount)}</td><td>USD {money(line.usdAmount)}</td></tr>)}</Table>
+      <p>Freight: {terms.currency} {money(terms.freightAmount)} · USD {money(terms.freightUsdAmount)}</p>
+      <p>Booked delivery work:</p><ul>{accepted.option.deliveries.map((delivery: any) => <li key={delivery.workOrderId}><a href={`#make/wo/${delivery.workOrderId}`}>{itemName(larder.state!, delivery.itemId)} · {qty(delivery.quantity)} · {day(delivery.shipDate)}</a></li>)}</ul>
+      {accepted.option.operations.map((operation: any) => <p key={operation.key}>{operation.machine} · {operation.person} · {operation.startsAt} to {operation.endsAt}</p>)}
+      <p>Supply and capacity are committed once. Actual receipt, qualified execution and shipping remain separate recorded actions.</p>
+      <Details label="Accepted supply and capacity" value={accepted} s={larder.state!} />
+      {(order.invoices ?? []).map((invoice: any) => <section key={invoice.id} aria-label="Customer invoice"><h3>{invoice.reference}</h3><p>{invoice.currency} {money(invoice.totalAmount)} · USD {money(invoice.totalUsdAmount)}</p><p>USD {invoice.usdRate} per {invoice.currency} · {invoice.rateReference} · {invoice.paymentTerms}</p><p>Estimated margin: {invoice.currency} {money(invoice.marginAmount)} · USD {money(invoice.marginUsdAmount)}</p><p>{invoice.basis}</p><Details label="Invoice terms" value={invoice} s={larder.state!} /></section>)}
+      {!order.invoices?.length && larder.state!.actor.role === 'owner' && <Form submit="Issue customer invoice" busy={larder.busy} onSubmit={d => larder.run('so.invoice', { orderId: order.id, version: order.version, reason: text(d, 'invoiceReason') })}><Field label="Reason to issue invoice" name="invoiceReason" /></Form>}
+    </section>
   </Card>
 }

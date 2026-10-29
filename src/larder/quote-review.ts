@@ -1,5 +1,6 @@
 // Costed commercial preparation. A review never books capacity, reserves stock,
 // changes issued prices, approves overtime or sends a customer document.
+import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
 import { activeBom } from './bom'
 import { resolvedComponents } from './bom-explosion'
 import { cents, decimal, divide, format, SCALE, times } from './decimal'
@@ -141,7 +142,7 @@ function alternatives(c: Context, order: Row, p: any) {
       return refuse('The proposed first delivery does not finish before its remainder; choose a feasible split and remainder date.')
     const estimate = optionEstimate(c, order, p, work, operations, asOf, days)
     if (kind === 'overtime' && !estimate.lines.some(line => line.overtimeMinutes > 0)) return refuse('The declared overtime windows add no used capacity to this option.')
-    return { id, kind, name, shipDate, plannedStart: legs[0]!.plannedStart, feasible: true, operations, material, deliveries, overtime, estimate, work: work.map(w => ({ itemId: w.itemId, quantity: w.quantity })),
+    return { id, kind, name, shipDate, plannedStart: legs[0]!.plannedStart, feasible: true, operations, material, deliveries, overtime, estimate, work: structuredClone(work),
       basis: 'Indicative shared material and finite machine and active qualified-person calendars. No stock, supplier, capacity or shipment is booked. Future receipt, quality and execution remain conditions. Overtime windows are assumptions only and grant no authority.' }
   }
   const full = (plannedStart: string) => order.lines.map((line: any) => ({ line, quantity: line.quantity, leg: 'full', plannedStart }))
@@ -228,5 +229,6 @@ export function quoteReview(c: Context, type: string, p: any): Row | undefined {
     const margin = cost === null ? null : usdAmount - cost
     Object.assign(option, { totalUsdAmount: cents(usdAmount), marginUsdAmount: margin === null ? null : cents(margin), marginAmount: margin === null ? null : cents(centRatio(margin * SCALE, rate)), marginPercent: margin === null || usdAmount === 0n ? null : format(divide(times(margin, decimal('100')), usdAmount)) })
   }
+  for (const option of dates.options) option.digest = sha256(canonicalJson(option))
   return bump(order, { quoteReviewHistory: history, quoteReview: { preparedBy: c.actor.id, preparedAt: c.now, inputVersion: c.s.version + 1, status: 'preparation', currency, usdRate: format(rate), rateDate, rateReference, validUntil, paymentTerms: text(p.paymentTerms, 'payment terms', 1000), note: optionalText(p.note, 'quote assumptions', 1000), discountPercent: format(discount), freightAmount: cents(freight), freightUsdAmount: cents(extension(freight, rate)), lines, totalAmount: cents(amount), totalUsdAmount: cents(usdAmount), estimate, marginUsdAmount: marginAmount === null ? null : cents(marginAmount), marginAmount: marginAmount === null ? null : cents(centRatio(marginAmount * SCALE, rate)), marginPercent: marginAmount === null || usdAmount === 0n ? null : format(divide(times(marginAmount, decimal('100')), usdAmount)), ...dates, rounding: 'Exact six-place quantity times price rounded directly half away from zero to a cent per line; discount rounded per line; converted net lines and freight rounded separately; totals sum those cents. USD per one customer currency unit. No tax is estimated.', semantics: 'Preparation only; confirmation is refused while this review exists. No acceptance, booking, overtime authorization, invoice or outbound action. Discarding a review restores the ordinary USD quote, without applying these reviewed terms.' } })
 }

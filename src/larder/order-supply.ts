@@ -1,3 +1,4 @@
+import { quotePurchaseShares } from './quote-supply'
 import { purchaseDate } from './supplier-terms'
 import { decimal, format, max, min } from './decimal'
 import { usableOnHand } from './stock'
@@ -19,6 +20,11 @@ export function supplyAllocator(s: State, on = new Date().toISOString().slice(0,
       left: max(0n, decimal(l.quantity) - decimal(l.received)) })
   for (const w of s.workOrders) if (w.status === 'released') pools.push({ itemId: w.itemId, kind: 'work', documentId: w.id, reference: w.reference,
     date: w.expectedOn ?? w.requiredBy, left: max(0n, decimal(w.quantity) - decimal(w.output) - decimal(w.scrap)) })
+  const booked = quotePurchaseShares(s)
+  for (const share of booked) {
+    let left = share.left
+    for (const pool of pools) if (pool.kind === 'purchase' && pool.documentId === share.documentId && pool.itemId === share.itemId) { const take = min(left, pool.left); pool.left -= take; left -= take }
+  }
   pools.sort((a, b) => Number(a.kind !== 'stock') - Number(b.kind !== 'stock') || a.date.localeCompare(b.date) || a.reference.localeCompare(b.reference) || a.documentId.localeCompare(b.documentId))
   const reservations = s.reservations.map(r => ({ ...r, left: r.quantity }))
   return (itemId: string, required: bigint, demandId: string, lineId: string, reference: string): StatusLine => {
@@ -27,6 +33,13 @@ export function supplyAllocator(s: State, on = new Date().toISOString().slice(0,
     for (const r of reservations) if (r.demandId === demandId && r.lineId === lineId && r.itemId === itemId && left > 0n) {
       const q = min(left, r.left); r.left -= q; left -= q; physical += q
       if (q > 0n) supplies.push({ kind: 'reservation', documentId: demandId, reference, date: '', quantity: format(q) })
+    }
+    for (const share of booked) if (share.workOrderId === demandId && share.lineId === lineId && share.itemId === itemId && left > 0n) {
+      const po = s.purchaseOrders.find(po => po.id === share.documentId && ['approved', 'confirmed', 'part received'].includes(po.status))
+      const line = po?.lines.find((line: any) => line.itemId === itemId)
+      if (!line) continue
+      const q = min(left, share.left); share.left -= q; left -= q
+      if (q > 0n) supplies.push({ kind: 'purchase', documentId: po!.id, reference: po!.reference, date: purchaseDate(po!, line), quantity: format(q) })
     }
     for (const pool of pools) if (pool.itemId === itemId && pool.documentId !== demandId && left > 0n) {
       const q = min(left, pool.left); pool.left -= q; left -= q
