@@ -9,9 +9,10 @@ import { scopeOf } from '../scope'
 import { refuseHidden, visibleState } from '../scope-view'
 import { balance, averageCost, move, withdraw } from '../stock'
 import { production } from '../production'
-import { requiredTypes } from '../certificate-policy'
+import { approvedCertificates, requiredTypes } from '../certificate-policy'
+import { assertLotNotHeld } from '../quality'
 import { lotBlock } from '../lot-dates'
-import { workHolds, plansFor, openHolds } from '../quality-holds'
+import { workHolds, plansFor, receiptInspections } from '../quality-holds'
 import { workRecalls } from '../recall-policy'
 import { nestingCapacity } from './nesting-capacity'
 
@@ -39,6 +40,11 @@ function member(c: Context, input: any, materialItemId: string) {
     locationIds: [...new Set(c.s.reservations.filter(r => r.demandId === w.id).map(r => r.locationId))] }
 }
 const compatible = (m: any) => canonicalJson({ center: m.operation.workCentre, eligible: m.operation.eligibleCentres ?? [], family: m.operation.setupFamily ?? '', tools: m.operation.requiredTools ?? [], skills: m.operation.requiredSkills ?? [], choice: m.scheduleChoices[m.sequence] ?? '' })
+function sourceEvidence(c: Context, lot: Row) {
+  if (lot.ownerId || lotBlock(lot, c.now.slice(0, 10)) || lot.status !== 'released') fail('QUALITY_HOLD', 'Choose a released, owned, current material lot.')
+  assertLotNotHeld(c.s, lot.id, 'used for nesting')
+  return { certificates: approvedCertificates(c.s, lot.itemId, lot.id, c.now.slice(0, 10)), inspections: receiptInspections(c.s, lot) }
+}
 function currentMembers(c: Context, group: Row) {
   return group.members.map((m: any) => {
     const now = member(c, { workOrderId: m.workOrderId, version: m.version, sequence: m.sequence }, group.materialItemId)
@@ -73,7 +79,8 @@ export function nesting(c: Context, type: string, p: any): Row | undefined {
     currentMembers(c, group)
     const reason = text(p.reason, 'nesting approval reason'), r = group.review, source = r.source
     const lot = get(c.s, 'lots', source.lotId)
-    if (lotBlock(lot, c.now.slice(0, 10)) || lot.status !== 'released' || lot.ownerId) fail('QUALITY_HOLD', 'The reviewed source is no longer released, owned and current.')
+    const evidence = sourceEvidence(c, lot)
+    if (canonicalJson(evidence) !== canonicalJson(source.evidence)) fail('STALE', 'The source evidence changed; review a fresh group.')
     if (averageCost(c.s, source.itemId) !== decimal(source.unitCost)) fail('STALE', 'The source valuation changed; review a fresh group.')
     const beforeMovement = c.s.movements.length
     for (const allocation of r.jobs) {
@@ -85,12 +92,13 @@ export function nesting(c: Context, type: string, p: any): Row | undefined {
       if (c.s.lots.some(l => l.itemId === source.itemId && l.code === r.offcut.code)) fail('DUPLICATE_LOT', 'Choose a new offcut lot code.')
       const q = decimal(r.offcut.quantity)
       const out = withdraw(c, { itemId: source.itemId, locationId: source.locationId, lotId: source.lotId, quantity: -q, status: 'available', kind: 'transfer', documentKind: 'workGroups', documentId: group.id, reason })[0]
-      // Recovery keeps the source dates and disposition. It grants no shelf
-      // life extension, quality release, new value or supplier certification.
-      const recovered = row(c, 'lots', { itemId: source.itemId, code: r.offcut.code, supplierId: lot.supplierId, source: 'nesting', documentId: group.id, parentLotId: lot.id, status: 'released', ...(lot.dates ? { dates: structuredClone(lot.dates) } : {}),
+      // Recovery preserves dates and value, but controlled stock needs its own
+      // lot evidence and a separate release. Source approval is never copied.
+      const controlled = requiredTypes(c.s, source.itemId).length > 0 || plansFor(c.s, 'receipt', source.itemId, null).some(p => p.required)
+      const recovered = row(c, 'lots', { itemId: source.itemId, code: r.offcut.code, supplierId: lot.supplierId, source: 'nesting', documentId: group.id, parentLotId: lot.id, recoveryControlled: controlled, status: controlled ? 'quarantined' : 'released', ...(lot.dates ? { dates: structuredClone(lot.dates) } : {}),
         manufacturedOn: lot.manufacturedOn, expiresOn: lot.expiresOn, retestOn: lot.retestOn, supplierShelfLifeDays: lot.supplierShelfLifeDays, storage: lot.storage })
       offcutLotId = recovered.id
-      move(c, { itemId: source.itemId, locationId: r.offcut.locationId, lotId: recovered.id, quantity: q, unitCost: out.unitCost, status: 'available', kind: 'nesting-offcut', documentKind: 'workGroups', documentId: group.id, reason })
+      move(c, { itemId: source.itemId, locationId: r.offcut.locationId, lotId: recovered.id, quantity: q, unitCost: out.unitCost, status: controlled ? 'quarantine' : 'available', kind: 'nesting-offcut', documentKind: 'workGroups', documentId: group.id, reason })
     }
     const movements = c.s.movements.slice(beforeMovement)
     for (const allocation of r.jobs) {
@@ -114,8 +122,7 @@ export function nesting(c: Context, type: string, p: any): Row | undefined {
   const material = get(c.s, 'items', source.itemId), location = get(c.s, 'locations', source.locationId), lot = get(c.s, 'lots', source.lotId)
   if (lot.itemId !== material.id) fail('INCOMPATIBLE', 'The source lot must belong to the group material.')
   if (material.tracking === 'serial') fail('TRACKING_NOT_READY', 'Serial execution is not available through nesting.')
-  if (requiredTypes(c.s, material.id).length || plansFor(c.s, 'receipt', material.id, null).some(plan => plan.required)) fail('QUALITY_HOLD', 'Nesting recovery for certificate-controlled or inspection-required material needs its own disposition flow; use the existing quality doors.')
-  if (lot.ownerId || openHolds(c.s, lot.id).length || lotBlock(lot, c.now.slice(0, 10)) || lot.status !== 'released') fail('QUALITY_HOLD', 'Choose a released, owned, current material lot.')
+  const evidence = sourceEvidence(c, lot)
   const gross = decimal(source.quantity, 'source quantity', { positive: true }), offcut = decimal(report.offcut?.quantity ?? '0', 'offcut quantity')
   if (gross > balance(c.s, material.id, location.id, 'available', lot.id)) fail('INSUFFICIENT_STOCK', 'The source lot does not cover the reported sheet quantity.')
   if (offcut >= gross) fail('ALLOCATION', 'Recoverable offcut must be less than the input quantity.')
@@ -143,7 +150,7 @@ export function nesting(c: Context, type: string, p: any): Row | undefined {
   for (const byte of new TextEncoder().encode(p.file.content)) binary += String.fromCharCode(byte)
   const original = attach(c, { name, contentType: ['text', 'plain'].join('/'), base64: btoa(binary) })
   return bump(group, { status: 'review', importedBy: c.actor.id, importedAt: c.now, original, inputDigest: sha256(canonicalJson({ members, source, day: c.now.slice(0, 10), version: c.s.version })),
-    review: { source: { itemId: material.id, locationId: location.id, lotId: lot.id, quantity: format(gross), unitCost: format(unitCost), materialCost: format(grossCost) }, jobs, offcut: offcutRecord,
+    review: { source: { itemId: material.id, locationId: location.id, lotId: lot.id, quantity: format(gross), unitCost: format(unitCost), materialCost: format(grossCost), evidence }, jobs, offcut: offcutRecord,
       materialYield: format(divide(good, gross)), scrapQuantity: format(consumed - good), materialCost: format(consumedCost), sharedSetupMinutes: format(setupMinutes),
       ...(capacity ? { capacity } : {}), baselineSetupMinutes: format(members.reduce((n: bigint, m: any) => n + decimal(String(m.operation.setupMinutes ?? 0)), 0n)), approvalEnabled: true }, snapshotVersion: c.s.version, day: c.now.slice(0, 10) })
 }

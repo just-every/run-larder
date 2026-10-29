@@ -8,12 +8,12 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 84 | 27 | 39 | 150 |
+| Core | 86 | 26 | 39 | 151 |
 | Agent surface | 0 | 13 | 0 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 84 | 40 | 39 | 163 |
+| Full target | 86 | 39 | 39 | 164 |
 
-Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb99` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
+Judged from the code and tests at commit `3de37ee6da8ff1f5034c3186076bc0d0999e8676` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
 ## Core
 
@@ -234,8 +234,8 @@ Core · published · **partial** · Cites BASE-INPUT-002, BASE-ROLE-001, BASE-AG
 1. Prepare each of the five proposal kinds; inspect incomplete or stale refusal, exact decisions and the documented independent native-person decision flow.
 2. Under the held company policy, approve or decline the consequential calls; under the all-autonomous company policy, complete the same permitted jobs without waiting for a person.
 
-**Evidence.** `tests/api/authority.test.mjs` — “LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve”
-**Gap.** The cited native proposal journey prepares and independently approves exact intake, replenishment, merge, reschedule and reconciliation records. Missing: corresponding server-computed risk classes and company-policy decisions through the agent door, including execution under an all-autonomous company policy.
+**Evidence.** `tests/api/authority.test.mjs` — “LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve”; `tests/api/backup.test.mjs` — “LARDER-020 an installation backup restores into a reset installation”
+**Gap.** Native preparation and independent person decisions retain server-computed action classes, exact consequence facts, reviewed inputs and genuine decision actors for all five kinds; stale or forged decisions refuse without business effects, replay is once-only, current scopes redact snapshots and restore is inert. Missing: configurable company-policy decisions through the agent door, all-autonomous consequential agent execution and shared MCP conformance.
 
 #### LARDER-016 — Odoo kit
 
@@ -504,6 +504,22 @@ Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6
 **Evidence.** None.
 **Gap.** The common wholesale/Shopify/Amazon fulfillment list, channel identity, channel import and connected shipment journeys are not implemented.
 
+#### DEMAND-009 — Foreign-currency allocation to the cent: handoff, margin and invoiced amounts agree exactly across partial shipments, reversals, reshipments and partial-return corrections
+
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+
+**Requirement.** Foreign-currency sales retain their recorded exchange rate and allocate cents consistently through shipment, correction, margin reporting and invoicing. This clause is split from DEMAND-001 by ct NEW, 29 October 2026 at 07:20 UTC; DEMAND-001 keeps its existing scope.
+
+**Acceptance.**
+1. Accept and ship 20,000 units at CAD 0.99 with rate 0.723456; USD handoff, margin revenue and invoice amounts are all exactly 14,324.43.
+2. Shipping two halves gives the same totals as shipping once.
+3. Reversing the first half and reshipping gives the same totals.
+4. Partial-return corrections allocate cents so that handoff, margin revenue and invoiced amounts still agree exactly.
+5. One public-door journey runs the 20,000-unit CAD 0.99 and 0.723456 probe with split shipment, reversal and reshipment end to end.
+
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile”, including `tests/api/foreign-currency-journey.mjs` — “foreignCurrencyJourney” (acceptance 1–5: full and split shipment, reversal, reshipment, partial returns and exact shared USD cents, immutable invoices, unsafe refusal, live authority and inert restore); `tests/browser/order-amendments.spec.ts` — “Costed quote review shows reconciled CAD terms and USD estimates at desktop and phone widths without accepting a commitment”, extended with the accepted customer-currency public-door probe and native readback (acceptance 1–5)
+**Gap.** None.
+
 ### Material planning
 
 #### MRP-001 — Time-phased demand netting
@@ -684,15 +700,15 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-AGENT-006, BASE-AGENT-00
 
 #### CAP-008 — Grouped jobs and nesting
 
-Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Planners group compatible operations or batches and import nesting results with material yield, offcuts, setup sharing and per-job quantity and cost allocation. Groups retain each customer and job identity, required revision and due date. The native decision follows RL-7. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-008) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Group three sheet-metal jobs, import a nesting output, approve consumption and recoverable offcuts; trace each output and allocated cost to its original job.
 
-**Evidence.** `tests/api/flows.test.mjs`; `tests/browser/work-transfers.spec.ts`
-**Gap.** Pending unissued released jobs and one owned source material lot are supported through the command API. Shared setup observations now support an optional isolated single-operation finite comparison with one shared setup, original-job links, displacement and explicit infeasibility. It does not book capacity. Combined finite setup booking, broader batch stages and quality-controlled source recovery remain. Grouping, original-file import, exact allocation review, owner approval and cancellation now have work-order page controls. Recovered offcuts retain the source lot dates, including expiry and retest, through archive restore; the owner-approved nesting HTTP journey asserts the actual nested dates. Owner-only exact audited physical nesting approval is approved by ct; changed nests need fresh approval, with no shared setup-booking authority. Combined finite setup booking and the remaining batch and quality behavior are unproved.
+**Evidence.** `tests/api/flows.test.mjs` — “CAP-008 owner-approved nesting consumes once, recovers a traced offcut and attributes each original output cost”; `tests/api/flows.test.mjs` — “CAP-008 controlled source recovery requires current evidence, quarantines independent offcuts and preserves exact genealogy through reuse, restart and inert restore”; `tests/browser/work-transfers.spec.ts` — “CAP-008 grouped nesting preserves three customer jobs and their allocated material costs at both widths”; `tests/browser/quality.spec.ts` — “CAP-008 controlled nesting offcuts require their own certificate, inspection and evidenced stock release before reuse”; `tests/api/flows.test.mjs` — “CAP-008 nesting preparation obeys live roles, location scope and cost restrictions including replay”
+**Gap.** None.
 
 #### CAP-009 — Maintenance and downtime planning
 

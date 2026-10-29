@@ -110,7 +110,7 @@ and the usual audit entries.
 | `receipt.create` | `{poId, supplierReference, documents?: [{name, contentType, base64}], lines: [{lineId, quantity, unit?, locationId, lot?, serials?, dates?, inspection?: accept\|quarantine, damage?: {quantity, reason}}]}` — `quantity` is what arrived; `damage.quantity` of it is received into quarantine as its own `<lot>-DAMAGED` lot with the reason; supplier documents are kept on the receipt; a PO line's `tolerancePercent` (0–20, set on `po.draft` lines, default 0) lets a delivery exceed the ordered quantity by that share | manager, warehouse |
 | `receipt.allocate` | `{receiptId, version, asOf, reason}` from a current `GET /planning/pegging?kind=receipt&id=<receiptId>` — reserves the receipt's accepted, unreserved stock for the sales lines and released-job components the dated plan pegs it to, in the plan's date order; demand reached only through a make path is skipped and listed; the record lists `allocated` and `skipped`; a stale version or UTC day answers `STALE` | manager, warehouse (never an agent) |
 | `receipt.allocate.job` | `{receiptId, workOrderId, version, itemId, quantity, unit?, reason, takeFrom?: [{demandId, lineId, locationId, quantity}]}` — reserves the receipt's accepted, unreserved stock of a component to a released job that makes the product, by hand and never automatically; a draft, closed, cancelled or quality-held job answers `STATE`/`QUALITY_HOLD`, quarantined, damaged and rejected stock is never counted (`INSUFFICIENT_STOCK`); `takeFrom` takes stock reserved to another demand and needs a manager or the owner; the `receipt-allocation` approval record names the receipt, job, reservation, quantity, role and anything taken, and closing the job returns the reservation; no signatures | manager, warehouse (never an agent); `takeFrom`: manager |
-| `quarantine.decide` | `{itemId, locationId, lotId?, quantity, decision: release\|reject, reason}` | manager, warehouse |
+| `quarantine.decide` | `{itemId, locationId, lotId?, quantity, decision: release\|reject, reason, evidence?}` — recovered nesting lots require their own current certificates, passing applicable receipt inspections and an original release evidence file | manager, warehouse |
 | `lot.dispose` | `{lotId, version, decision: extend\|scrap, expiresOn?, retestOn?, locationId?, reason, evidence: [{name, contentType, base64}]}` — documented disposition of an expired or retest-due lot | manager (never an agent) |
 | `wo.draft` | `{itemId, quantity, requiredBy, reason, priority?, plannedStart?}` | manager, production, planner, agent |
 | `wo.release` | `{workOrderId, version}` | manager, production |
@@ -157,6 +157,32 @@ The agent prepares; nothing changes until a person approves the exact version.
 | `item-merge` | `{duplicateItemId, keepItemId}` | manager | re-points codes, quotes and draft purchases, revises active BOMs, moves stock by compensating movements and archives the duplicate; refused while open orders or reservations use it. |
 | `reschedule` | `{changes: [{workOrderId, priority, plannedStart}], conflicts?}` | production, planner, manager | updates priorities and planned starts; a changed work order makes it stale. |
 | `reconciliation` | `{handoffId, entries: [{lineId, ledgerId, amount}]}` | accounts, manager | records the acknowledgements. |
+
+Each proposal includes server-computed `classification`: `preparationClasses`
+is `["standard"]`; `classes` describes the proposed approved action.
+`facts` names its exact consequence, normalized quantities and USD exposure.
+Intake creates only a quote draft. Replenishment creates approved purchase orders
+and carries `money` and `commitment`, with no payment, supplier delivery or
+provider acceptance claim. Compensating item merges, internal work rescheduling
+and local handoff acknowledgments are `standard`; they do not assert destruction,
+customer promises, outside delivery or ledger posting.
+
+`inputs`, `inputsDigest` and `proposalVersion` retain the reviewed plan,
+evidence, source versions and computed business facts. The final native person
+decision recomputes them before applying any effect. Changed facts, even when
+the nominal classes stay the same, require a fresh proposal. Old unclassified
+proposals also require fresh preparation. Submitted classification, decision or
+actor fields are refused; these values cannot grant authority.
+
+The returned proposal and linked approval retain `decision` and
+`recordedDecision` respectively: the actual person's ID, current role, command,
+time, reviewed version, input digest and classification. A rejection records
+`standard` and no business action while retaining the proposed action classes.
+Current location and cost restrictions also cover these snapshots and replayed
+outcomes. Business backups preserve the original attribution and classifications
+without executing proposals or restoring old sessions. Native independent-person
+approval remains required; configurable agent execution under company policy,
+all-autonomous consequential execution and shared MCP conformance remain open.
 
 ## BOM CSV revisions (ENG-004)
 
@@ -1144,3 +1170,38 @@ Derived balances that include locations outside a member's reach read
 Rules, transfers, custody entries and original evidence travel in the complete
 JSON and CSV business archive. Restore retains them as records, never repeating
 a dispatch, receipt, movement or external action.
+
+## Exact customer-currency shipment money (DEMAND-009)
+
+`so.quote` accepts `currency: CAD`, `usdRate`, `rateDate` and `rateReference` with
+its ordinary line quantities and customer-currency unit prices. The positive
+rate is USD per CAD; its date must be a real calendar day no later than the
+recording day. `so.confirm` accepts these explicitly entered terms with the
+existing role, stock and USD margin-floor gates. This does not accept a costed
+review or book any of that review's indicative capacity options.
+
+New shipment snapshots retain the exact customer price, currency and rate.
+Amounts use integer products of quantity, price and rate, rounding half away
+from zero directly to cents. A posting takes the difference between rounded
+cumulative money and previously assigned cents for the same order line and
+issued terms. A reversal negates its original assigned cents; the next new
+posting takes any residual. Returns follow their exact shipment sources. No
+rounded USD unit price is multiplied back into a shipment total. Foreign-currency
+handoff CSV rows leave `unit_amount` empty and retain `customer_unit_amount`,
+`customer_amount`, `customer_currency` and `usd_per_customer_unit` alongside the
+authoritative USD `amount`.
+
+`so.invoice` takes only `{orderId, version}`. An unscoped owner, manager or
+accounts person records all uninvoiced posted shipment movements and their
+corrections as an immutable local invoice in the order's `invoices` history.
+An unshipped order, a stale version, a second invoice of the same sources or
+caller-supplied amounts is refused. Ordinary command replay returns the same
+invoice, subject to current financial authority and scope. These records send
+nothing and do not establish provider acceptance, settlement or tax compliance;
+connected invoicing and payments remain DEMAND-007's separate obligations.
+
+Handoff USD amounts, recognized margin revenue and local invoices use the same
+movement allocations. State exposes `salesMoney` for CAD orders with customer
+and USD quoted, net shipped and invoiced totals. Native order amounts label
+both currencies; exports preserve the customer-currency declaration, recorded
+rate, source movements and local invoices. Restoring those records is inert.

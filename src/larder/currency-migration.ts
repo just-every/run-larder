@@ -30,7 +30,7 @@ export async function readArchiveRequest(request: Request) {
   try { return JSON.parse(raw) } catch { return fail('ARCHIVE', 'The file is not valid archive JSON.') }
 }
 export function currencyDeclarations(records: Record<string, any[]>, currency = 'USD') {
-  return { version: 1, records: Object.fromEntries(Object.entries(records).map(([kind, rows]) => [kind, rows.map(r => ({ id: r.id, currency: kind === 'sourceHistory' ? r.currency : currency }))])), movements: currency }
+  return { version: 1, records: Object.fromEntries(Object.entries(records).map(([kind, rows]) => [kind, rows.map(r => ({ id: r.id, currency: kind === 'sourceHistory' ? r.currency : currency, ...(kind === 'salesOrders' && r.currency === 'CAD' && r.functionalCurrency === 'USD' ? { customerCurrency: r.currency, usdRate: r.usdRate } : {}) }))])), movements: currency }
 }
 function stockValue(movements: any[]) {
   return movements.reduce((n, m) => n + times(BigInt(m.quantity), BigInt(m.unitCost)), 0n)

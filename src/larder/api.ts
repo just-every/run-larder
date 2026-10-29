@@ -151,8 +151,9 @@ export async function executeCommand(env: Bindings, actor: Actor, body: any, aut
   }
   if (type.startsWith('variance.') && actor.role !== 'owner') forbidden('Only the owner may review model evidence or authorize a run.')
   if (type === 'business.save' && actor.role !== 'owner') forbidden('Only the owner configures the business identity.')
+  if (type === 'so.invoice' && !['owner', 'manager', 'accounts'].includes(actor.role)) forbidden('Only accounts or managers may record a local invoice.')
   gateCommand(actor, type, payload)
-  if (['so.review', 'so.reviewClear'].includes(type) && isScoped(actor)) forbidden('Costed quote preparation requires unrestricted commercial and location access.')
+  if (['so.review', 'so.reviewClear', 'so.invoice'].includes(type) && isScoped(actor)) forbidden('Costed quote preparation requires unrestricted commercial and location access.')
   if ((type.startsWith('costing.') || type.startsWith('reports.')) && !costingReaders.includes(actor.role)) forbidden('Only accounts or managers may use costing.')
   if (blindSessions(await load(env.DB), actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
   if (type === 'count.schedule') {
@@ -206,7 +207,7 @@ export async function executeCommand(env: Bindings, actor: Actor, body: any, aut
     const before = await load(env.DB), s = structuredClone(before)
     if (['erasure.contact', 'erasure.operator'].includes(type)) erasure = await contactOutcomes(env.DB, await erasurePlan(env.DB, before, actor, payload))
     if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
-    const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], reportAuthority, automaticReport, ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type === 'so.review' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
+    const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], reportAuthority, automaticReport, ...((type === 'proposal.prepare' || type === 'proposal.approve' || type === 'proposal.reject' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type === 'so.review' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
     if (erasure) c.erasure = erasure
     enforcePayload(c, payload)
     if (type === 'import.undo') enforceRetention(before, s, payload.importId)

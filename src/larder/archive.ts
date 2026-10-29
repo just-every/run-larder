@@ -1,6 +1,7 @@
 // The complete business archive and its restore into an empty installation.
 // Restore is one atomic write that also proves every stock position equals the
 // archived reconciliation; a mismatch writes nothing.
+import { saleCurrency } from './sales-money'
 import type { Bindings } from '../auth.server'
 import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
 import { Problem, fail, forbidden } from './problem'
@@ -16,6 +17,9 @@ const FORMAT = 'larder-archive-v1'
 const functionalMoney = ['businessProfiles', 'items', 'salesOrders', 'purchaseOrders', 'workOrders', 'laborRates', 'jobCharges', 'costLinks', 'costValuations', 'marginCharges', 'handoffs'] as const
 function checkFunctionalMoney(records: Partial<Record<(typeof functionalMoney)[number], any[]>>) {
   for (const kind of functionalMoney) for (const record of records[kind] ?? []) {
+    // A customer sale declares its native price separately from USD costs.
+    // This explicit recorded-rate shape is not a migration of legacy amounts.
+    if (kind === 'salesOrders' && record.currency === 'CAD' && record.functionalCurrency === 'USD') { saleCurrency(record); continue }
     if ((record.currency !== undefined && record.currency !== 'USD') || (record.functionalCurrency !== undefined && record.functionalCurrency !== 'USD')) fail('CURRENCY_MIGRATION', 'A native monetary record conflicts with the declared USD functional currency. Supply a versioned recorded-rate migration; original amounts cannot be relabelled.')
   }
 }
