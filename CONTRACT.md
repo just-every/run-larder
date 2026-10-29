@@ -1953,7 +1953,7 @@ Actual vendor, physical-device and human-review receipts are field proof. Standa
 
 ## Status
 
-Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb99` (29 October 2026).
+Judged from the code and tests at commit `3c55dbd74d5afa62377ee9983c69cdf88210b6f2` (29 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |

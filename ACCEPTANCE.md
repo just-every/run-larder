@@ -13,7 +13,7 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 | Later | 0 | 0 | 0 | 0 |
 | Full target | 86 | 24 | 53 | 163 |
 
-Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb99` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
+Judged from the code and tests at commit `3c55dbd74d5afa62377ee9983c69cdf88210b6f2` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
 ## Core
 
