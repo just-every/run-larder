@@ -1966,13 +1966,13 @@ Actual vendor, physical-device and human-review receipts are field proof. Standa
 
 ## Status
 
-Judged from the code and tests at commit `a91338dcf04ddad9a06387fb72c77ba6fa74b097` (29 October 2026; DEMAND-009 implementation and local public-door proof, with the status recorded by the following candidate commit).
+Judged from the code and tests at commit `a91338dcf04ddad9a06387fb72c77ba6fa74b097` (29 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 18 | 1 | 0 | 19 |
-| Target and push further | 67 | 24 | 54 | 145 |
-| All | 85 | 25 | 54 | 164 |
+| Target and push further | 68 | 24 | 53 | 145 |
+| All | 86 | 25 | 53 | 164 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |

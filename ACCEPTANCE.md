@@ -8,12 +8,12 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 85 | 25 | 41 | 151 |
+| Core | 86 | 25 | 40 | 151 |
 | Agent surface | 0 | 0 | 13 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 85 | 25 | 54 | 164 |
+| Full target | 86 | 25 | 53 | 164 |
 
-Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb99` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
+Judged from the code and tests at commit `a91338dcf04ddad9a06387fb72c77ba6fa74b097` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
 ## Core
 
@@ -506,7 +506,7 @@ Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6
 
 #### DEMAND-009 — Foreign-currency allocation to the cent: handoff, margin and invoiced amounts agree exactly across partial shipments, reversals, reshipments and partial-return corrections
 
-Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Foreign-currency sales retain their recorded exchange rate and allocate cents consistently through shipment, correction, margin reporting and invoicing. This clause is split from DEMAND-001 by ct NEW, 29 October 2026 at 07:20 UTC; DEMAND-001 keeps its existing scope.
 
@@ -517,8 +517,8 @@ Core · target · **missing** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6
 4. Partial-return corrections allocate cents so that handoff, margin revenue and invoiced amounts still agree exactly.
 5. One public-door journey runs the 20,000-unit CAD 0.99 and 0.723456 probe with split shipment, reversal and reshipment end to end.
 
-**Evidence.** None.
-**Gap.** Accepted foreign-currency sales and exact shared cent allocations across shipment, reversal, reshipment, partial return, handoff, margin and invoice need implementation and the complete public-door probe.
+**Evidence.** `tests/api/flows.test.mjs` — “LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile”, including `tests/api/foreign-currency-journey.mjs` — “foreignCurrencyJourney” (acceptance 1–5: full and split shipment, reversal, reshipment, partial returns and exact shared USD cents, immutable invoices, unsafe refusal, live authority and inert restore); `tests/browser/order-amendments.spec.ts` — “Costed quote review shows reconciled CAD terms and USD estimates at desktop and phone widths without accepting a commitment”, extended with the accepted customer-currency public-door probe and native readback (acceptance 1–5)
+**Gap.** None.
 
 ### Material planning
 
