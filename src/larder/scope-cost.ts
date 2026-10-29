@@ -7,7 +7,7 @@ export const restricted = 'restricted'
 const moneyTokens = new Set(['cost', 'costs', 'price', 'prices', 'rate', 'rates', 'wage', 'wages', 'burden', 'margin', 'valuation', 'amount', 'amounts', 'cents', 'usd', 'cash', 'value', 'values', 'total', 'totals', 'worth', 'revenue', 'profit', 'discount', 'charge', 'charges', 'expense', 'expenses', 'exposure', 'accrued'])
 // Money a record keeps under a plain word, by the key that holds the record: a service bill's expected accrual and
 // difference, and a service receipt's material and service value.
-const plainMoney: Record<string, string[]> = { bill: ['expected', 'difference'], bills: ['expected', 'difference', 'freight', 'tax'], receipts: ['material', 'service'] }
+const plainMoney: Record<string, string[]> = { classification: ['inputsDigest'], decision: ['inputsDigest'], recordedDecision: ['inputsDigest'], bill: ['expected', 'difference'], bills: ['expected', 'difference', 'freight', 'tax'], receipts: ['material', 'service'] }
 // The values of a cost a sibling names: a change to a cost field, a comparison of a cost metric.
 const namedMoney: [string, string[]][] = [['field', ['before', 'after', 'from', 'to', 'old', 'new']], ['metric', ['source', 'larder', 'difference']]]
 const notMoney = new Set(['yield', 'conversion'])

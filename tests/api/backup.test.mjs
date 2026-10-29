@@ -34,7 +34,34 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
   assert.ok(late, 'Seed an ongoing late-supply exception')
   const note = 'Supplier rang: remaining delivery Friday'
   await h.command('exception.resolve', { key: late.key, note })
-  await h.command('handoff.prepare', { note: 'October' })
+  const handoff = await h.command('handoff.prepare', { note: 'October' })
+  // Retain native computed classes and the actual people who decided them;
+  // restoring this history never manufactures fresh execution authority.
+  const agent = await h.person(['synthetic-larder-960', 'example.test'].join('@'), 'agent')
+  const buyer = await h.person(['synthetic-larder-961', 'example.test'].join('@'), 'buyer')
+  const draftWork = await h.command('wo.draft', { itemId: w.board.id, quantity: '1', requiredBy: '2026-11-05', reason: 'Retained internal scheduling draft' })
+  const duplicate = await h.command('item.save', { sku: 'synthetic-larder-962', name: 'Archived duplicate', baseUnit: 'each' })
+  const plans = [
+    ['order-intake', { customerId: w.customer.id, enquiry: 'Source data only', lines: [{ itemId: w.board.id, quantity: '1', unitPrice: '89' }], promiseDate: '2026-11-05', message: 'Draft reply only' }],
+    ['replenishment', { explanation: 'Reviewed small restock', purchases: [{ supplierId: w.supplier.id, expectedDate: '2026-11-04', lines: [{ itemId: w.timber.id, quantity: '2', unitPrice: '9.5' }] }] }],
+    ['item-merge', { duplicateItemId: duplicate.id, keepItemId: w.timber.id }],
+    ['reschedule', { changes: [{ workOrderId: draftWork.id, priority: 2, plannedStart: '2026-11-03' }], conflicts: [] }],
+    ['reconciliation', { handoffId: handoff.id, entries: handoff.lines.map(l => ({ lineId: l.id, ledgerId: 'synthetic-larder-963', amount: l.amountCents })) }],
+  ]
+  const retainedProposals = []
+  for (const [kind, plan] of plans) {
+    const prepared = await agent.run('proposal.prepare', { kind, plan, summary: 'Retained ' + kind, evidence: ['synthetic-larder-964'] })
+    const person = kind === 'replenishment' ? buyer : null
+    const commandId = 'synthetic-larder-retained-' + retainedProposals.length
+    const payload = { proposalId: prepared.id, version: prepared.version }
+    const type = kind === 'reconciliation' ? 'proposal.reject' : 'proposal.approve'
+    const outcome = await (person ? person.run : h.command)(type, payload, { commandId })
+    assert.deepEqual(outcome.classification, prepared.classification)
+    assert.deepEqual(outcome.decision.classification, prepared.classification)
+    assert.equal(outcome.decision.by, person?.id ?? (await h.state()).actor.id)
+    retainedProposals.push({ prepared, outcome, commandId, type, payload })
+  }
+  const pending = await agent.run('proposal.prepare', { kind: plans[0][0], plan: plans[0][1], summary: 'Retained awaiting review', evidence: ['synthetic-larder-965'] })
   const before = await h.invariant(), archive = await businessArchive(h)
   assert.ok(before.positions.some(p => p.locationId === w.store.id && p.status === 'quarantine' && p.quantity === '1'))
   assert.ok(before.positions.some(p => p.locationId === w.store.id && p.status === 'available' && p.quantity === '2'))
@@ -92,9 +119,28 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
   const { sessionId: oldSession, ...oldIdentity } = oldActor, { sessionId: newSession, ...newIdentity } = newActor
   assert.notEqual(newSession, oldSession, 'Restored owner signs in with fresh authority')
   assert.deepEqual(newIdentity, oldIdentity)
+  assert.equal((await h.request('/api/larder/state', { as: agent.cookie })).status, 401)
+  assert.equal((await h.request('/api/larder/state', { as: buyer.cookie })).status, 401)
+  for (const { prepared, outcome } of retainedProposals) {
+    const retained = after.proposals.find(p => p.id === prepared.id)
+    assert.deepEqual(retained.classification, prepared.classification)
+    assert.deepEqual(retained.decision, outcome.decision)
+    assert.deepEqual(after.approvals.find(a => a.id === outcome.approvalId).recordedDecision, outcome.decision)
+  }
+  const restoredBuy = after.proposals.find(p => p.kind === 'replenishment')
+  assert.deepEqual(restoredBuy.classification.classes, ['money', 'commitment'])
+  assert.equal(restoredBuy.decision.by, buyer.id, 'Restore keeps the genuine buyer, never attributes their decision to the restoring owner')
+  assert.equal(after.proposals.find(p => p.id === pending.id).status, 'awaiting approval')
+  assert.equal(after.proposals.find(p => p.id === pending.id).decision, undefined)
+  assert.equal(after.salesOrders.length, before.salesOrders.length, 'Pending preparation creates no order on restore')
+  const replay = retainedProposals[0], outbound = h.outboundCount()
+  assert.deepEqual(await h.command(replay.type, replay.payload, { commandId: replay.commandId }), replay.outcome)
+  assert.deepEqual(await h.invariant(), after, 'Restored completed decision replays without business effects')
+  assert.equal(h.outboundCount(), outbound)
   // The fixed clock gives every command the same timestamp. History ordering
   // within that timestamp is unspecified; compare every complete command by ID.
-  for (const state of [beforeBusiness, afterBusiness]) state.commands = [...state.commands].sort((a, b) => a.id.localeCompare(b.id))
+  for (const state of [beforeBusiness, afterBusiness])
+    for (const key of ['commands', 'people', 'operators']) state[key] = [...state[key]].sort((a, b) => a.id.localeCompare(b.id))
   assert.deepEqual(afterBusiness, beforeBusiness, 'Every position and retained exception reconciles after command restore')
   assert.equal(after.shipments.find(s => s.id === sh.id).orderId, order.id)
   const shipped = after.movements.find(m => m.documentId === sh.id && m.kind === 'shipment')

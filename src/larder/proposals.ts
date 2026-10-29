@@ -2,13 +2,14 @@
 // with authority approves the exact version, and only then does anything change.
 // Supplied documents such as an emailed enquiry are kept as data, never obeyed.
 import { capacityPreview, approveCapacity } from './scheduling/reschedule'
+import { finitePlan } from './scheduling/finite'
 import { sha256, canonicalJson } from '../modules/import-kit/src/d1/index'
-import { decimal, format, times } from './decimal'
+import { cents, decimal, format, times } from './decimal'
 import { fail, forbidden } from './problem'
 import { allow, approver, type Role } from './roles'
 import { authorize, gate, policyFor } from './approval-policy'
 import { largestJobDelay } from './scheduling/delay'
-import { createQuote } from './sales'
+import { createQuote, quoteLines } from './sales'
 import { draftPurchase } from './purchasing'
 import { shortages } from './planning'
 import { move, positions } from './stock'
@@ -34,9 +35,99 @@ function mergeImpact(s: State, duplicateId: string, keepId: string) {
   }
 }
 
+// Classification is a description of this native action, never an authority
+// grant. Use the same quote and purchase normalization as execution on an
+// isolated state, so units, supplier constraints and exposure cannot diverge.
+const versions = (rows: Row[]) => rows.map(({ id, version }) => ({ id, version }))
+
+function classification(c: Context, proposal: Row) {
+  const { kind, plan, context } = proposal, s = c.s
+  const isolated: Context = { ...c, s: structuredClone(s), attachments: [] }
+  const itemIds: string[] = kind === 'order-intake' ? plan.lines.map((l: any) => l.itemId)
+    : kind === 'replenishment' ? plan.purchases.flatMap((p: any) => p.lines.map((l: any) => l.itemId))
+    : kind === 'item-merge' ? [plan.duplicateItemId, plan.keepItemId] : []
+  const items = [...new Set(itemIds)].map(id => get(s, 'items', id))
+  const facts: Record<string, any> = {
+    cashExposureUsd: '0', externalDelivery: false, providerAcceptance: false,
+    destructive: false, customerCommitment: false,
+  }
+  let business: Record<string, any> = { items }, classes = ['standard']
+  if (kind === 'order-intake') {
+    const missing = plan.lines.filter((l: any) => l.quantity === null).length
+    const lines = missing ? plan.lines : quoteLines(isolated, plan.lines).map(({ id, ...line }) => line)
+    Object.assign(facts, { effect: 'create quote draft', customerId: plan.customerId, promiseDate: plan.promiseDate, missingQuantities: missing, lines,
+      quoteValueUsd: missing ? null : format(lines.reduce((n: bigint, l: any) => n + times(decimal(l.quantity), decimal(l.unitPrice)), 0n)) })
+    business = { items, customer: versions([get(s, 'parties', plan.customerId)])[0],
+      sourceLocations: s.movements.filter(m => itemIds.includes(m.itemId)).map(m => m.locationId) }
+  }
+  if (kind === 'replenishment') {
+    const purchases = plan.purchases.map((p: any) => {
+      const po = draftPurchase(isolated, { ...p, reason: 'Reviewed proposal' }, proposal.preparedBy)
+      return { supplierId: po.supplierId, supplier: po.supplierSnapshot, currency: po.currency, expectedDate: po.expectedDate,
+        requiredBy: po.requiredBy, exposure: po.exposure, lines: po.lines.map(({ id, ...line }: any) => line) }
+    })
+    classes = ['money', 'commitment']
+    Object.assign(facts, { effect: 'create approved purchase orders', purchases,
+      cashExposureUsd: format(purchases.reduce((n: bigint, p: any) => n + decimal(p.exposure), 0n)),
+      supplierCommitment: true, paymentPosted: false,
+      shortages: shortages(s).filter(x => itemIds.includes(x.itemId)) })
+    business = { items, sourceLocations: s.movements.filter(m => itemIds.includes(m.itemId)).map(m => m.locationId), suppliers: versions([...new Set<string>(plan.purchases.map((p: any) => p.supplierId))].map(id => get(s, 'parties', id))),
+      supplierTerms: versions(s.partyItems.filter(r => itemIds.includes(r.itemId) && plan.purchases.some((p: any) => p.supplierId === r.partyId))) }
+  }
+  if (kind === 'item-merge') {
+    const impact = mergeImpact(s, plan.duplicateItemId, plan.keepItemId)
+    Object.assign(facts, { effect: 'archive duplicate with compensating stock movements', duplicateItemId: plan.duplicateItemId,
+      keepItemId: plan.keepItemId, impact, physicalQuantityChange: '0', recordsDeleted: false })
+    business = { items, references: versions(s.partyItems.filter(r => r.itemId === plan.duplicateItemId)),
+      quotes: versions(s.salesOrders.filter(r => r.status === 'quote' && r.lines.some((l: any) => l.itemId === plan.duplicateItemId))),
+      draftPurchases: versions(s.purchaseOrders.filter(r => r.status === 'draft' && r.lines.some((l: any) => l.itemId === plan.duplicateItemId))),
+      boms: versions(s.boms.filter(r => r.status === 'active' && r.components.some((l: any) => l.itemId === plan.duplicateItemId))),
+      stockInputs: s.movements.filter(m => itemIds.includes(m.itemId)).map(m => ({ id: m.id, itemId: m.itemId, locationId: m.locationId, status: m.status, lotId: m.lotId, quantity: format(m.quantity) })),
+      costValuations: versions(s.costValuations.filter(v => v.lines.some((l: any) => itemIds.includes(l.itemId)))) }
+  }
+  if (kind === 'reschedule') {
+    const work = plan.changes.map((ch: any) => get(s, 'workOrders', ch.workOrderId))
+    Object.assign(facts, { effect: 'change internal work sequence', changes: plan.changes.map((ch: any, i: number) => ({
+      workOrderId: ch.workOrderId, before: { priority: work[i].priority, plannedStart: work[i].plannedStart },
+      after: { priority: Number.isSafeInteger(ch.priority) ? ch.priority : work[i].priority, plannedStart: ch.plannedStart,
+        ...(ch.scheduleChoices ? { scheduleChoices: ch.scheduleChoices } : {}) },
+    })), changedPromiseCount: 0, capacity: context.capacity ?? null })
+    business = { work: versions(work) }
+    if (context.capacity) {
+      const preview = context.capacity, clone = structuredClone(s)
+      for (const ch of plan.changes) Object.assign(get(clone, 'workOrders', ch.workOrderId), ch)
+      business.capacityBefore = { ...finitePlan(s, c.people ?? [], preview.asOf, preview.days), version: 0 }
+      business.capacityAfter = { ...finitePlan(clone, c.people ?? [], preview.asOf, preview.days), version: 0 }
+    }
+  }
+  if (kind === 'reconciliation') {
+    const h = get(s, 'handoffs', plan.handoffId)
+    const entries = plan.entries.map((e: any) => {
+      const line = h.lines.find((l: any) => l.id === e.lineId) ?? fail('NOT_FOUND', 'An acknowledged line is not in this batch.')
+      const amount = cents(decimal(String(e.amount ?? ''), 'acknowledged amount', { signed: true }))
+      return { lineId: line.id, ledgerId: text(e.ledgerId, 'ledger reference', 120), amount, expectedAmount: line.amountCents,
+        state: amount === line.amountCents ? 'matched' : 'mismatch' }
+    })
+    Object.assign(facts, { effect: 'record local handoff acknowledgments', handoffId: h.id, entries, ledgerPosting: false })
+    business = { handoff: versions([h])[0] }
+  }
+  const inputs = JSON.parse(JSON.stringify({ kind, plan, context, summary: proposal.summary, assumptions: proposal.assumptions, evidence: proposal.evidence, business }))
+  const computed = JSON.parse(JSON.stringify({ preparationClasses: ['standard'], classes, facts, inputs, proposalVersion: proposal.version }))
+  return { ...computed, inputsDigest: sha256(canonicalJson(computed)) }
+}
+
+function currentClassification(c: Context, proposal: Row) {
+  // Legacy unclassified proposals need a fresh review; archive restoration does
+  // not manufacture risk review or a person's approval.
+  if (!proposal.classification) fail('STALE', 'Prepare a new classified proposal before deciding it.')
+  const computed = classification(c, proposal)
+  if (canonicalJson(computed) !== canonicalJson(proposal.classification)) fail('STALE', 'The reviewed proposal inputs or consequences changed. Prepare a fresh proposal.')
+  return computed
+}
+
 function prepare(c: Context, p: any) {
   const kind = proposalKinds.includes(p.kind) ? p.kind : fail('INPUT', `kind must be one of ${proposalKinds.join(', ')}.`)
-  const plan = p.plan ?? fail('INPUT', 'A proposal needs a plan.')
+  const plan = structuredClone(p.plan ?? fail('INPUT', 'A proposal needs a plan.'))
   const evidence = list<string>(p.evidence, 'evidence', 50).map(e => text(e, 'evidence', 1000))
   let context: Record<string, unknown> = {}
   if (kind === 'order-intake') {
@@ -60,7 +151,13 @@ function prepare(c: Context, p: any) {
     if (plan.capacity || c.s.machineCalendars.length) { const preview = capacityPreview(c, plan); plan.changes = preview.changes; context.capacity = preview }
   }
   if (kind === 'reconciliation') { const h = get(c.s, 'handoffs', plan.handoffId, 'handoff'); list(plan.entries, 'entries', 5000); context = { handoff: h.reference, handoffVersion: h.version } }
-  return row(c, 'proposals', { kind, summary: text(p.summary, 'summary', 400), assumptions: optionalText(p.assumptions, 'assumptions', 4000), evidence, plan, context, status: 'awaiting approval', preparedBy: c.actor.id, preparedRole: c.actor.role, snapshotVersion: c.s.version })
+  const proposal = row(c, 'proposals', { kind, summary: text(p.summary, 'summary', 400), assumptions: optionalText(p.assumptions, 'assumptions', 4000), evidence, plan, context, status: 'awaiting approval', preparedBy: c.actor.id, preparedRole: c.actor.role, snapshotVersion: c.s.version })
+  proposal.classification = classification(c, proposal)
+  if (kind === 'replenishment') {
+    context.cashExposure = proposal.classification.facts.cashExposureUsd
+    proposal.classification = classification(c, proposal)
+  }
+  return proposal
 }
 
 function execute(c: Context, proposal: Row, earlierSignatures: number): unknown {
@@ -116,6 +213,11 @@ function execute(c: Context, proposal: Row, earlierSignatures: number): unknown 
 }
 
 export function proposals(c: Context, type: string, p: any): Row | undefined {
+  if (type.startsWith('proposal.')) {
+    const allowed = type === 'proposal.prepare' ? ['kind', 'summary', 'assumptions', 'evidence', 'plan']
+      : ['proposalId', 'version', 'note', 'override']
+    if (Object.keys(p).some(k => !allowed.includes(k))) fail('INPUT', 'Proposal classes, consequences and decision attribution are computed by the server.')
+  }
   switch (type) {
     case 'proposal.prepare':
       allow(c, ['manager', 'sales', 'planner', 'buyer', 'production', 'warehouse', 'accounts', 'agent'])
@@ -132,11 +234,16 @@ export function proposals(c: Context, type: string, p: any): Row | undefined {
       // GOV-009: a reschedule whose largest per-job delay is at or above the schedule threshold needs the policy signatures.
       const signed = rescheduling ? gate(c, { category: 'schedule', subjectKind: 'proposals', subject: proposal, measure: () => largestJobDelay(proposal.context.capacity?.effects), permitted: approvers.reschedule, preparedBy: proposal.preparedBy, p }) : null
       if (signed && 'pending' in signed) return signed.pending
-      const approval = row(c, 'approvals', { subjectKind: 'proposals', subjectId: proposal.id, subjectVersion: proposal.version, decision, role: c.actor.role, note: optionalText(p.note, 'note', 1000), ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
+      const computed = currentClassification(c, proposal)
+      const recordedDecision = { decision, by: c.actor.id, role: c.actor.role, at: c.now, commandId: c.commandId,
+        proposalVersion: proposal.version, inputsDigest: computed.inputsDigest,
+        actionClasses: computed.classes, classes: decision === 'approved' ? computed.classes : ['standard'],
+        effect: decision === 'approved' ? computed.facts.effect : 'no business action', classification: computed }
+      const approval = row(c, 'approvals', { subjectKind: 'proposals', subjectId: proposal.id, subjectVersion: proposal.version, decision, role: c.actor.role, recordedDecision, note: optionalText(p.note, 'note', 1000), ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
       signed?.consume(approval.id)
       // Each earlier signature was its own command, so the preview's snapshot has moved on by exactly that many versions.
       const result = decision === 'approved' ? execute(c, proposal, signed ? signed.signatureIds.length - 1 : 0) : null
-      return bump(proposal, { status: decision, approvalId: approval.id, decidedBy: c.actor.id, result })
+      return bump(proposal, { status: decision, approvalId: approval.id, decidedBy: c.actor.id, decision: recordedDecision, result })
     }
   }
 }

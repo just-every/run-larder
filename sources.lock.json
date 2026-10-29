@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "b7258567e8adbfd0625ef571467b5b04b4ad67cdf0875fa82a766b8041ea4c40",
+      "sha256": "b3e26f19309112c4a5bdc02266bd6499f29e5ffab87e77a9124502f7c1fd7c4e",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -193,7 +193,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "2bd5b080e79160fe28019aa2f38cdaba2c5f10b211ba97d63930b539347b4407",
+      "sha256": "69344b6e8f2f85d7bb8c5396f8f0c9b7ed7923769902521587a4af5a6e40dcfd",
       "executable": false
     },
     "base-copies.json": {
@@ -205,7 +205,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "c72a51ad9797454aacd1101628f849d61448836117709e05fd04e4f7a767ce00",
+      "sha256": "aeab1f75486977ebab237cfe86c870bfe2c7b9dc72b4d45dbebc88a142dce933",
       "executable": false
     },
     "DEMO.md": {
@@ -1489,7 +1489,7 @@
       "executable": false
     },
     "src/larder/proposals.ts": {
-      "sha256": "6a4f768deeebb2e9d133381740691ce1840a914ded3eb85705f1696525656095",
+      "sha256": "ae0eed1d71ceee812c16008ca780da9eb6eacfe3c2902c206c2f612f18f0e57d",
       "executable": false
     },
     "src/larder/public-api.ts": {
@@ -1629,7 +1629,7 @@
       "executable": false
     },
     "src/larder/scope-cost.ts": {
-      "sha256": "9b743cdf49f2e8e2d97885f4daba7949f7737602a5e731f40b8a3d9521b595de",
+      "sha256": "df6f92660e07bb0f136f84ca3d51b5e8c2c35fab838bed02f052f8f2fa1da4f4",
       "executable": false
     },
     "src/larder/scope-gate.ts": {
@@ -3985,11 +3985,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "87cdfb4b65ad2cd46783f7c327d5421eabd5a364999921c924bd5fe7df61bcbf",
+      "sha256": "ac8092538bc5b3f6f21a819460a7b249b12a4cf3dd425786c2aa51468e09b723",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "e5fcbef940c6f2511136279c95f011af6ab2f2782c4042dcf58d74b13b701d35",
+      "sha256": "bf90f42a78bcc03b807a74ec53ba3e179ba053f367a9b5a79ac9e3c2023e9b9e",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
