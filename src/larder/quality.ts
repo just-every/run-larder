@@ -123,7 +123,7 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
         if (subject.itemId !== plan.itemId || (plan.revision !== null && plan.revision !== output?.bomRevision)) fail('INPUT', 'Use a current inspection plan for this exact batch output.')
       } else if (plan.stage === 'receipt') {
         subjectKind = 'lots'; subject = get(c.s, 'lots', p.lotId, 'lot')
-        if (subject.itemId !== plan.itemId || !['receipt', 'subcontract'].includes(subject.source)) fail('INPUT', 'Inspect a received lot of the plan’s item.')
+        if (subject.itemId !== plan.itemId || !['receipt', 'subcontract', 'nesting'].includes(subject.source)) fail('INPUT', 'Inspect a received or recovered lot of the plan’s item.')
       } else {
         subjectKind = 'workOrders'; subject = get(c.s, 'workOrders', p.workOrderId, 'work order')
         if (subject.itemId !== plan.itemId || !['released', 'closed'].includes(subject.status) || (plan.revision !== null && plan.revision !== subject.bomRevision)) fail('INPUT', 'This plan does not apply to that work order’s item and pinned BOM revision.')
@@ -162,14 +162,14 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
       signed?.consume(hold.id)
       const evidence = files(c, p.evidence, 'release evidence'), released: any[] = []
       for (const x of hold.held) {
-        if (hold.subjectKind === 'reworkOrders') continue // Only the dedicated evidence-backed release can make repair output available.
+        if (hold.subjectKind === 'reworkOrders' || c.s.lots.some(l => l.id === x.lotId && l.source === 'nesting')) continue // Recovery still needs its own evidenced stock release.
         const lot = get(c.s, 'lots', x.lotId, 'lot'), still = balance(c.s, lot.itemId, x.locationId, 'quarantine', lot.id), quantity = still < decimal(x.quantity) ? still : decimal(x.quantity)
         if (quantity <= 0n) continue
         const out = move(c, { itemId: lot.itemId, locationId: x.locationId, status: 'quarantine', lotId: lot.id, quantity: -quantity, kind: 'quality-release', documentKind: 'qualityHolds', documentId: hold.id, reason })
         move(c, { itemId: lot.itemId, locationId: x.locationId, status: 'available', lotId: lot.id, quantity, unitCost: out.unitCost, kind: 'quality-release', documentKind: 'qualityHolds', documentId: hold.id, reason })
         released.push({ lotId: lot.id, locationId: x.locationId, quantity: format(quantity) })
       }
-      for (const x of hold.lots) { const lot = get(c.s, 'lots', x.lotId, 'lot'); if (lot.status === 'quality hold' && !lotHolds(c.s, lot.id).some(h => h.id !== hold.id)) bump(lot, { status: x.priorStatus }) }
+      for (const x of hold.lots) { const lot = get(c.s, 'lots', x.lotId, 'lot'); if (lot.status === 'quality hold' && !lotHolds(c.s, lot.id).some(h => h.id !== hold.id)) bump(lot, { status: lot.source === 'nesting' ? 'quarantined' : x.priorStatus }) }
       return bump(hold, { status: 'released', release: { by: c.actor.id, role: c.actor.role, at: c.now, reason, evidence, retestId: latest!.id, released, ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) } })
     }
   }

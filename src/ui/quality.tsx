@@ -40,8 +40,8 @@ export function QualityPlans({ larder }: { larder: Larder }) {
       {fileInput('Specification or drawing', 'spec')}
     </Form></Card>}
     {receipt.length > 0 && <Card title="Receipt inspections">{receipt.map(p => <section key={p.id} aria-label={`Receipt inspection ${p.name}`}>
-      <InspectForm larder={larder} plan={p} lots={rows(s, 'lots').filter(l => l.itemId === p.itemId && l.source === 'receipt')} />
-      {rows(s, 'lots').filter(l => l.itemId === p.itemId && l.source === 'receipt').map(l => <InspectionResults key={l.id} s={s} subjectId={l.id} title={`Lot ${l.code}`} />)}
+      <InspectForm larder={larder} plan={p} lots={rows(s, 'lots').filter(l => l.itemId === p.itemId && ['receipt', 'subcontract', 'nesting'].includes(l.source))} />
+      {rows(s, 'lots').filter(l => l.itemId === p.itemId && ['receipt', 'subcontract', 'nesting'].includes(l.source)).map(l => <InspectionResults key={l.id} s={s} subjectId={l.id} title={`Lot ${l.code}`} />)}
     </section>)}</Card>}
     {holds.length > 0 && <Card title="Open quality holds">{holds.map(h => <HoldRelease key={h.id} larder={larder} hold={h} />)}</Card>}
   </>
