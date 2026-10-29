@@ -91,7 +91,7 @@ import { orderChanges } from './order-changes'
 import { warehouse } from './warehouse'
 import { Problem, fail, forbidden } from './problem'
 import { roleCommand } from './roles'
-import { effectiveScope, enforcePayload, enforceScope, hiddenLocations, isScoped, names, scopeOf } from './scope'
+import { effectiveScope, enforcePayload, enforceScope, isScoped, names, scopeOf } from './scope'
 import { gateCommand } from './scope-gate'
 import { redactCosts } from './scope-cost'
 import { refuseHidden, scopedRead, scopedState, stubHidden, visibleState } from './scope-view'
@@ -137,6 +137,11 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
   // FLOOR-004 retains its explicit production authoring authority. Operators
   // and other readers never recover a rework rate from a prior command replay.
   const respond = (body: any) => json(scopeOf(actor).costs && body?.result ? { ...body, result: redactCosts(body.result) } : Array.isArray(body?.result?.labor) && !readsWages(actor, body.result) ? { ...body, result: withoutWages(body.result) } : body)
+  const respondSaved = async (outcome: any) => {
+    const scope = scopeOf(actor)
+    if (scope.locations !== null) refuseHidden(outcome, visibleState(await load(env.DB), scope).hidden)
+    return respond(outcome)
+  }
   // Cron identities contain colons, outside the public command alphabet.
   // A client can never reserve or replay a scheduler command identity.
   const { commandId, type, payload = {} } = body ?? {}
@@ -172,11 +177,7 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
   const reportAuthority = type === 'reports.run' ? await liveReportOwner(env.DB, payload.scheduleId, automaticReport) : undefined
   const digest = sha256(canonicalJson({ type, payload }))
   const previous = await saved(env.DB, commandId, digest, actor)
-  if (previous) {
-    // A recorded outcome that names a location the member has since lost stays closed to them.
-    if (scopeOf(actor).locations !== null && names(previous, hiddenLocations(await load(env.DB), scopeOf(actor)))) forbidden('This outcome involves a location outside your location scope.')
-    return respond(previous)
-  }
+  if (previous) return respondSaved(previous)
   let erasure = ['erasure.audit', 'erasure.contact', 'erasure.operator'].includes(type) ? await erasurePlan(env.DB, await load(env.DB), actor, payload) : undefined
   if (type === 'exception.assign' || type === 'exception.escalate') {
     if (!['owner', 'manager'].includes(actor.role)) forbidden('Only an owner or manager assigns or escalates cases.')
@@ -222,7 +223,7 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
     const audit = auditEntries(c, before, type, payload, type.startsWith('import.'))
     if (type === 'import.commit' || type === 'import.undo') {
       await publishImport(env, c, before, type, digest, result!, audit)
-      return respond((await saved(env.DB, commandId, digest, actor)) ?? fail('IMPORT_PUBLICATION', 'The import did not finish. Send the same command again to resume it.'))
+      return respondSaved((await saved(env.DB, commandId, digest, actor)) ?? fail('IMPORT_PUBLICATION', 'The import did not finish. Send the same command again to resume it.'))
     }
     try {
       const recorded = await commit(env.DB, c, before, type, digest, result, audit, erasure)
@@ -232,7 +233,7 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
     }
     catch (error) {
       const replay = await saved(env.DB, commandId, digest, actor)
-      if (replay) return respond(replay)
+      if (replay) return respondSaved(replay)
       if ((await load(env.DB)).version !== before.version && attempt < 7) continue
       // Native membership changes do not bump the domain version. Recompute
       // the event as a review proposal if its delegated authorizer was revoked.
