@@ -123,7 +123,7 @@ export function quality(c: Context, type: string, p: any): Row | undefined {
         if (subject.itemId !== plan.itemId || (plan.revision !== null && plan.revision !== output?.bomRevision)) fail('INPUT', 'Use a current inspection plan for this exact batch output.')
       } else if (plan.stage === 'receipt') {
         subjectKind = 'lots'; subject = get(c.s, 'lots', p.lotId, 'lot')
-        if (subject.itemId !== plan.itemId || !['receipt', 'subcontract', 'nesting'].includes(subject.source)) fail('INPUT', 'Inspect a received or recovered lot of the plan’s item.')
+        if (subject.itemId !== plan.itemId || !['opening', 'receipt', 'subcontract', 'nesting'].includes(subject.source)) fail('INPUT', 'Inspect an opening, received or recovered lot of the plan’s item.')
       } else {
         subjectKind = 'workOrders'; subject = get(c.s, 'workOrders', p.workOrderId, 'work order')
         if (subject.itemId !== plan.itemId || !['released', 'closed'].includes(subject.status) || (plan.revision !== null && plan.revision !== subject.bomRevision)) fail('INPUT', 'This plan does not apply to that work order’s item and pinned BOM revision.')
