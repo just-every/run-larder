@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "80ccdfb6f81878fccf4416c3494756a00c7b8eb1ef888568391df3525d601b17",
+      "sha256": "1fde94f517aeb9e5f6bd5a78febf4129e3279013a7f266f51f64e7523ef11607",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -205,7 +205,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "86cfd08ade8dbea485f76180eea971f6714ff97ea3464040d11c2683c7fa5c4e",
+      "sha256": "a544a16e37efc4ba286df85d85d411672a0ee771f1ef3159c7bff3214ce6e79b",
       "executable": false
     },
     "DEMO.md": {
@@ -1509,7 +1509,7 @@
       "executable": false
     },
     "src/larder/quote-review.ts": {
-      "sha256": "881a5397fc3eed78cd9b025eeec64d3aaa9d382d947ef47885b2dfe2538ed53f",
+      "sha256": "cd2e888c4e647378102552a096ede365192e3aa2d49e3e16b2c0947827f432b7",
       "executable": false
     },
     "src/larder/recall-policy.ts": {
@@ -3789,7 +3789,7 @@
       "executable": false
     },
     "src/ui/quote-review.tsx": {
-      "sha256": "1f140b3bb5fe982eee059907f705154b6049eded9158e772fbcccd5cd25c89fa",
+      "sha256": "66dfa4bc660a34cea7cb8b18f7eb3d5aaaf9bc7891a96b74ea6f1e7c24f25adb",
       "executable": false
     },
     "src/ui/receipt-job-allocation.tsx": {
@@ -4021,7 +4021,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "f95080ff02112293747f327b98d62090b7929b65e7f26b5ba1b55f25f8c3b028",
+      "sha256": "b3044db09bead5dad7f8ed6697981b9bf562966ecd1bb1e4b7b2d4198901b71b",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -4193,7 +4193,7 @@
       "executable": false
     },
     "tests/browser/order-amendments.spec.ts": {
-      "sha256": "c38cb112acebe65884a65148cc6a5c25d8572d984aa69d6fa140f955acb3be9a",
+      "sha256": "24365fe38c743508cd33fbbc3f76c9bf02f7c4246071a044055dbefd7fef5173",
       "executable": false
     },
     "tests/browser/order-status.spec.ts": {

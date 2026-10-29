@@ -408,7 +408,7 @@ Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6
 3. Reconcile quoted line extensions and the order total to the cent using the documented fixed-point rounding rules, including a fractional quantity and price.
 
 **Evidence.** `tests/api/flows.test.mjs`; `tests/browser/order-amendments.spec.ts`
-**Gap.** The cited costed-quote journeys cover configured items, fractional currency arithmetic and reasoned review disposition through the page. Missing: immediate/partial/overtime alternatives with distinct cost, margin and date outcomes; exact acceptance with current material, machine, qualified-person and upstream/quality checks; once-only supply and capacity bookings; customer-currency confirmation/invoice and complete preparation audit/export/restore. Unsupported alternatives remain explicit.
+**Gap.** The cited costed-quote journeys cover fractional customer-currency arithmetic, reasoned review disposition, ordinary made-item full-batch dates, immediate full-delivery refusal and feasibility, shared-supply partial legs, and explicitly assumed overtime with occupied intervals, declared tariffs and distinct costs and margins. Missing: exact authorized acceptance with current material, machine, qualified-person and upstream and quality checks; once-only supply and capacity bookings; customer-currency confirmed orders and invoices; complete preparation audit, protected export and restore proof. Configured and bought alternatives, unproved upstream and quality dependencies, overdue supply and exact dated-lot cases remain explicitly unsupported. Preparation grants no overtime or customer-commitment authority (RL-1).
 
 #### DEMAND-002 — Order changes and cancellations
 

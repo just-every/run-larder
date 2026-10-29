@@ -2126,9 +2126,9 @@ test('Costed quote dates require shared scarce supply and live qualified joint c
   const order = await h.command('so.quote', { customerId: customer.id, promiseDate: '2026-12-01', lines: [{ itemId: made.id, quantity: '2', unitPrice: '100' }] })
   const payload = { orderId: order.id, version: order.version, currency: 'CAD', usdRate: '0.75', rateDate: '2026-11-23', rateReference: 'Recorded treasury rate', validUntil: '2026-12-01', paymentTerms: 'Net 30', laborCostRate: '30', machineCostRate: '10', overheadCostRate: '5', asOf: '2026-11-25T00:00:00.000Z', days: 10, lines: [{ lineId: order.lines[0].id, unitPrice: '100' }] }
   const before = await h.state(), prepared = await h.command('so.review', payload), review = prepared.quoteReview
-  assert.deepEqual(review.options.map(option => option.shipDate), ['2026-11-26', '2026-11-27', '2026-11-28'])
+  assert.deepEqual(review.options.filter(option => option.kind === 'full-batch').map(option => option.shipDate), ['2026-11-26', '2026-11-27', '2026-11-28'])
   assert.deepEqual([review.estimate.lines[0].materialCost, review.estimate.lines[0].laborCost, review.estimate.lines[0].machineCost, review.estimate.lines[0].overheadCost, review.estimate.totalCost, review.totalAmount, review.totalUsdAmount, review.marginUsdAmount], ['20', '60', '20', '10', '110.00', '200.00', '150.00', '40.00'])
-  for (const option of review.options) {
+  for (const option of review.options.filter(option => option.kind === 'full-batch')) {
     assert.equal(option.feasible, true); assert.equal(option.operations.length, 1)
     const operation = option.operations[0]
     assert.deepEqual([operation.machine, operation.operatorId, operation.occupiedMinutes], ['Busy mill', owner.id, 120])
@@ -2150,6 +2150,78 @@ test('Costed quote dates require shared scarce supply and live qualified joint c
   const expiry = await h.command('so.review', { ...payload, version: uncovered.version, asOf: '2026-11-30T00:00:00.000Z', days: 5 })
   assert.deepEqual(expiry.quoteReview.options, [], 'Stock expiring before the proposed ship date cannot support an option')
   assert.ok(expiry.quoteReview.rejected.some(item => /Dated stock/.test(item.reason)))
+
+  // One commercial comparison, through the same HTTP door, carries a scarce
+  // physical pool and its dated replenishment across both partial legs.
+  const j = await installation({ now: '2026-11-23T00:00:00.000Z' }); t.after(() => j.close())
+  const material = await j.command('item.save', { sku: 'synthetic-larder-929-raw', name: 'Limited blanks', kind: 'buy', baseUnit: 'each', standardCost: '10' })
+  const product = await j.command('item.save', { sku: 'synthetic-larder-929-made', name: 'Quoted assembly', kind: 'make', baseUnit: 'each' })
+  const client = await j.command('party.save', { name: 'Canadian wholesale comparison', kind: 'customer' }), vendor = await j.command('party.save', { name: 'Blank supplier', kind: 'supplier' })
+  const rack = await j.command('location.save', { name: 'Scarce blank rack' })
+  await j.command('bom.revise', { itemId: product.id, components: [{ itemId: material.id, quantity: '1' }], routing: [{ name: 'Prepare assembly', workCentre: 'Comparison mill', setupMinutes: 60, runMinutes: 60, requiredSkills: ['milling'] }] })
+  await j.command('opening.record', { locationId: rack.id, countedOn: '2026-11-23', countedBy: 'Olive', valuationBasis: 'standard-cost', evidence: evidence(), lines: [{ itemId: material.id, quantity: '4', unitCost: '10' }] })
+  let supply = await j.command('po.draft', { supplierId: vendor.id, expectedDate: '2026-11-24', reason: 'Only the remaining two blanks', lines: [{ itemId: material.id, quantity: '2', unitPrice: '10' }] })
+  supply = await j.command('po.approve', { poId: supply.id, version: supply.version })
+  const operator = (await j.state()).people.find(person => person.role === 'owner')
+  const calendar = { name: 'Comparison mill', timeZone: 'UTC', effectiveFrom: '2026-11-23', effectiveTo: '2026-12-31', shifts: [{ weekdays: [0, 1, 2, 3, 4, 5, 6], start: 480, end: 720 }], capacity: 1, efficiency: 100, reason: 'Four recorded hours daily' }
+  const machine = await j.command('capacity.machine', calendar)
+  const person = await j.command('capacity.labor', { ...calendar, name: 'Qualified milling person', operatorIds: [operator.id], skills: ['milling'] })
+  let occupied = await j.command('wo.draft', { itemId: product.id, quantity: '2', requiredBy: '2026-11-23', reason: 'Prior customer commitment' })
+  occupied = await j.command('wo.release', { workOrderId: occupied.id, version: occupied.version })
+  const quote = await j.command('so.quote', { customerId: client.id, promiseDate: '2026-12-01', lines: [{ itemId: product.id, quantity: '4', unitPrice: '100' }] })
+  const inputs = { orderId: quote.id, version: quote.version, currency: 'CAD', usdRate: '0.75', rateDate: '2026-11-23', rateReference: 'Recorded quote rate', validUntil: '2026-12-01', paymentTerms: 'Net 30', asOf: '2026-11-23T00:00:00.000Z', days: 10,
+    laborCostRate: '30', machineCostRate: '10', overheadCostRate: '5', lines: [{ lineId: quote.lines[0].id, unitPrice: '100' }],
+    partialLines: [{ lineId: quote.lines[0].id, quantity: '2' }], remainderStart: '2026-11-25', overtimePremiumRate: '15',
+    overtime: [{ kind: 'machine', id: machine.id, startsAt: '2026-11-24T12:00:00.000Z', endsAt: '2026-11-24T14:00:00.000Z', reason: 'Assumed extra joint hours only' }, { kind: 'labor', id: person.id, startsAt: '2026-11-24T12:00:00.000Z', endsAt: '2026-11-24T14:00:00.000Z', reason: 'Assumed person consent, not authorization' }] }
+  const baseline = await j.state(), result = await j.command('so.review', inputs)
+  const compared = (await j.state()).salesOrders.find(row => row.id === quote.id).quoteReview
+  assert.deepEqual(compared, result.quoteReview, 'Read back the persisted comparison, not only its command result')
+  const normal = compared.options.find(option => option.kind === 'full-batch'), split = compared.options.find(option => option.kind === 'partial'), extra = compared.options.find(option => option.kind === 'overtime')
+  assert.ok(normal && split && extra)
+  assert.deepEqual([normal.shipDate, split.deliveries.map(leg => [leg.quantity, leg.shipDate]), extra.shipDate], ['2026-11-25', [['2', '2026-11-24'], ['2', '2026-11-25']], '2026-11-24'])
+  assert.deepEqual([normal.estimate.totalCost, split.estimate.totalCost, extra.estimate.totalCost], ['265.00', '310.00', '280.00'])
+  assert.deepEqual([normal.marginUsdAmount, split.marginUsdAmount, extra.marginUsdAmount], ['35.00', '-10.00', '20.00'])
+  assert.equal(split.marginAmount, '-13.33')
+  assert.deepEqual(split.estimate.lines.map(line => [line.quantity, line.occupiedMinutes, line.materialCost, line.laborCost, line.machineCost, line.overheadCost]), [['2', 180, '20.00', '90.00', '30.00', '15.00'], ['2', 180, '20.00', '90.00', '30.00', '15.00']])
+  assert.deepEqual([extra.estimate.lines[0].overtimeMinutes, extra.estimate.lines[0].overtimePremium], [60, '15.00'])
+  assert.deepEqual(split.material.map(leg => leg.supplies.map(source => [source.kind, source.quantity, source.date])), [[['stock', '2', '']], [['purchase', '2', '2026-11-24']]])
+  for (const option of [normal, split, extra]) {
+    assert.equal(option.feasible, true)
+    assert.ok(option.operations.every(op => op.machineId === machine.id && op.operatorId === operator.id && op.laborId === person.id))
+    assert.equal(option.deliveries.reduce((n, leg) => n + Number(leg.quantity), 0), 4)
+    assert.equal(option.material.flatMap(leg => leg.items).reduce((n, part) => n + Number(part.required), 0), 4)
+  }
+  assert.ok(!compared.options.some(option => option.kind === 'immediate'))
+  assert.ok(compared.rejected.some(option => option.kind === 'immediate' && /full quantity cannot finish/.test(option.reason)))
+  const inert = async previous => {
+    const current = await j.state()
+    for (const key of ['workOrders', 'purchaseOrders', 'reservations', 'movements', 'positions', 'scheduleBookings', 'machineCalendars', 'laborCalendars']) assert.deepEqual(current[key], previous[key], key)
+  }
+  await inert(baseline)
+  await j.command('so.confirm', { orderId: quote.id, version: result.version }, { error: 'QUOTE_PREPARATION' })
+  await j.command('so.review', { ...inputs, version: result.version, partialLines: [{ lineId: quote.lines[0].id, quantity: '5' }] }, { error: 'INPUT' })
+  await inert(baseline)
+  const noJoint = await j.command('so.review', { ...inputs, version: result.version, overtime: inputs.overtime.slice(0, 1) })
+  assert.ok(!noJoint.quoteReview.options.some(option => option.kind === 'overtime'), 'Machine-only hours cannot invent person availability')
+  await inert(baseline)
+  // With fresh physical supply and an idle start day, immediate full delivery
+  // really is offered, rather than attaching that label to a future date.
+  await j.command('receipt.create', { poId: supply.id, supplierReference: 'Received blanks', lines: [{ lineId: supply.lines[0].id, quantity: '2', locationId: rack.id }] })
+  const immediate = await j.command('so.review', { ...inputs, version: noJoint.version, asOf: '2026-11-26T00:00:00.000Z', remainderStart: '2026-11-28', partialLines: [{ lineId: quote.lines[0].id, quantity: '1' }], overtime: [], lines: [{ lineId: quote.lines[0].id, unitPrice: '100' }], days: 5 })
+  assert.ok(!immediate.quoteReview.options.some(option => option.kind === 'immediate'), 'Five occupied hours cannot fit the recorded four-hour day')
+  occupied = await j.command('wo.issue', { workOrderId: occupied.id, lines: [{ itemId: material.id, locationId: rack.id, quantity: '2' }] })
+  occupied = await j.command('wo.operation.assign', { workOrderId: occupied.id, version: occupied.version, sequence: 1, operatorId: operator.id })
+  occupied = await j.command('wo.operation.start', { workOrderId: occupied.id, version: occupied.version, sequence: 1, workCentre: machine.name, station: 'synthetic-larder-929', reason: 'Recorded prior work' })
+  occupied = await j.command('wo.operation.complete', { workOrderId: occupied.id, version: occupied.version, sequence: 1, reason: 'Prior work finished' })
+  occupied = await j.command('wo.output', { workOrderId: occupied.id, version: occupied.version, locationId: rack.id, quantity: '2', lot: 'synthetic-larder-929-completed' })
+  await j.command('wo.close', { workOrderId: occupied.id, version: occupied.version })
+  const extended = { ...calendar, id: machine.id, version: machine.version, shifts: [{ weekdays: [0, 1, 2, 3, 4, 5, 6], start: 480, end: 840 }] }
+  await j.command('capacity.machine', extended)
+  await j.command('capacity.labor', { ...extended, id: person.id, version: person.version, name: 'Qualified milling person', operatorIds: [operator.id], skills: ['milling'] })
+  const immediateBaseline = await j.state()
+  const ready = await j.command('so.review', { ...inputs, version: immediate.version, asOf: '2026-11-26T00:00:00.000Z', remainderStart: '2026-11-28', overtime: [], days: 5 })
+  assert.equal(ready.quoteReview.options.find(option => option.kind === 'immediate')?.shipDate, '2026-11-26')
+  await inert(immediateBaseline)
 })
 
 test('STOCK-001 transit receipt and ruled putaway conserve lots, refuse unsafe bins and replenish exactly within current site scope', async t => {
