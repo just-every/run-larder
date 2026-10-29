@@ -4093,7 +4093,7 @@
       "executable": false
     },
     "tests/api/schedule-approval.test.mjs": {
-      "sha256": "fafe8f27aaf21885fdabc51cf4e7cedbd9f4846792b4f7223f5a7dc18dd03d01",
+      "sha256": "0086bf4e6eab3bda6ac598ce9e013fb0930cc1e656d0de2b1fafc690164df702",
       "executable": false
     },
     "tests/api/subcontract.test.mjs": {
@@ -4193,7 +4193,7 @@
       "executable": false
     },
     "tests/browser/maintenance.spec.ts": {
-      "sha256": "7f6de10ee85250af11550b544e28dcbdb23aa7d9277efe1682607b612adf2e12",
+      "sha256": "4ea90b9bebf4349b9b34e7073c2b895a38118767ada901e18f1f87e12cbedfb0",
       "executable": false
     },
     "tests/browser/multilevel.spec.ts": {

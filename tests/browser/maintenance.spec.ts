@@ -568,6 +568,7 @@ test('AGENT-001 computed supplier-slip and breakdown recovery preserves the unch
   expect(computed.recoverySearch.sources.purchaseOrderIds).toContain(supply.id)
   await page.reload();await expect(page.locator('main')).toHaveAttribute('aria-busy','false')
   let eventReview=page.getByLabel('Schedule review po.revise recovery',{exact:true}).filter({hasText:order.reference}).last()
+  await page.setViewportSize({width:1440,height:1000})
   await expect(eventReview.getByRole('button',{name:'Adopt po.revise recovery',exact:true})).toHaveCount(0)
   for(const width of [1440,390]) {
     await page.setViewportSize({width,height:1000})
