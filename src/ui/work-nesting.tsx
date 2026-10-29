@@ -32,6 +32,7 @@ export function WorkNesting({ larder, w }: { larder: Larder; w: Rec }) {
       {g.review && <>
         <p>Original file: <a href={`/api/larder/attachments/${g.original.id}`}>{g.original.name}</a></p>
         <p>Source: {itemName(s, g.review.source.itemId)} · {byId(s, 'lots', g.review.source.lotId)?.code} · {locationName(s, g.review.source.locationId)} · {qty(g.review.source.quantity)} · {money(g.review.source.materialCost)}</p>
+        {g.review.source.evidence && <p>Source evidence: {g.review.source.evidence.certificates.length} approved documents and {g.review.source.evidence.inspections.length} passing inspections. Controlled recovered offcuts enter quarantine for their own evidence and release.</p>}
         <p>Material yield {qty(g.review.materialYield)} · scrap {qty(g.review.scrapQuantity)} · recoverable offcut {qty(g.review.offcut.quantity)} ({money(g.review.offcut.materialCost)})</p>
         <p>Recorded setup: {qty(g.review.sharedSetupMinutes)} minutes; separate-job baseline {qty(g.review.baselineSetupMinutes)} minutes. Finite bookings remain unchanged.</p>
         <Table head={['Job', 'Output', 'Material', 'Material cost', 'Setup minutes']} numeric={[1, 2, 3, 4]}>{g.review.jobs.map((j: Rec) => <tr key={j.workOrderId}><td>{j.reference}</td><td>{qty(j.quantity)}</td><td>{qty(j.materialQuantity)}</td><td>{money(j.materialCost)}</td><td>{qty(j.setupMinutes)}</td></tr>)}</Table>
@@ -40,6 +41,7 @@ export function WorkNesting({ larder, w }: { larder: Larder; w: Rec }) {
           {s.actor.role === 'owner' && <Form submit="Approve exact nesting" busy={larder.busy} onSubmit={d => larder.run('nest.approve', { groupId: g.id, version: g.version, reason: text(d, 'reason') })}><Field label="Nesting approval reason" name="reason" /></Form>}
         </>}
         {g.status === 'posted' && <p>Physical nest approved · {g.approvalReason}. Material issued to original jobs; output remains on each job.</p>}
+        {g.offcutLotId && <p>Recovered lot {byId(s, 'lots', g.offcutLotId)?.code} · {words(byId(s, 'lots', g.offcutLotId)?.status)}. <a href="#make/quality">Inspect recovered lot</a> · <a href="#stock">Review stock release</a></p>}
       </>}
       {['draft', 'review'].includes(g.status) && (s.actor.role === 'owner' || s.actor.id === g.preparedBy) && <Form submit="Cancel nesting review" busy={larder.busy} quiet onSubmit={d => larder.run('nest.cancel', { groupId: g.id, version: g.version, reason: text(d, 'reason') })}><Field label="Nesting cancellation reason" name="reason" /></Form>}
     </section>)}
