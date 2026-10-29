@@ -8,12 +8,12 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 85 | 25 | 40 | 150 |
+| Core | 86 | 24 | 40 | 150 |
 | Agent surface | 0 | 1 | 12 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 85 | 26 | 52 | 163 |
+| Full target | 86 | 25 | 52 | 163 |
 
-Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb99` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
+Judged from the code and tests at commit `3c55dbd74d5afa62377ee9983c69cdf88210b6f2` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
 ## Core
 
@@ -684,15 +684,15 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-AGENT-006, BASE-AGENT-00
 
 #### CAP-008 — Grouped jobs and nesting
 
-Core · target · **partial** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · target · **done** · Cites BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** Planners group compatible operations or batches and import nesting results with material yield, offcuts, setup sharing and per-job quantity and cost allocation. Groups retain each customer and job identity, required revision and due date. The native decision follows RL-7. The [operating rules](docs/contract/OPERATING-DETAILS.md#cap-008) retain the detailed bounds and record semantics.
 
 **Acceptance.**
 1. Group three sheet-metal jobs, import a nesting output, approve consumption and recoverable offcuts; trace each output and allocated cost to its original job.
 
-**Evidence.** `tests/api/flows.test.mjs`; `tests/browser/work-transfers.spec.ts`
-**Gap.** Pending unissued released jobs and one owned source material lot are supported through the command API. Shared setup observations now support an optional isolated single-operation finite comparison with one shared setup, original-job links, displacement and explicit infeasibility. It does not book capacity. Combined finite setup booking, broader batch stages and quality-controlled source recovery remain. Grouping, original-file import, exact allocation review, owner approval and cancellation now have work-order page controls. Recovered offcuts retain the source lot dates, including expiry and retest, through archive restore; the owner-approved nesting HTTP journey asserts the actual nested dates. Owner-only exact audited physical nesting approval is approved by ct; changed nests need fresh approval, with no shared setup-booking authority. Combined finite setup booking and the remaining batch and quality behavior are unproved.
+**Evidence.** `tests/api/flows.test.mjs` — “CAP-008 owner-approved nesting consumes once, recovers a traced offcut and attributes each original output cost”; `tests/api/flows.test.mjs` — “CAP-008 controlled source recovery requires current evidence, quarantines independent offcuts and preserves exact genealogy through reuse, restart and inert restore”; `tests/browser/work-transfers.spec.ts` — “CAP-008 grouped nesting preserves three customer jobs and their allocated material costs at both widths”; `tests/browser/quality.spec.ts` — “CAP-008 controlled nesting offcuts require their own certificate, inspection and evidenced stock release before reuse”; `tests/api/flows.test.mjs` — “CAP-008 nesting preparation obeys live roles, location scope and cost restrictions including replay”
+**Gap.** None.
 
 #### CAP-009 — Maintenance and downtime planning
 
@@ -2019,7 +2019,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-005, BASE
 3. Change a running connector and inspect live with the affected service; supplying an agent’s own confirmation changes none of those computed classes.
 
 **Evidence.** `tests/api/authority.test.mjs` — “GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live”; `tests/api/authority.test.mjs` — “GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live”; `tests/api/backup.test.mjs` — “MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions”
-**Gap.** Native owner-issued `member.scope` computes access people and both directions from effective restrictions, retains exact person and version facts, and restores classification as inert history. Other membership, site and custom-role changes, devices and grants remain unclassified. Protective configuration and credential security facts, outside account and paid-resource accounts facts, provider-retained consent, verification, personal terms and hosted card-entry gates, running-connector live facts, company-policy execution, autonomous consequential execution and shared MCP conformance remain unbuilt or unproved. Complete agent-door qualification remains omitted.
+**Gap.** Native owner-issued `member.scope` computes access people and both directions from effective restrictions, including cost-only and mixed changes, retains exact person and version facts, and restores each historical outcome as inert evidence. Erasure and replay do not restore access. Other membership, site and custom-role changes, devices and grants remain unclassified. Protective configuration and credential security facts, outside account and paid-resource accounts facts, provider-retained consent, verification, personal terms and hosted card-entry gates, running-connector live facts, company-policy execution, autonomous consequential execution and shared MCP conformance remain unbuilt or unproved. Complete agent-door qualification remains omitted.
 
 #### SURFACE-006 — Planning uncertainty and execution
 

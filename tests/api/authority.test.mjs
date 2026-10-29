@@ -622,6 +622,19 @@ test('GOV-014 location scope: a scoped member sees, changes and downloads nothin
   assert.ok(!JSON.stringify(restrictions).includes('scopeClassification'))
   assert.ok(!restrictions.locations.some(l => l.id === w.loc.id))
   assert.ok(restrictions.positions.every(p => p.unitCost === undefined || p.unitCost === 'restricted'))
+  // A cost-only edit changes this person's authority without changing bins.
+  const costWidening = await h.command('member.scope', { ...scopePayload, locations: [w.store.id, annex.id], costsRestricted: false })
+  assert.deepEqual(costWidening.scopeClassification.access, { people: 1, direction: 'widening', widening: true, narrowing: false, addedLocations: [], removedLocations: [] })
+  const costNarrowing = await h.command('member.scope', { ...scopePayload, locations: [w.store.id, annex.id], costsRestricted: true })
+  assert.deepEqual(costNarrowing.scopeClassification.access, { people: 1, direction: 'narrowing', widening: false, narrowing: true, addedLocations: [], removedLocations: [] })
+  // Removing a bin while restoring costs must preserve both directions,
+  // even though the edit adds no location and affects only one person.
+  const mixedAuthority = await h.command('member.scope', { ...scopePayload, locations: [w.store.id], costsRestricted: false })
+  assert.deepEqual(mixedAuthority.scopeClassification.access, { people: 1, direction: 'mixed', widening: true, narrowing: true, addedLocations: [], removedLocations: [annex.id] })
+  assert.deepEqual(mixedAuthority.scopeClassification.before.effective.locations, [w.store.id, annex.id].sort())
+  assert.equal(mixedAuthority.scopeClassification.before.effective.costsRestricted, true)
+  assert.deepEqual(mixedAuthority.scopeClassification.after.effective.locations, [w.store.id])
+  assert.equal(mixedAuthority.scopeClassification.after.effective.costsRestricted, false)
   const agent = await h.person('synthetic-larder-905' + String.fromCharCode(64) + 'example.test', 'agent')
   const unchanged = await h.state()
   for (const forged of [{ classification: { classes: ['standard'] } }, { access: { people: 0, direction: 'unchanged' } }, { classes: ['standard'] }, { confirmation: true }])
@@ -770,6 +783,23 @@ test('GOV-014 location scope: a scoped member sees, changes and downloads nothin
   assert.equal(inactive.scopeClassification.target.status, 'inactive')
   assert.equal(inactive.scopeClassification.access.people, 0)
   assert.equal(inactive.scopeClassification.access.direction, 'unchanged')
+  // Erasure preserves non-personal historical scope facts but cannot revive
+  // the former member or their session when an owner recovers an old outcome.
+  const review = await (await h.request('/api/larder/retention/operator?operatorId=' + lead.id)).json()
+  const outbound = h.outboundCount()
+  await h.command('erasure.operator', { operatorId: lead.id, operatorVersion: review.operatorVersion, reviewedVersion: review.version, consent: true, reason: 'Former member privacy request' })
+  const erased = await h.state()
+  assert.ok(!JSON.stringify(erased).includes(review.subject.email))
+  assert.deepEqual(await h.command('member.scope', scopePayload, { commandId: scopeCommandId }), narrowedScope)
+  assert.deepEqual(await h.state(), erased)
+  assert.equal((await h.request('/api/larder/state', { as: lead.cookie })).status, 401)
+  await h.restart()
+  assert.deepEqual(await h.command('member.scope', scopePayload, { commandId: scopeCommandId }), narrowedScope)
+  await lead.run('member.scope', scopePayload, { commandId: scopeCommandId, error: 'AUTH' })
+  assert.deepEqual(await h.state(), erased)
+  const erasedAudit = (await (await h.request('/api/larder/audit?commandId=' + scopeCommandId)).json()).entries
+  assert.deepEqual(erasedAudit, audit.entries)
+  assert.equal(h.outboundCount(), outbound)
 })
 
 // GOV-015 GOV-016 costs-and-wages scope and custom roles (ct scope-review-50 b, c).
