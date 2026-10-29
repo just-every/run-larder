@@ -1,4 +1,4 @@
-// MRP-002: expedite, defer and cancel recommendations on open purchase lines, their affected orders and the
+// MRP-007: expedite, defer and cancel recommendations on open purchase lines, their affected orders and the
 // buyer's or manager's recorded decision, read through the public planning and command doors.
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -6,7 +6,7 @@ import { installation } from './harness.mjs'
 
 const date = days => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
 
-test('MRP-002 a delayed component PO recommends an expedite naming the orders it hurts, cancelling a demand turns surplus into a cancel only a manager approves, and no reservation is orphaned', async t => {
+test('MRP-007 a delayed component PO recommends an expedite naming the orders it hurts, cancelling a demand turns surplus into a cancel only a manager approves, and no reservation is orphaned', async t => {
   const h = await installation(); t.after(() => h.close())
   const person = (name, role) => h.person(`mrp2-${name}@example.test`, role)
   const buyer = await person('buyer', 'buyer'), manager = await person('manager', 'manager'), agent = await person('agent', 'agent')
@@ -97,7 +97,7 @@ test('MRP-002 a delayed component PO recommends an expedite naming the orders it
   await h.invariant()
 })
 
-test('MRP-002 supply that lands weeks before its demand recommends a deferral to the day it is first needed and an approved deferral is only a recorded request, and the supplier\'s confirmation lands beside it as its own date, audited', async t => {
+test('MRP-007 supply that lands weeks before its demand recommends a deferral to the day it is first needed and an approved deferral is only a recorded request, and the supplier\'s confirmation lands beside it as its own date, audited', async t => {
   const h = await installation(); t.after(() => h.close())
   const buyer = await h.person('mrp2-defer-buyer@example.test', 'buyer'), agent = await h.person('mrp2-defer-agent@example.test', 'agent')
   const raw = await h.command('item.save', { sku: 'synthetic-larder-205', name: 'Deferral raw', kind: 'buy', baseUnit: 'each' })
@@ -128,7 +128,7 @@ test('MRP-002 supply that lands weeks before its demand recommends a deferral to
   await h.invariant()
 })
 
-test('MRP-002 a cancel worth at least the PO spend threshold needs the policy signatures on the exact cancellation, a smaller one keeps the manager alone, and the owner decides too', async t => {
+test('MRP-007 a cancel worth at least the PO spend threshold needs the policy signatures on the exact cancellation, a smaller one keeps the manager alone, and the owner decides too', async t => {
   const h = await installation(); t.after(() => h.close())
   const person = (name, role) => h.person(`mrp2s-${name}@example.test`, role)
   const buyer = await person('buyer', 'buyer'), first = await person('first', 'manager'), second = await person('second', 'manager'), agent = await person('agent', 'agent')

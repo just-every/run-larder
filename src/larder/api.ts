@@ -1,6 +1,8 @@
+import { business } from './business'
+import { warehouseLogistics } from './warehouse-logistics'
 import { serviceActor, serviceKeys } from './service-keys'
 import { publicPage } from './public-api'
-import { enforceRetention, retention, retentionPreview } from './retention'
+import { enforceRetention, retention, retentionPreview, operatorRetentionPreview } from './retention'
 import { wavePicking } from './wave-picking'
 import { recoveryInputsChanged } from './scheduling/recovery-options'
 import { variance } from './costing/variance'
@@ -9,6 +11,7 @@ import { coProducts, voidBatchReviews } from './co-products'
 import { performanceReport, reportScheduling } from './costing/performance'
 import { costing, costingReaders } from './costing/commands'
 import { marginReport, varianceReport, reportCsv } from './costing/margins'
+import { wipReport } from './costing/wip'
 import { newBookings } from './scheduling/booking-guards'
 import { replenishment } from './replenishment'
 import { recovery, observeRecovery } from './scheduling/recovery'
@@ -22,6 +25,7 @@ import { supplierQuotes } from './supplier-terms'
 import { operatorAuth, runtimeBindings, type Bindings } from '../auth.server'
 import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
 import { archive, restore } from './archive'
+import { migrateAudArchive } from './currency-migration'
 import { approvalCommand } from './approval-policy'
 import { cutover } from './cutover'
 import { cutoverGuard } from './cutover-guard'
@@ -80,6 +84,7 @@ import { resolutions } from './exceptions'
 import { caseHumanRoleSql, followUps } from './follow-up'
 import { observeFollowUps } from './follow-up-state'
 import { sales } from './sales'
+import { quoteReview } from './quote-review'
 import { orderChanges } from './order-changes'
 import { warehouse } from './warehouse'
 import { Problem, fail, forbidden } from './problem'
@@ -107,7 +112,7 @@ async function current(request: Request, env: Bindings): Promise<Actor> {
   return { id: session.operator.id, name: session.operator.displayName, role: r?.role ?? 'viewer', sessionId: session.id, operatorVersion: session.operator.version, scope: effectiveScope(member, custom, (await env.DB.prepare("SELECT data FROM larder_records WHERE kind='locations'").all<{ data: string }>()).results.map(r => JSON.parse(r.data))) }
 }
 
-const handlers = [serviceKeys, retention, wavePicking, variance, coProducts, salesAllocation, nesting, reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, serials, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
+const handlers = [warehouseLogistics, business, quoteReview, serviceKeys, retention, wavePicking, variance, coProducts, salesAllocation, nesting, reportScheduling, costing, timeEntries, kits, configurations, approvalCommand, erasureCommand, supplyChange, receiving, receiptJobAllocation, cutover, replenishment, recovery, calendars, history, recall, nonconformance, subcontract, workTransfers, rework, followUps, inventory, certificates, expiry, quality, maintenance, engineering, downtime, catalogBulk, forecasts, catalogue, warehouse, serials, counts, ranking, bom, bomBulk, orderChanges, sales, purchasing, production, operations, operationLedgerCommands, planning, reversal, handoff, proposals, resolutions, imports]
 
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
@@ -117,17 +122,23 @@ async function people(env: Bindings, actor: Actor) {
 }
 
 async function command(env: Bindings, actor: Actor, request: Request): Promise<Response> {
-  // FLOOR-004 retains its explicit production authoring authority. Operators
-  // and other readers never recover a rework rate from a prior command replay.
-  const respond = (body: any) => json(scopeOf(actor).costs && body?.result ? { ...body, result: redactCosts(body.result) } : Array.isArray(body?.result?.labor) && !readsWages(actor, body.result) ? { ...body, result: withoutWages(body.result) } : body)
   if (request.headers.get('origin') !== new URL(env.AUTH_ORIGIN).origin) throw new Problem('ORIGIN', 'Send commands from this installation.', null, 403)
   if (!request.headers.get('content-type')?.includes('application/json')) throw new Problem('CONTENT_TYPE', 'Use application/json.', null, 400)
   const raw = await request.text()
   if (raw.length > 4 * 1024 * 1024) throw new Problem('SIZE', 'A command is limited to 4 MiB.', null, 413)
   let body: any
   try { body = JSON.parse(raw) } catch { throw new Problem('JSON', 'Malformed JSON.', null, 400) }
+  return executeCommand(env, actor, body)
+}
+
+async function executeCommand(env: Bindings, actor: Actor, body: any, automaticReport = false): Promise<Response> {
+  // FLOOR-004 retains its explicit production authoring authority. Operators
+  // and other readers never recover a rework rate from a prior command replay.
+  const respond = (body: any) => json(scopeOf(actor).costs && body?.result ? { ...body, result: redactCosts(body.result) } : Array.isArray(body?.result?.labor) && !readsWages(actor, body.result) ? { ...body, result: withoutWages(body.result) } : body)
+  // Cron identities contain colons, outside the public command alphabet.
+  // A client can never reserve or replay a scheduler command identity.
   const { commandId, type, payload = {} } = body ?? {}
-  if (typeof commandId !== 'string' || !/^[-a-zA-Z0-9_]{8,100}$/.test(commandId) || typeof type !== 'string') throw new Problem('COMMAND', 'Send a unique commandId and a command type.', null, 400)
+  if (typeof commandId !== 'string' || !(automaticReport ? /^cron:report:[-a-f0-9]{36}:\d{4}-\d{2}-\d{2}$/ : /^[-a-zA-Z0-9_]{8,100}$/).test(commandId) || typeof type !== 'string') throw new Problem('COMMAND', 'Send a unique commandId and a command type.', null, 400)
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw new Problem('INPUT', 'The payload must be an object.', null, 400)
   if (actor.role === 'viewer') forbidden('Viewers can read but not change records.')
   if (type.startsWith('audit.')) forbidden('The audit is append-only: no role, including the owner, edits or deletes an entry.')
@@ -137,7 +148,9 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (target!.role === 'owner') fail('OWNER_ROLE', 'The owner keeps owner authority.')
   }
   if (type.startsWith('variance.') && actor.role !== 'owner') forbidden('Only the owner may review model evidence or authorize a run.')
+  if (type === 'business.save' && actor.role !== 'owner') forbidden('Only the owner configures the business identity.')
   gateCommand(actor, type, payload)
+  if (['so.review', 'so.reviewClear'].includes(type) && isScoped(actor)) forbidden('Costed quote preparation requires unrestricted commercial and location access.')
   if ((type.startsWith('costing.') || type.startsWith('reports.')) && !costingReaders.includes(actor.role)) forbidden('Only accounts or managers may use costing.')
   if (blindSessions(await load(env.DB), actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
   if (type === 'count.schedule') {
@@ -152,6 +165,8 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
       if (!target || !['owner','manager','production','operator'].includes(target.role)) fail('INPUT', 'Calendar members must be active production people, operators or managers.')
     }
   }
+  if (type.startsWith('reports.') && actor.role !== 'owner') forbidden('Only the owner manages report schedules.')
+  const reportAuthority = type === 'reports.run' ? await liveReportOwner(env.DB, payload.scheduleId, automaticReport) : undefined
   const digest = sha256(canonicalJson({ type, payload }))
   const previous = await saved(env.DB, commandId, digest, actor)
   if (previous) {
@@ -159,7 +174,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
     if (scopeOf(actor).locations !== null && names(previous.result, hiddenLocations(await load(env.DB), scopeOf(actor)))) forbidden('This outcome involves a location outside your location scope.')
     return respond(previous)
   }
-  let erasure = ['erasure.audit', 'erasure.contact'].includes(type) ? await erasurePlan(env.DB, await load(env.DB), actor, payload) : undefined
+  let erasure = ['erasure.audit', 'erasure.contact', 'erasure.operator'].includes(type) ? await erasurePlan(env.DB, await load(env.DB), actor, payload) : undefined
   if (type === 'exception.assign' || type === 'exception.escalate') {
     if (!['owner', 'manager'].includes(actor.role)) forbidden('Only an owner or manager assigns or escalates cases.')
     const existing = type === 'exception.escalate' ? (await load(env.DB)).followUps.find(f => f.key === payload.key) : undefined
@@ -183,21 +198,21 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   // A command that loses a concurrent write is recomputed against the new state.
   for (let attempt = 0; attempt < 8; attempt++) {
     const before = await load(env.DB), s = structuredClone(before)
-    if (type === 'erasure.contact') erasure = await contactOutcomes(env.DB, await erasurePlan(env.DB, before, actor, payload))
+    if (['erasure.contact', 'erasure.operator'].includes(type)) erasure = await contactOutcomes(env.DB, await erasurePlan(env.DB, before, actor, payload))
     if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
-    const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
+    const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], reportAuthority, automaticReport, ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type === 'so.review' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
     if (erasure) c.erasure = erasure
     enforcePayload(c, payload)
     if (type === 'import.undo') enforceRetention(before, s, payload.importId)
     let result: Row | undefined = roleCommand(c, type, payload)
     for (const handle of handlers) { if (result !== undefined) break; result = handle(c, type, payload) }
     if (result === undefined) fail('COMMAND', 'Unknown command type.')
-    enforceRetention(before, s)
     enforceScope(c, before)
     if (!c.people && s.schedulePolicies.length && recoveryInputsChanged(before, s)) c.people = (await people(env, actor)).people as any
     observeRecovery(c, before, type, payload)
     observeFollowUps(c)
     voidBatchReviews(c)
+    enforceRetention(before, s, undefined, type)
     cutoverGuard(before, s, c.now)
     const audit = auditEntries(c, before, type, payload, type.startsWith('import.'))
     if (type === 'import.commit' || type === 'import.undo') {
@@ -218,12 +233,42 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
       // the event as a review proposal if its delegated authorizer was revoked.
       if (/CHECK constraint failed/.test(String((error as Error)?.message ?? '')) && newBookings(c,before).some(b=>b.automatic) && attempt < 7) continue
       const message = String((error as Error)?.message ?? '')
+      if (reportAuthority) await liveReportOwner(env.DB, payload.scheduleId, automaticReport)
       if (/oversold|reserved_stock|negative_stock/.test(message)) fail('DEPENDENCY', 'Stock changed underneath this action. Reload and try again.')
       if (/CHECK constraint failed/.test(message) && (await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>())?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
       throw error
     }
   }
   return fail('BUSY', 'Records changed repeatedly. Send the same command again.')
+}
+
+// Trusted Worker cron only: no HTTP route accepts a scheduled actor. The
+// original session reference grants no authority beyond its live native owner.
+async function liveReportOwner(db: D1Database, scheduleId: string, automatic: boolean): Promise<Actor> {
+  if (typeof scheduleId !== 'string' || !scheduleId) fail('INPUT', 'Choose a report schedule.')
+  const binding = await db.prepare('SELECT actor FROM larder_report_sessions WHERE schedule_id=?').bind(scheduleId).first<{ actor: string }>()
+  if (!binding) throw new Problem('AUTH', 'This schedule needs fresh owner consent.', null, 401)
+  const actor: Actor = JSON.parse(binding.actor), fence = authority(actor)
+  const live = await db.prepare(`SELECT 1 AS ok FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.role='owner' AND (${fence.sql}) ${automatic ? "AND s.kind IN ('native','oidc','password')" : ''}`).bind(actor.sessionId, ...fence.params).first<{ ok: number }>()
+  if (actor.role !== 'owner' || !live) throw new Problem('AUTH', 'The consenting native owner session is no longer active. Create a new schedule after signing in.', null, 401)
+  return actor
+}
+
+export async function runDueReports(original: Bindings): Promise<void> {
+  const env = runtimeBindings(original), today = commandTime().slice(0, 10)
+  const due = (await load(env.DB)).reportSchedules.filter(r => r.status === 'active' && r.consent?.by === r.ownerId && r.nextDate <= today)
+  const failures: unknown[] = []
+  for (const r of due) {
+    try {
+      const actor = await liveReportOwner(env.DB, r.id, true)
+      await executeCommand(env, actor, { commandId: `cron:report:${r.id}:${today}`, type: 'reports.run', payload: { scheduleId: r.id, version: r.version } }, true)
+    } catch (error) {
+      // A stopped session or a concurrent cancellation has no new consequence.
+      // Unexpected failures surface after other due schedules have been tried.
+      if (!(error instanceof Problem && ['AUTH', 'STATE', 'STALE', 'FORBIDDEN'].includes(error.code))) failures.push(error)
+    }
+  }
+  if (failures.length) throw new AggregateError(failures, 'Scheduled report generation failed.')
 }
 
 export async function larderResponse(request: Request, original: Bindings): Promise<Response | null> {
@@ -234,13 +279,15 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const path = url.pathname.slice('/api/larder'.length)
     if (request.method === 'POST' && path === '/commands') return await command(env, actor, request)
     if (path !== '/state' && blindSessions(await load(env.DB), actor).length) forbidden('Downloads are unavailable during your assigned blind count.')
+    if (request.method === 'POST' && path === '/archive/migrate-aud') return json(await migrateAudArchive(env, actor, request))
     if (request.method === 'POST' && path === '/archive/restore') return json(await restore(env, actor, request))
     if (request.method !== 'GET') throw new Problem('METHOD', 'Use GET to read or POST /api/larder/commands to act.', null, 405)
     const ok = await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>()
     if (ok?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
     const versionedResource = /^\/v1\/(catalog|orders|operations|trace)$/.exec(path)
     if (versionedResource) return json(publicPage(await load(env.DB), actor, versionedResource[1], url.searchParams))
-    if (path === '/retention/contact') return json(retentionPreview(await load(env.DB), actor, url.searchParams.get('partyId')))
+    if (path === '/retention/operator') return json(await operatorRetentionPreview(env.DB, await load(env.DB), actor, url.searchParams.get('operatorId')))
+    if (path === '/retention/contact') return json(retentionPreview(await load(env.DB), actor, url.searchParams.get('partyId'), commandTime()))
     if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, await people(env, actor))) }
     // GOV-001: a scoped member reads these through their scope (see scope-view.ts); the audit, archive, handoff,
     // imports and attachment doors need an unscoped person.
@@ -254,9 +301,9 @@ export async function larderResponse(request: Request, original: Bindings): Prom
       if (!source) fail('NOT_FOUND', 'That cited source was not found.')
       return json(source)
     }
-    if (/^\/costing\/(margins|variances|performance)(\.csv)?$/.test(path)) {
+    if (/^\/costing\/(margins|variances|performance|wip)(\.csv)?$/.test(path)) {
       if (!costingReaders.includes(actor.role)) forbidden('Only accounts or managers may read cost reports.')
-      const report = await read(s => path.startsWith('/costing/margins') ? marginReport(s, url.searchParams) : path.startsWith('/costing/performance') ? performanceReport(s,url.searchParams) : varianceReport(s, url.searchParams))
+      const report = await read(s => path.startsWith('/costing/wip') ? wipReport(s, url.searchParams) : path.startsWith('/costing/margins') ? marginReport(s, url.searchParams) : path.startsWith('/costing/performance') ? performanceReport(s,url.searchParams) : varianceReport(s, url.searchParams))
       return path.endsWith('.csv') ? new Response(reportCsv(report), { headers: { ...headers, 'content-type':'text/csv; charset=utf-8', 'content-disposition':'attachment; filename="larder-costs.csv"' } }) : json(report)
     }
     if (path === '/scheduling/labor-costs') {
@@ -328,7 +375,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const file = /^\/attachments\/([-0-9a-f]{36})$/.exec(path)
     if (file) {
       const financialState = await load(env.DB)
-      const financialFile = names([...financialState.marginCharges, ...financialState.jobCharges, ...financialState.costValuations], new Set([file[1]]))
+      const financialFile = names([...financialState.marginCharges, ...financialState.jobCharges, ...financialState.costValuations, ...financialState.purchaseOrders.flatMap(o => [o.bills, o.landedCharges, ...(o.supplierClaims ?? []).map((r: any) => r.credits)])], new Set([file[1]]))
       if (financialFile && (!costingReaders.includes(actor.role) || scope.costs)) forbidden('This evidence requires unrestricted costing authority.')
       // A supplier's bill is a cost document: a member restricted from costs never opens it.
       if (scope.costs && names(financialState.subcontractOrders.map(o => [o.bill, o.bills]), new Set([file[1]]))) forbidden('This evidence requires unrestricted costing authority.')

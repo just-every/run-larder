@@ -12,12 +12,12 @@ async function settled(page: Page) { await expect(page.locator('main')).toHaveAt
 async function shot(page: Page, name: string) {
   if (!process.env.LARDER_SCREENSHOTS) return
   await mkdir(process.env.LARDER_SCREENSHOTS, { recursive: true })
-  await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-GOV-001-${name}.png`), fullPage: true })
+  await page.screenshot({ path: join(process.env.LARDER_SCREENSHOTS, `${page.viewportSize()!.width}-GOV-014 GOV-015 GOV-016-${name}.png`), fullPage: true })
 }
 const card = (page: Page, title: string) => page.locator('section.card').filter({ has: page.getByRole('heading', { name: title, exact: true }) })
 const open = async (page: Page, hash: string) => { await page.goto(origin + `/app#${hash}`); await page.reload(); await settled(page) }
 
-test('GOV-001 the owner limits a person to one location and the costs-and-wages restriction, and that person sees only their reach at 1440/390', async ({ page, browser }) => {
+test('GOV-014 GOV-015 GOV-016 the owner limits a person to one location and the costs-and-wages restriction, and that person sees only their reach at 1440/390', async ({ page, browser }) => {
   const runId = crypto.randomUUID().slice(0, 6), entry = process.env.LARDER_OPEN, email = `scoped-${runId}@example.test`
   if (!entry) throw new Error('A private local entry is required.')
   await page.goto(entry); await page.waitForURL(u => ['/app', '/setup'].includes(u.pathname))

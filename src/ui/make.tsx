@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { PurchaseAccounting } from './purchase-accounting'
 import { CoProducts } from './co-products'
 import { Replenishment } from './replenishment'
 import { ScanOutputLabel, ScanPanel } from './scan'
@@ -67,9 +69,10 @@ function Shortages({ larder }: { larder: Larder }) {
 
 const poTone = (status: string) => status === 'draft' ? 'warn' : status === 'received' ? 'good' : 'info'
 function Purchases({ larder }: { larder: Larder }) {
-  const s = larder.state!, list = [...rows(s, 'purchaseOrders')].reverse()
-  return <><SupplierTerms larder={larder} /><Card title="Purchase orders">{list.length === 0 ? <Empty>No purchase orders yet.</Empty> :
-    <Table head={['Order', 'Supplier', 'Expected', 'Status', 'Value']} numeric={[4]}>{list.map(p => <tr key={p.id}><td><a href={`#make/po/${p.id}`}>{p.reference}</a>{p.sourceReference && <small>Odoo {p.sourceReference}</small>}</td><td>{partyName(s, p.supplierId)}</td><td>{day(p.expectedDate)}</td><td><Chip tone={poTone(p.status)}>{words(p.status)}</Chip></td><td className="num">{money(p.exposure)}</td></tr>)}</Table>}</Card>
+  const s = larder.state!, [billing, setBilling] = useState('all'), [sort, setSort] = useState('newest')
+  const list = [...rows(s, 'purchaseOrders')].filter(p => billing === 'all' || (p.billingStatus ?? 'Not billed') === billing).sort((a, b) => sort === 'billing' ? (a.billingStatus ?? 'Not billed').localeCompare(b.billingStatus ?? 'Not billed') || a.reference.localeCompare(b.reference) : sort === 'supplier' ? partyName(s, a.supplierId).localeCompare(partyName(s, b.supplierId)) || a.reference.localeCompare(b.reference) : b.reference.localeCompare(a.reference))
+  return <><SupplierTerms larder={larder} /><Card title="Purchase orders"><div className="form-grid"><Choose label="Filter billing status" name="billingFilter" value={billing} onChange={(e: any) => setBilling(e.target.value)} options={['all', 'Not billed', 'Partially billed', 'Billed'].map(value => ({ value, label: value === 'all' ? 'All billing states' : value }))} /><Choose label="Sort purchase orders" name="poSort" value={sort} onChange={(e: any) => setSort(e.target.value)} options={[{ value: 'newest', label: 'Newest order first' }, { value: 'billing', label: 'Billing status' }, { value: 'supplier', label: 'Supplier' }]} /></div>{list.length === 0 ? <Empty>No purchase orders yet.</Empty> :
+    <Table head={['Order', 'Supplier', 'Expected', 'Status', 'Billing', 'Payment', 'Value']} numeric={[6]}>{list.map(p => <tr key={p.id}><td><a href={`#make/po/${p.id}`}>{p.reference}</a>{p.sourceReference && <small>Odoo {p.sourceReference}</small>}</td><td>{partyName(s, p.supplierId)}</td><td>{day(p.expectedDate)}</td><td><Chip tone={poTone(p.status)}>{words(p.status)}</Chip></td><td>{p.billingStatus ?? 'Not billed'}</td><td>{p.paymentState ?? 'not connected'}</td><td className="num">{money(p.exposure)}</td></tr>)}</Table>}</Card>
     {can(s, ['manager', 'buyer', 'agent']) && <Card title="New purchase order"><Form submit="Save draft" busy={larder.busy} onSubmit={d => larder.run('po.draft', { supplierId: text(d, 'supplierId'), expectedDate: text(d, 'expectedDate'), reason: text(d, 'reason'), lines: readLines(d) })}>
       <Choose label="Supplier" name="supplierId" options={options(rows(s, 'parties').filter(p => p.kind !== 'customer'), r => r.name)} /><Field label="Expected delivery" name="expectedDate" type="date" /><Field label="Reason" name="reason" /><Lines items={rows(s, 'items').filter(i => !i.archived)} /></Form></Card>}</>
 }
@@ -101,6 +104,7 @@ function Purchase({ larder, po }: { larder: Larder; po: Rec }) {
       {open && <SupplyChanges larder={larder} po={po} />}
       {!open && po.status !== 'draft' && <Empty>{po.status === 'cancelled' ? 'Cancelled: nothing is still expected.' : 'Fully received.'}</Empty>}
     </Card>
+    <PurchaseAccounting larder={larder} po={po} />
   </div>
 }
 

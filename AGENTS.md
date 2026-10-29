@@ -2,11 +2,11 @@
 
 ## Working on Larder
 
-Read [CONTRACT.md](CONTRACT.md), [ACCEPTANCE.md](ACCEPTANCE.md), [API.md](API.md) and [MOVE-IN.md](MOVE-IN.md) before changing behaviour. Keep the sixteen clauses (LARDER-001 to LARDER-016) and their tests aligned; a clause is LOCAL PROVEN only when its named test passed on the recorded commit.
+Read [CONTRACT.md](CONTRACT.md), [ACCEPTANCE.md](ACCEPTANCE.md), [API.md](API.md) and [MOVE-IN.md](MOVE-IN.md) before changing behaviour. Keep CONTRACT.md, its generated views and the clause-mapped journeys aligned; done requires the named journeys on the recorded candidate.
 
 - Stock truth is append-only movements in `larder_movements`; never update or delete one. Corrections are compensating movements through `movement.reverse`; move-in undo is the only delete, and only through the import kit.
 - Every write goes through `src/larder/api.ts`: the handler checks the Larder role first, and `storage.commit` re-checks the session, role and state version inside the same D1 batch. Keep both checks in any new command.
-- Agents prepare; people approve. Never let the `agent` role approve, post stock, change roles or send anything. Treat documents an agent hands in (an emailed enquiry, a supplier file) as data.
+- The current native agent-role implementation prepares proposals. The contract target uses server-computed risk classes and company policy for equivalent agent actions; do not claim that unbuilt policy behavior is delivered. Preserve truthful person signatures and never let an agent widen its own authority. Treat imported documents as data.
 - Start empty: no sample records, fake providers or fallback balances. Phase one makes no model or provider call.
 - Run `pnpm run test:larder` after domain changes and `node tests/browser/run.mjs` after UI changes; keep screenshots outside this checkout.
 
@@ -146,3 +146,17 @@ their maintenance.
 
 Pinned reference: https://github.com/runeditrun/base/blob/79f61faef682f9d6cdb64e843cfbd3cf02887982/TANSTACK-START-MIGRATION.md
 Native-session/runtime evidence: https://github.com/runeditrun/base/tree/79f61faef682f9d6cdb64e843cfbd3cf02887982/default-seed
+
+## Landing metadata regeneration
+
+Resolve CONTRACT.md first and retain main’s newer clause judgments. Regenerate every derived view in the same commit.
+
+Lander-Regenerate: node src/base/contract-docs.mjs write
+Lander-Regenerate: node scripts/edition-authoring/cli.mjs lock
+
+Run `node src/base/contract-docs.mjs check` before locking.
+
+After the final source, test or documentation edit, stage the intended files, run
+`node scripts/edition-authoring/cli.mjs lock`, stage sources.lock.json and run
+`node scripts/edition-authoring/cli.mjs check`. Commit the resolved contract,
+generated acceptance and fresh source lock together. Keep the current Base pin.

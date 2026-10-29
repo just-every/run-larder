@@ -1,4 +1,4 @@
-// GOV-001 wage default: a rework hourly rate is read by the owner, managers and accounts, and by the production
+// GOV-015 wage default: a rework hourly rate is read by the owner, managers and accounts, and by the production
 // person who entered it on their own order. Anyone else reads no figure the rate follows from: once an order records
 // labor, its labor cost, total and output values, the unit costs of the stock it produced wherever that stock moves,
 // the handoffs that carry those movements and the jobs that issue that stock (and what they make) read restricted.

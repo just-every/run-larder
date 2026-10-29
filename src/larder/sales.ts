@@ -52,12 +52,14 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
       if (!p.orderId) return createQuote(c, p)
       const order = get(c.s, 'salesOrders', p.orderId, 'order'); fresh(order, p.version)
       if (order.status !== 'quote') fail('STATE', 'Only a quote can be edited here. Prepare a reviewed amendment for a confirmed order.')
+      if (order.quoteReview) fail('QUOTE_PREPARATION', 'Explicitly discard the current costed review with a reason before editing the original USD quote.')
       return bump(order, { customerReference: optionalText(p.customerReference, 'customer reference', 120), promiseDate: date(p.promiseDate, 'promise date'), note: optionalText(p.note, 'note', 1000), billingAddress: p.billingAddress === undefined ? order.billingAddress ?? '' : optionalText(p.billingAddress, 'billing address', 2000), shippingAddress: p.shippingAddress === undefined ? order.shippingAddress ?? '' : optionalText(p.shippingAddress, 'shipping address', 2000), lines: quoteLines(c, p.lines) })
     }
     case 'so.confirm': {
       allow(c, ['manager', 'sales'])
       const order = get(c.s, 'salesOrders', p.orderId, 'order'); fresh(order, p.version)
       if (order.status !== 'quote') fail('STATE', 'Only a quote can be confirmed.')
+      if (order.quoteReview) fail('QUOTE_PREPARATION', 'Costed quote options are preparation only. Discard the review before confirming the original USD quote; reviewed prices and dates are not applied.')
       // GOV-002 margin floor: an order below it needs the policy's signatures from managers.
       const signed = gate(c, { category: 'margin', subjectKind: 'salesOrders', subject: order, measure: () => orderMargin(c.s, order.lines), permitted: ['manager'], preparedBy: order.preparedBy, p })
       if (signed && 'pending' in signed) return signed.pending

@@ -1,10 +1,10 @@
-// LARDER-014 roles are enforced in every handler; LARDER-015 agents prepare and people approve; GOV-001 roles inherit their clauses' doors.
+// GOV-001 roles are enforced in every handler; LARDER-015 agents prepare and people approve; GOV-001 roles inherit their clauses' doors.
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile, readdir } from 'node:fs/promises'
 import { installation, workshop, evidence } from './harness.mjs'
 
-test('LARDER-014 roles and sessions are checked on every command and read', async t => {
+test('GOV-001 roles and sessions are checked on every command and read', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h)
   const viewer = await h.person('vic@example.test')
@@ -576,8 +576,8 @@ test('GOV-002 orders below the margin floor and high-value quarantine releases n
   await h.invariant()
 })
 
-// GOV-001 location scope (ct scope-review-50 a): a scoped member reads, acts and downloads only inside their locations.
-test('GOV-001 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live', async t => {
+// GOV-014 location scope (ct scope-review-50 a): a scoped member reads, acts and downloads only inside their locations.
+test('GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h)
   const annex = await h.command('location.save', { name: 'Annex cold room' })
@@ -664,8 +664,8 @@ test('GOV-001 location scope: a scoped member sees, changes and downloads nothin
   assert.equal((await h.request('/api/larder/state', { as: lead.cookie })).status, 401)
 })
 
-// GOV-001 costs-and-wages scope and custom roles (ct scope-review-50 b, c).
-test('GOV-001 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live', async t => {
+// GOV-015 GOV-016 costs-and-wages scope and custom roles (ct scope-review-50 b, c).
+test('GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h), ownerId = (await h.state()).actor.id
   const gauge = await h.command('item.save', { sku: 'GAUGE', name: 'Depth gauge', kind: 'buy', baseUnit: 'each', standardCost: '33.3131', salePrice: '71.4242' })
@@ -851,8 +851,15 @@ test('Owner-consented integration read credentials are resource-scoped, cost-red
   await manager.run('integration.key.issue', payload, { error: 'FORBIDDEN' })
   await h.command('integration.key.issue', { ...payload, consent: false }, { error: 'INPUT' })
   await h.command('integration.key.issue', { ...payload, resources: ['costs'] }, { error: 'INPUT' })
+  for (const minutes of [0, 61, 1.5]) await h.command('integration.key.issue', { ...payload, minutes }, { error: 'INPUT' })
+  await h.command('integration.key.issue', { ...payload, resources: [] }, { error: 'INPUT' })
+  const issuedAfter = Date.now()
   const id = 'synthetic-larder-key-819', grant = await h.command('integration.key.issue', payload, { commandId: id })
   assert.equal(typeof grant.serviceCredential, 'string')
+  assert.ok(grant.expiresAt >= issuedAfter && grant.expiresAt <= Date.now() + 60 * 60000)
+  const storedKey = await h.db.prepare('SELECT * FROM larder_service_keys WHERE id=?').bind(grant.id).first()
+  assert.notEqual(storedKey.digest, grant.serviceCredential)
+  assert.equal(storedKey.expires_at, grant.expiresAt)
   assert.equal((await h.command('integration.key.issue', payload, { commandId: id })).serviceCredential, undefined)
   const use = async (key, path = '/api/larder/v1/catalog', method = 'GET', origin = h.origin) => fetch(origin + path, { method, headers: { authorization: 'Bearer ' + key } })
   const response = await use(grant.serviceCredential)
@@ -861,6 +868,7 @@ test('Owner-consented integration read credentials are resource-scoped, cost-red
   for (const [path, method] of [['/api/larder/v1/orders', 'GET'], ['/api/larder/state', 'GET'], ['/api/larder/archive', 'GET'], ['/api/larder/commands', 'POST'], ['/api/larder/v1/catalog', 'POST']]) assert.equal((await use(grant.serviceCredential, path, method)).status, 403)
   const exported = await (await h.request('/api/larder/archive')).json()
   assert.equal(JSON.stringify(exported).includes(grant.serviceCredential), false)
+  assert.equal(JSON.stringify(exported).includes(storedKey.digest), false)
   assert.equal(JSON.stringify(await h.state()).includes(grant.serviceCredential), false)
   assert.equal(JSON.stringify(await (await h.request('/api/larder/audit.json')).json()).includes(grant.serviceCredential), false)
   const destination = await installation(); t.after(() => destination.close())
@@ -869,12 +877,39 @@ test('Owner-consented integration read credentials are resource-scoped, cost-red
   assert.equal((await use(grant.serviceCredential, undefined, undefined, destination.origin)).status, 401)
   await h.restart()
   assert.equal((await use(grant.serviceCredential)).status, 200)
+  assert.equal((await h.db.prepare('SELECT expires_at FROM larder_service_keys WHERE id=?').bind(grant.id).first()).expires_at, grant.expiresAt, 'Restart cannot extend the grant')
+  await manager.run('integration.key.revoke', { keyId: grant.id, version: grant.version, reason: 'Not the owner' }, { error: 'FORBIDDEN' })
+  await h.command('integration.key.revoke', { keyId: grant.id, version: grant.version + 1, reason: 'Stale metadata' }, { error: 'STALE' })
   await h.command('integration.key.revoke', { keyId: grant.id, version: grant.version, reason: 'Stop this reader' })
   assert.equal((await use(grant.serviceCredential)).status, 401)
   const expiring = await h.command('integration.key.issue', payload)
   await h.db.prepare('UPDATE larder_service_keys SET expires_at=0 WHERE id=?').bind(expiring.id).run()
   assert.equal((await use(expiring.serviceCredential)).status, 401)
+  const issuanceAudit = await (await h.request('/api/larder/audit?type=integration.key')).json()
+  assert.ok(issuanceAudit.entries.some(e => e.commandType === 'integration.key.issue'))
+  assert.ok(issuanceAudit.entries.some(e => e.commandType === 'integration.key.revoke'))
+  assert.equal(JSON.stringify(issuanceAudit).includes(grant.serviceCredential), false)
+  assert.equal(JSON.stringify(issuanceAudit).includes(storedKey.digest), false)
   const final = await h.command('integration.key.issue', payload)
   await h.request('/auth/signout', { method: 'POST', body: {} })
   assert.equal((await use(final.serviceCredential)).status, 401)
+  await h.restart()
+  assert.equal((await use(final.serviceCredential)).status, 401, 'Restart must not revive a signed-out grant')
+  for (const termination of ['expiry', 'deactivation']) {
+    const other = await installation()
+    try {
+      const key = await other.command('integration.key.issue', payload)
+      const native = await other.db.prepare('SELECT session_id,operator_id FROM larder_service_keys WHERE id=?').bind(key.id).first()
+      if (termination === 'expiry') await other.db.prepare('UPDATE oa_sessions SET expires_at=0 WHERE id=?').bind(native.session_id).run()
+      else {
+        // Model a native owner removal with another active owner retained.
+        // The database correctly refuses deactivation of its final owner.
+        await other.db.prepare("INSERT INTO oa_operators(id,email,display_name,role,status,created_at) VALUES(?,?,?,'owner','active',?)").bind('synthetic-larder-820', 'synthetic-larder-820@example.test', 'Synthetic Larder Owner', Date.now()).run()
+        await other.db.prepare("UPDATE oa_operators SET status='inactive' WHERE id=?").bind(native.operator_id).run()
+      }
+      assert.equal((await use(key.serviceCredential, undefined, undefined, other.origin)).status, 401, termination)
+      await other.restart()
+      assert.equal((await use(key.serviceCredential, undefined, undefined, other.origin)).status, 401, termination + ' after restart')
+    } finally { await other.close() }
+  }
 })

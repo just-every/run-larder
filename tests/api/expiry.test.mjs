@@ -5,7 +5,9 @@ import { installation, evidence } from './harness.mjs'
 const day = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
 
 test('TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; expired and retest-due stock stays blocked until a documented disposition', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const now = '2026-10-28T12:00:00.000Z'
+  const day = n => new Date(Date.parse(now) + n * 86400000).toISOString().slice(0, 10)
+  const h = await installation({ now }); t.after(() => h.close())
   const manager = await h.person('quality-manager@example.test', 'manager'), warehouse = await h.person('warehouse@example.test', 'warehouse'), agent = await h.person('agent@example.test', 'agent')
   const today = day(0), cold = await h.command('location.save', { name: 'Cold room' })
   const extract = await h.command('item.save', { sku: 'VAN-EXT', name: 'Vanilla extract', kind: 'buy', baseUnit: 'each' })
@@ -120,7 +122,7 @@ test('TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; ex
   const todayLot = datedReceipt.lines[0].lotId
   s = await h.state()
   assert.deepEqual(s.availability.find(x => x.itemId === boundary.id), { itemId: boundary.id, onHand: '3', quarantine: '0', reserved: '0', expired: '0', available: '3', expectedPurchase: '0', expectedProduction: '0', unreservedDemand: '0', availableToPromise: '3' })
-  let boundaryOrder = await h.command('so.quote', { customerId: deli.id, promiseDate: today, lines: [{ itemId: boundary.id, quantity: '2', unitPrice: '3' }] })
+  let boundaryOrder = await h.command('so.quote', { customerId: deli.id, promiseDate: today, lines: [{ itemId: boundary.id, quantity: '3', unitPrice: '3' }] })
   boundaryOrder = await h.command('so.confirm', { orderId: boundaryOrder.id, version: boundaryOrder.version }); await h.command('so.reserve', { orderId: boundaryOrder.id })
   const boundaryPick = await h.command('shipment.pick', { orderId: boundaryOrder.id, lines: [{ lineId: boundaryOrder.lines[0].id, locationId: cold.id, quantity: '2' }] })
   assert.deepEqual(boundaryPick.lines.map(l => [l.lotId, l.quantity]), [['', '1'], [todayLot, '1']])
@@ -132,6 +134,59 @@ test('TRACE-003 dated lots plan and pick FEFO for a customer shelf-life rule; ex
   s = await h.state()
   assert.equal(s.shipments.find(x => x.id === boundaryPacked.id).status, 'packed')
   assert.equal(s.movements.filter(m => m.documentId === boundaryPacked.id).length, 0)
+
+  // Advancing the server clock alone changes eligibility, never physical stock.
+  await h.advanceClock('2026-10-28T23:59:59.000Z')
+  s = await h.state()
+  assert.deepEqual(s.lotStatuses.find(l => l.lotId === todayLot), {
+    lotId: todayLot, itemId: boundary.id, code: 'TODAY', expiresOn: today, retestOn: today,
+    manufacturedOn: '', storage: '', remainingDays: 0, state: 'expiring', reason: '', onHand: '2',
+  })
+  assert.equal(s.availability.find(a => a.itemId === boundary.id).expired, '0')
+  assert.equal(s.fefoPlans.find(p => p.orderId === boundaryOrder.id).lots.find(l => l.lotId === todayLot).eligible, true)
+  const physical = ({ version, movements, positions, reservations, shipments, lots }) => ({ version, movements, positions, reservations, shipments, lots })
+  const beforeExpiry = physical(s)
+  await h.advanceClock('2026-10-29T00:00:00.000Z')
+  s = await h.state()
+  assert.deepEqual(physical(s), beforeExpiry)
+  assert.deepEqual(s.lotStatuses.find(l => l.lotId === todayLot), {
+    lotId: todayLot, itemId: boundary.id, code: 'TODAY', expiresOn: today, retestOn: today,
+    manufacturedOn: '', storage: '', remainingDays: -1, state: 'expired', reason: `expired on ${today}`, onHand: '2',
+  })
+  assert.deepEqual(s.availability.find(a => a.itemId === boundary.id), {
+    itemId: boundary.id, onHand: '3', quarantine: '0', reserved: '3', expired: '2', available: '-2',
+    expectedPurchase: '0', expectedProduction: '0', unreservedDemand: '0', availableToPromise: '-2',
+  })
+  const expiryAlert = s.exceptions.find(x => x.kind === 'expiry' && x.id === todayLot)
+  assert.equal(expiryAlert.resolvable, false)
+  assert.match(expiryAlert.title, new RegExp(`expired on ${today}`))
+  const expiredPlan = s.fefoPlans.find(p => p.orderId === boundaryOrder.id)
+  assert.equal(expiredPlan.on, day(1))
+  assert.equal(expiredPlan.lots.find(l => l.lotId === todayLot).eligible, false)
+  const beforeRefusal = physical(s)
+  await warehouse.run('shipment.pick', { orderId: boundaryOrder.id, lines: [{ lineId: boundaryOrder.lines[0].id, locationId: cold.id, quantity: '1', lotId: todayLot }] }, { error: 'FEFO_INELIGIBLE' })
+  s = await h.state()
+  assert.deepEqual(physical(s), beforeRefusal)
+
+  // A qualified, evidenced disposition is still required after natural expiry.
+  const agedDisposition = { lotId: todayLot, version: s.lots.find(l => l.id === todayLot).version, decision: 'extend', expiresOn: day(10), retestOn: day(10), reason: 'Retest supports the new expiry', evidence: [evidence('Retest certificate for TODAY')] }
+  await warehouse.run('lot.dispose', agedDisposition, { error: 'FORBIDDEN' })
+  await manager.run('lot.dispose', { ...agedDisposition, evidence: [] }, { error: 'EVIDENCE' })
+  assert.deepEqual(physical(await h.state()), beforeRefusal)
+  const renewed = await manager.run('lot.dispose', agedDisposition)
+  assert.deepEqual(renewed.dispositions[0].before, beforeRefusal.lots.find(l => l.id === todayLot).dates)
+  assert.equal(renewed.dispositions[0].by, manager.id)
+  assert.equal(renewed.dispositions[0].at, '2026-10-29T00:00:00.000Z')
+  assert.equal(renewed.dispositions[0].evidence[0].name, 'count-sheet.txt')
+  const renewedPick = await warehouse.run('shipment.pick', { orderId: boundaryOrder.id, lines: [{ lineId: boundaryOrder.lines[0].id, locationId: cold.id, quantity: '1', lotId: todayLot }] })
+  assert.deepEqual(renewedPick.lines.map(l => [l.lotId, l.quantity]), [[todayLot, '1']])
+  s = await h.invariant()
+  assert.equal(s.availability.find(a => a.itemId === boundary.id).expired, '0')
+  assert.equal(s.lotStatuses.find(l => l.lotId === todayLot).state, 'expiring')
+  assert.equal(s.fefoPlans.find(p => p.orderId === boundaryOrder.id).lots.find(l => l.lotId === todayLot).eligible, true)
+  assert.equal(s.exceptions.some(x => x.kind === 'expiry' && x.id === todayLot && !x.resolvable), false)
+  assert.deepEqual(s.movements, beforeExpiry.movements)
+  assert.deepEqual(s.positions, beforeExpiry.positions)
 
 })
 

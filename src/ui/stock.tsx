@@ -1,3 +1,4 @@
+import { WarehouseLogistics } from './warehouse-logistics'
 import { LotTrace } from './lot-trace'
 import { SerialNumbers } from './serials'
 import { ScanPanel } from './scan'
@@ -11,7 +12,7 @@ import { plus, qty, when, words } from './format'
 
 const documents = (s: LarderState) => [
   ...rows(s, 'receipts').filter(r => r.status !== 'reversed').map(r => ({ kind: 'receipts', id: r.id, label: `${r.reference} receipt (${r.supplierReference})` })),
-  ...rows(s, 'transfers').filter(r => r.status !== 'reversed').map(r => ({ kind: 'transfers', id: r.id, label: `${r.reference} transfer of ${itemName(s, r.itemId)}` })),
+  ...rows(s, 'transfers').filter(r => r.status !== 'reversed' && r.status !== 'in transit').map(r => ({ kind: 'transfers', id: r.id, label: `${r.reference} transfer of ${itemName(s, r.itemId)}` })),
   ...rows(s, 'openings').filter(r => r.status !== 'reversed').map(r => ({ kind: 'openings', id: r.id, label: `${r.reference} opening count at ${locationName(s, r.locationId)}` })),
   ...rows(s, 'counts').filter(r => r.status === 'adjusted').map(r => ({ kind: 'counts', id: r.id, label: `${r.reference} count adjustment` })),
   ...rows(s, 'returns').filter(r => r.status !== 'reversed').map(r => ({ kind: 'returns', id: r.id, label: `${r.reference} return of ${itemName(s, r.itemId)}` })),
@@ -24,6 +25,7 @@ export function Stock({ larder }: { larder: Larder }) {
   const lot = (id: string) => rows(s, 'lots').find(l => l.id === id)?.code
   return <div className="page">
     <header className="page-head"><p className="eyebrow">Stock</p><h1>Stock on hand</h1><p className="meta">Every quantity is the sum of its recorded movements. Reserved stock cannot be moved or sold twice.</p></header>
+    <WarehouseLogistics larder={larder} />
     <LotTrace larder={larder} />
     <SerialNumbers larder={larder} />
     <CountSessions larder={larder} />
@@ -35,8 +37,13 @@ export function Stock({ larder }: { larder: Larder }) {
     <Card title="By location">{s.positions.length === 0 ? <Empty>No stock recorded yet. Record an opening count below.</Empty> :
       <Table head={['Location', 'Item', 'Lot', 'Status', 'Quantity']} numeric={[4]}>{s.positions.map((p: any, i: number) => <tr key={i}><td>{locationName(s, p.locationId)}</td><td>{itemName(s, p.itemId)}</td><td>{lot(p.lotId) ?? '—'}</td><td><Chip tone={p.status === 'quarantine' ? 'warn' : 'good'}>{words(p.status)}</Chip></td><td className="num">{qty(p.quantity)}</td></tr>)}</Table>}
     </Card>
-    {wh && quarantine.length > 0 && <Card title="Quality decisions">{quarantine.map((p: any, i: number) => <Form key={i} title={`${qty(p.quantity)} ${itemName(s, p.itemId)} at ${locationName(s, p.locationId)}${p.lotId ? `, lot ${lot(p.lotId)}` : ''}`} submit="Record decision" busy={busy} onSubmit={d => run('quarantine.decide', { itemId: p.itemId, locationId: p.locationId, lotId: p.lotId || undefined, quantity: text(d, 'quantity'), decision: text(d, 'decision'), reason: text(d, 'reason') })}>
-      <Field label="Quantity" name="quantity" defaultValue={p.quantity} inputMode="decimal" /><Choose label="Decision" name="decision" options={[{ value: 'release', label: 'Release to stock' }, { value: 'reject', label: 'Reject (return or scrap)' }]} /><Field label="Reason" name="reason" /></Form>)}</Card>}
+    {wh && quarantine.length > 0 && <Card title="Quality decisions">{quarantine.map((p: any, i: number) => <Form key={i} title={`${qty(p.quantity)} ${itemName(s, p.itemId)} at ${locationName(s, p.locationId)}${p.lotId ? `, lot ${lot(p.lotId)}` : ''}`} submit="Record decision" busy={busy} onSubmit={async d => {
+      const file = d.get('evidence') as File | null
+      return run('quarantine.decide', { itemId: p.itemId, locationId: p.locationId, lotId: p.lotId || undefined, quantity: text(d, 'quantity'), decision: text(d, 'decision'), reason: text(d, 'reason'), evidence: file?.size ? { name: file.name, contentType: file.type || 'application/octet-stream', base64: await fileBase64(file) } : undefined })
+    }}>
+      <Field label="Quantity" name="quantity" defaultValue={p.quantity} inputMode="decimal" /><Choose label="Decision" name="decision" options={[{ value: 'release', label: 'Release to stock' }, { value: 'reject', label: 'Reject (return or scrap)' }]} /><Field label="Reason" name="reason" />
+      {rows(s, 'lots').some(l => l.id === p.lotId && l.source === 'nesting') && <><p>Recovered offcuts need their own current certificates, passing receipt inspections and release record. Source approval does not release this lot.</p><Field label="Recovery release record" name="evidence" type="file" required={false} accept=".pdf,.png,.jpg,.jpeg,.csv,.txt" /></>}
+    </Form>)}</Card>}
     {wh && <div className="split">
       <Card title="Opening stock"><Form submit="Record opening count" busy={busy} note="Use once per item and location, before other movements. Later differences are counts." onSubmit={async d => {
         const file = (d.get('evidence') as File | null)

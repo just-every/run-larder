@@ -126,6 +126,18 @@
       "name": "0019_dependency_keys_sealed.sql",
       "sha256": "9c8fa5f94c48a230f326cd4d666cbc2bd1e7d5a18327b89e65b339ac6a533d9a",
       "sql": "ALTER TABLE rer_dependency_installation ADD COLUMN keys_sealed INTEGER NOT NULL DEFAULT 0 CHECK(keys_sealed IN (0,1));\n-- Nonsecret version history lets restored rows name an unavailable retired key\n-- without confusing ciphertext tampering or a wrong current secret with restore.\nALTER TABLE rer_dependency_installation ADD COLUMN key_ids TEXT NOT NULL DEFAULT '[]' CHECK(json_valid(key_ids) AND json_type(key_ids)='array');\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0020_service_keys.sql",
+      "sha256": "e762eb48887537d8c1fe7bfec92091b19f4cc948d77ac60c33c6c0d213515259",
+      "sql": "-- Session-bound read credentials are deliberately excluded from business archives.\nCREATE TABLE larder_service_keys (\n  id TEXT PRIMARY KEY,\n  digest TEXT NOT NULL UNIQUE,\n  operator_id TEXT NOT NULL,\n  session_id TEXT NOT NULL,\n  operator_version INTEGER NOT NULL,\n  expires_at INTEGER NOT NULL,\n  revoked INTEGER NOT NULL DEFAULT 0 CHECK(revoked IN (0,1))\n);\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0021_report_sessions.sql",
+      "sha256": "6b3b8d520829b24a49fa620bbc27699d4a776fc3fad8da219c4e72bb42199b19",
+      "sql": "-- Private native-session references are deliberately outside business archives.\n-- They are not credentials and cannot establish a session.\nCREATE TABLE larder_report_sessions (\n  schedule_id TEXT PRIMARY KEY,\n  actor TEXT NOT NULL\n);\n"
     }
   ],
   "compatibilityDate": "2026-09-08",
@@ -153,7 +165,9 @@
     "MAIL_API_KEY",
     "INSTALLATION_KEY_PREVIOUS"
   ],
-  "schedules": [],
+  "schedules": [
+    "*/15 * * * *"
+  ],
   "queueConsumers": [],
   "healthPath": "/health",
   "recovery": "Follow OPERATIONS.md: pause writes, retain the exact source and private settings, export Larder data, restore into empty resources, establish the native owner, re-export and compare records and attachment bytes before routing traffic. Preserve every applied migration name and byte.",

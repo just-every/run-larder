@@ -22,10 +22,10 @@ export const destinations = [
   { id: 'stock', title: 'Stock', icon: 'stock' },
   { id: 'make', title: 'Make & buy', icon: 'make' },
   { id: 'handoff', title: 'Handoff', icon: 'handoff' },
-  { id: 'more', title: 'More', icon: 'more' },
+  { id: 'settings', title: 'Settings', icon: 'more' },
 ] as const
 
-const readHash = () => { const [view = '', ...rest] = window.location.hash.slice(1).split('/'); return { view: destinations.some(d => d.id === view) ? view : '', rest } }
+const readHash = () => { const [view = '', ...rest] = window.location.hash.slice(1).split('/'); return { view: view === 'more' ? 'settings' : destinations.some(d => d.id === view) ? view : '', rest } }
 export const go = (path: string) => { window.location.hash = path }
 
 export function LarderApp() {
@@ -50,7 +50,7 @@ export function LarderApp() {
           {view === 'stock' && <Stock larder={larder} />}
           {view === 'make' && <MakeBuy larder={larder} section={route.rest[0]} id={route.rest[1]} />}
           {view === 'handoff' && <Handoff larder={larder} id={route.rest[0]} />}
-          {view === 'more' && <More larder={larder} section={route.rest[0]} />}
+          {view === 'settings' && <More larder={larder} section={route.rest[0]} />}
         </>}
       </main>
     </div>

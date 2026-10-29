@@ -58,9 +58,11 @@ export function reversal(c: Context, type: string, p: any): Row | undefined {
   if (type !== 'movement.reverse') return
   allow(c, ['manager', 'warehouse', 'production'])
   const kind = oneOf(p.documentKind, kinds, 'document kind'), doc = get(c.s, kind, p.documentId, 'document')
+  if (kind === 'transfers' && doc.logistics && doc.status === 'in transit') fail('STATE', 'Receive this transit before reversing it.')
   const reversed = new Set(c.s.movements.filter(m => m.reversesId).map(m => m.reversesId))
   let targets = c.s.movements.filter(m => m.documentKind === kind && m.documentId === doc.id && !reversed.has(m.id))
   if (p.movementIds !== undefined) { const ids = new Set(list<string>(p.movementIds, 'movements')); targets = targets.filter(m => ids.has(m.id)) }
+  if (kind === 'transfers' && doc.logistics && p.movementIds !== undefined && targets.length !== c.s.movements.filter(m => m.documentKind === kind && m.documentId === doc.id && !reversed.has(m.id)).length) fail('STATE', 'Reverse the complete warehouse transfer so its stock stays conserved.')
   if (kind === 'workOrders' && c.s.workTransfers.some(t => t.transfers.some((a: any) => a.sourceId === doc.id))) fail('DEPENDENCY', 'Split/merge successors depend on this job’s original issues and lots.')
   if (c.s.nonconformances.some(n => targets.some(m => n.sourceMovementIds.includes(m.id)))) fail('DEPENDENCY', 'Nonconformance containment depends on this original stock; retain its genealogy.')
   if (c.s.reworkOrders.some(w => ['quarantine', 'released'].includes(w.status) && targets.some(m => w.sourceMovementIds.includes(m.id)))) fail('DEPENDENCY', 'Repair/unbuild consumed this original stock. Its genealogy must be retained.')

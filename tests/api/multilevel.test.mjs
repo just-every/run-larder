@@ -588,7 +588,7 @@ test('MRP-002 follows shared dated supply to customer demand and back through PO
 })
 
 
-test('MRP-001 dated drafts preserve reviewed quantities, release dates and source paths with stale, duplicate, policy and live-authority guards across restart and restore', async t => {
+test('MRP-006 dated drafts preserve reviewed quantities, release dates and source paths with stale, duplicate, policy and live-authority guards across restart and restore', async t => {
   const h = await installation(); t.after(() => h.close())
   const raw = await h.command('item.save', { sku: 'DATED-DRAFT-RAW', name: 'Dated draft raw', kind: 'buy', baseUnit: 'kg' })
   const made = await h.command('item.save', { sku: 'DATED-DRAFT-MADE', name: 'Dated draft product', kind: 'make', baseUnit: 'each' })

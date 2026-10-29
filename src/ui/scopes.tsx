@@ -1,4 +1,4 @@
-// GOV-001: the owner narrows a person to chosen locations and the costs-and-wages restriction, and names custom roles.
+// GOV-014 GOV-015 GOV-016: the owner narrows a person to chosen locations and the costs-and-wages restriction, and names custom roles.
 import { rows } from './api'
 import type { Larder } from './app'
 import { Card, Chip, Choose, Empty, Field, Form, Table, text } from './controls'

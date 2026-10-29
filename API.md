@@ -4,7 +4,7 @@ The app and agents use the same door. Every request needs a native session cooki
 
 - `GET /api/larder/state` — every record, the formatted movement ledger, reservations, positions, availability per item, shortages, weekly forecasts/MPS, the exception queue and owned `followUpCases` (including closed-case history), recent recorded actions and (for the owner) the team.
 - `GET /api/larder/planning/pegging` — current dated forward/reverse material allocations; see MRP-002 below.
-- `GET /api/larder/planning/supply-changes` — MRP-002 expedite, defer and cancel recommendations on open purchase lines, each with its affected orders and a stable `key`; decide them with `supply.change.approve` / `supply.change.reject` (see MRP-002 below).
+- `GET /api/larder/planning/supply-changes` — MRP-007 expedite, defer and cancel recommendations on open purchase lines, each with its affected orders and a stable `key`; decide them with `supply.change.approve` / `supply.change.reject` (see MRP-002 below).
 - `GET /api/larder/planning/materials` — MRP-001 read-only dated physical/purchase projection, its exact input version, source quantities/dates, unavailable and provisional supply, and remaining limitations (see below).
 - `POST /api/larder/commands` — `{ "commandId": "<8–100 of A-Z a-z 0-9 _ ->", "type": "...", "payload": { ... } }` with `content-type: application/json` and the installation's own `Origin`. Repeating a `commandId` returns its recorded outcome; reusing it with other content or by someone else is refused (`IDEMPOTENCY`). Replies are `{ ok: true, result, version }` or `{ ok: false, error: { code, message, details } }`.
 - `GET /api/larder/handoffs/<id>.csv` — a handoff batch as CSV (owner, manager, accounts).
@@ -55,7 +55,7 @@ is a `work` source on the demand it supplies, and `kind=work` follows it forward
 that demand. The archive preserves the inputs and restore reproduces the pegs
 without executing any command or external effect.
 
-### Supply-change recommendations and decisions
+### Supply-change recommendations and decisions (MRP-007)
 
 `GET /api/larder/planning/supply-changes` reads the same shared allocation and
 returns, for each open approved purchase line: an `expedite` when it arrives after
@@ -110,7 +110,7 @@ and the usual audit entries.
 | `receipt.create` | `{poId, supplierReference, documents?: [{name, contentType, base64}], lines: [{lineId, quantity, unit?, locationId, lot?, serials?, dates?, inspection?: accept\|quarantine, damage?: {quantity, reason}}]}` — `quantity` is what arrived; `damage.quantity` of it is received into quarantine as its own `<lot>-DAMAGED` lot with the reason; supplier documents are kept on the receipt; a PO line's `tolerancePercent` (0–20, set on `po.draft` lines, default 0) lets a delivery exceed the ordered quantity by that share | manager, warehouse |
 | `receipt.allocate` | `{receiptId, version, asOf, reason}` from a current `GET /planning/pegging?kind=receipt&id=<receiptId>` — reserves the receipt's accepted, unreserved stock for the sales lines and released-job components the dated plan pegs it to, in the plan's date order; demand reached only through a make path is skipped and listed; the record lists `allocated` and `skipped`; a stale version or UTC day answers `STALE` | manager, warehouse (never an agent) |
 | `receipt.allocate.job` | `{receiptId, workOrderId, version, itemId, quantity, unit?, reason, takeFrom?: [{demandId, lineId, locationId, quantity}]}` — reserves the receipt's accepted, unreserved stock of a component to a released job that makes the product, by hand and never automatically; a draft, closed, cancelled or quality-held job answers `STATE`/`QUALITY_HOLD`, quarantined, damaged and rejected stock is never counted (`INSUFFICIENT_STOCK`); `takeFrom` takes stock reserved to another demand and needs a manager or the owner; the `receipt-allocation` approval record names the receipt, job, reservation, quantity, role and anything taken, and closing the job returns the reservation; no signatures | manager, warehouse (never an agent); `takeFrom`: manager |
-| `quarantine.decide` | `{itemId, locationId, lotId?, quantity, decision: release\|reject, reason}` | manager, warehouse |
+| `quarantine.decide` | `{itemId, locationId, lotId?, quantity, decision: release\|reject, reason, evidence?}` — recovered nesting lots require their own current certificates, passing applicable receipt inspections and an original release evidence file | manager, warehouse |
 | `lot.dispose` | `{lotId, version, decision: extend\|scrap, expiresOn?, retestOn?, locationId?, reason, evidence: [{name, contentType, base64}]}` — documented disposition of an expired or retest-due lot | manager (never an agent) |
 | `wo.draft` | `{itemId, quantity, requiredBy, reason, priority?, plannedStart?}` | manager, production, planner, agent |
 | `wo.release` | `{workOrderId, version}` | manager, production |
@@ -345,7 +345,7 @@ A serial-tracked item moves only as named serials, each a one-unit lot (`serial:
 
 `wo.batch.allocate` takes `{workOrderId, version, batchIndex, allocations, reason, evidence}` (production/manager, owner included), recording missing historical allocation once with actor/time/original evidence. It retains original output quantities/movements and refuses ambiguous original output identity. New output or closure cannot bypass unresolved historical batch allocations. The Stock genealogy screen and work-order allocation forms use these same public doors.
 
-## Nonconformance cases (TRACE-005)
+## Nonconformance cases (TRACE-005; deviations TRACE-008)
 
 Owner, manager or quality uses `nonconformance.open` with `{lotId, locationId, quantity, complaint, dueOn, evidence: [file]}` to contain available units and own the case. `nonconformance.update` takes `{caseId, version, rootCause, correctiveAction, nextAction, dueOn, supplierId?, reworkOrderId?, evidence: [file]}` and records follow-up in app; it sends nothing and executes no repair. A linked draft quarantined repair acquires the case reference and later consumes its held quantity through the independently approved `rework.execute` door. Case closure waits for that repair’s inspection and release.
 
@@ -371,7 +371,7 @@ Routing JSON and the routing editor accept `transferBatch` (decimal finished-ite
 - `GET /api/larder/archive.csv` — owner/manager; lossless `section,index,json` CSV companion to the complete JSON business archive. See MOVE-IN.md for decoding, decimal representations and original-file custody. This is not the installation backup, which has a separate portability policy.
 
 
-## Drafting a dated suggestion (MRP-001, partial)
+## Drafting a dated suggestion (MRP-006)
 
 Read `/api/larder/planning/materials`, review the returned requirement and its
 `suggestion`, then send `plan.draft` with `itemId`, `dated: {version, asOf, key}`
@@ -637,7 +637,7 @@ Owner, manager and accounts read `/api/larder/costing/margins`, `/variances` and
 
 Under ct’s 23 October approval, the owner alone applies policy, service-charge, valuation, job-link and commercial-charge decisions, each showing the exact entry it changes; managers/accounts can prepare inert drafts and read their permitted reports. `costing.link {workOrderId,orderId,lineId,quantity,reason}` explicitly allocates matching job and sales-line quantities. `costing.orderCharge {orderId,lineId,kind,amount,refundable,evidence,reason}` records `discount`, `freight-revenue`, `freight-cost` or `fee`; `refundable` must be an explicit boolean. `costing.close {workOrderId,version,reason}` closes a released job and approves its correcting actual valuation in one owner-authorized atomic decision, refusing missing cost evidence or untraceable output. Existing physical closure remains available for legacy jobs, with later explicit valuation review. `costing.valuation.prepare {workOrderId,reason}` requires a closed job, complete costs and exact output lots; `.valuation.approve {valuationId,version,reason}` requires fresh stock/cost state and explicit owner approval. Per-lot rounding residuals conserve the exact approved value through partial issues, transfers, shipments, returns and reversals. It adds an immutable financial valuation and a once-only handoff correction, never changes physical movements or posts journals.
 
-`reports.schedule {filters,consent:true,reason}` saves a daily in-app due report with the owner’s explicit consent. Its owner (or owner role) opens a due snapshot with `reports.run {scheduleId,version}` and cancels with `reports.cancel {scheduleId,version,reason}`. It sends nothing and has no unattended background runner; restored schedules pause. COST-001’s financial authority and allocation rules are ct-approved: overtime is per entry, machine/overhead use active hours and the displayed good/scrap allocation is equal per unit. Cost-link and commercial-charge recordings are audited immutable entries; a reversal must be a new entry. Costing retains no payroll data beyond the rate used and posts no journals. COST-006 retains its unattended-generation and background-authority gap.
+`reports.schedule {filters,consent:true,reason}` saves a daily in-app report with explicit consent from the native owner. Worker cron checks due reports every 15 minutes and records at most one immutable snapshot per UTC day under that owner’s still-live native session. It uses the same command pipeline, exact state version and atomic session and role fence as manual `reports.run {scheduleId,version}`. Each snapshot keeps its owner, time, generation mode, filters and report sources. Sign-out, expiry, session revocation, owner deactivation or owner change stops generation; a later sign-in requires a newly consented schedule. Development and review sessions support manual generation only. The owner cancels consent with `reports.cancel {scheduleId,version,reason}`. There is no HTTP cron endpoint and no external send. Native session references stay in private storage outside business records, audit and archives; restored schedules are paused and cannot run without fresh consent. COST-001’s financial authority and allocation rules are ct-approved: overtime is per entry, machine/overhead use active hours and the displayed good/scrap allocation is equal per unit. Cost-link and commercial-charge recordings are audited immutable entries; a reversal must be a new entry. Costing retains no payroll data beyond the rate used and posts no journals. COST-007 retains branded report documents and authorized external delivery; AUTO-002 retains notification delivery and its stop conditions.
 
 A physical production close alone preserves the existing weighted-average withdrawal basis. Only an explicitly approved actual valuation selects the produced lot’s actual rate; earlier withdrawals stay recorded and their financial correction is shown separately.
 
@@ -705,7 +705,7 @@ vendor-specific nesting imports and inherits these review and posting guards.
 
 Under ct approval of 23 October 2026, both commands are owner-only, including command replay. A customer date change still uses `so.changePreview` and `so.changeApprove` with recorded customer attestation. That preview includes `impact.changedPromiseCount` (affected customer orders) and `impact.promiseChanges` (each changed line with previous and proposed delivery dates). Each accepted receipt on its purchase-order page offers the owner a two-line split form, the exact review and a reasoned approval; changed business records or UTC day require a fresh review. The existing qualified-alternate API and browser journeys now assert customer-linked outage recovery with sufficient alternate capacity, zero changed promises and unchanged order dates.
 
-Archive restore currently accepts only an explicit `USD` functional-currency declaration. Missing, malformed or non-USD declarations answer `CURRENCY_MIGRATION` before any write. This prevents silent relabelling; it does not implement the US-001 versioned AUD conversion. Original currencies of source-history evidence remain separate from functional money.
+Archive restore accepts only an explicit `USD` functional-currency declaration; the owner can first prepare a recorded-rate AUD conversion through the migration route below. Missing, malformed or non-USD declarations answer `CURRENCY_MIGRATION` before any write. This prevents silent relabelling or implicit conversion during restore. Original currencies of source-history evidence remain separate from functional money.
 
 
 ### Optional finite nesting comparison
@@ -732,8 +732,7 @@ USD archive export and restore refuse a conflicting root `currency` or
 orders, labor rates, job charges, cost links, cost valuations, margin charges
 and handoffs before any write or new USD export label. Original source-history
 currencies and supplier-quote currencies remain independent and unchanged.
-This refusal does not implement legacy AUD migration or complete per-amount
-currency declarations.
+The explicit migration below preserves original AUD amounts alongside the converted functional money; record currency declarations cover native archive amounts.
 
 ## Explicit multi-output batches (FLOOR-006)
 
@@ -843,7 +842,8 @@ separate audited owner decision; a hold never expires automatically.
 `erasure.contact {partyId, reviewedVersion, consent: true, reason}` replaces only
 the contact's name and email, replaces cached human contact labels in command outcomes
 and the audit through the existing audit-erasure mechanism, and retains record
-IDs, quantities, prices, movements, documents and their bytes. A stale preview,
+IDs, quantities, prices, movements, documents and their bytes. Personal values in
+the decision reason and its audit reason are replaced regardless of capitalization. A stale preview,
 a held contact or missing explicit consent refuses the whole transaction. Names
 shorter than three characters require a separate field-specific audit review and
 are refused by this limited door.
@@ -853,12 +853,36 @@ preserves them without executing erasure again. Earlier downloaded archives,
 other record text and uncontrolled client copies are explicitly retained or
 outside control. No provider deletion request is made.
 
-This is a contact-only foundation. Former operators, eligible document and model
-context deletion, configured US retention periods and page controls remain
-unimplemented. The conservative adopted default awaits ct approval: owner-only
-explicit consent, indefinite production and financial trace and document
-retention, no automatic deletion or outbound request, and explicit audited hold
-release. GOV-005 remains partial.
+`retention.configure {category, minimumDays, version?, reason}` records owner-only US
+minimum preservation floors for contacts, production and financial trace, or documents.
+The period is 0 to 36500 whole days from contact creation; a contact review reports
+its eligibility timestamp and commands refuse early erasure. An elapsed floor never
+executes anything. Production trace, financial evidence and all document bytes stay
+indefinitely preserved regardless of their recorded minimum floor. No statutory period,
+expiry, purge schedule or legal compliance is supplied by this setting.
+
+Holds can now preserve any native business-record category except retention decisions,
+hold metadata, audit erasure requests and live authority metadata. A legal hold
+cannot freeze role changes, credential revocation or delegated authority revocation. Native identity tables and attachment bytes
+are not independently editable business records; document bytes remain retained.
+
+The owner reviews `GET /api/larder/retention/operator?operatorId=<id>` and submits
+`erasure.operator {operatorId, operatorVersion, reviewedVersion, consent: true, reason}`.
+Only an inactive identity is eligible, and any active legal hold conservatively refuses
+this wider subject decision. The atomic write checks the current native identity version
+and status again, replaces its display name and email, invalidates its old version,
+replaces cached human labels and reuses the append-only audit replacement boundary.
+Movement IDs, quantities, costs, original immutable text and document bytes are unchanged.
+Future archives use the anonymized name even for historical people; restore is inert.
+Native security records and external identity values remain retained and are explicitly
+reported; this is not complete identity erasure. This limited display-label replacement does not establish complete lawful former-operator erasure.
+
+Settings, under Retention and erasure, exposes retention periods, hold creation and explicit release,
+current-subject review, retained categories, controlled-copy outcomes and exact consent.
+The review is invalidated when business state changes. Provider outcomes explicitly say
+not attempted; consent sends no outbound request. Eligible document, message and model
+context erasure and complete controlled-copy deletion remain unimplemented. GOV-005
+remains partial under the approved indefinite-document policy.
 
 ## Versioned integration reads (CONN-014, partial)
 
@@ -884,7 +908,7 @@ the bounded grant while its native session remains live. Credential material is
 hashed in a separate table and excluded from audit, command outcomes and business
 archives; restored grant metadata is revoked and grants no authority.
 
-The conservative adopted default awaits ct approval: owner-only issuance,
+CT approves the interim policy with riders: owner-only explicit issuance for a named integration or export,
 read-only resource scopes, restricted costs and a live native issuing session.
 Scoped service writes, other resource families, outbound signed events with
 stable identities and durable retries, provider-confirmed follow-up closure and
@@ -892,3 +916,231 @@ the draft-only MCP server remain unimplemented. CONN-014 remains partial.
 
 CONN-015 inherits resource scope and revocation at its own connection door; this
 read-only slice does not prove its future Zapier draft journey.
+
+
+## Supplier accounting preparation
+
+All commands below use `poId`, the current PO `version` and a required `reason`.
+Every command uses the native session, atomic role and location scope guards,
+append-only audit and command replay. Records are nested on the original PO and
+included in the existing complete business archive. No command sends a document
+or calls a ledger provider. Financial decisions below use an adopted owner-only
+default awaiting ct approval; the contract gaps remain partial.
+
+- `po.bill.capture` (accounts) takes `reference`, explicit `currency`, `lines`
+  containing `lineId`, `quantity`, `unitPrice`, optional `freight` and `tax`, and
+  `evidence`. Supplier invoice references are unique for that supplier.
+- `po.bill.resolve` (independent accounts, owner exception) takes `billId` and
+  `evidence`, retaining current accepted receipt and prior approved bill quantities.
+  Resolve again if another PO change invalidates that decision.
+- `po.bill.approve` (owner) takes `billId`; it approves only the resolved version,
+  refusing cross-currency approval without a connected ledger conversion. Billing
+  quantity states are recorded on the PO; payment stays `not connected`.
+- `po.claim.open` (warehouse or manager) takes `receiptId`, original `movementId`,
+  `quantity`, `purpose` (`rejected` or `excess`), `supplierRma`, `dueDate`, `evidence`.
+  The initiator owns the claim. Claims never exceed that original receipt quantity.
+- `po.claim.ship` (owner) takes `claimId`, `quantity`, `stockStatus`, `reference`,
+  `evidence`. Rejected units leave quarantine only. Reserved stock, recall and
+  nonconformance protections remain enforced. Dispatch is recorded locally.
+- `po.claim.replace` (owner) takes `claimId`, `quantity`, `lot`, `reference`,
+  `evidence`; replacement is quarantined and linked to the original receipt. For a
+  serialized item `lot` names one new unique serial and `quantity` is one.
+- `po.claim.credit` (owner) takes `claimId`, `quantity`, `billId`, `amount`,
+  `reference`, `evidence`. Credit must match an approved original bill and the
+  original receipt cost exactly. Replacement plus credit cannot exceed dispatch.
+- `po.claim.close` (owner) takes `claimId`, requiring full dispatch and settlement,
+  and matching accountant acknowledgements for every credit. This acknowledges
+  recorded ledger references without claiming provider verification.
+- `po.landed.prepare` (accounts) takes `kind` (`freight`, `duty`, `insurance`,
+  `handling`), `policy` (`quantity`, `value`, `weight`), signed `amount`, `reference`,
+  `evidence`, `sources` containing exact receipt `movementId` and a positive
+  `weight` for that policy. Negative corrections also name approved `correctsId`.
+  Allocation conserves the six-place amount across stock, open WIP and direct COGS;
+  completed production or unsupported return attribution refuses with `LANDED_TRACE`.
+- `po.landed.approve` (owner) takes `chargeId`, requiring unchanged state since
+  preparation. This prepares correction lines without applying valuation changes.
+
+Approved credits and landed charges enter the existing accountant handoff once.
+Each line retains `purchasingCorrectionIds` and `sourceMovementIds`; quantities
+are zero. Credits correct payables, while dispatch movements account for physical
+stock. Landed lines label their destination as stock, WIP or COGS. The CSV and
+acknowledgement door retain exact amounts and ledger references.
+
+
+## Recorded material WIP
+
+`GET /api/larder/costing/wip?from=2026-02-01&to=2026-02-28` and
+`GET /api/larder/costing/wip.csv?from=2026-02-01&to=2026-02-28` require a live
+owner, manager or accounts session. Both real calendar dates are required and
+inclusive in UTC. Optional `workOrderId` selects one document. Location and cost
+restrictions apply before results and CSV are returned. This read writes nothing.
+
+Rows retain opening, additions, output transfers, scrap and closing material
+values, transaction IDs and aging from the first recorded addition. Transactions
+name their original movement IDs. Exact output-batch allocations reduce material
+WIP; split and merge responsibility transfers conserve the total. Repair and
+received owned subcontract postings retain their recorded input, labor or service,
+output and scrap values; unconsumed vendor custody stays inventory and customer
+property is excluded from owned WIP. Legacy output without exact allocations is
+listed in `missing`, never proportionally guessed.
+
+This is a recorded-material bridge, not complete actual WIP: production labor,
+overhead, later valuations, operation allocation, screens and external control
+account reconciliation remain COST-002 gaps. The response labels that basis and
+its external state as not connected and not reconciled. No journals are posted.
+
+## Costed quote preparation
+
+`so.review` prepares terms on an unconfirmed order (owner, manager or sales,
+with unrestricted commercial and location access). Send `orderId`, `version`,
+`currency` (USD or CAD), `validUntil`, `paymentTerms`, `discountPercent`,
+`freight` and each existing line exactly once as `{lineId, unitPrice, breaks?}`.
+A break is `{minimum, unitPrice}`; the greatest qualifying minimum wins. Prices
+and freight use customer currency. CAD requires positive `usdRate` (USD per one
+CAD), `rateDate` and `rateReference`. Optional `laborCostRate`, `machineCostRate`
+and `overheadCostRate` are explicit USD quote tariffs per routing hour, never
+employment wages. Missing estimates stay unknown.
+
+Optional `asOf` and `days` select a current or future planning window of 3 to 30
+days. The bounded search checks up to seven not-before days and retains at most
+three distinct full-batch dates. Ordinary made-item lines only are supported for
+finite options. Missing materials, upstream-work supply, overdue purchase supply,
+uncertain dated stock, missing skills, maintenance and displacement keep a date
+unoffered. Expected receipts still require physical receipt and quality release.
+
+`quoteReview` retains totals, costs, margins, material sources and exact named
+machine and person intervals. Its `inputVersion` identifies its business inputs;
+any later write requires fresh preparation. It has no acceptance authority and
+changes no price on the original USD order. Confirmation refuses while a review
+is attached. `so.reviewClear` (`orderId`, `version`, `reason`) retains review
+history and reopens the original USD quote without applying reviewed terms.
+Native archive and empty restore preserve the review as inert history. Scoped
+members cannot prepare or replay reviews; location-scoped state omits them.
+
+Explicit review disposition: editing an existing quote through `so.quote` refuses while a current costed review is attached, even when the edit includes a reason. Use `so.reviewClear` first with the exact current order version and a nonblank reason. Discard retains the complete review with disposition actor, time, reason, order version and review input version. It leaves original USD lines unchanged and creates no reservation or booking. A stale version, missing review, agent or restricted commercial scope refuses discard. Refreshing preparation retains the earlier review as history and keeps the confirmation block. A later edit or confirmation is a separate current-version command under existing authority and margin policy.
+
+
+Legal holds preserve saved follow-up rows during automatic observation; reads still
+show the current overdue condition. Explicit follow-up edits remain refused until
+owner release. A hold on an unsent variance analysis never prevents owner withdrawal
+of model-disclosure consent. Revocation preserves sources, destination and prior
+consent evidence, remains audited, and authorizes no model call or erasure.
+
+CT retains explicit native-owner consent to the exact current contact-erasure review, indefinite preservation of production and financial trace records and documents, and explicit audited owner release of a current legal hold without erasure. Credential replacement, credential revocation and link expiry grant no erasure authority and perform no deletion. Operational staff retain document access under their current native roles. Configurable lawful retention and complete eligible erasure remain required. This ruling adopts no Mallet credential or customer-media policy and accepts no completion.
+
+Gap — GOV-005: configurable US retention periods; lawful subject erasure, including former-operator live anonymization and eligible document, message and model-context erasure; complete legal-hold lifecycle coverage; controlled search, cache and provider deletion outcomes; and the page journey. Actual provider deletion and legal sufficiency of retention remain unestablished.
+
+## US business identity
+
+The owner opens Settings from the account menu. `business.save` takes the current
+profile `version` (0 before first save), `legalName`, `einReference`,
+`billingAddress` and `shippingAddress` (each `street`, `city`, two-letter US
+`state`, `postalCode`, `country: US`), `timeZone` (US IANA identifier),
+`workingWeek` (distinct weekday numbers, Sunday 0), and `fiscalYearStart`
+(recurring `MM-DD`). Functional currency defaults to USD; another currency is
+refused, never used to relabel history. The business calendar describes the
+business; existing production calendar definitions and recorded dates stay intact.
+The command checks owner authority before replay and again at atomic commit,
+refuses stale versions, and records audit history. Only the owner sees the
+profile in ordinary state reads; existing authorized business archive access
+retains the profile. This is an identity reference, not tax validation.
+
+Customer and supplier `party.save` uses separate `ein` and legacy `abn` fields.
+Existing Australian and imported tax identities are retained without reclassification.
+An omitted field does not reinterpret an ABN as an EIN.
+
+
+### Versioned AUD archive migration
+
+`POST /api/larder/archive/migrate-aud` is a native-owner-only, same-origin
+preparation door. It writes nothing and makes no external request. Send
+`{archive, migration}` with the original checksummed `larder-archive-v1` archive
+explicitly declaring AUD. Migration fields are `version: 1`, `consent: true`,
+`sourceChecksum`, positive decimal `rateToUsd` (USD per AUD), `recordedOn`,
+`source` and `reason`. Missing currencies, conflicting native declarations,
+changed checksums, unreviewed fields and unsupported versions are refused.
+
+Legacy core record shapes have built-in amount definitions. Other implemented
+collections require explicit `declarations`: one entry for every numeric field,
+including numeric elements of arrays, except immutable identifiers and versions.
+Each entry has an exact `path` from the archive root, `type: amount` and
+`currency: AUD`, or `type: quantity` with a reason for leaving it unchanged.
+For example, `['records','costPolicies',0,'standardLaborRate']` is money;
+`['records','costPolicies',0,'overtimeAfterHours']` is an unchanged time quantity.
+Money cannot be excluded as a quantity; physical quantities, percentages and
+operational factors cannot be converted as money. Duplicate, missing and unused
+declarations are refused. Source-history records and original evidence files
+already carry independent original currencies and remain unchanged.
+
+The response is a USD archive for the existing empty-installation restore door.
+Review its `currencyMigration` before restoring: the source checksum, owner and
+time, recorded rate and basis, original record currencies, per-field original
+AUD and converted USD amounts, per-field totals, original stock quantities and
+rates, aggregate expected USD stock value, actual converted stock value and
+explicit rounding difference. Conversion uses bigint fixed-point arithmetic,
+rounding half away from zero to six places. Accountant cent fields are derived
+from the converted full-precision amount and rounded to two places; their
+original AUD cent values remain in the receipt. Rates and amounts outside the exact
+supported range are refused. A zero rounding difference is reported only when
+it is zero. This is a local recording, not ledger, provider or tax confirmation.
+
+Restore validates the receipt's arithmetic and totals and their link to the
+original converted records and immutable movements before its guarded batch.
+Later native record revisions remain portable without rewriting that receipt.
+Original command outcomes retain their AUD currency, identified by the receipt's
+`originalCommandIds` and `originalCommandsCurrency`; replay is refused even if
+the original owner identity exists in the destination. New native commands use
+USD. The receipt is retained in JSON and lossless CSV and survives subsequent
+restore. It contains monetary originals and identifiers, without another full
+copy of personal data. The complete source archive stays with the owner.
+
+Contract status and acceptance projection: run
+`node src/base/contract-docs.mjs write`, then
+`node src/base/contract-docs.mjs check`. CONTRACT.md remains the acceptance and
+status source; the shared generator updates ACCEPTANCE.md, docs/CLAIMS.md and
+the canonical status counts together.
+
+### Warehouse transit, bin rules and property
+
+`bin.rule` is owner-controlled configuration in Settings. Supply `locationId`
+(a named site bin), `itemId`, `sourceLocationId`, decimal-string `minimum`,
+`target`, `capacity`, optional exact `lotId` and `reason`. Updating the same
+item and bin requires the current rule `version`; prior definitions remain in
+its history. Capacity is per item in base units and includes quarantined and
+third-party property. Minimum is below target, which cannot exceed capacity.
+
+Managers and warehouse members use these commands with their current site
+scope, including every named source and destination. Agents cannot post them.
+
+- `transit.dispatch`: `itemId`, `fromLocationId`, `toLocationId`, `quantity`,
+  optional `unit` and `lotId`, and `reason`. Dispatch withdraws only released,
+  usable, unreserved owned stock and retains exact lot quantities and costs.
+  Its transfer stays `in transit` and cannot be reserved, issued or shipped.
+- `transit.receive`: `transferId`, current `version`, `reason`. Explicit receipt
+  posts the retained sources once at the recorded destination, rechecking its
+  current capacity and lot rule and the lot's current quality and date gates.
+  An outstanding transit cannot be reversed; receive it before a compensating
+  reversal. Corrections must reverse the complete warehouse transfer, preserving
+  quantity and value across both locations. No automatic receipt or provider
+  confirmation is claimed.
+- `putaway.move`: the dispatch payload, with a configured destination bin rule.
+  Quality, dates, exact lot restrictions, capacity and site permissions apply.
+- `bin.replenish`: the same payload, using the rule's source, only below its
+  minimum, for exactly the quantity needed to reach its target. The same
+  putaway refusals apply. Existing immediate transfers also enforce bin limits.
+- `custody.receive`: `itemId`, `locationId`, `ownerId` (the customer or supplier
+  contact), `ownership` (`customer-owned` or `consigned`), a new `lot` reference,
+  `quantity`, optional `unit`, `reason` and `evidence` attachment. This records
+  separate property, with no owned stock movement or automatic title transfer.
+- `custody.move`: `lotId`, `fromLocationId`, `toLocationId`, `quantity`, optional
+  `unit` and `reason`. Append-only entries move that owner's exact property,
+  checking source quantity, destination capacity, lot and quality, and scope.
+
+State includes `custodyBalances` and `ownershipBalances`, with owned stock on
+site, owned stock in transit, total owned stock, customer property and consigned
+property kept separate. Property never enters owned availability or valuation.
+Derived balances that include locations outside a member's reach read
+`restricted (includes other locations)` rather than displaying a partial total.
+Rules, transfers, custody entries and original evidence travel in the complete
+JSON and CSV business archive. Restore retains them as records, never repeating
+a dispatch, receipt, movement or external action.

@@ -115,3 +115,146 @@ test('ENG-007 export/edit catalog by Larder ID at two locations, preview all fie
   const archive = await (await h.request('/api/larder/archive')).json()
   assert.ok(archive.records.catalogChanges.some(c => c.id === approved.id && c.content === file.content))
 })
+
+test('ENG-008 approved catalog batch and serial policies govern receipt, issue, output and shipment without unsafe stock changes', async t => {
+  const h = await installation({ now: '2026-10-28T12:00:00.000Z' }); t.after(() => h.close())
+  const today = '2026-10-28'
+  const receiving = await h.command('location.save', { name: 'Policy receiving' }), dispatch = await h.command('location.save', { name: 'Policy dispatch' })
+  const supplier = await h.command('party.save', { kind: 'supplier', name: 'Policy parts supplier' }), customer = await h.command('party.save', { kind: 'customer', name: 'Policy equipment customer' })
+  const item = (sku, kind = 'buy') => h.command('item.save', { sku, name: sku, kind, baseUnit: 'each' })
+  const physical = s => Object.fromEntries(['items', 'lots', 'movements', 'positions', 'reservations', 'receipts', 'workOrders', 'salesOrders', 'shipments', 'openings', 'transfers', 'returns'].map(key => [key, s[key]]))
+  const refused = async (type, payload, error) => {
+    const before = physical(await h.state())
+    await h.command(type, payload, { error })
+    assert.deepEqual(physical(await h.state()), before, `${type} ${error} leaves physical records unchanged`)
+  }
+  const preview = async (items, tracking, location = receiving) => h.command('catalog.bulkPreview', { file: { name: 'tracking-policy.csv', content: csv([
+    ['larder_id', 'location_id', 'tracking'], ...items.map(i => [i.id, location.id, tracking]),
+  ]) } })
+  const select = async (items, tracking) => {
+    const before = await h.state(), review = await preview(items, tracking)
+    assert.deepEqual(review.errors, []); assert.equal(review.groups.length, items.length)
+    await h.command('catalog.bulkApprove', { previewId: review.id, version: review.version })
+    const after = await h.state()
+    for (const i of items) assert.equal(after.items.find(row => row.id === i.id).tracking, tracking)
+    assert.deepEqual(after.movements, before.movements); assert.deepEqual(after.positions, before.positions)
+  }
+  const purchase = async (part, quantity) => {
+    let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: today, reason: 'Selected tracking policy', lines: [{ itemId: part.id, quantity, unitPrice: '4' }] })
+    return h.command('po.approve', { poId: po.id, version: po.version })
+  }
+
+  // Each bin and disposition must independently prevent activating tracking.
+  for (const location of [receiving, dispatch]) for (const inspection of ['accept', 'quarantine']) {
+    const untracked = await item(`synthetic-larder-${location === receiving ? 851 : 852}-${inspection}`), po = await purchase(untracked, '1')
+    await h.command('receipt.create', { poId: po.id, supplierReference: 'Unlotted physical stock', lines: [{ lineId: po.lines[0].id, quantity: '1', locationId: location.id, inspection }] })
+    for (const tracking of ['batch', 'serial']) {
+      const before = physical(await h.state()), review = await preview([untracked], tracking, location === receiving ? dispatch : receiving)
+      assert.equal(review.groups.length, 0); assert.equal(review.errors.length, 1)
+      assert.equal(review.errors[0].column, 'tracking'); assert.match(review.errors[0].reason, /physical stock/)
+      await h.command('catalog.bulkApprove', { previewId: review.id, version: review.version }, { error: 'INPUT' })
+      assert.deepEqual(physical(await h.state()), before)
+    }
+  }
+  // Already-lotted balances permit batch activation but still forbid serial activation.
+  const lotted = await item('synthetic-larder-853'), lottedPo = await purchase(lotted, '1')
+  await h.command('receipt.create', { poId: lottedPo.id, supplierReference: 'Existing named batch', lines: [{ lineId: lottedPo.lines[0].id, quantity: '1', locationId: receiving.id, lot: 'synthetic-larder-853-lot', inspection: 'quarantine' }] })
+  await select([lotted], 'batch')
+  const beforeSerialSelection = physical(await h.state())
+  const serialReview = await preview([lotted], 'serial')
+  assert.equal(serialReview.groups.length, 0); assert.match(serialReview.errors[0].reason, /physical stock/)
+  assert.deepEqual(physical(await h.state()), beforeSerialSelection)
+
+  for (const tracking of ['batch', 'serial']) {
+    const part = await item(`synthetic-larder-854-${tracking}`), product = await item(`synthetic-larder-855-${tracking}`, 'make')
+    await select([part, product], tracking)
+    await h.command('bom.revise', { itemId: product.id, components: [{ itemId: part.id, quantity: '1' }] })
+    const po = await purchase(part, '3')
+    const receive = (quantity, extra = {}) => ({ poId: po.id, supplierReference: 'Tracked delivery', lines: [{ lineId: po.lines[0].id, quantity, locationId: receiving.id, inspection: 'accept', ...extra }] })
+    if (tracking === 'batch') {
+      await refused('receipt.create', receive('2'), 'LOT_REQUIRED')
+      await refused('receipt.create', receive('2', { lot: '   ' }), 'LOT_REQUIRED')
+      await h.command('receipt.create', receive('2', { lot: 'synthetic-larder-856' }))
+    } else {
+      // Opening stock cannot identify new serial units and must leave no records.
+      await refused('opening.record', { locationId: dispatch.id, countedOn: today, countedBy: 'Olive', valuationBasis: 'owner-estimate', evidence: evidence(), lines: [{ itemId: part.id, quantity: '1', unitCost: '4', lot: 'synthetic-larder-857' }] }, 'SERIAL_REQUIRED')
+      await refused('receipt.create', receive('2', { lot: 'A batch is not serial units' }), 'SERIAL_REQUIRED')
+      await refused('receipt.create', receive('2', { serials: ['synthetic-larder-858'] }), 'SERIAL_QUANTITY')
+      await refused('receipt.create', receive('2', { serials: ['synthetic-larder-858', 'SYNTHETIC-LARDER-858'] }), 'DUPLICATE_SERIAL')
+      await refused('receipt.create', receive('0.5', { serials: ['synthetic-larder-858'] }), 'SERIAL_QUANTITY')
+      await h.command('receipt.create', receive('2', { serials: ['synthetic-larder-858', 'synthetic-larder-859'] }))
+      await refused('receipt.create', receive('1', { serials: ['synthetic-larder-858'] }), 'DUPLICATE_SERIAL')
+      const source = (await h.state()).lots.find(l => l.itemId === part.id && l.code === 'synthetic-larder-858')
+      const transfer = { itemId: part.id, fromLocationId: receiving.id, toLocationId: dispatch.id, quantity: '1', reason: 'Move one named unit' }
+      await refused('transfer.create', transfer, 'SERIAL_REQUIRED')
+      await refused('transfer.create', { ...transfer, quantity: '0.5', lotId: source.id }, 'SERIAL_QUANTITY')
+      await h.command('transfer.create', { ...transfer, lotId: source.id })
+      await h.command('transfer.create', { ...transfer, fromLocationId: dispatch.id, toLocationId: receiving.id, lotId: source.id })
+    }
+    let state = await h.invariant()
+    const received = state.receipts.filter(r => r.poId === po.id).flatMap(r => r.lines)
+    assert.deepEqual(received.map(l => l.quantity).sort(), tracking === 'batch' ? ['2'] : ['1', '1'])
+    assert.ok(received.every(l => state.lots.some(lot => lot.id === l.lotId && lot.itemId === part.id && (tracking !== 'serial' || lot.serial))))
+    let work = await h.command('wo.draft', { itemId: product.id, quantity: '2', requiredBy: today, reason: 'Selected-policy assembly' })
+    work = await h.command('wo.release', { workOrderId: work.id, version: work.version })
+    const issue = (quantity, extra = {}) => ({ workOrderId: work.id, lines: [{ itemId: part.id, locationId: receiving.id, quantity, ...extra }] })
+    if (tracking === 'serial') {
+      await refused('wo.issue', issue('2'), 'SERIAL_REQUIRED')
+      await refused('wo.issue', issue('2', { serials: ['synthetic-larder-858', 'synthetic-larder-858'] }), 'DUPLICATE_SERIAL')
+      await refused('wo.issue', issue('0.5', { serials: ['synthetic-larder-858'] }), 'SERIAL_QUANTITY')
+    }
+    work = await h.command('wo.issue', issue('2', tracking === 'serial' ? { serials: ['synthetic-larder-858', 'synthetic-larder-859'] } : { lotId: received[0].lotId }))
+    state = await h.state()
+    const inputs = state.movements.filter(m => m.documentId === work.id && m.kind === 'issue')
+    assert.deepEqual(inputs.map(m => m.quantity).sort(), tracking === 'batch' ? ['-2'] : ['-1', '-1'])
+    const output = (quantity, extra = {}) => ({ workOrderId: work.id, version: work.version, locationId: dispatch.id, quantity, ...extra })
+    if (tracking === 'batch') {
+      await refused('wo.output', output('2'), 'LOT_REQUIRED')
+      work = await h.command('wo.output', output('2', { lot: 'synthetic-larder-860' }))
+    } else {
+      const allocations = index => [{ movementId: inputs[index].id, quantity: '1' }]
+      await refused('wo.output', output('1', { allocations: allocations(0) }), 'SERIAL_REQUIRED')
+      await refused('wo.output', output('0.5', { serials: ['synthetic-larder-861'] }), 'SERIAL_QUANTITY')
+      await refused('wo.output', output('2', { serials: ['synthetic-larder-861', 'synthetic-larder-862'] }), 'SERIAL_QUANTITY')
+      work = await h.command('wo.output', output('1', { serials: ['synthetic-larder-861'], allocations: allocations(0) }))
+      await refused('wo.output', output('1', { serials: ['SYNTHETIC-LARDER-861'], allocations: allocations(1) }), 'DUPLICATE_SERIAL')
+      work = await h.command('wo.output', output('1', { serials: ['synthetic-larder-862'], allocations: allocations(1) }))
+    }
+    work = await h.command('wo.close', { workOrderId: work.id, version: work.version })
+    let order = await h.command('so.quote', { customerId: customer.id, promiseDate: today, lines: [{ itemId: product.id, quantity: '2', unitPrice: '20' }] })
+    order = await h.command('so.confirm', { orderId: order.id, version: order.version })
+    await h.command('so.reserve', { orderId: order.id })
+    const pick = (quantity, extra = {}) => ({ orderId: order.id, lines: [{ lineId: order.lines[0].id, locationId: dispatch.id, quantity, ...extra }] })
+    if (tracking === 'serial') {
+      await refused('shipment.pick', pick('2'), 'SERIAL_REQUIRED')
+      await refused('shipment.pick', pick('2', { serials: ['synthetic-larder-861', 'synthetic-larder-861'] }), 'DUPLICATE_SERIAL')
+      await refused('shipment.pick', pick('0.5', { serials: ['synthetic-larder-861'] }), 'SERIAL_QUANTITY')
+    }
+    state = await h.state()
+    const outputLots = state.lots.filter(l => l.itemId === product.id)
+    let shipment = await h.command('shipment.pick', pick('2', tracking === 'serial' ? { serials: ['synthetic-larder-861', 'synthetic-larder-862'] } : { lotId: outputLots[0].id }))
+    shipment = await h.command('shipment.pack', { shipmentId: shipment.id, version: shipment.version, packages: 1 })
+    await h.command('shipment.ship', { shipmentId: shipment.id, version: shipment.version, carrier: 'UPS', tracking: 'synthetic-larder-863' })
+    state = await h.invariant()
+    const saved = state.shipments.find(s => s.id === shipment.id)
+    assert.equal(saved.status, 'shipped'); assert.equal(saved.packages, 1); assert.equal(saved.shippedAt, '2026-10-28T12:00:00.000Z')
+    assert.deepEqual(saved.lines.map(l => [l.lotId, l.quantity]).sort(), outputLots.map(l => [l.id, tracking === 'serial' ? '1' : '2']).sort())
+    assert.equal(state.salesOrders.find(s => s.id === order.id).lines[0].shipped, '2')
+    assert.ok(state.positions.filter(p => p.itemId === product.id).every(p => p.quantity === '0'))
+    if (tracking === 'serial') {
+      for (const m of state.movements.filter(m => [part.id, product.id].includes(m.itemId))) {
+        assert.ok(['1', '-1'].includes(m.quantity)); assert.ok(state.lots.some(l => l.id === m.lotId && l.itemId === m.itemId && l.serial))
+      }
+      const returned = { orderId: order.id, lineId: order.lines[0].id, quantity: '1', locationId: dispatch.id, disposition: 'quarantine', reason: 'Named unit return' }
+      await refused('return.receive', returned, 'SERIAL_REQUIRED')
+      await refused('return.receive', { ...returned, quantity: '2', serials: ['synthetic-larder-861', 'SYNTHETIC-LARDER-861'] }, 'DUPLICATE_SERIAL')
+      await refused('return.receive', { ...returned, quantity: '0.5', serials: ['synthetic-larder-861'] }, 'SERIAL_QUANTITY')
+      await h.command('return.receive', { ...returned, serials: ['synthetic-larder-861'] })
+      const afterReturn = await h.invariant()
+      assert.deepEqual(afterReturn.movements.filter(m => m.itemId === product.id && m.kind === 'return').map(m => [m.lotId, m.quantity, m.status]), [[outputLots.find(l => l.code === 'synthetic-larder-861').id, '1', 'quarantine']])
+      const history = await (await h.request('/api/larder/serials?q=synthetic-larder-861')).json()
+      assert.deepEqual(history[0].components.map(c => c.lotId), [inputs[0].lotId])
+      assert.equal(history[0].place.state, 'quarantine'); assert.equal(history[0].customers[0].shipmentId, shipment.id)
+    }
+  }
+})

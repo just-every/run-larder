@@ -11,9 +11,9 @@ type Pool = Omit<Supply, 'quantity'> & { itemId: string; left: bigint }
 
 // Local pools exist for this read only. All hard reservations are removed from
 // free stock before any ranked demand is considered, including another order's.
-export function supplyAllocator(s: State) {
+export function supplyAllocator(s: State, on = new Date().toISOString().slice(0, 10)) {
   const pools: Pool[] = s.items.map(i => ({ itemId: i.id, kind: 'stock', documentId: '', reference: i.sku, date: '',
-    left: max(0n, usableOnHand(s, i.id) - s.reservations.filter(r => r.itemId === i.id).reduce((n, r) => n + r.quantity, 0n)) }))
+    left: max(0n, usableOnHand(s, i.id, on) - s.reservations.filter(r => r.itemId === i.id).reduce((n, r) => n + r.quantity, 0n)) }))
   for (const p of s.purchaseOrders) if (['approved', 'confirmed', 'part received'].includes(p.status))
     for (const l of p.lines) pools.push({ itemId: l.itemId, kind: 'purchase', documentId: p.id, reference: p.reference, date: purchaseDate(p, l),
       left: max(0n, decimal(l.quantity) - decimal(l.received)) })

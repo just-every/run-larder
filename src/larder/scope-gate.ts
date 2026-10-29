@@ -1,4 +1,4 @@
-// GOV-001: refuse, before any handler runs, a door a member's custom role removed or one that needs a restricted
+// GOV-015 GOV-016: refuse, before any handler runs, a door a member's custom role removed or one that needs a restricted
 // cost or wage field. Nothing about a restricted value is echoed back.
 import { forbidden } from './problem'
 import type { Actor } from './model'

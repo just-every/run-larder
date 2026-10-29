@@ -38,6 +38,8 @@ export async function saved(db: D1Database, commandId: string, digest: string, a
   const r = await db.prepare('SELECT * FROM larder_commands WHERE id=?').bind(commandId).first<any>()
   if (!r) return null
   if (r.digest !== digest || r.actor_id !== actor.id) fail('IDEMPOTENCY', 'This command identity was already used with different content or by someone else.')
+  const migration = await db.prepare("SELECT data FROM larder_records WHERE kind='archiveCurrencyMigration' AND id='archive'").first<{ data: string }>()
+  if (migration && JSON.parse(migration.data).originalCommandIds.includes(commandId)) fail('CURRENCY_MIGRATION', 'This action predates the currency migration. Its original AUD outcome remains in the archive; replay is refused.')
   return JSON.parse(r.result)
 }
 
@@ -70,9 +72,12 @@ export function changes(db: D1Database, c: Context, before: State): D1PreparedSt
 
 export async function commit(db: D1Database, c: Context, before: State, type: string, digest: string, result: unknown, audit: AuditEntry[], erasure?: ErasurePlan) {
   const a = authority(c.actor)
+  const report = c.reportAuthority ? authority(c.reportAuthority) : undefined
   const response = { ok: true, result, version: before.version + 1 }
   await db.batch([
     db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${a.sql}) AND (SELECT version FROM larder_meta WHERE id=1)=? THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...a.params, before.version),
+    // Original report consent is fenced with the snapshot, audit and replay.
+    ...(report ? [db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${report.sql}) AND EXISTS(SELECT 1 FROM larder_report_sessions b JOIN oa_sessions s ON s.id=json_extract(b.actor,'$.sessionId') JOIN oa_operators o ON o.id=s.operator_id WHERE b.schedule_id=? AND b.actor=? AND o.role='owner' ${c.automaticReport ? "AND s.kind IN ('native','oidc','password')" : ''}) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...report.params, (result as any).id, JSON.stringify(c.reportAuthority))] : []),
     // A supervisor can lose authority after the handler read. Verify the
     // escalation destination in the same transaction that records the notice.
     ...(type === 'wo.operation.pause' ? (result as any).operationStates.flatMap((task: any) => (task.downtime ?? []).filter((d: any) => d.commandId === c.commandId).map((d: any) =>
@@ -89,6 +94,8 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
     ...(type === 'proposal.approve' && (result as any).context?.capacity ? [...new Set<string>((result as any).context.capacity.after.operations.map((o: any) => o.operatorId))].map(id => db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.status='active' AND ${roleSql} IN ('owner','manager','production','operator')) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), id)) : []),
     ...bookingGuards(db, c, before),
     ...changes(db, c, before),
+    ...(type === 'reports.schedule' ? [db.prepare("INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN EXISTS(SELECT 1 FROM oa_operators WHERE id=? AND role='owner') THEN 1 ELSE 0 END)").bind(crypto.randomUUID(), c.actor.id), db.prepare('INSERT INTO larder_report_sessions(schedule_id,actor) VALUES(?,?)').bind((result as any).id, JSON.stringify(c.actor))] : []),
+    ...(type === 'reports.cancel' ? [db.prepare('DELETE FROM larder_report_sessions WHERE schedule_id=?').bind((result as any).id)] : []),
     ...serviceKeyStatements(db, c, type, result),
     ...audit.map(e => db.prepare(auditInsertSql).bind(...auditParams(e))),
     // GOV-013: the erasure door records its request, then replaces the subject's personal values, in this same batch.

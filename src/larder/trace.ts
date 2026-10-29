@@ -25,7 +25,7 @@ export function lotTrace(s: State, lotId: string, direction: unknown) {
   return { selectedLotId: selected.id, selectedLot: selected.code, direction: way, nodes, rows }
 }
 
-const fields = ['selectedLotId', 'selectedLot', 'direction', 'recordType', 'id', 'from', 'fromLabel', 'to', 'toLabel', 'lotId', 'lot', 'itemId', 'item', 'unit', 'quantity', 'netQuantity', 'scrap', 'value', 'scrapValue', 'locationId', 'location', 'status', 'documentKind', 'documentId', 'reference', 'orderReference', 'party', 'date', 'movementId', 'reversesId', 'kind', 'ownership', 'allocationBasis', 'basis']
+const fields = ['selectedLotId', 'selectedLot', 'direction', 'recordType', 'id', 'from', 'fromLabel', 'to', 'toLabel', 'lotId', 'lot', 'itemId', 'item', 'unit', 'quantity', 'netQuantity', 'scrap', 'value', 'scrapValue', 'locationId', 'location', 'status', 'documentKind', 'documentId', 'reference', 'orderReference', 'party', 'date', 'movementId', 'originalMovementId', 'claimId', 'evidenceId', 'reversesId', 'kind', 'ownership', 'allocationBasis', 'basis']
 export function traceCsv(trace: ReturnType<typeof lotTrace>) {
   const quote = (value: string) => `"${value.replace(/"/g, '""')}"`
   return [fields, ...trace.rows.map(r => fields.map(f => (r as TraceRow)[f] ?? ''))].map(r => r.map(quote).join(',')).join('\r\n') + '\r\n'

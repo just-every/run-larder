@@ -3,13 +3,14 @@
 // retest date is usable through that day and blocked from the next.
 import { attach } from './attachments'
 import { authorize, gate } from './approval-policy'
+import { commandTime } from './clock'
 import { decimal, format, times } from './decimal'
 import { fail, forbidden } from './problem'
 import { allow } from './roles'
 import { averageCost, balance, move } from './stock'
 import { bump, date, fresh, get, list, oneOf, optionalText, text, type Context, type Row, type State } from './model'
 
-export const utcToday = () => new Date().toISOString().slice(0, 10)
+export const utcToday = () => commandTime().slice(0, 10)
 export const expiryAlertDays = 30
 const dayMs = 86400000
 export const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / dayMs)

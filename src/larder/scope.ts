@@ -1,4 +1,4 @@
-// GOV-001 location scope (ct scope-review-50 a) and the member's effective authority. Until STOCK-001 ships a site
+// GOV-014 location scope (ct scope-review-50 a) and the member's effective authority. Until STOCK-001 ships a site
 // record, a "site" is an explicit list of existing locations the owner sets for a member. The owner is never scoped.
 // A record is in scope only if every location it names is in scope; a command naming any other location is refused
 // inside the atomic write; an independent approval needs the preparer and the approver both to cover the record.

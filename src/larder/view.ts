@@ -1,3 +1,4 @@
+import { custodyBalances, ownershipBalances } from './warehouse-balances'
 import { rateReaders } from './scheduling/calendars'
 import { supplierPerformance } from './supplier-terms'
 // What a signed-in person or agent reads: records, formatted ledger, positions,
@@ -17,6 +18,7 @@ import { kitAvailability } from './kits'
 import { format } from './decimal'
 import { exceptionRows } from './exceptions'
 import { followUpView } from './follow-up-state'
+import { commandTime } from './clock'
 import { shortages } from './planning'
 import { positions } from './stock'
 import { fefoPlans, lotStatuses } from './lot-dates'
@@ -37,9 +39,14 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
   let out: Record<string, any>
   if (scope.locations === null) out = fullView(s, actor, extra) as Record<string, any>
   else {
-    const full = fullView(s, actor, extra) as Record<string, any>, seen = fullView(visibleState(s, scope).state, actor, extra) as Record<string, any>
+    const visible = visibleState(s, scope)
+    const full = fullView(s, actor, extra) as Record<string, any>, seen = fullView(visible.state, actor, extra) as Record<string, any>
     const records = new Set<string>([...collections, 'actor', 'version', 'movements', 'reservations'])
     out = Object.fromEntries(Object.entries(seen).map(([k, v]) => [k, records.has(k) || k in extra ? v : reconcile(full[k], v)]))
+    // Cancelling hidden entries can leave the same numeric total. These balances
+    // still depend on hidden sources, so equality alone cannot authorize them.
+    out.ownershipBalances = seen.ownershipBalances.map((r: any) => [...s.movements, ...s.transfers, ...s.custodyLedger].some(source => source.itemId === r.itemId && names(source, visible.hidden)) ? { itemId: r.itemId, restricted: 'restricted (includes other locations)' } : r)
+    out.custodyBalances = seen.custodyBalances.map((r: any) => s.custodyLedger.some(source => source.lotId === r.lotId && source.locationId === r.locationId && names(source, visible.hidden)) ? { itemId: r.itemId, restricted: 'restricted (includes other locations)' } : r)
   }
   if (scope.costs) { const { actor: me, version, ...rest } = out; out = { version, actor: me, ...redactCosts(rest) } }
   return out
@@ -48,11 +55,12 @@ export function stateView(s: State, actor: Actor, extra: Record<string, unknown>
 function fullView(s: State, actor: Actor, extra: Record<string, unknown>) {
   const blind = blindView(s, actor, extra)
   if (blind) return blind
-  const today = new Date().toISOString().slice(0, 10), followUpCases = followUpView(s, today)
-  const records = Object.fromEntries(collections.map(k => [k, ((k === 'laborRates' || ['costPolicies','jobCharges','costLinks','marginCharges','costValuations','reportSchedules'].includes(k)) && !rateReaders.includes(actor.role)) || (['integrationGrants', 'auditErasures', 'retentionHolds', 'contactErasures'].includes(k) && actor.role !== 'owner') ? [] : s[k]]))
+  const today = commandTime().slice(0, 10), followUpCases = followUpView(s, today)
+  const records = Object.fromEntries(collections.map(k => [k, ((k === 'laborRates' || ['costPolicies','jobCharges','costLinks','marginCharges','costValuations','reportSchedules'].includes(k)) && !rateReaders.includes(actor.role)) || (['businessProfiles', 'retentionPolicies', 'integrationGrants', 'auditErasures', 'retentionHolds', 'contactErasures'].includes(k) && actor.role !== 'owner') ? [] : s[k]]))
   // Scopes and custom roles are the owner's to read; everyone else sees only who holds which role.
   if (actor.role !== 'owner') { records.varianceAnalyses = []; records.roles = s.roles.map(({ id, version, role }) => ({ id, version, role })); records.customRoles = [] }
   records.approvalSignatures = s.approvalSignatures.map(x => ({ ...x, status: signatureStatus(s, x, new Date().toISOString(), extra.people as { id: string; role: string }[] | undefined) }))
+  if (scopeOf(actor).locations !== null) records.salesOrders = s.salesOrders.map(({ quoteReview, quoteReviewHistory, ...order }) => order)
   // GOV-001: a rework wage rate, and every figure it follows from, is read only with wage authority (see wage-view.ts).
   records.reworkOrders = s.reworkOrders.map(r => readsWages(actor, r) ? r : withoutWages(r))
   const wages = wageCarriers(s, actor), job = <T>(w: Row, value: T) => wages.jobs.has(w.id) ? redactCosts(value) : value
@@ -71,13 +79,15 @@ function fullView(s: State, actor: Actor, extra: Record<string, unknown>) {
     movements: s.movements.map(m => wages.movements.has(m.id) ? { ...movementView(m), unitCost: restricted } : movementView(m)),
     reservations: s.reservations.map(r => ({ ...r, quantity: format(r.quantity) })),
     positions: positions(s),
-    availability: s.items.map(i => availability(s, i.id)),
+    custodyBalances: custodyBalances(s),
+    ownershipBalances: ownershipBalances(s),
+    availability: s.items.map(i => availability(s, i.id, today)),
     kitAvailability: kitAvailability(s),
     shortages: shortages(s),
     exceptions: exceptionRows(followUpCases),
     followUpCases,
-    lotStatuses: lotStatuses(s, new Date().toISOString().slice(0, 10)),
-    fefoPlans: fefoPlans(s, new Date().toISOString().slice(0, 10)),
+    lotStatuses: lotStatuses(s, today),
+    fefoPlans: fefoPlans(s, today),
     pendingHandoff: pendingHandoffCount(s),
     ...extra,
   }

@@ -375,7 +375,7 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
                       <Form
                         submit="Schedule this report"
                         busy={larder.busy}
-                        note="The report is due daily in this app. Its owner opens each due snapshot explicitly. Nothing is sent externally."
+                        note="Native sessions generate daily snapshots automatically, checked every 15 minutes. Snapshots stop at sign-out, session expiry, revocation or owner change. Review sessions require Open due report. Nothing is sent externally."
                         onSubmit={(d) =>
                           larder.run('reports.schedule', {
                             filters: data.filters,
@@ -398,8 +398,11 @@ export function CostReports({ larder, report }: { larder: Larder; report: string
                     {rows(s, 'reportSchedules').map((r) => (
                       <div key={r.id}>
                         <p>
-                          Due {r.nextDate} · {r.status}
+                          Due {r.nextDate} · {r.status} · Consenting owner: {rows(s, 'people').find((p) => p.id === r.ownerId)?.name ?? r.ownerId}
                         </p>
+                        {(r.snapshots ?? []).map((snapshot: any, index: number) => (
+                          <p key={index}>Snapshot {snapshot.at} · Owner: {snapshot.ownerName ?? snapshot.by} · {snapshot.generation ?? 'manual'}</p>
+                        ))}
                         <Details
                           label="Saved filters and snapshots"
                           value={{ filters: r.filters, snapshots: r.snapshots }}

@@ -94,7 +94,7 @@ test('HTTP-001 MRP-001 public Lobby, health and docs stay separate from private 
     // The location was created through the API after this document loaded.
     // A hash-only navigation keeps the document and its original records.
     await page.reload()
-    await expect(page.getByText(name, { exact: true })).toBeVisible()
+    await expect(card(page, 'Locations').getByText(name, { exact: true })).toBeVisible()
     await shot(page, 'HTTP-001-private-app')
     await page.goto(origin + '/auth/settings/identity')
     await expect(page.getByRole('heading', { name: 'Provider setup', exact: true })).toBeVisible()
@@ -325,9 +325,9 @@ test('BUY-001 buyers maintain two suppliers, select feasible scheduled terms and
   }
 })
 
-test('COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390', async ({page})=>{
+test('COST reports retain shipment margins, job source drills and missing performance evidence at 1440/390', async ({page,browser})=>{
   await enter(page)
-  const suffix=crypto.randomUUID().slice(0,8),today=new Date().toISOString().slice(0,10)
+  const suffix=crypto.randomUUID().slice(0,8),today=new Date().toISOString().slice(0,10),ownerId=(await state(page)).actor.id
   const command=async(type:string,payload:any)=>{const res=await page.request.post(origin+'/api/larder/commands',{headers:{Origin:origin},data:{commandId:crypto.randomUUID(),type,payload}});const b=await res.json();expect(b.ok,JSON.stringify(b.error)).toBe(true);return b.result}
   await page.goto(origin+'/app#handoff/variances');await page.reload()
   await expect(page.getByRole('heading',{name:'Job cost variances',exact:true})).toBeVisible()
@@ -364,13 +364,15 @@ test('COST reports retain shipment margins, job source drills and missing perfor
   const charge=card(page,'Record a line discount, fee or freight')
   await charge.getByLabel('Charge order',{exact:true}).selectOption(order.id);await charge.getByLabel('Charge sales line',{exact:true}).selectOption(order.lines[0].id);await charge.getByLabel('Charge kind',{exact:true}).selectOption('discount');await charge.getByLabel('Charge USD',{exact:true}).fill('4');await charge.getByLabel('Refund proportionally on a return').check();await charge.getByLabel('Charge evidence',{exact:true}).setInputFiles({name:'discount.txt',mimeType:'text/plain',buffer:Buffer.from('synthetic-larder-485 agreed discount')});await charge.getByLabel('Charge reason',{exact:true}).fill('synthetic-larder-486 exact commercial charge')
   await act(page,()=>charge.getByRole('button',{name:'Record commercial charge',exact:true}).click())
+  const completedJobs=(await state(page)).workOrders.filter((r:any)=>jobs.some(j=>j.id===r.id));expect(completedJobs).toHaveLength(2)
+  const reportThrough=completedJobs.map((r:any)=>r.closedAt.slice(0,10)).sort().at(-1)
   for(const width of [1440,390]){
     await page.setViewportSize({width,height:1000})
     for(const report of ['margins','variances','performance']){
       await page.goto(origin+`/app#handoff/${report}`)
       await expect(page.getByRole('heading',{name:report==='margins'?'Order margins':report==='variances'?'Job cost variances':'Production performance',exact:true})).toBeVisible()
       if(report==='performance'){
-        await page.getByLabel('Product',{exact:true}).selectOption(product.id);await page.getByLabel('From date',{exact:true}).fill(today);await page.getByLabel('To date',{exact:true}).fill(today)
+        await page.getByLabel('Site location',{exact:true}).selectOption(location.id);await page.getByLabel('Report owner',{exact:true}).selectOption(ownerId);await page.getByLabel('Product',{exact:true}).selectOption(product.id);await page.getByLabel('From date',{exact:true}).fill(today);await page.getByLabel('To date',{exact:true}).fill(reportThrough)
       }else await page.getByLabel('Sales order',{exact:true}).selectOption(order.id)
       const ready=page.waitForResponse(r=>r.url().includes(`/api/larder/costing/${report}?`)&&r.request().method()==='GET')
       await page.getByRole('button',{name:'Apply report filters',exact:true}).click();await ready
@@ -382,7 +384,13 @@ test('COST reports retain shipment margins, job source drills and missing perfor
         await page.getByRole('button',{name:`Cost sources ${jobs[0].reference}`,exact:true}).click();await expect(card(page,'Job costs and variances')).toContainText('Usage variance')
       }else{
         await expect(card(page,'Performance metrics')).toContainText('Unknown');await expect(card(page,'Performance metrics')).toContainText('No recorded operation clocks')
-        const metric=card(page,'Performance metrics').getByRole('button',{name:'Metric sources Yield',exact:true});await metric.click();await expect(card(page,'Performance metrics')).toContainText('Output')
+        const metrics=card(page,'Performance metrics')
+        for(const [name,numerator,denominator,result]of [['Yield','4','5','80%'],['On-time job delivery','0','2','0%']]){
+          const row=metrics.getByRole('row').filter({has:page.getByRole('button',{name:'Metric sources '+name,exact:true})}),cells=row.getByRole('cell')
+          expect(await cells.nth(1).evaluate(el=>el.childNodes[0].textContent)).toBe(numerator);expect(await cells.nth(2).evaluate(el=>el.childNodes[0].textContent)).toBe(denominator);await expect(cells.nth(3)).toHaveText(result)
+        }
+        const oee=metrics.getByRole('row').filter({has:page.getByRole('button',{name:'Metric sources Overall equipment effectiveness',exact:true})});await expect(oee.getByRole('cell').nth(3)).toHaveText('Unknown')
+        const sourceButtons=metrics.getByRole('button',{name:/^Metric sources /});expect(await sourceButtons.count()).toBe(11);for(const button of await sourceButtons.all()){await button.click();await expect(button).toHaveAttribute('aria-expanded','true');await button.click()}const metric=metrics.getByRole('button',{name:'Metric sources Yield',exact:true});await metric.click();await expect(metrics).toContainText('Output')
       }
       if(width===390) {
         const readable=page.locator('.cost-reports .details-body').first()
@@ -400,9 +408,28 @@ test('COST reports retain shipment margins, job source drills and missing perfor
   }
   await expect(card(page,'Performance metrics')).toContainText('Unknown')
   await page.getByLabel('I consent to saving this filtered report in the app').check();await page.getByLabel('Schedule reason',{exact:true}).fill('synthetic-larder-487 daily in-app snapshot')
-  const scheduled=await act(page,()=>page.getByRole('button',{name:'Schedule this report',exact:true}).click());expect(scheduled.filters.itemId).toBe(product.id);expect(scheduled.filters.from).toBe(today)
-  await act(page,()=>card(page,'Scheduled in-app reports').getByRole('button',{name:'Open due report',exact:true}).last().click())
+  const scheduled=await act(page,()=>page.getByRole('button',{name:'Schedule this report',exact:true}).click());expect(scheduled.filters.itemId).toBe(product.id);expect(scheduled.filters.from).toBe(today);expect(scheduled.filters.site).toBe(location.id);expect(scheduled.filters.ownerId).toBe(ownerId)
+  await page.setViewportSize({width:1440,height:1000});await expect(card(page,'Save a daily in-app report')).toContainText('Snapshots stop at sign-out, session expiry, revocation or owner change.');await expect(card(page,'Scheduled in-app reports')).toContainText('Consenting owner:')
+  const opened=await act(page,()=>card(page,'Scheduled in-app reports').getByRole('button',{name:'Open due report',exact:true}).last().click())
+  expect(opened.snapshots[0].generation).toBe('manual');expect(opened.snapshots[0].by).toBe((await state(page)).actor.id);await expect(card(page,'Scheduled in-app reports')).toContainText(`Owner: ${opened.snapshots[0].ownerName}`)
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});await shot(page,'COST-scheduled-report')}
+  const email=`synthetic-larder-1113-${suffix}@example.test`
+  expect((await page.request.post(origin+'/auth/invite',{headers:{Origin:origin},data:{email,displayName:'Restricted report manager',role:'member'}})).status()).toBe(202)
+  const context=await browser.newContext({storageState:await page.context().storageState()}),member=await context.newPage()
+  try{
+    await member.goto(origin+'/auth/dev/enter?as='+encodeURIComponent(email));await member.waitForURL(u=>u.pathname==='/app');await expect(member.locator('main')).toHaveAttribute('aria-busy','false')
+    const memberId=(await(await member.request.get(origin+'/auth/session')).json()).operator.id
+    await command('role.set',{operatorId:memberId,role:'manager'});await command('member.scope',{operatorId:memberId,costsRestricted:true,locations:null})
+    for(const width of [1440,390]){
+      await member.setViewportSize({width,height:1000});await member.goto(origin+'/app');await member.reload();await expect(member.locator('main')).toHaveAttribute('aria-busy','false');await member.getByRole('link',{name:'Handoff',exact:true}).click();await member.getByRole('link',{name:'Production performance',exact:true}).click()
+      await expect(member.getByRole('status',{name:''}).filter({hasText:'Costs and wages restricted'})).toBeVisible()
+      await expect(card(member,'Performance metrics')).toContainText('Yield')
+      const scoped=await state(member);expect(scoped.items.find((r:any)=>r.id===product.id).standardCost).toBe('restricted')
+      expect(scoped.reportSchedules.find((r:any)=>r.id===scheduled.id).snapshots[0].report).toEqual(opened.snapshots[0].report)
+      await expect(card(member,'Scheduled in-app reports').getByRole('button',{name:'Open due report',exact:true})).toHaveCount(0)
+      expect(await member.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await shot(member,'COST-restricted-performance')
+    }
+  }finally{await context.close()}
   await page.goto(origin+'/app#handoff');await expect(page.getByRole('heading',{name:'Accountant handoff',exact:true})).toBeVisible()
   for(const width of [1440,390]){await page.setViewportSize({width,height:1000});for(const name of ['Order margins','Job cost variances','Production performance'])await expect(page.getByRole('link',{name,exact:true})).toBeVisible();expect(await page.locator('main').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);await shot(page,'COST-handoff')}
 })
@@ -480,5 +507,55 @@ test('Owner reviews exact variance sources and destination, then inspects the li
     if (shots) await page.screenshot({ path: join(shots, `${width}-AGENT-003-revoked-viewport.png`) })
     await review.locator('summary').first().click()
     await section.getByText('Prepare a cited explanation', { exact: true }).click()
+  }
+})
+
+test('US business settings save Ohio identity and retain distinct EIN fields at both widths', async ({ page }) => {
+  await enter(page)
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto(origin + '/app#settings')
+    const form = card(page, 'US business settings')
+    await form.getByLabel('Legal business name').fill('Synthetic Ohio Workshop')
+    await form.getByLabel('EIN reference', { exact: true }).fill('synthetic-larder-931')
+    for (const prefix of ['Billing', 'Shipping']) {
+      await form.getByLabel(`${prefix} street`, { exact: true }).fill(prefix === 'Billing' ? '12 Workshop Way' : '14 Workshop Way')
+      await form.getByLabel(`${prefix} city`).fill('Columbus')
+      await form.getByLabel(`${prefix} state`).fill('OH')
+      await form.getByLabel(`${prefix} ZIP code`).fill('43215')
+    }
+    await form.getByLabel('US time zone').selectOption('America/New_York')
+    await form.getByLabel('Fiscal year starts (MM-DD)').fill('07-01')
+    await form.getByLabel('Saturday', { exact: true }).check()
+    await act(page, () => form.getByRole('button', { name: 'Save business settings' }).click())
+    await page.reload()
+    await expect(form.getByLabel('Legal business name')).toHaveValue('Synthetic Ohio Workshop')
+    await expect(form.getByLabel('EIN reference', { exact: true })).toHaveValue('synthetic-larder-931')
+    await expect(form.getByLabel('Shipping street', { exact: true })).toHaveValue('14 Workshop Way')
+    await expect(form.getByLabel('Saturday', { exact: true })).toBeChecked()
+    await expect(form.getByLabel('Fiscal year starts (MM-DD)')).toHaveValue('07-01')
+    await expect(form.getByLabel('US time zone')).toHaveValue('America/New_York')
+    const profile = (await state(page)).businessProfiles[0]
+    expect(profile.billingAddress).toEqual({ street: '12 Workshop Way', city: 'Columbus', state: 'OH', postalCode: '43215', country: 'US' })
+    expect(profile.workingWeek).toEqual([1, 2, 3, 4, 5, 6])
+    expect(profile.functionalCurrency).toBe('USD')
+    const account = page.getByLabel('Account menu', { exact: true })
+    await account.focus()
+    await expect(page.getByRole('tooltip', { name: 'Account menu', exact: true })).toBeVisible()
+    await shot(page, 'US-001-settings')
+    await account.click()
+    await expect(page.getByRole('banner').getByRole('link', { name: 'Settings', exact: true })).toBeVisible()
+    await page.goto(origin + '/app#more/setup')
+    const contacts = card(page, 'Customers and suppliers')
+    await contacts.getByLabel('Name', { exact: true }).fill(`Synthetic Ohio contact ${width}`)
+    await contacts.getByLabel('Kind', { exact: true }).selectOption('supplier')
+    await contacts.getByLabel('EIN', { exact: true }).fill('synthetic-larder-1')
+    await act(page, () => contacts.getByRole('button', { name: 'Add contact', exact: true }).click())
+    const contact = (await state(page)).parties.find((p: any) => p.name === `Synthetic Ohio contact ${width}`)
+    expect(contact.ein).toBe('synthetic-larder-1')
+    expect(contact.abn).toBe('')
+    await expect(contacts.getByRole('cell', { name: `Synthetic Ohio contact ${width}`, exact: true })).toBeVisible()
+    await shot(page, 'US-001-contact-identity')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   }
 })
