@@ -31,13 +31,24 @@ export function QuoteReview({ larder, order }: { larder: Larder; order: Rec }) {
       </tr>)}</Table>
       <details><summary>Unavailable comparisons</summary>{review.rejected?.map((item: any, i: number) => <p key={i}>{item.kind} · {item.reason}</p>)}</details>
       <p>{review.rounding}</p>
-      <p>Acceptance, overtime authorization and invoicing are not available from this review. Partial delivery is an estimate only. Confirmation stays closed while it is attached.</p>
+      <p>Preparation grants no commitment or overtime authority. Only the owner can accept one exact current option below; unavailable comparisons cannot be accepted.</p>
+      {s.actor.role === 'owner' && review.options.length > 0 && <Form submit="Accept exact option" busy={larder.busy} onSubmit={d => { const option = review.options.find((o: any) => o.id === text(d, 'optionId')); return larder.run('so.acceptOption', { orderId: order.id, version: order.version, reviewVersion: review.inputVersion, optionId: option?.id, optionDigest: option?.digest, reason: text(d, 'acceptReason'), ...(text(d, 'marginOverride') ? { override: { reason: text(d, 'marginOverride'), accountableId: s.actor.id } } : {}), authorizeOvertime: d.has('authorizeOvertime'), customerApproval: { name: text(d, 'customerApprover'), reference: text(d, 'approvalReference'), approvedOn: text(d, 'approvedOn') } }) }}>
+        <Choose label="Option to accept" name="optionId" options={review.options.map((o: any) => ({ value: o.id, label: `${o.name} · ${day(o.shipDate)}` }))} />
+        <Field label="Acceptance reason" name="acceptReason" />
+        <Field label="Margin policy override reason" name="marginOverride" required={false} hint="Only when the margin policy requires an owner override. The owner remains accountable." />
+        <Field label="Customer approver" name="customerApprover" />
+        <Field label="Customer approval reference" name="approvalReference" />
+        <Field label="Customer approved on" name="approvedOn" type="date" />
+        <label className="check wide"><input type="checkbox" name="authorizeOvertime" /> Authorize this option's exact machine and person overtime windows</label>
+        <p>Acceptance confirms these customer terms, releases the identified work, reserves currently available components and books the displayed joint intervals. Expected receipts remain conditional and require manual allocation; nothing is sent externally.</p>
+      </Form>}
       <Form submit="Discard preparation" quiet busy={larder.busy} onSubmit={d => larder.run('so.reviewClear', { orderId: order.id, version: order.version, reason: text(d, 'discardReason') })}><Field label="Reason to discard preparation" name="discardReason" hint="Returns to the original USD quote; reviewed prices and dates are not applied." /></Form>
     </section>}
-    <Form key={order.version} title={review ? 'Refresh preparation' : 'Customer terms and estimates'} submit="Prepare costed options" busy={larder.busy} onSubmit={d => larder.run('so.review', { orderId: order.id, version: order.version, currency: text(d, 'currency'), usdRate: text(d, 'usdRate'), rateDate: text(d, 'rateDate'), rateReference: text(d, 'rateReference'), validUntil: text(d, 'validUntil'), paymentTerms: text(d, 'paymentTerms'), discountPercent: text(d, 'discountPercent'), freight: text(d, 'freight'), laborCostRate: text(d, 'laborCostRate'), machineCostRate: text(d, 'machineCostRate'), overheadCostRate: text(d, 'overheadCostRate'),
+    <Form key={order.version} title={review ? 'Refresh preparation' : 'Customer terms and estimates'} submit="Prepare costed options" busy={larder.busy} onSubmit={d => larder.run('so.review', { orderId: order.id, version: order.version, currency: text(d, 'currency'), usdRate: text(d, 'usdRate'), rateDate: text(d, 'rateDate'), rateReference: text(d, 'rateReference'), validUntil: text(d, 'validUntil'), paymentTerms: text(d, 'paymentTerms'), discountPercent: text(d, 'discountPercent'), freight: text(d, 'freight'), laborCostRate: text(d, 'laborCostRate'), machineCostRate: text(d, 'machineCostRate'), overheadCostRate: text(d, 'overheadCostRate'), reason: text(d, 'refreshReason'),
       ...(text(d, 'planningStart') ? { asOf: text(d, 'planningStart') + ':00.000Z' } : {}),
       ...(order.lines.some((line: any) => text(d, `partial.${line.id}`)) ? { partialLines: order.lines.map((line: any) => ({ lineId: line.id, quantity: text(d, `partial.${line.id}`) || '0' })), remainderStart: text(d, 'remainderStart') } : {}),
       ...(text(d, 'overtimeMachine') || text(d, 'overtimeLabor') ? { overtime: [{ kind: 'machine', id: text(d, 'overtimeMachine') }, { kind: 'labor', id: text(d, 'overtimeLabor') }].filter(window => window.id).map(window => ({ ...window, startsAt: text(d, 'overtimeStart') + ':00.000Z', endsAt: text(d, 'overtimeEnd') + ':00.000Z', reason: text(d, 'overtimeReason') })), overtimePremiumRate: text(d, 'overtimePremiumRate') } : {}), lines: order.lines.map((line: any) => ({ lineId: line.id, unitPrice: text(d, `price.${line.id}`) })) })}>
+      {review && <Field label="Reason to replace preparation" name="refreshReason" />}
       <Choose label="Customer quote currency" name="currency" defaultValue={review?.currency ?? 'USD'} options={[{ value: 'USD', label: 'USD' }, { value: 'CAD', label: 'CAD' }]} />
       <Field label="USD per customer currency unit" name="usdRate" defaultValue={review?.usdRate ?? '1'} inputMode="decimal" />
       <Field label="Exchange rate date" name="rateDate" type="date" required={false} defaultValue={review?.rateDate} />
@@ -63,5 +74,26 @@ export function QuoteReview({ larder, order }: { larder: Larder; order: Rec }) {
       </fieldset>
       {order.lines.map((line: any, i: number) => <Field key={line.id} label={`Line ${i + 1} customer currency unit price`} name={`price.${line.id}`} defaultValue={review?.lines.find((quoted: any) => quoted.lineId === line.id)?.unitPrice ?? line.unitPrice} inputMode="decimal" />)}
     </Form>
+  </Card>
+}
+
+export function QuoteCommitment({ larder, order }: { larder: Larder; order: Rec }) {
+  const s = larder.state!, terms = order.customerTerms, accepted = order.quoteAcceptance
+  if (!terms || !accepted || (s.actor as any).scope?.costs) return null
+  return <Card title="Accepted customer terms">
+    <section aria-label="Accepted quote commitment">
+      <p><strong>{terms.currency} {money(terms.totalAmount)}</strong> · USD {money(terms.totalUsdAmount)}</p>
+      <p>USD {terms.usdRate} per {terms.currency} · {day(terms.rateDate)} · {terms.rateReference}</p>
+      <p>{terms.paymentTerms} · {accepted.option.name} · complete by {day(order.promiseDate)}</p>
+      <p>Estimated margin: {terms.currency} {money(terms.marginAmount)} · USD {money(terms.marginUsdAmount)} · {qty(terms.marginPercent)}%</p>
+      <p>Booked cost: USD {money(terms.estimatedCostUsd)}. Receipt, quality release and execution remain separate actions.</p>
+      <Table head={['Product', 'Customer price', 'Net amount', 'USD value']} numeric={[1, 2, 3]}>{terms.lines.map((line: any) => <tr key={line.lineId}><td>{itemName(s, line.itemId)}</td><td>{terms.currency} {qty(line.unitPrice)}</td><td>{terms.currency} {money(line.amount)}</td><td>USD {money(line.usdAmount)}</td></tr>)}</Table>
+      <p>Freight: {terms.currency} {money(terms.freightAmount)} · USD {money(terms.freightUsdAmount)}</p>
+      <p>Customer approval: {accepted.customerApproval.name} · {accepted.customerApproval.reference}</p>
+      {accepted.workOrderIds.map((id: string) => <p key={id}><a href={`#make/wo/${id}`}>Open {s.workOrders.find((w: Rec) => w.id === id)?.reference ?? 'booked work'}</a></p>)}
+      <Details label="Accepted supply and capacity" value={accepted.option} s={s} />
+      <p>Accepted costed terms are fixed. Customer-currency amendments require a separate exact review.</p>
+      {order.invoice ? <section aria-label="Customer invoice"><h3>{order.invoice.reference}</h3><p>Issued locally · {terms.currency} {money(order.invoice.terms.totalAmount)} · USD {money(order.invoice.terms.totalUsdAmount)}</p><p>{order.invoice.semantics}</p></section> : s.actor.role === 'owner' && <Form submit="Issue local customer invoice" busy={larder.busy} onSubmit={d => larder.run('so.invoice', { orderId: order.id, version: order.version, reason: text(d, 'invoiceReason') })}><Field label="Invoice reason" name="invoiceReason" /><p>Issue the accepted full-order amount once. No tax determination, email, payment or ledger posting.</p></Form>}
+    </section>
   </Card>
 }

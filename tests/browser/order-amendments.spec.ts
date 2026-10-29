@@ -204,7 +204,7 @@ test('Costed quote review shows reconciled CAD terms and USD estimates at deskto
   await expect(review).toContainText('CAD $15.12'); await expect(review).toContainText('USD $11.34')
   await expect(review).toContainText('USD 0.75 per CAD'); await expect(review).toContainText('Recorded treasury rate 928')
   await expect(review).toContainText('Estimated cost: USD $5.00'); await expect(review).toContainText('CAD $8.45 · USD $6.34')
-  await expect(review).toContainText('Acceptance, overtime authorization and invoicing are not available')
+  await expect(review).toContainText('Preparation grants no commitment or overtime authority')
   await expect(page.getByRole('button', { name: 'Confirm order and reserve stock', exact: true })).toBeDisabled()
   const account = page.getByLabel('Account menu', { exact: true })
   await page.mouse.move(0, 0); await page.keyboard.press('Tab'); await account.focus(); await expect(page.getByRole('tooltip', { name: 'Account menu' })).toBeVisible({ timeout: 100 })

@@ -60,7 +60,7 @@ function fullView(s: State, actor: Actor, extra: Record<string, unknown>) {
   // Scopes and custom roles are the owner's to read; everyone else sees only who holds which role.
   if (actor.role !== 'owner') { records.varianceAnalyses = []; records.roles = s.roles.map(({ id, version, role }) => ({ id, version, role })); records.customRoles = [] }
   records.approvalSignatures = s.approvalSignatures.map(x => ({ ...x, status: signatureStatus(s, x, new Date().toISOString(), extra.people as { id: string; role: string }[] | undefined) }))
-  if (scopeOf(actor).locations !== null) records.salesOrders = s.salesOrders.map(({ quoteReview, quoteReviewHistory, ...order }) => order)
+  if (scopeOf(actor).locations !== null) records.salesOrders = s.salesOrders.map(({ quoteReview, quoteReviewHistory, quoteAcceptance, customerTerms, invoice, ...order }) => order)
   // GOV-001: a rework wage rate, and every figure it follows from, is read only with wage authority (see wage-view.ts).
   records.reworkOrders = s.reworkOrders.map(r => readsWages(actor, r) ? r : withoutWages(r))
   const wages = wageCarriers(s, actor), job = <T>(w: Row, value: T) => wages.jobs.has(w.id) ? redactCosts(value) : value

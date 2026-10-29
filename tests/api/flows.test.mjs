@@ -2046,7 +2046,7 @@ test('Costed quote preparation reconciles fractional CAD prices, discounts, brea
   const first = await h.command('item.save', { sku: 'synthetic-larder-928-1', name: 'First part', kind: 'buy', baseUnit: 'each', standardCost: '4' })
   const second = await h.command('item.save', { sku: 'synthetic-larder-928-2', name: 'Second part', kind: 'buy', baseUnit: 'each', standardCost: '2' })
   const order = await h.command('so.quote', { customerId: customer.id, promiseDate: '2026-12-01', lines: [{ itemId: first.id, quantity: '1.25', unitPrice: '7' }, { itemId: second.id, quantity: '2.5', unitPrice: '8' }] })
-  const payload = { orderId: order.id, version: order.version, currency: 'CAD', usdRate: '0.75', rateDate: '2026-11-23', rateReference: 'Treasury recorded quote 928', validUntil: '2026-12-01', paymentTerms: 'Net 30', discountPercent: '10', freight: '1.23', lines: [{ lineId: order.lines[0].id, unitPrice: '12.3456' }, { lineId: order.lines[1].id, unitPrice: '6', breaks: [{ minimum: '2', unitPrice: '5.555555' }, { minimum: '3', unitPrice: '4' }] }] }
+  const payload = { reason: 'Refresh exact customer terms', orderId: order.id, version: order.version, currency: 'CAD', usdRate: '0.75', rateDate: '2026-11-23', rateReference: 'Treasury recorded quote 928', validUntil: '2026-12-01', paymentTerms: 'Net 30', discountPercent: '10', freight: '1.23', lines: [{ lineId: order.lines[0].id, unitPrice: '12.3456' }, { lineId: order.lines[1].id, unitPrice: '6', breaks: [{ minimum: '2', unitPrice: '5.555555' }, { minimum: '3', unitPrice: '4' }] }] }
   const prepared = await h.command('so.review', payload), review = prepared.quoteReview
   assert.deepEqual(review.lines.map(line => [line.grossAmount, line.discountAmount, line.amount, line.usdAmount]), [['15.43', '1.54', '13.89', '10.42'], ['13.89', '1.39', '12.50', '9.38']])
   assert.deepEqual([review.currency, review.usdRate, review.rateDate, review.rateReference, review.totalAmount, review.totalUsdAmount, review.estimate.totalCost, review.marginUsdAmount, review.marginAmount, review.marginPercent], ['CAD', '0.75', '2026-11-23', 'Treasury recorded quote 928', '27.62', '20.72', '10.00', '10.72', '14.29', '51.737452'])
@@ -2131,7 +2131,7 @@ test('Costed quote dates require shared scarce supply and live qualified joint c
   let busy = await h.command('wo.draft', { itemId: made.id, quantity: '2', requiredBy: '2026-11-25', plannedStart: '2026-11-25', reason: 'Existing customer commitment' })
   busy = await h.command('wo.release', { workOrderId: busy.id, version: busy.version })
   const order = await h.command('so.quote', { customerId: customer.id, promiseDate: '2026-12-01', lines: [{ itemId: made.id, quantity: '2', unitPrice: '100' }] })
-  const payload = { orderId: order.id, version: order.version, currency: 'CAD', usdRate: '0.75', rateDate: '2026-11-23', rateReference: 'Recorded treasury rate', validUntil: '2026-12-01', paymentTerms: 'Net 30', laborCostRate: '30', machineCostRate: '10', overheadCostRate: '5', asOf: '2026-11-25T00:00:00.000Z', days: 10, lines: [{ lineId: order.lines[0].id, unitPrice: '100' }] }
+  const payload = { reason: 'Refresh exact customer terms', orderId: order.id, version: order.version, currency: 'CAD', usdRate: '0.75', rateDate: '2026-11-23', rateReference: 'Recorded treasury rate', validUntil: '2026-12-01', paymentTerms: 'Net 30', laborCostRate: '30', machineCostRate: '10', overheadCostRate: '5', asOf: '2026-11-25T00:00:00.000Z', days: 10, lines: [{ lineId: order.lines[0].id, unitPrice: '100' }] }
   const before = await h.state(), prepared = await h.command('so.review', payload), review = prepared.quoteReview
   assert.deepEqual(review.options.filter(option => option.kind === 'full-batch').map(option => option.shipDate), ['2026-11-26', '2026-11-27', '2026-11-28'])
   assert.deepEqual([review.estimate.lines[0].materialCost, review.estimate.lines[0].laborCost, review.estimate.lines[0].machineCost, review.estimate.lines[0].overheadCost, review.estimate.totalCost, review.totalAmount, review.totalUsdAmount, review.marginUsdAmount], ['20', '60', '20', '10', '110.00', '200.00', '150.00', '40.00'])
@@ -2176,7 +2176,7 @@ test('Costed quote dates require shared scarce supply and live qualified joint c
   let occupied = await j.command('wo.draft', { itemId: product.id, quantity: '2', requiredBy: '2026-11-23', reason: 'Prior customer commitment' })
   occupied = await j.command('wo.release', { workOrderId: occupied.id, version: occupied.version })
   const quote = await j.command('so.quote', { customerId: client.id, promiseDate: '2026-12-01', lines: [{ itemId: product.id, quantity: '4', unitPrice: '100' }] })
-  const inputs = { orderId: quote.id, version: quote.version, currency: 'CAD', usdRate: '0.75', rateDate: '2026-11-23', rateReference: 'Recorded quote rate', validUntil: '2026-12-01', paymentTerms: 'Net 30', asOf: '2026-11-23T00:00:00.000Z', days: 10,
+  const inputs = { reason: 'Refresh current planning assumptions', orderId: quote.id, version: quote.version, currency: 'CAD', usdRate: '0.75', rateDate: '2026-11-23', rateReference: 'Recorded quote rate', validUntil: '2026-12-01', paymentTerms: 'Net 30', asOf: '2026-11-23T00:00:00.000Z', days: 10,
     laborCostRate: '30', machineCostRate: '10', overheadCostRate: '5', lines: [{ lineId: quote.lines[0].id, unitPrice: '100' }],
     partialLines: [{ lineId: quote.lines[0].id, quantity: '2' }], remainderStart: '2026-11-25', overtimePremiumRate: '15',
     overtime: [{ kind: 'machine', id: machine.id, startsAt: '2026-11-24T12:00:00.000Z', endsAt: '2026-11-24T14:00:00.000Z', reason: 'Assumed extra joint hours only' }, { kind: 'labor', id: person.id, startsAt: '2026-11-24T12:00:00.000Z', endsAt: '2026-11-24T14:00:00.000Z', reason: 'Assumed person consent, not authorization' }] }
@@ -2370,4 +2370,105 @@ test('STOCK-001 customer-owned and consigned custody stays separate from owned a
   const csv = await (await h.request('/api/larder/archive.csv')).text(); assert.match(csv, /records.custodyLedger/); assert.match(csv, new RegExp(first.lotId))
   assert.deepEqual((await (await restored.request('/api/larder/archive')).json()).attachments, archive.attachments)
   assert.deepEqual((await restored.state()).custodyLedger, (await h.state()).custodyLedger); assert.deepEqual((await restored.state()).positions, s.positions)
+})
+
+test('Exact costed acceptance books scarce supply and joint intervals once, refuses changed authority and inputs, and restores CAD invoices and audit', async t => {
+  const business = ({ dispatch, ...state }) => ({ ...state, dispatch: dispatch.map(({ asOf, ...row }) => row) })
+  for (const kind of ['partial', 'overtime']) {
+    const h = await installation({ now: '2026-11-23T00:00:00.000Z' }); t.after(() => h.close())
+    const raw = await h.command('item.save', { sku: 'synthetic-larder-930-raw', name: 'Limited quote blanks', kind: 'buy', baseUnit: 'each', standardCost: '10' })
+    const made = await h.command('item.save', { sku: 'synthetic-larder-930-made', name: 'Costed quote assembly', kind: 'make', baseUnit: 'each' })
+    const customer = await h.command('party.save', { name: 'Canadian wholesale buyer', kind: 'customer' })
+    const vendor = await h.command('party.save', { name: 'Blank supplier', kind: 'supplier' })
+    const location = await h.command('location.save', { name: 'Limited quote rack' })
+    const sales = await h.person(['synthetic-larder-930-sales', 'example.test'].join('@'), 'sales')
+    await h.command('bom.revise', { itemId: made.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'Prepare assembly', workCentre: 'Quote mill', setupMinutes: 60, runMinutes: 60, requiredSkills: ['milling'] }] })
+    await h.command('opening.record', { locationId: location.id, countedOn: '2026-11-23', countedBy: 'Olive', valuationBasis: 'standard-cost', evidence: evidence(), lines: [{ itemId: raw.id, quantity: '4', unitCost: '10' }] })
+    let po = await h.command('po.draft', { supplierId: vendor.id, expectedDate: '2026-11-24', reason: 'Two remaining blanks', lines: [{ itemId: raw.id, quantity: '2', unitPrice: '10' }] })
+    po = await h.command('po.approve', { poId: po.id, version: po.version })
+    const owner = (await h.state()).people.find(person => person.role === 'owner')
+    const calendar = { name: 'Quote mill', timeZone: 'UTC', effectiveFrom: '2026-11-23', effectiveTo: '2026-12-31', shifts: [{ weekdays: [0, 1, 2, 3, 4, 5, 6], start: 480, end: 720 }], capacity: 1, efficiency: 100, reason: 'Four hours each day' }
+    const machine = await h.command('capacity.machine', calendar)
+    const labor = await h.command('capacity.labor', { ...calendar, name: 'Qualified quote person', operatorIds: [owner.id], skills: ['milling'] })
+    let busy = await h.command('wo.draft', { itemId: made.id, quantity: '2', requiredBy: '2026-11-23', reason: 'Prior commitment' })
+    await h.command('wo.release', { workOrderId: busy.id, version: busy.version })
+    let order = await h.command('so.quote', { customerId: customer.id, promiseDate: '2026-12-01', lines: [{ itemId: made.id, quantity: '4', unitPrice: '100' }] })
+    const inputs = { orderId: order.id, currency: 'CAD', usdRate: '0.75', rateDate: '2026-11-23', rateReference: 'Recorded treasury source', validUntil: '2026-12-01', paymentTerms: 'Net 30', discountPercent: '10', freight: '1.23', asOf: '2026-11-23T00:00:00.000Z', days: 10,
+      laborCostRate: '30', machineCostRate: '10', overheadCostRate: '5', lines: [{ lineId: order.lines[0].id, unitPrice: '200' }],
+      partialLines: [{ lineId: order.lines[0].id, quantity: '2' }], remainderStart: '2026-11-25', overtimePremiumRate: '15',
+      overtime: [{ kind: 'machine', id: machine.id, startsAt: '2026-11-24T12:00:00.000Z', endsAt: '2026-11-24T14:00:00.000Z', reason: 'Exact reviewed extra machine window' }, { kind: 'labor', id: labor.id, startsAt: '2026-11-24T12:00:00.000Z', endsAt: '2026-11-24T14:00:00.000Z', reason: 'Exact reviewed extra person window' }] }
+    const refresh = async () => { order = await h.command('so.review', { ...inputs, version: order.version, reason: 'Fresh material and joint calendars' }); return order.quoteReview.options.find(option => option.kind === kind) }
+    let option = await refresh()
+    const payload = () => ({ orderId: order.id, version: order.version, reviewVersion: order.quoteReview.inputVersion, optionId: option.id, optionDigest: option.digest, reason: 'Accept exactly these terms', authorizeOvertime: true, customerApproval: { name: 'Canadian buyer', reference: 'Approved exact proposal 930', approvedOn: '2026-11-23' } })
+    const refused = async (input, error, as) => {
+      const before = await h.state()
+      await h.command('so.acceptOption', input, { error, ...(as ? { as } : {}) })
+      assert.deepEqual(business(await h.state()), business(before), 'A refused commitment changes no business state')
+    }
+    await refused(payload(), 'FORBIDDEN', sales.cookie)
+    await refused({ ...payload(), reason: ' ' }, 'INPUT')
+    await refused({ ...payload(), optionDigest: 'wrong' }, 'QUOTE_OPTION')
+    await refused({ ...payload(), optionId: 'immediate' }, 'QUOTE_OPTION')
+    if (kind === 'overtime') await refused({ ...payload(), authorizeOvertime: false }, 'OVERTIME_AUTHORITY')
+    const beforeReplace = await h.state()
+    await h.command('so.review', { ...inputs, version: order.version, reason: ' ' }, { error: 'INPUT' })
+    assert.deepEqual(business(await h.state()), business(beforeReplace))
+    await h.command('capacity.labor', { ...calendar, id: labor.id, version: labor.version, name: labor.name, operatorIds: [owner.id], skills: [], reason: 'Qualification withdrawn' })
+    await refused(payload(), 'STALE')
+    const noSkills = await h.command('so.review', { ...inputs, version: order.version, reason: 'Qualification review' })
+    assert.equal(noSkills.quoteReview.options.length, 0, 'No option is offered without a current qualified person')
+    order = noSkills
+    await h.command('capacity.labor', { ...calendar, id: labor.id, version: labor.version + 1, name: labor.name, operatorIds: [owner.id], skills: ['milling'], reason: 'Qualification reinstated' })
+    option = await refresh()
+    await h.command('capacity.machine', { ...calendar, id: machine.id, version: machine.version, shifts: [{ weekdays: [0, 1, 2, 3, 4, 5, 6], start: 540, end: 720 }], reason: 'Machine availability changed' })
+    await refused(payload(), 'STALE')
+    await h.command('capacity.machine', { ...calendar, id: machine.id, version: machine.version + 1, reason: 'Machine restored after review' })
+    option = await refresh()
+    const before = await h.state(), acceptPayload = payload(), commandId = crypto.randomUUID()
+    order = await h.command('so.acceptOption', acceptPayload, { commandId })
+    const accepted = await h.state(), savedOrder = accepted.salesOrders.find(row => row.id === order.id)
+    assert.equal(savedOrder.status, 'confirmed'); assert.deepEqual(savedOrder, order)
+    assert.deepEqual([order.customerTerms.currency, order.customerTerms.totalAmount, order.customerTerms.totalUsdAmount, order.customerTerms.usdRate, order.customerTerms.rateReference], ['CAD', '721.23', '540.92', '0.75', 'Recorded treasury source'])
+    assert.deepEqual([order.customerTerms.estimatedCostUsd, order.customerTerms.marginUsdAmount, order.customerTerms.marginAmount], kind === 'partial' ? ['310.00', '230.92', '307.89'] : ['280.00', '260.92', '347.89'])
+    assert.equal(order.promiseDate, option.shipDate); assert.equal(order.quoteAcceptance.optionDigest, option.digest)
+    const work = accepted.workOrders.filter(w => order.quoteAcceptance.workOrderIds.includes(w.id))
+    assert.equal(work.length, option.deliveries.length); assert.ok(work.every(w => w.status === 'released'))
+    assert.deepEqual(work.map(w => w.quantity).sort(), option.deliveries.map(d => d.quantity).sort())
+    assert.deepEqual(accepted.scheduleBookings.find(row => row.id === order.quoteAcceptance.bookingId).operations, option.operations)
+    assert.equal(accepted.scheduleBookings.length, before.scheduleBookings.length + 1)
+    assert.equal(accepted.reservations.filter(r => work.some(w => w.id === r.demandId)).reduce((n, r) => n + Number(r.quantity), 0), 2)
+    assert.deepEqual(accepted.movements, before.movements); assert.deepEqual(accepted.positions, before.positions)
+    assert.deepEqual(accepted.purchaseOrders, before.purchaseOrders)
+    const publicPlan = await (await h.request('/api/larder/scheduling/finite?asOf=2026-11-23T00:00:00.000Z&days=10')).json()
+    for (const op of option.operations) assert.deepEqual(publicPlan.operations.find(row => row.key === op.key)?.intervals, op.intervals)
+    assert.deepEqual(await h.command('so.acceptOption', acceptPayload, { commandId }), order)
+    assert.deepEqual(business(await h.state()), business(accepted), 'Replay does not reserve supply or book intervals twice')
+    await h.command('so.acceptOption', { ...acceptPayload, version: order.version }, { error: 'STATE' })
+    await h.command('so.changePreview', { orderId: order.id, version: order.version }, { error: 'COSTED_TERMS' })
+    await h.command('so.invoice', { orderId: order.id, version: order.version, reason: 'Wrong person' }, { as: sales.cookie, error: 'FORBIDDEN' })
+    const invoicePayload = { orderId: order.id, version: order.version, reason: 'Issue exact accepted Canadian invoice' }, invoiceCommand = crypto.randomUUID()
+    order = await h.command('so.invoice', invoicePayload, { commandId: invoiceCommand })
+    assert.equal(order.invoice.status, 'issued locally'); assert.equal(order.invoice.acceptanceDigest, option.digest)
+    assert.deepEqual(order.invoice.terms, order.customerTerms)
+    assert.deepEqual(await h.command('so.invoice', invoicePayload, { commandId: invoiceCommand }), order)
+    await h.command('so.invoice', { ...invoicePayload, version: order.version }, { error: 'STATE' })
+    await h.restart(); assert.deepEqual((await h.state()).salesOrders.find(row => row.id === order.id), order)
+    const archive = await (await h.request('/api/larder/archive')).json()
+    assert.ok(archive.audit.some(entry => entry.command_type === 'so.acceptOption' && entry.subject_id === order.id))
+    assert.ok(archive.audit.some(entry => entry.command_type === 'so.invoice' && entry.subject_id === order.id))
+    const destination = await installation({ now: '2026-11-23T00:00:00.000Z' }); t.after(() => destination.close())
+    const restore = await destination.request('/api/larder/archive/restore', { method: 'POST', body: archive })
+    assert.equal(restore.status, 200, await restore.text())
+    const restored = await destination.state(), reexport = await (await destination.request('/api/larder/archive')).json()
+    assert.deepEqual(restored.salesOrders.find(row => row.id === order.id), order)
+    assert.deepEqual(restored.scheduleBookings, (await h.state()).scheduleBookings)
+    assert.deepEqual(reexport.audit, archive.audit)
+    assert.deepEqual(reexport.auditErasures, archive.auditErasures)
+    const restoredAudit = await (await destination.request('/api/larder/audit.json?type=so.review')).json()
+    assert.equal(restoredAudit.complete, true); assert.ok(restoredAudit.entries.length >= 3)
+    const beforeReplay = await destination.state()
+    await destination.command('so.acceptOption', acceptPayload, { commandId, error: 'IDEMPOTENCY' })
+    assert.deepEqual(business(await destination.state()), business(beforeReplay), 'Restored historical authority cannot execute an acceptance')
+    await h.invariant(); await destination.invariant()
+  }
 })

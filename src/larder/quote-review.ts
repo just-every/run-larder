@@ -1,5 +1,6 @@
 // Costed commercial preparation. A review never books capacity, reserves stock,
 // changes issued prices, approves overtime or sends a customer document.
+import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
 import { activeBom } from './bom'
 import { resolvedComponents } from './bom-explosion'
 import { cents, decimal, divide, format, SCALE, times } from './decimal'
@@ -86,18 +87,21 @@ function optionEstimate(c: Context, order: Row, p: any, work: Row[], operations:
     basis: 'Material per leg and actual occupied machine and qualified-person minutes, including each setup and efficiency. Each leg material and tariff charge rounds directly to cents, then totals sum those cents. Overtime premium is additional to ordinary tariffs for minutes outside either original calendar. Queue and idle gaps are excluded. Missing tariffs stay unknown.' }
 }
 
-function alternatives(c: Context, order: Row, p: any) {
-  const asOf = instant(p.asOf ?? c.now, 'planning start'), days = integer(p.days ?? 14, 'planning days', 3, 30)
-  if (Date.parse(asOf) < Date.parse(c.now)) fail('INPUT', 'Quote planning must start now or later.')
-  const base = structuredClone(c.s), firstDay = asOf.slice(0, 10)
-  const requiredBy = new Date(Date.parse(asOf) + (days - 1) * 86400000).toISOString().slice(0, 10)
-  // Quotes carry no demand. Every alternative has its own pool, but all legs
-  // within one alternative consume the same pool exactly once.
+export function quotePlanningState(c: Context) {
+  const base = structuredClone(c.s)
   base.salesOrders = base.salesOrders.filter(o => o.status !== 'quote')
   for (const work of base.workOrders.filter(work => work.status === 'draft' && !work.engineeringBomId)) {
     const recipe = activeBom(base, work.itemId, c.now.slice(0, 10))
     if (recipe) work.engineeringBomId = recipe.id
   }
+  return base
+}
+
+function alternatives(c: Context, order: Row, p: any) {
+  const asOf = instant(p.asOf ?? c.now, 'planning start'), days = integer(p.days ?? 14, 'planning days', 3, 30)
+  if (Date.parse(asOf) < Date.parse(c.now)) fail('INPUT', 'Quote planning must start now or later.')
+  const base = quotePlanningState(c), firstDay = asOf.slice(0, 10)
+  const requiredBy = new Date(Date.parse(asOf) + (days - 1) * 86400000).toISOString().slice(0, 10)
   const unsupported = order.lines.some((line: any) => get(base, 'items', line.itemId).kind !== 'make' || line.configuration)
   if (unsupported) return { asOf, days, options: [], rejected: [], reason: 'Finite alternatives currently require ordinary made-item lines; bought and configured lines remain unproved.' }
   const before = recoveryProjection(base, c.people, asOf, days, false, c.now.slice(0, 10)).plan
@@ -141,7 +145,7 @@ function alternatives(c: Context, order: Row, p: any) {
       return refuse('The proposed first delivery does not finish before its remainder; choose a feasible split and remainder date.')
     const estimate = optionEstimate(c, order, p, work, operations, asOf, days)
     if (kind === 'overtime' && !estimate.lines.some(line => line.overtimeMinutes > 0)) return refuse('The declared overtime windows add no used capacity to this option.')
-    return { id, kind, name, shipDate, plannedStart: legs[0]!.plannedStart, feasible: true, operations, material, deliveries, overtime, estimate, work: work.map(w => ({ itemId: w.itemId, quantity: w.quantity })),
+    return { id, kind, name, shipDate, plannedStart: legs[0]!.plannedStart, feasible: true, operations, material, deliveries, overtime, estimate, workDrafts: work, work: work.map(w => ({ itemId: w.itemId, quantity: w.quantity })),
       basis: 'Indicative shared material and finite machine and active qualified-person calendars. No stock, supplier, capacity or shipment is booked. Future receipt, quality and execution remain conditions. Overtime windows are assumptions only and grant no authority.' }
   }
   const full = (plannedStart: string) => order.lines.map((line: any) => ({ line, quantity: line.quantity, leg: 'full', plannedStart }))
@@ -191,7 +195,7 @@ export function quoteReview(c: Context, type: string, p: any): Row | undefined {
   if (scopeOf(c.actor).locations !== null || scopeOf(c.actor).costs) forbidden('Costed quote preparation requires unrestricted commercial and location access.')
   const order = get(c.s, 'salesOrders', p.orderId); fresh(order, p.version)
   if (order.status !== 'quote') fail('STATE', 'Costed preparation is available only on an unconfirmed quote.')
-  const history = [...(order.quoteReviewHistory ?? []), ...(order.quoteReview ? [order.quoteReview] : [])]
+  const history = [...(order.quoteReviewHistory ?? []), ...(order.quoteReview ? [{ ...order.quoteReview, disposition: { actorId: c.actor.id, at: c.now, reason: type === 'so.review' ? text(p.reason, 'refresh reason') : p.reason, reviewInputVersion: order.quoteReview.inputVersion } }] : [])]
   if (type === 'so.reviewClear') {
     if (!order.quoteReview) fail('STATE', 'There is no current costed review to discard.')
     const reason = text(p.reason, 'discard reason')
@@ -227,6 +231,7 @@ export function quoteReview(c: Context, type: string, p: any): Row | undefined {
     const cost = option.estimate.totalCost === null ? null : decimal(option.estimate.totalCost)
     const margin = cost === null ? null : usdAmount - cost
     Object.assign(option, { totalUsdAmount: cents(usdAmount), marginUsdAmount: margin === null ? null : cents(margin), marginAmount: margin === null ? null : cents(centRatio(margin * SCALE, rate)), marginPercent: margin === null || usdAmount === 0n ? null : format(divide(times(margin, decimal('100')), usdAmount)) })
+    option.digest = sha256(canonicalJson(option))
   }
-  return bump(order, { quoteReviewHistory: history, quoteReview: { preparedBy: c.actor.id, preparedAt: c.now, inputVersion: c.s.version + 1, status: 'preparation', currency, usdRate: format(rate), rateDate, rateReference, validUntil, paymentTerms: text(p.paymentTerms, 'payment terms', 1000), note: optionalText(p.note, 'quote assumptions', 1000), discountPercent: format(discount), freightAmount: cents(freight), freightUsdAmount: cents(extension(freight, rate)), lines, totalAmount: cents(amount), totalUsdAmount: cents(usdAmount), estimate, marginUsdAmount: marginAmount === null ? null : cents(marginAmount), marginAmount: marginAmount === null ? null : cents(centRatio(marginAmount * SCALE, rate)), marginPercent: marginAmount === null || usdAmount === 0n ? null : format(divide(times(marginAmount, decimal('100')), usdAmount)), ...dates, rounding: 'Exact six-place quantity times price rounded directly half away from zero to a cent per line; discount rounded per line; converted net lines and freight rounded separately; totals sum those cents. USD per one customer currency unit. No tax is estimated.', semantics: 'Preparation only; confirmation is refused while this review exists. No acceptance, booking, overtime authorization, invoice or outbound action. Discarding a review restores the ordinary USD quote, without applying these reviewed terms.' } })
+  return bump(order, { quoteReviewHistory: history, quoteReview: { preparedBy: c.actor.id, preparedAt: c.now, inputVersion: c.s.version + 1, status: 'preparation', peopleDigest: sha256(canonicalJson(c.people)), currency, usdRate: format(rate), rateDate, rateReference, validUntil, paymentTerms: text(p.paymentTerms, 'payment terms', 1000), note: optionalText(p.note, 'quote assumptions', 1000), discountPercent: format(discount), freightAmount: cents(freight), freightUsdAmount: cents(extension(freight, rate)), lines, totalAmount: cents(amount), totalUsdAmount: cents(usdAmount), estimate, marginUsdAmount: marginAmount === null ? null : cents(marginAmount), marginAmount: marginAmount === null ? null : cents(centRatio(marginAmount * SCALE, rate)), marginPercent: marginAmount === null || usdAmount === 0n ? null : format(divide(times(marginAmount, decimal('100')), usdAmount)), ...dates, rounding: 'Exact six-place quantity times price rounded directly half away from zero to a cent per line; discount rounded per line; converted net lines and freight rounded separately; totals sum those cents. USD per one customer currency unit. No tax is estimated.', semantics: 'Preparation books nothing. A separate owner acceptance binds one exact option and current inputs; assumed overtime requires explicit authorization. Discarding restores the original USD quote. Nothing is sent externally.' } })
 }

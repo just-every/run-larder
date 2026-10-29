@@ -1,4 +1,4 @@
-import { QuoteReview } from './quote-review'
+import { QuoteReview, QuoteCommitment } from './quote-review'
 import { WavePicking } from './wave-picking'
 import { ShipmentCertificates } from './certificates'
 import { ScanPanel } from './scan'
@@ -96,7 +96,8 @@ function OrderWorkspace({ larder, order }: { larder: Larder; order: Rec }) {
       <NeedsList larder={larder} compact />
     </div>
     <QuoteReview larder={larder} order={order} />
-    <OrderChanges larder={larder} order={order} />
+    <QuoteCommitment larder={larder} order={order} />
+    {!order.quoteAcceptance && <OrderChanges larder={larder} order={order} />}
     <div className="split">
       <Card title="Pick, pack and ship" className="pick"><span id="pick" />
         {shipments.length === 0 && <Empty>Nothing picked yet.</Empty>}

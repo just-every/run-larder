@@ -79,6 +79,7 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
     case 'so.cancelLine': {
       allow(c, ['manager', 'sales'])
       const order = get(c.s, 'salesOrders', p.orderId, 'order'); fresh(order, p.version)
+      if (order.quoteAcceptance) fail('COSTED_TERMS', 'Accepted costed terms require a separate exact amendment review.')
       const line = lineOf(order, p.lineId), item = get(c.s, 'items', line.itemId, 'item'), q = toBase(item, p.quantity, p.unit)
       if (q > open(line)) fail('INPUT', `Only ${format(open(line))} ${item.baseUnit} is still open on this line.`)
       if (!['confirmed', 'part shipped'].includes(order.status)) fail('STATE', 'Cancel only open confirmed work.')
