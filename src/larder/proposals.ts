@@ -6,7 +6,7 @@ import { sha256, canonicalJson } from '../modules/import-kit/src/d1/index'
 import { decimal, format, times } from './decimal'
 import { fail, forbidden } from './problem'
 import { allow, approver, type Role } from './roles'
-import { authorize, gate } from './approval-policy'
+import { authorize, gate, policyFor } from './approval-policy'
 import { largestJobDelay } from './scheduling/delay'
 import { createQuote } from './sales'
 import { draftPurchase } from './purchasing'
@@ -73,6 +73,9 @@ function execute(c: Context, proposal: Row, earlierSignatures: number): unknown 
     if (shortageFingerprint(c.s, proposal.context.itemIds) !== proposal.context.fingerprint) fail('STALE', 'Orders, stock or supply changed since this was prepared. Ask for a fresh proposal.')
     return plan.purchases.map((x: any) => {
       const po = draftPurchase(c, { ...x, reason: `${plan.explanation} (proposal ${proposal.summary})` }, proposal.preparedBy)
+      // Adopting a proposal is not a signature on the purchase order's exact spend.
+      // Leave policy-controlled purchases in draft for the ordinary po.approve door.
+      if (policyFor(c, 'spend', () => decimal(po.exposure))) return po.id
       const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision: 'approved', role: c.actor.role, note: `Approved with proposal`, proposalId: proposal.id, terms: { supplierId: po.supplierId, lines: po.lines, expectedDate: po.expectedDate, exposure: po.exposure } })
       return bump(po, { status: 'approved', approvalId: approval.id, approvedBy: c.actor.id }).id
     })
