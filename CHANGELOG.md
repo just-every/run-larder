@@ -2,6 +2,7 @@
 
 ## Company-agent runtime refresh
 
+- Align nesting, master production, replenishment and dated/scenario planning tool citations with their existing native contract clauses.
 - Refresh the adopted agent-door runtime and pinned CLI to released Base 0.2.87, retaining the declared core planner subset and native authority.
 - Keep manufacturing events, subscriptions, multiple sponsors, resource refresh and provider execution explicitly partial; the shared harness still requires record-change events for core-only adoption.
 
