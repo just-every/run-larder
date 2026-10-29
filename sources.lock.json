@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "80ccdfb6f81878fccf4416c3494756a00c7b8eb1ef888568391df3525d601b17",
+      "sha256": "7557a6a22d27fd65a3abd2dc4ee90619eeb430fac2c228799b4ae1022120a97b",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -193,7 +193,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "de8e38b30b7cfe543ab87a6b2a6ce822c77bb1d8671dfbd05566057c9253b1ac",
+      "sha256": "c8fce3783c33cd6ec3705b4bcb88bc376ce521a17546102b162238a62ba1149b",
       "executable": false
     },
     "base-copies.json": {
@@ -205,7 +205,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "86cfd08ade8dbea485f76180eea971f6714ff97ea3464040d11c2683c7fa5c4e",
+      "sha256": "780e12d35e5720691110b2e421ddc0ad31ce746970307751a55e2da186d04ae5",
       "executable": false
     },
     "DEMO.md": {
@@ -245,7 +245,7 @@
       "executable": false
     },
     "docs/contract/OPERATING-DETAILS.md": {
-      "sha256": "d4798523278afbb807408036725b902752ac55d688e5d7e5886dc385daa77258",
+      "sha256": "17553c13373f6b4fbfadece6b7c7d382624c4c4e5b23914aa29c5a23030b56d1",
       "executable": false
     },
     "docs/contract/SOURCE-FORMATS.md": {
@@ -1497,15 +1497,15 @@
       "executable": false
     },
     "src/larder/purchasing.ts": {
-      "sha256": "6dd9612839b8871adfc2e3e7ff5edcb498e6dfe84a9597f5023ecdab603c9788",
+      "sha256": "c36b4fc210723ca8413fa7359a749773d069bb4ad1d1a865416d34454389289a",
       "executable": false
     },
     "src/larder/quality-holds.ts": {
-      "sha256": "709977cfb0fb0f33d78f29489258d3b97e9637bf6987c28b221a2cae1b5a39bf",
+      "sha256": "2027813dbb13ee69ab6f60f020f3dd7bd292c0256426b1cf15844798da438fb0",
       "executable": false
     },
     "src/larder/quality.ts": {
-      "sha256": "ef8df8483a0eb9f3d1eac441c4fc3891f102140a23cd3c98245553751ec0d0d5",
+      "sha256": "5a37eb46523c110756e94ddc8aa096ed2aef68751c861a9f4cb2359c9cca90c1",
       "executable": false
     },
     "src/larder/quote-review.ts": {
@@ -1609,7 +1609,7 @@
       "executable": false
     },
     "src/larder/scheduling/nesting.ts": {
-      "sha256": "5699ca7b2092559dfb21537f9eb33d4d40d2c643055d71052338d12a24ab85ea",
+      "sha256": "1a34bd0e0075510bece19cdadb3a431b975b86bb4f35a33d8d033a24e8ab4772",
       "executable": false
     },
     "src/larder/scheduling/recovery-options.ts": {
@@ -3785,7 +3785,7 @@
       "executable": false
     },
     "src/ui/quality.tsx": {
-      "sha256": "6003921ac64b28b363729e3d22422f06873208f2aed1cf6fb694d420f0cbf56b",
+      "sha256": "7c081838e7c73ab675bea1223defddbbba6de2ac58ace6901d0e1276eb3bc260",
       "executable": false
     },
     "src/ui/quote-review.tsx": {
@@ -3885,7 +3885,7 @@
       "executable": false
     },
     "src/ui/stock.tsx": {
-      "sha256": "9ed38d451b3464b71ff8b821244ab1f0396fa9e6b3d056f6a5c71fcd3168f6da",
+      "sha256": "d9bc341c3ad37277da01933f82be4b420a940b84d8007c91785d6a34f11ee45b",
       "executable": false
     },
     "src/ui/styles/base.css": {
@@ -3965,7 +3965,7 @@
       "executable": false
     },
     "src/ui/work-nesting.tsx": {
-      "sha256": "1b49a7e4a4e1d0ac537133e8ffa7b71a657c6671126b2aa8c10d4f1def0f24af",
+      "sha256": "395593f02cd6bb2b803eb72907947ccd1b563756c52ef0d63b177df1abc451f4",
       "executable": false
     },
     "src/ui/work-operations.tsx": {
@@ -4021,7 +4021,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "f95080ff02112293747f327b98d62090b7929b65e7f26b5ba1b55f25f8c3b028",
+      "sha256": "5ffe98c03808b298ead56e9c44ea6023465fd3a522d901c00236058677572315",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -4205,7 +4205,7 @@
       "executable": false
     },
     "tests/browser/quality.spec.ts": {
-      "sha256": "f93f5ea33d77680e4b93225416f20ce546a3200fae631e2316636a6195fe3107",
+      "sha256": "d4c28c9545e3fd14ba6e2750f6eaaea9bb8e6b6ff0071cd4cd6b2558c81e225d",
       "executable": false
     },
     "tests/browser/receiving.spec.ts": {

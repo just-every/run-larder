@@ -1,5 +1,5 @@
 import { supplierTerms, quotedLines, validateQuoteLines, purchaseDate, purchaseNextDate } from './supplier-terms'
-import { plansFor } from './quality-holds'
+import { plansFor, receiptInspections } from './quality-holds'
 // Purchase orders: draft, approve, supplier confirmation, revised delivery,
 // partial receipt with supplier lots, and quarantine decisions.
 import { assertLotNotHeld } from './quality'
@@ -13,7 +13,7 @@ import { fail } from './problem'
 import { allow, approver } from './roles'
 import { authorize, gate } from './approval-policy'
 import { averageCost, balance, move } from './stock'
-import { lotDates } from './lot-dates'
+import { lotBlock, lotDates } from './lot-dates'
 import { damaged, overAllowance, tolerancePercent } from './receiving'
 import { bump, date, fresh, get, list, newId, nextReference, oneOf, optionalText, row, text, type Context, type Row } from './model'
 
@@ -153,10 +153,19 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
       if (balance(c.s, item.id, location.id, 'quarantine', lotId) < q) fail('INSUFFICIENT_STOCK', `Only ${format(balance(c.s, item.id, location.id, 'quarantine', lotId))} ${item.baseUnit} is in quarantine there.`)
       if (decision === 'release') approvedCertificates(c.s, item.id, lotId, c.now.slice(0, 10))
       if (decision === 'release') assertLotNotHeld(c.s, lotId, 'released from quarantine')
+      const lot = lotId ? get(c.s, 'lots', lotId) : undefined
+      let recoveryEvidence: Record<string, unknown> | undefined
+      if (decision === 'release' && lot?.source === 'nesting') {
+        if (lot.itemId !== item.id) fail('INPUT', 'Release the recovered lot against its own item.')
+        if (lotBlock(lot, c.now.slice(0, 10))) fail('LOT_BLOCKED', 'The recovered lot needs an authorized date disposition before release.')
+        const inspections = receiptInspections(c.s, lot)
+        if (!p.evidence) fail('EVIDENCE', 'Attach the recovered lot release record.')
+        recoveryEvidence = { evidence: attach(c, p.evidence), inspections, certificates: approvedCertificates(c.s, item.id, lotId, c.now.slice(0, 10)) }
+      }
       // GOV-002 thresholds on the value: a release makes it available (quality), a rejection writes it off (inventory adjustment).
       const signed = gate(c, { category: decision === 'release' ? 'quality' : 'inventoryAdjustment', subjectKind: lotId ? 'lots' : 'items', subject: lotId ? get(c.s, 'lots', lotId) : item, measure: () => times(q, averageCost(c.s, item.id)), permitted: ['manager', 'warehouse'], terms: { decision, itemId: item.id, locationId: location.id, lotId, quantity: format(q) }, p })
       if (signed && 'pending' in signed) return signed.pending
-      const approval = row(c, 'approvals', { subjectKind: 'lots', subjectId: lotId || item.id, subjectVersion: 0, decision: decision === 'release' ? 'released' : 'rejected', role: c.actor.role, note: text(p.reason, 'reason', 400), quantity: format(q), locationId: location.id , ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
+      const approval = row(c, 'approvals', { subjectKind: 'lots', subjectId: lotId || item.id, subjectVersion: lot?.version ?? 0, decision: decision === 'release' ? 'released' : 'rejected', role: c.actor.role, note: text(p.reason, 'reason', 400), quantity: format(q), locationId: location.id, ...(recoveryEvidence ?? {}), ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
       signed?.consume(approval.id)
       const out = move(c, { itemId: item.id, locationId: location.id, status: 'quarantine', lotId, quantity: -q, kind: decision === 'release' ? 'release' : 'reject', documentKind: 'approvals', documentId: approval.id, reason: approval.note })
       if (decision === 'release') move(c, { itemId: item.id, locationId: location.id, status: 'available', lotId, quantity: q, unitCost: out.unitCost, kind: 'release', documentKind: 'approvals', documentId: approval.id, reason: approval.note })

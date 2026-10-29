@@ -1391,10 +1391,17 @@ test('COST-001 unvalued production lots keep weighted average until an actual va
   const report=(await costReport(h,'margins',`?orderId=${order.id}`)).rows[0];assert.equal(report.actualCost,'20.00');assert.equal(report.sources.reduce((n,x)=>n+parse(x.cost),0n),parse('20'))
 })
 
-async function nestingWorkshop(h, dates = { manufacturedOn: '2026-10-01', expiresOn: '2027-10-01', retestOn: '2027-09-01', storage: 'Dry covered rack' }) {
+async function nestingWorkshop(h, dates = { manufacturedOn: '2026-10-01', expiresOn: '2027-10-01', retestOn: '2027-09-01', storage: 'Dry covered rack' }, received = false) {
   const loc = await h.command('location.save', { name: 'Sheet store' })
   const sheet = await h.command('item.save', { sku: 'synthetic-larder-1', name: 'Steel sheet', kind: 'buy', baseUnit: 'm2' })
+  if (received) {
+    const supplier = await h.command('party.save', { name: 'synthetic-larder-2000', kind: 'supplier' })
+    let po = await h.command('po.draft', { supplierId: supplier.id, expectedDate: '2026-10-01', reason: 'Controlled sheet source', lines: [{ itemId: sheet.id, quantity: '10', unitPrice: '10' }] })
+    po = await h.command('po.approve', { poId: po.id, version: po.version })
+    await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-2001', lines: [{ lineId: po.lines[0].id, locationId: loc.id, quantity: '10', lot: 'synthetic-larder-2', dates }] })
+  } else {
   await h.command('opening.record', { locationId: loc.id, countedOn: '2026-10-01', valuationBasis: 'supplier-invoice', countedBy: 'Olive', evidence: evidence(), lines: [{ itemId: sheet.id, quantity: '10', unitCost: '10', lot: 'synthetic-larder-2', dates }] })
+  }
   const customer = await h.command('party.save', { name: 'Sheet customer', kind: 'customer' }), jobs = []
   for (let i = 0; i < 3; i++) {
     const item = await h.command('item.save', { sku: `synthetic-larder-${i + 3}`, name: `Bracket ${i + 1}`, kind: 'make', baseUnit: 'each' })
@@ -1583,20 +1590,140 @@ test('CAP-008 stale or impossible physical nesting approval leaves every job and
 })
 
 
-test('CAP-008 nesting cannot recover expired or controlled material as a new usable lot', async t => {
-  for (const mode of ['expired', 'certificate', 'inspection']) {
-    const h = await installation(); t.after(() => h.close())
-    const f = await nestingWorkshop(h, mode === 'expired' ? { manufacturedOn: '2019-01-01', expiresOn: '2020-01-01' } : undefined)
-    if (mode === 'certificate') await h.command('certificate.requirements', { itemId: f.sheet.id, types: ['coa'], note: 'Incoming evidence required' })
-    if (mode === 'inspection') {
-      const plan = await h.command('quality.plan.save', { itemId: f.sheet.id, stage: 'receipt', name: 'Sheet inspection', required: true, sampleSize: 1, measurements: [{ name: 'Surface', unit: 'score', target: '1', lower: '1', upper: '1' }], attachments: [evidence('Incoming sheet surface check')] })
-      await h.command('quality.plan.approve', { planId: plan.id, version: plan.version })
-    }
-    const group = await h.command('nest.prepare', f.prepare), before = await h.state()
-    await h.command('nest.import', { groupId: group.id, version: group.version, file: f.file(f.report) }, { error: 'QUALITY_HOLD' })
-    const after = await h.state()
-    for (const key of ['workGroups', 'lots', 'movements', 'reservations', 'workOrders']) assert.deepEqual(after[key], before[key], mode + ':' + key)
+test('CAP-008 controlled source recovery requires current evidence, quarantines independent offcuts and preserves exact genealogy through reuse, restart and inert restore', async t => {
+  const makePlan = async (h, itemId) => {
+    const plan = await h.command('quality.plan.save', { itemId, stage: 'receipt', name: 'Sheet inspection', required: true, sampleSize: 1, measurements: [{ name: 'Surface', unit: 'score', target: '1', lower: '1', upper: '1' }], attachments: [evidence('Incoming sheet surface check')] })
+    return h.command('quality.plan.approve', { planId: plan.id, version: plan.version })
   }
+  const unchanged = async (h, before, label) => {
+    const after = await h.state()
+    for (const key of ['version', 'workGroups', 'lots', 'movements', 'positions', 'reservations', 'workOrders', 'approvals', 'commands']) assert.deepEqual(after[key], before[key], label + ':' + key)
+  }
+  // Expired sources, missing required documents and missing or failed source
+  // inspections cannot even create a review or an original-file attachment.
+  for (const mode of ['expired', 'certificate', 'inspection']) {
+    const h = await installation({ now: '2026-10-25T12:00:00.000Z' }); t.after(() => h.close())
+    const f = await nestingWorkshop(h, mode === 'expired' ? { manufacturedOn: '2019-01-01', expiresOn: '2020-01-01' } : undefined, true)
+    if (mode === 'certificate') await h.command('certificate.requirements', { itemId: f.sheet.id, types: ['coa'], note: 'Incoming evidence required' })
+    const plan = mode === 'inspection' ? await makePlan(h, f.sheet.id) : null
+    const group = await h.command('nest.prepare', f.prepare), before = await h.state(), archive = await (await h.request('/api/larder/archive')).json()
+    const payload = { groupId: group.id, version: group.version, file: f.file(f.report) }
+    await h.command('nest.import', payload, { error: { expired: 'QUALITY_HOLD', certificate: 'CERTIFICATE_REQUIRED', inspection: 'RETEST' }[mode] })
+    await unchanged(h, before, mode)
+    assert.deepEqual((await (await h.request('/api/larder/archive')).json()).attachments, archive.attachments)
+    if (plan) {
+      await h.command('quality.inspect', { planId: plan.id, planVersion: plan.version, lotId: f.lot.id, samples: { Surface: ['0'] }, evidence: [evidence('Damaged surface')] })
+      const heldGroup = await h.command('nest.prepare', f.prepare), held = await h.state()
+      await h.command('nest.import', { ...payload, groupId: heldGroup.id, version: heldGroup.version }, { error: 'QUALITY_HOLD' })
+      await unchanged(h, held, 'failed source inspection')
+    }
+  }
+  const h = await installation({ now: '2026-10-25T12:00:00.000Z' }); t.after(() => h.close())
+  const f = await nestingWorkshop(h, undefined, true)
+  const warehouse = await h.person(['synthetic-larder-2002', 'example.test'].join('@'), 'warehouse')
+  const agent = await h.person(['synthetic-larder-2003', 'example.test'].join('@'), 'agent')
+  await h.command('certificate.requirements', { itemId: f.sheet.id, types: ['coa'], note: 'Exact lot certificate required' })
+  const plan = await makePlan(h, f.sheet.id)
+  const certify = async lot => {
+    const doc = await warehouse.run('certificate.prepare', { itemId: f.sheet.id, lotId: lot.id, type: 'coa', documentVersion: 'Reviewed recovery record', declaredLot: lot.code, issuer: 'Workshop quality', expiresOn: '2027-10-01', evidence: evidence(`Evidence for ${lot.code}`) })
+    return h.command('certificate.approve', { certificateId: doc.id, version: doc.version, note: 'Exact lot and current evidence checked' })
+  }
+  let sourceDoc = await certify(f.lot)
+  const sourceInspection = await h.command('quality.inspect', { planId: plan.id, planVersion: plan.version, lotId: f.lot.id, samples: { Surface: ['1'] }, evidence: [evidence('Source sheet measured')] })
+  const review = async () => {
+    const group = await h.command('nest.prepare', f.prepare)
+    return h.command('nest.import', { groupId: group.id, version: group.version, file: f.file(f.report) })
+  }
+  const stale = await review()
+  await h.command('certificate.revoke', { certificateId: sourceDoc.id, version: sourceDoc.version, note: 'Supplier withdrew source evidence' })
+  const revoked = await h.state()
+  await h.command('nest.approve', { groupId: stale.id, version: stale.version, reason: 'Old source review' }, { error: 'STALE' })
+  await unchanged(h, revoked, 'stale source review')
+  const blocked = await h.command('nest.prepare', f.prepare), noEvidence = await h.state()
+  await h.command('nest.import', { groupId: blocked.id, version: blocked.version, file: f.file(f.report) }, { error: 'CERTIFICATE_REQUIRED' })
+  await unchanged(h, noEvidence, 'revoked source evidence')
+  sourceDoc = await certify(f.lot)
+  const current = await review(), before = await h.state()
+  assert.deepEqual(current.review.source.evidence.certificates.map(d => d.id), [sourceDoc.id])
+  assert.deepEqual(current.review.source.evidence.inspections.map(i => i.id), [sourceInspection.id])
+  const payload = { groupId: current.id, version: current.version, reason: 'Exact controlled sheet cut and recovery' }
+  await agent.run('nest.approve', payload, { error: 'FORBIDDEN' })
+  await unchanged(h, before, 'unauthorized physical approval')
+  const posted = await h.send('nest.approve', payload), s = await h.invariant()
+  assert.equal(posted.res.status, 200, JSON.stringify(posted.body))
+  const recovered = s.lots.find(l => l.id === posted.body.result.offcutLotId)
+  assert.equal(recovered.parentLotId, f.lot.id); assert.equal(recovered.status, 'quarantined')
+  assert.deepEqual(recovered.dates, f.lot.dates)
+  assert.deepEqual(s.positions.filter(p => p.lotId === recovered.id).map(p => [p.status, p.quantity]), [['quarantine', '2']])
+  assert.deepEqual(f.jobs.map(job => s.workOrders.find(w => w.id === job.id).components[0].issued), ['2', '3', '3'])
+  assert.deepEqual(current.review.jobs.map(j => j.materialCost), ['20', '30', '30'])
+  assert.deepEqual([current.review.source.materialCost, current.review.materialCost, current.review.offcut.materialCost], ['100', '80', '20'])
+  assert.equal(s.certificates.some(d => d.lotId === recovered.id), false)
+  assert.equal(s.inspections.some(i => i.subjectId === recovered.id), false)
+  for (const key of ['scheduleBookings', 'schedulePolicies', 'salesOrders']) assert.deepEqual(s[key], before[key], key)
+  assert.deepEqual((await h.send('nest.approve', payload, { commandId: posted.commandId })).body, posted.body)
+  assert.deepEqual((await h.state()).movements, s.movements)
+  const release = { itemId: f.sheet.id, locationId: f.loc.id, lotId: recovered.id, quantity: '2', decision: 'release', reason: 'Own recovery evidence reviewed' }
+  await agent.run('quarantine.decide', release, { error: 'FORBIDDEN' })
+  await warehouse.run('quarantine.decide', release, { error: 'CERTIFICATE_REQUIRED' })
+  await unchanged(h, s, 'source approval does not release recovered lot')
+  const draft = await h.command('wo.draft', { itemId: f.jobs[0].itemId, quantity: '1', requiredBy: '2026-11-04', reason: 'Reuse controlled offcut' })
+  const reuse = await h.command('wo.release', { workOrderId: draft.id, version: draft.version })
+  const heldBefore = await h.state()
+  await h.command('wo.issue', { workOrderId: reuse.id, lines: [{ itemId: f.sheet.id, locationId: f.loc.id, lotId: recovered.id, quantity: '2' }] }, { error: 'INSUFFICIENT_STOCK' })
+  await unchanged(h, heldBefore, 'unreleased recovered stock')
+  const recoveredDoc = await certify(recovered), ownDocBefore = await h.state()
+  await warehouse.run('quarantine.decide', { ...release, evidence: evidence('Recovery release') }, { error: 'RETEST' })
+  await unchanged(h, ownDocBefore, 'source inspection does not qualify recovered lot')
+  const failed = await h.command('quality.inspect', { planId: plan.id, planVersion: plan.version, lotId: recovered.id, samples: { Surface: ['0'] }, evidence: [evidence('Offcut edge damaged')] })
+  const failedBefore = await h.state(), hold = failedBefore.qualityHolds.find(x => x.id === failed.holdId)
+  await warehouse.run('quarantine.decide', { ...release, evidence: evidence('Recovery release') }, { error: 'QUALITY_HOLD' })
+  await unchanged(h, failedBefore, 'failed offcut inspection')
+  await h.command('quality.inspect', { planId: plan.id, planVersion: plan.version, lotId: recovered.id, samples: { Surface: ['1'] }, evidence: [evidence('Offcut edge retested')] })
+  await warehouse.run('quality.release', { holdId: hold.id, version: hold.version, reason: 'Retest', evidence: [evidence()] }, { error: 'FORBIDDEN' })
+  await h.command('quality.release', { holdId: hold.id, version: hold.version, reason: 'Retest clears hold only', evidence: [evidence()] })
+  assert.deepEqual((await h.state()).positions.filter(p => p.lotId === recovered.id).map(p => [p.status, p.quantity]), [['quarantine', '2']])
+  await h.command('certificate.revoke', { certificateId: recoveredDoc.id, version: recoveredDoc.version, note: 'Offcut document withdrawn' })
+  const revokedOffcut = await h.state()
+  await warehouse.run('quarantine.decide', { ...release, evidence: evidence() }, { error: 'CERTIFICATE_REQUIRED' })
+  await unchanged(h, revokedOffcut, 'revoked offcut evidence')
+  await certify(recovered)
+  const newPlan = await makePlan(h, f.sheet.id), superseded = await h.state()
+  await warehouse.run('quarantine.decide', { ...release, evidence: evidence() }, { error: 'RETEST' })
+  await unchanged(h, superseded, 'superseded plan requires new result')
+  await h.command('quality.inspect', { planId: newPlan.id, planVersion: newPlan.version, lotId: recovered.id, samples: { Surface: ['1'] }, evidence: [evidence('Current recovery plan measured')] })
+  const measured = await h.state()
+  await warehouse.run('quarantine.decide', release, { error: 'EVIDENCE' })
+  await unchanged(h, measured, 'missing recovery release record')
+  // Restoring quarantine is inert: no inherited approval, issue or release is
+  // performed, even though the archive retains every source decision.
+  const archive = await (await h.request('/api/larder/archive')).json(), dest = await installation({ now: '2026-10-25T12:00:00.000Z' }); t.after(() => dest.close())
+  assert.equal((await dest.request('/api/larder/archive/restore', { method: 'POST', body: archive })).status, 200)
+  for (const key of ['movements', 'positions', 'workGroups', 'lots', 'inspections', 'certificates']) assert.deepEqual((await dest.state())[key], measured[key], key)
+  await dest.restart()
+  assert.deepEqual((await dest.state()).positions, measured.positions)
+  const released = await h.send('quarantine.decide', { ...release, evidence: evidence('Signed exact offcut release') }, { as: warehouse.cookie })
+  assert.equal(released.res.status, 200, JSON.stringify(released.body))
+  assert.equal(released.body.result.inspections[0].planId, newPlan.id)
+  assert.equal(released.body.result.certificates[0].lotId, recovered.id)
+  assert.ok(released.body.result.evidence.sha256)
+  const releasedState = await h.state()
+  assert.deepEqual(releasedState.positions.filter(p => p.lotId === recovered.id).map(p => [p.status, p.quantity]), [['available', '2']])
+  assert.deepEqual((await h.send('quarantine.decide', { ...release, evidence: evidence('Signed exact offcut release') }, { as: warehouse.cookie, commandId: released.commandId })).body, released.body)
+  await h.command('role.set', { operatorId: warehouse.id, role: 'viewer' })
+  const revokedRole = await h.state()
+  await warehouse.run('quarantine.decide', { ...release, evidence: evidence('Signed exact offcut release') }, { commandId: released.commandId, error: 'FORBIDDEN' })
+  await unchanged(h, revokedRole, 'revoked release authority replay')
+  await h.restart()
+  assert.deepEqual((await h.state()).movements, releasedState.movements)
+  let reused = await h.command('wo.issue', { workOrderId: reuse.id, lines: [{ itemId: f.sheet.id, locationId: f.loc.id, lotId: recovered.id, quantity: '2' }] })
+  reused = await h.command('wo.output', { workOrderId: reused.id, version: reused.version, locationId: f.loc.id, quantity: '1', lot: 'synthetic-larder-2004' })
+  reused = await h.command('wo.close', { workOrderId: reused.id, version: reused.version })
+  assert.equal(reused.cost.materials, '20')
+  const trace = await (await h.request(`/api/larder/lots/${reused.outputs[0].lotId}/trace?direction=upstream`)).json()
+  assert.ok(trace.rows.some(r => r.basis === 'approved nesting offcut recovery' && r.quantity === '2' && r.value === '20'))
+  assert.ok(trace.nodes.some(n => n.lotId === f.lot.id))
+  await h.invariant()
 })
 
 async function allocationWorkshop(h, received = '10') {
