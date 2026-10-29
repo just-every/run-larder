@@ -46,8 +46,9 @@ body:has(.larder) { padding: 0; }
 .account .avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #FFFFFF; color: var(--ink); font-size: 13px; font-weight: 700; }
 .account summary .icon { width: 16px; height: 16px; }
 .account-menu { position: absolute; z-index: 20; right: 0; top: calc(100% + 10px); display: grid; gap: 10px; min-width: 220px; padding: 14px; background: var(--card); color: var(--ink); border: 1px solid var(--rule); border-radius: var(--radius); box-shadow: 0 16px 40px -18px rgba(0, 0, 0, .45); }
+.account-menu a { display: flex; align-items: center; min-height: 44px; padding: 0 4px; }
 .account-menu small { display: block; color: var(--muted); font-size: 13px; }
-.larder .account-menu .signout { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border: 1px solid var(--field); border-radius: var(--radius); background: var(--card); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.larder .account-menu .signout { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: 1px solid var(--field); border-radius: var(--radius); background: var(--card); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
 .account-menu .signout .icon { width: 18px; height: 18px; }
 
 /* Rail: labelled destinations, the current one in signal red, the workshop drawing at its foot. */

@@ -1677,7 +1677,7 @@
       "executable": false
     },
     "src/larder/scheduling/grants.ts": {
-      "sha256": "c698310f04de6d02c4e86188d050d1eb9b7e3e94a67e174eefe9002ecfa9cdf2",
+      "sha256": "0d22a96104d24bb936b0c3f91632e4849a4db38031f6f75804a7546d1c64ecb6",
       "executable": false
     },
     "src/larder/scheduling/labor-costs.ts": {
@@ -4325,7 +4325,7 @@
       "executable": false
     },
     "src/ui/styles/shell.css": {
-      "sha256": "590c8da3e0fef9793bad2011faa8714bc47e782c1b03cfd676c40996638f9413",
+      "sha256": "5d74ed3e77cbd7718946606d4da3228c03d57bbd3e98ea15b4341d8ef81ba473",
       "executable": false
     },
     "src/ui/styles/source-history.css": {
