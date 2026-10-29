@@ -308,7 +308,7 @@ test('Costed quote review shows reconciled CAD terms and USD estimates at deskto
   }, `synthetic-larder-909-${suffix}`)
   await page.setViewportSize({ width: 1440, height: 1000 })
   await open(page, `orders/${fx.orderId}`)
-  const lines = page.getByRole('region', { name: 'Order lines', exact: true })
+  const lines = page.locator('.lines-card')
   await expect(lines).toContainText('CAD 19,800.00 · USD 14,324.43')
   await expect(lines).toContainText('Recorded rate 0.723456 USD per CAD')
   await expect(lines).toContainText('Net shipped: CAD 19,800.00 · USD 14,324.43')
@@ -320,6 +320,16 @@ test('Costed quote review shows reconciled CAD terms and USD estimates at deskto
     await page.setViewportSize({ width, height: 1000 })
     await shot(page, 'foreign-currency-allocated-invoices')
   }
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await open(page, 'orders')
+  await expect(page.getByRole('row').filter({ has: page.getByRole('link', { name: (await (await request('/api/larder/state')).json()).salesOrders.find((o: any) => o.id === fx.orderId).reference, exact: true }) })).toContainText('CAD 19,800.00 · USD 14,324.43')
+  for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await shot(page, 'foreign-currency-order-list') }
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await open(page, 'handoff/margins')
+  await page.getByLabel('Sales order', { exact: true }).selectOption(fx.orderId)
+  await page.getByRole('button', { name: 'Apply report filters', exact: true }).click()
+  await expect(page.locator('main')).toContainText('$14,324.43 revenue')
+  for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await shot(page, 'foreign-currency-margin') }
   await page.setViewportSize({ width: 1440, height: 1000 })
   await open(page, `handoff/${fx.handoffId}`)
   await shot(page, 'foreign-currency-handoff')

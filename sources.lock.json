@@ -4037,7 +4037,7 @@
       "executable": false
     },
     "tests/api/foreign-currency-journey.mjs": {
-      "sha256": "f5a4a4ac6b08a0b3a8d431b8fc74be3ce6b85a7284f2cceb83612c9292109c64",
+      "sha256": "f1208b2d41422598c1bf45c0b66e64c91d4a8fcc534565d29f03d3b0010f878c",
       "executable": false
     },
     "tests/api/harness.mjs": {
@@ -4201,7 +4201,7 @@
       "executable": false
     },
     "tests/browser/order-amendments.spec.ts": {
-      "sha256": "8aa05afa43f38eecdf86f076ce9862661316ca5a632c827c0be8b69b9a95a38a",
+      "sha256": "5b529d436f725cac186b01935f06ecde2e6114c4511c24115935cba19669b7d0",
       "executable": false
     },
     "tests/browser/order-status.spec.ts": {
