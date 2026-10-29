@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "1fde94f517aeb9e5f6bd5a78febf4129e3279013a7f266f51f64e7523ef11607",
+      "sha256": "14870be8c4baa7c98873bc1a2740bec499cd5f5b3a78da82c457bf82622b0366",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -205,7 +205,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "a544a16e37efc4ba286df85d85d411672a0ee771f1ef3159c7bff3214ce6e79b",
+      "sha256": "4895437b0487da638b8fe90c34a5bf238386e83989c9dc2b80cfc034964897f4",
       "executable": false
     },
     "DEMO.md": {
@@ -3789,7 +3789,7 @@
       "executable": false
     },
     "src/ui/quote-review.tsx": {
-      "sha256": "66dfa4bc660a34cea7cb8b18f7eb3d5aaaf9bc7891a96b74ea6f1e7c24f25adb",
+      "sha256": "3245729c4d1aa5770db3a6fdc3e15c94e4c18b917e5d80edbee4b9497cdba36c",
       "executable": false
     },
     "src/ui/receipt-job-allocation.tsx": {
@@ -4021,7 +4021,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "b3044db09bead5dad7f8ed6697981b9bf562966ecd1bb1e4b7b2d4198901b71b",
+      "sha256": "0cf6c6487ddb5f1003ce97f1798bb97d7968196e4df23fd084152309b50746a8",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {

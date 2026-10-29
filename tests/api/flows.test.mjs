@@ -3,6 +3,7 @@ import { varianceFixture } from './variance-fixture.mjs'
 // HTTP door of a real Worker with D1.
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { installation, workshop, evidence, parse } from './harness.mjs'
 
 const line = (order, itemId) => order.lines.find(l => l.itemId === itemId)
@@ -355,7 +356,7 @@ test('LARDER-012 handoff exports costs and invoice preparation; acknowledgements
 })
 
 test('LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now: '2026-10-27T12:00:00.000Z' }); t.after(() => h.close())
   const w = await workshop(h)
   const q = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-10-28', lines: [{ itemId: w.board.id, quantity: '6', unitPrice: '89' }] })
   await h.command('so.confirm', { orderId: q.id, version: q.version })
@@ -370,7 +371,7 @@ test('LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the
   assert.equal(s.resolutions[0].note, 'Supplier rang: shipping Friday')
   const archive = await (await h.request('/api/larder/archive')).json()
   assert.equal(archive.format, 'larder-archive-v1')
-  const fresh = await installation(); t.after(() => fresh.close())
+  const fresh = await installation({ now: '2026-10-27T12:00:00.000Z' }); t.after(() => fresh.close())
   const tampered = { ...archive, movements: archive.movements.map((m, i) => i === 0 ? { ...m, quantity: '99000000' } : m) }
   const refused = await fresh.request('/api/larder/archive/restore', { method: 'POST', raw: JSON.stringify(tampered) })
   assert.equal((await refused.json()).error.code, 'CHECKSUM')
@@ -2064,6 +2065,11 @@ test('Costed quote preparation reconciles fractional CAD prices, discounts, brea
   await h.command('so.review', { ...payload, version: prepared.version }, { as: sales.cookie, commandId: sent.commandId, error: 'FORBIDDEN' })
   const restricted = await h.state(sales.cookie)
   assert.equal(restricted.salesOrders.find(row => row.id === order.id).quoteReview, undefined)
+  for (const path of ['/api/larder/archive', '/api/larder/archive.csv', '/api/larder/audit.json', '/api/larder/audit.csv']) {
+    const denied = await h.request(path, { as: sales.cookie })
+    assert.equal(denied.status, 403, path)
+    assert.ok(!(await denied.text()).includes(order.id), 'A refused download exposes no reviewed commercial record')
+  }
   const current = (await h.state()).salesOrders.find(row => row.id === order.id)
   const edit = { orderId: order.id, version: current.version, promiseDate: '2026-12-01', lines: [{ itemId: first.id, quantity: '1.25', unitPrice: '99' }] }
   // Editing is a separate action after disposition, even if it supplies a reason.
@@ -2176,6 +2182,22 @@ test('Costed quote dates require shared scarce supply and live qualified joint c
   const baseline = await j.state(), result = await j.command('so.review', inputs)
   const compared = (await j.state()).salesOrders.find(row => row.id === quote.id).quoteReview
   assert.deepEqual(compared, result.quoteReview, 'Read back the persisted comparison, not only its command result')
+  const preparationAudit = await (await j.request('/api/larder/audit.json?type=so.review')).json()
+  const preparationEntry = preparationAudit.entries.find(entry => entry.subjectId === quote.id)
+  assert.equal(preparationAudit.complete, true)
+  assert.deepEqual([preparationEntry.actorId, preparationEntry.subjectKind, preparationEntry.subjectVersion, preparationEntry.commandType, preparationEntry.at], [operator.id, 'salesOrders', result.version, 'so.review', '2026-11-23T00:00:00.000Z'])
+  assert.equal(preparationEntry.after.quoteReview.options.sha256, createHash('sha256').update(JSON.stringify(compared.options)).digest('hex'), 'The bounded audit digest identifies these exact complete options')
+  assert.ok(preparationEntry.refs.includes(quote.id))
+  const exported = await (await j.request('/api/larder/archive')).json()
+  assert.deepEqual(exported.records.salesOrders.find(row => row.id === quote.id).quoteReview, compared)
+  const restoredInstallation = await installation({ now: '2026-11-23T00:00:00.000Z' }); t.after(() => restoredInstallation.close())
+  const restoreResponse = await restoredInstallation.request('/api/larder/archive/restore', { method: 'POST', body: exported })
+  assert.equal(restoreResponse.status, 200, await restoreResponse.text())
+  const restoredState = await restoredInstallation.state()
+  assert.deepEqual(restoredState.salesOrders.find(row => row.id === quote.id).quoteReview, compared)
+  for (const key of ['workOrders', 'purchaseOrders', 'reservations', 'movements', 'positions', 'scheduleBookings', 'machineCalendars', 'laborCalendars']) assert.deepEqual(restoredState[key], baseline[key], 'Inert restored comparison: ' + key)
+  const restoredQuote = restoredState.salesOrders.find(row => row.id === quote.id)
+  await restoredInstallation.command('so.confirm', { orderId: quote.id, version: restoredQuote.version }, { error: 'QUOTE_PREPARATION' })
   const normal = compared.options.find(option => option.kind === 'full-batch'), split = compared.options.find(option => option.kind === 'partial'), extra = compared.options.find(option => option.kind === 'overtime')
   assert.ok(normal && split && extra)
   assert.deepEqual([normal.shipDate, split.deliveries.map(leg => [leg.quantity, leg.shipDate]), extra.shipDate], ['2026-11-25', [['2', '2026-11-24'], ['2', '2026-11-25']], '2026-11-24'])
