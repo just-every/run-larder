@@ -1971,8 +1971,8 @@ Judged from the code and tests at commit `3de37ee6da8ff1f5034c3186076bc0d0999e86
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 18 | 1 | 0 | 19 |
-| Target and push further | 69 | 37 | 39 | 145 |
-| All | 87 | 38 | 39 | 164 |
+| Target and push further | 68 | 38 | 39 | 145 |
+| All | 86 | 39 | 39 | 164 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -2111,7 +2111,7 @@ Judged from the code and tests at commit `3de37ee6da8ff1f5034c3186076bc0d0999e86
 | `GOV-010` | Ledger approval threshold | target | missing |  | No Larder door posts to a ledger. |
 | `GOV-011` | Inventory-adjustment threshold on every write-off | target | done | `tests/api/expiry.test.mjs` — “GOV-011 expiry scrap and quarantine and nonconformance rejections honour the inventory-adjustment threshold: two signatures on the exact lot, location and quantity, a deputy, invalidation when stock moves, agents denied and a named owner override”; `tests/browser/approvals.spec.ts` — “GOV-011 an expired-lot write-off under a two-signature inventory-adjustment threshold is signed once and then invalidated by a stock movement at 1440/390” |  |
 | `GOV-012` | Auditable journal adjustments | target | missing |  | No ledger door exists to audit. |
-| `GOV-013` | Audit retention and purge authority | target | done | `tests/api/audit-retention.test.mjs` — “GOV-013 the export states the life-of-installation period and no purge authority, every role is refused at command, HTTP and database, and an erasure replaces personal values and leaves the entry and an audit of the replacement”; `tests/api/audit-retention.test.mjs` — “GOV-013 a sole owner who is the data subject still runs the erasure, it is audited, and they are addressable only by id afterwards” |  |
+| `GOV-013` | Audit retention and purge authority | target | partial | `tests/api/audit-retention.test.mjs` — “GOV-013 the export states the life-of-installation period and no purge authority, every role is refused at command, HTTP and database, and an erasure replaces personal values and leaves the entry and an audit of the replacement”; `tests/api/audit-retention.test.mjs` — “GOV-013 a sole owner who is the data subject still runs the erasure, it is audited, and they are addressable only by id afterwards”; `tests/native-agent-journey.mjs` — retained agent custody refuses native erasure without an effect | Native-only erasure remains covered by the cited journeys. With retained agent artifacts, AGENT_CUSTODY closes erasure and its transaction fence; Base has no client-scoped custody/redaction hook for retained calls, pending approvals and audit. Agent-artifact erasure is undeclared and must not be reported complete. |
 | `HTTP-001` | Preserve Base public and private paths | target | done | `tests/browser/journey.spec.ts` — “HTTP-001 MRP-001 public Lobby, health and docs stay separate from private app and exports” |  |
 | `MOB-001` | Responsive accessible manufacturing | target | partial | `src/ui/make.tsx`; `tests/browser/journey.spec.ts` | Current order/stock/material/shipment journeys run at both widths; new target screens and full accessibility acceptance are absent. |
 | `MOB-002` | iOS and Android shop-floor apps | target | missing |  | iOS and Android shop-floor apps workflow and its acceptance journey are not implemented. |

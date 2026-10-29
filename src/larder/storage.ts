@@ -1,3 +1,4 @@
+import { agentCustodyEmptySql } from './agent-attribution'
 import { serviceKeyStatements } from './service-keys'
 import { bookingGuards } from './scheduling/booking-guards'
 // Load the whole operational state and commit a command's changes as one
@@ -100,6 +101,7 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
   const response = { ok: true, result, version: before.version + 1 }
   await db.batch([
     db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${a.sql}) AND (SELECT version FROM larder_meta WHERE id=1)=? THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...a.params, before.version),
+    ...(erasure ? [db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN ${agentCustodyEmptySql} THEN 1 ELSE 0 END)`).bind(crypto.randomUUID())] : []),
     // Original report consent is fenced with the snapshot, audit and replay.
     ...(report ? [db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${report.sql}) AND EXISTS(SELECT 1 FROM larder_report_sessions b JOIN oa_sessions s ON s.id=json_extract(b.actor,'$.sessionId') JOIN oa_operators o ON o.id=s.operator_id WHERE b.schedule_id=? AND b.actor=? AND o.role='owner' ${c.automaticReport ? "AND s.kind IN ('native','oidc','password')" : ''}) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...report.params, (result as any).id, JSON.stringify(c.reportAuthority))] : []),
     // A supervisor can lose authority after the handler read. Verify the
