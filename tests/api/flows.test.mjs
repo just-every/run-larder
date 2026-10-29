@@ -2400,7 +2400,7 @@ test('Costed quote dates compare scarce supply and qualified calendars, then acc
   const futureMaterials = await (await k.request('/api/larder/planning/materials')).json()
   const futureRequirements = futureMaterials.requirements.filter(requirement => requirement.documentId === futureWork.id && requirement.itemId === shared.id)
   assert.equal(futureRequirements.length, 2)
-  assert.ok(futureRequirements.every(requirement => requirement.shortage === '0'))
+  assert.ok(futureRequirements.every(requirement => requirement.shortage === '0'), JSON.stringify(futureRequirements))
   await k.command('receipt.create', { poId: purchase932.id, supplierReference: 'Both insert shares received', lines: [{ lineId: purchase932.lines[0].id, quantity: '4', locationId: rack932.id }] })
   const afterMixedReceipt = await k.state()
   assert.equal(afterMixedReceipt.reservations.filter(reservation => reservation.demandId === futureWork.id).reduce((sum, reservation) => sum + Number(reservation.quantity), 0), 4)

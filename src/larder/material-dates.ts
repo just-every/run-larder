@@ -40,6 +40,8 @@ function project(s: State, proven: Set<string>) {
     // Pinned mixed make/buy requirements allocate actual issues buy first,
     // consistently with the aggregate ENG-001 planner. Never read a new BOM.
     const workTiming = materialTiming({ ...w, id: w.bomId }, decimal(w.quantity), w.expectedOn ?? w.requiredBy, today)
+    const bookedStart = w.quoteOrderId ? s.scheduleBookings.filter(booking => booking.status === 'active').flatMap(booking => booking.operations).filter((operation: any) => operation.workOrderId === w.id).map((operation: any) => operation.startsAt.slice(0, 10)).sort()[0] : undefined
+    if (bookedStart) Object.assign(workTiming, { releaseOn: bookedStart, leadDays: null, requiresPastRelease: bookedStart < today, basis: 'Exact accepted finite capacity booking; materials required at the first occupied interval.' })
     let issued = decimal(l.issued)
     const requirements = Array.isArray(l.supplyRequirements) && l.supplyRequirements.length
       ? [...l.supplyRequirements].sort((a, b) => a.supply.localeCompare(b.supply))
