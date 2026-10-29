@@ -356,7 +356,8 @@ test('LARDER-012 handoff exports costs and invoice preparation; acknowledgements
 })
 
 test('LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation', async t => {
-  const h = await installation({ now: '2026-10-27T12:00:00.000Z' }); t.after(() => h.close())
+  const now = '2026-10-27T12:00:00.000Z'
+  const h = await installation({ now }); t.after(() => h.close())
   const w = await workshop(h)
   const q = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-10-28', lines: [{ itemId: w.board.id, quantity: '6', unitPrice: '89' }] })
   await h.command('so.confirm', { orderId: q.id, version: q.version })
@@ -371,7 +372,7 @@ test('LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the
   assert.equal(s.resolutions[0].note, 'Supplier rang: shipping Friday')
   const archive = await (await h.request('/api/larder/archive')).json()
   assert.equal(archive.format, 'larder-archive-v1')
-  const fresh = await installation({ now: '2026-10-27T12:00:00.000Z' }); t.after(() => fresh.close())
+  const fresh = await installation({ now }); t.after(() => fresh.close())
   const tampered = { ...archive, movements: archive.movements.map((m, i) => i === 0 ? { ...m, quantity: '99000000' } : m) }
   const refused = await fresh.request('/api/larder/archive/restore', { method: 'POST', raw: JSON.stringify(tampered) })
   assert.equal((await refused.json()).error.code, 'CHECKSUM')

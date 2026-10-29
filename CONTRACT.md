@@ -1953,13 +1953,13 @@ Actual vendor, physical-device and human-review receipts are field proof. Standa
 
 ## Status
 
-Judged from the code and tests at commit `83c9278ea058b58a1265eb8bcfc6de3a32493415` (28 October 2026).
+Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb99` (29 October 2026).
 
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Published | 17 | 2 | 0 | 19 |
+| Published | 18 | 1 | 0 | 19 |
 | Target and push further | 67 | 24 | 53 | 144 |
-| All | 84 | 26 | 53 | 163 |
+| All | 85 | 25 | 53 | 163 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -1979,7 +1979,7 @@ Judged from the code and tests at commit `83c9278ea058b58a1265eb8bcfc6de3a324934
 | `LARDER-019` | Compensating corrections | published | done | `tests/api/flows.test.mjs` — “LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit” |  |
 | `LARDER-012` | Accountant handoff | published | done | `tests/api/flows.test.mjs` — “LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile” |  |
 | `LARDER-013` | Operational exception queue | published | done | `tests/api/flows.test.mjs` — “LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation” |  |
-| `LARDER-020` | Reconciled business archive | published | partial | `tests/api/flows.test.mjs` — “LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation”; `tests/api/backup.test.mjs` — “LARDER-020 an installation backup restores into a reset installation” | The cited HTTP archive journey restores records, balances and attachments and refuses a second restore. The installation-backup journey invokes portability libraries directly. Missing: a covering export/reset/import journey through the public installation commands. |
+| `LARDER-020` | Reconciled business archive | published | done | `tests/api/flows.test.mjs` — “LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation”; `tests/api/backup.test.mjs` — “LARDER-020 an installation backup restores into a reset installation” |  |
 | `LARDER-015` | Exact-version operational proposals | published | partial | `tests/api/authority.test.mjs` — “LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve” | The cited native proposal journey prepares and independently approves exact intake, replenishment, merge, reschedule and reconciliation records. Missing: corresponding server-computed risk classes and company-policy decisions through the agent door, including execution under an all-autonomous company policy. |
 | `LARDER-016` | Odoo kit | published | done | `tests/api/move-in.test.mjs` — “LARDER-016 Odoo move-in: preview rejects with source IDs, commit journals originals, undo is dependency-safe” |  |
 | `US-001` | US business and USD defaults | target | done | `tests/api/backup.test.mjs` — “US business settings retain Ohio identity, local dates and per-record currencies through restart and restore”; `tests/api/backup.test.mjs` — “AUD archive migration records exact rates, original money and stock reconciliation through restart and restore”; `tests/api/backup.test.mjs` — “AUD migration refuses missing consent, guessed rates, incompatible records and non-owner or revoked authority”; `tests/browser/journey.spec.ts` — “US business settings save Ohio identity and retain distinct EIN fields at both widths” |  |

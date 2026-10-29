@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "14870be8c4baa7c98873bc1a2740bec499cd5f5b3a78da82c457bf82622b0366",
+      "sha256": "1042e4bc3f16f59bfcdb34cf3f07fa60f9e91edf33aee7d7a32a00241274f4ee",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -205,7 +205,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "4895437b0487da638b8fe90c34a5bf238386e83989c9dc2b80cfc034964897f4",
+      "sha256": "960aa71a4149d151b48775c77d7787e70e5de4754255a95c007f95c8b653b122",
       "executable": false
     },
     "DEMO.md": {
@@ -3985,7 +3985,7 @@
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "b32cc4c72583415f4fe8b28b7b7ab24dc76c5d80c1cf4bb771acee2e43df6fd4",
+      "sha256": "e5fcbef940c6f2511136279c95f011af6ab2f2782c4042dcf58d74b13b701d35",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
@@ -4021,7 +4021,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "0cf6c6487ddb5f1003ce97f1798bb97d7968196e4df23fd084152309b50746a8",
+      "sha256": "5684b712a2900fac46c297bb91c108ae802ddfa2b846feeface41853e1af7842",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -4033,7 +4033,7 @@
       "executable": false
     },
     "tests/api/harness.mjs": {
-      "sha256": "c88de6becd4da2f1178f2b371b26967ffbfe0121efc4fb692221631a6f9255da",
+      "sha256": "4e4332faa7c3c730ef672c650695027e882a1ba0f30da3cb1c7cf545dddfa260",
       "executable": false
     },
     "tests/api/inventory.test.mjs": {

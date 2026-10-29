@@ -1,47 +1,116 @@
 // The installation backup: what `rer export` writes restores with `rer import`
-// into the freshly migrated database `rer reset --yes` leaves, through Base
-// portability and the seed's own policy, with every Larder record intact.
+// after `rer reset --yes`, with import applying the committed migrations
+// through the seed adapter and preserving every Larder record.
 import test from 'node:test'
 import { createHash } from 'node:crypto'
 import assert from 'node:assert/strict'
-import { Miniflare, convertV4MiniflareOptions } from 'miniflare'
-import { mkdtemp, rm } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { createPortability } from '@runeditrun/rer/modules/portability'
-import { exportArchive, importArchive } from '@runeditrun/rer/modules/portability/files'
-import { portabilityPolicy } from '../../scripts/installer/portability-policy.mjs'
-import { installation, migrate, workshop } from './harness.mjs'
+import { installation, workshop } from './harness.mjs'
 
 const tables = async db => (await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE 'larder_%' OR name LIKE 'oa_operators') ORDER BY name").all()).results.map(r => r.name)
 const rows = async (db, table) => (await db.prepare(`SELECT * FROM "${table}" ORDER BY 1`).all()).results
+const businessArchive = async h => {
+  const response = await h.request('/api/larder/archive')
+  assert.equal(response.status, 200)
+  const { exportedAt, ...content } = await response.json()
+  return content
+}
+const digest = bytes => createHash('sha256').update(bytes).digest('hex')
 
 test('LARDER-020 an installation backup restores into a reset installation', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ publicCommands: true, now: '2026-10-29T12:00:00.000Z' }); t.after(() => h.close())
   const w = await workshop(h)
+  await h.command('transfer.create', { itemId: w.timber.id, fromLocationId: w.loc.id, toLocationId: w.store.id, quantity: '2', reason: 'Dispatch stock' })
   const q = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-10-28', lines: [{ itemId: w.board.id, quantity: '2', unitPrice: '89' }] })
   const order = await h.command('so.confirm', { orderId: q.id, version: q.version })
   const sh = await h.command('shipment.pick', { orderId: order.id, lines: [{ lineId: order.lines[0].id, locationId: w.loc.id, quantity: '2' }] })
   const packed = await h.command('shipment.pack', { shipmentId: sh.id, version: sh.version, packages: 1 })
-  await h.command('shipment.ship', { shipmentId: sh.id, version: packed.version, carrier: 'Courier' })
+  await h.command('shipment.ship', { shipmentId: sh.id, version: packed.version, carrier: 'Courier', tracking: 'synthetic-larder-920' })
+  const po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-10-28', reason: 'Late supply', lines: [{ itemId: w.timber.id, quantity: '5', unitPrice: '9.5' }] })
+  await h.command('po.approve', { poId: po.id, version: po.version })
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-921', lines: [{ lineId: po.lines[0].id, quantity: '1', locationId: w.store.id, lot: 'synthetic-larder-922', inspection: 'quarantine' }] })
+  const late = (await h.state()).exceptions.find(x => x.key === `po-late:${po.id}`)
+  assert.ok(late, 'Seed an ongoing late-supply exception')
+  const note = 'Supplier rang: remaining delivery Friday'
+  await h.command('exception.resolve', { key: late.key, note })
   await h.command('handoff.prepare', { note: 'October' })
-  const before = await h.state()
-
-  const dir = await mkdtemp(join(tmpdir(), 'larder-backup-')); t.after(() => rm(dir, { recursive: true, force: true }))
-  const archive = join(dir, 'installation.rer')
-  await exportArchive(await createPortability({ db: h.db, policy: portabilityPolicy }), archive, [])
-
-  // The destination is what reset leaves: every migration applied, nobody signed up.
-  const target = new Miniflare(convertV4MiniflareOptions({ modules: true, script: 'export default { fetch: () => new Response(null, { status: 404 }) }', compatibilityDate: '2026-09-08', d1Databases: ['DB'] }))
-  t.after(() => target.dispose())
-  const db = await target.getD1Database('DB')
-  await migrate(db)
-  await importArchive(await createPortability({ db, policy: portabilityPolicy }), archive, [])
-
+  const before = await h.invariant(), archive = await businessArchive(h)
+  assert.ok(before.positions.some(p => p.locationId === w.store.id && p.status === 'quarantine' && p.quantity === '1'))
+  assert.ok(before.positions.some(p => p.locationId === w.store.id && p.status === 'available' && p.quantity === '2'))
+  assert.equal(before.handoffs[0].reference, 'HO-0001'); assert.equal(before.shipments[0].status, 'shipped')
   const names = await tables(h.db)
   assert.ok(names.includes('larder_meta') && names.includes('oa_operators'), names.join(', '))
-  for (const name of names) assert.deepEqual(await rows(db, name), await rows(h.db, name), name)
-  assert.equal(before.handoffs[0].reference, 'HO-0001'); assert.equal(before.shipments[0].status, 'shipped')
+  const persisted = Object.fromEntries(await Promise.all(names.map(async name => [name, await rows(h.db, name)])))
+  const originals = new Map()
+  for (const file of archive.attachments) {
+    const response = await h.request(`/api/larder/attachments/${file.id}`)
+    assert.equal(response.status, 200)
+    const bytes = Buffer.from(await response.arrayBuffer())
+    assert.equal(digest(bytes), file.sha256)
+    originals.set(file.id, bytes)
+  }
+  assert.ok(originals.size > 0, 'Compare actual original attachment bytes')
+  const run = async (...args) => {
+    const result = await h.rer(...args)
+    assert.equal(result.code, 0, result.stdout + result.stderr)
+    return result
+  }
+  await run('export', '--output', 'exports/installation.rer')
+  const file = join(h.commandRoot, 'exports/installation.rer'), bytes = await readFile(file)
+  // Change an archived physical quantity while retaining the original checksum.
+  const damaged = bytes.toString('utf8').trimEnd().split('\n').map(line => JSON.parse(line))
+  const movement = damaged.flatMap(record => record.items ?? []).find(item => item.table === 'larder_movements')
+  assert.ok(movement, 'Export contains the persisted stock ledger')
+  movement.row.quantity += 1000000
+  await writeFile(join(h.commandRoot, 'exports/damaged.rer'), damaged.map(record => JSON.stringify(record)).join('\n') + '\n', { mode: 0o600 })
+  const refused = await h.rer('import', '--input', 'exports/damaged.rer', '--yes')
+  assert.notEqual(refused.code, 0)
+  assert.match(refused.stdout + refused.stderr, /part_checksum/)
+  assert.deepEqual(await h.invariant(), before, 'Damaged import changes no business state')
+  assert.deepEqual(await businessArchive(h), archive, 'Damaged import preserves every record and original')
+  const nonempty = await h.rer('import', '--input', 'exports/installation.rer', '--yes')
+  assert.notEqual(nonempty.code, 0)
+  assert.match(nonempty.stdout + nonempty.stderr, /target_not_empty/)
+  assert.deepEqual(await h.invariant(), before, 'Nonempty import changes no business state')
+  assert.deepEqual(await businessArchive(h), archive, 'Nonempty import preserves every record and original')
+  await run('reset', '--yes')
+  assert.deepEqual(await tables(h.db), [], 'Reset actually removes the installation data')
+  const damagedEmpty = await h.rer('import', '--input', 'exports/damaged.rer', '--yes')
+  assert.notEqual(damagedEmpty.code, 0)
+  assert.match(damagedEmpty.stdout + damagedEmpty.stderr, /part_checksum/)
+  assert.deepEqual(await tables(h.db), [], 'Damaged import leaves the empty destination untouched')
+  await run('import', '--input', 'exports/installation.rer', '--yes')
+  // Preserve the original all-table comparison before a fresh sign-in adds its
+  // authentication audit. All business comparisons below use HTTP.
+  for (const name of names) assert.deepEqual(await rows(h.db, name), persisted[name], name)
+  assert.equal((await h.request('/api/larder/state')).status, 401, 'Old sessions are not restored')
+  await h.signInOwner()
+  const after = await h.invariant(), restored = await businessArchive(h)
+  assert.deepEqual(restored, archive, 'All persisted collections, commands, links and attachment digests round trip')
+  const { actor: oldActor, ...beforeBusiness } = before, { actor: newActor, ...afterBusiness } = after
+  const { sessionId: oldSession, ...oldIdentity } = oldActor, { sessionId: newSession, ...newIdentity } = newActor
+  assert.notEqual(newSession, oldSession, 'Restored owner signs in with fresh authority')
+  assert.deepEqual(newIdentity, oldIdentity)
+  // The fixed clock gives every command the same timestamp. History ordering
+  // within that timestamp is unspecified; compare every complete command by ID.
+  for (const state of [beforeBusiness, afterBusiness]) state.commands = [...state.commands].sort((a, b) => a.id.localeCompare(b.id))
+  assert.deepEqual(afterBusiness, beforeBusiness, 'Every position and retained exception reconciles after command restore')
+  assert.equal(after.shipments.find(s => s.id === sh.id).orderId, order.id)
+  const shipped = after.movements.find(m => m.documentId === sh.id && m.kind === 'shipment')
+  assert.ok(shipped, 'Restored shipment retains its physical movement')
+  assert.ok(after.handoffs[0].lines.some(line => line.movementIds.includes(shipped.id)), 'Handoff retains the shipped movement link')
+  assert.ok(after.exceptions.some(x => x.key === late.key && x.status === 'following up'))
+  assert.equal(after.resolutions.find(r => r.key === late.key).note, note)
+  for (const attachment of restored.attachments) {
+    const response = await h.request(`/api/larder/attachments/${attachment.id}`)
+    assert.equal(response.status, 200)
+    const actual = Buffer.from(await response.arrayBuffer())
+    assert.deepEqual(actual, originals.get(attachment.id))
+    assert.equal(digest(actual), attachment.sha256)
+  }
+  await h.restart()
+  assert.deepEqual(await h.invariant(), after, 'Restoration persists across a Worker restart')
 })
 
 // MOVE-008: every existing business collection, source originals and portable
