@@ -14,6 +14,9 @@ export async function foreignCurrencyJourney(h, tag = 'synthetic-larder-909') {
     shipment = await h.command('shipment.pack', { shipmentId: shipment.id, version: shipment.version, packages: 1 })
     return h.command('shipment.ship', { shipmentId: shipment.id, version: shipment.version, carrier: tag })
   }
+  // Live readiness reads include their observation time. Refusal invariants
+  // compare persisted business records and the global write version.
+  const business = ({ version, salesOrders, shipments, returns, handoffs, movements, positions, reservations, workOrders, purchaseOrders, scheduleBookings }) => ({ version, salesOrders, shipments, returns, handoffs, movements, positions, reservations, workOrders, purchaseOrders, scheduleBookings })
   const minor = value => BigInt(value.replace('.', ''))
   const money = amount => { const negative = amount < 0n, absolute = negative ? -amount : amount; return (negative ? '-' : '') + (absolute / 100n) + '.' + String(absolute % 100n).padStart(2, '0') }
   const sum = values => money(values.reduce((n, value) => n + minor(value), 0n))
@@ -22,6 +25,8 @@ export async function foreignCurrencyJourney(h, tag = 'synthetic-larder-909') {
   let lastBatch
   async function reconcile(order, expected, expectedCad) {
     const before = await current(order.id), payload = { orderId: order.id, version: before.version }
+    await h.command('so.invoice', { ...payload, version: payload.version - 1 }, { error: 'STALE' })
+    assert.deepEqual(await current(order.id), before, 'Stale invoice changes no order money')
     const commandId = `${tag}-invoice-${invoices.length + 1}`
     const invoice = await h.command('so.invoice', payload, { commandId })
     assert.deepEqual(await h.command('so.invoice', payload, { commandId }), invoice, 'Replayed invoice has one immutable identity')
@@ -59,7 +64,7 @@ export async function foreignCurrencyJourney(h, tag = 'synthetic-larder-909') {
   assert.equal(once.currency, 'CAD'); assert.equal(once.usdRate, '0.723456')
   const preShip = await h.state()
   await h.command('so.invoice', { orderId: once.id, version: once.version }, { error: 'NOTHING_TO_INVOICE' })
-  assert.deepEqual(await h.state(), preShip, 'Unshipped invoice refusal has no effect')
+  assert.deepEqual(business(await h.state()), business(preShip), 'Unshipped invoice refusal has no effect')
   await ship(once, '20000')
   await reconcile(once, '14324.43', '19800.00')
 
@@ -75,7 +80,7 @@ export async function foreignCurrencyJourney(h, tag = 'synthetic-larder-909') {
   assert.equal(correction.usdAmount, '-7162.21', 'A reversal negates the exact issued cents')
   const reversedState = await h.state()
   await h.command('movement.reverse', { documentKind: 'shipments', documentId: first.id, reason: tag }, { error: 'NOTHING_TO_REVERSE' })
-  assert.deepEqual(await h.state(), reversedState, 'Repeated reversal refuses without effects')
+  assert.deepEqual(business(await h.state()), business(reversedState), 'Repeated reversal refuses without effects')
   await ship(await current(split.id), '10000')
   await reconcile(split, '14324.43', '19800.00')
   const returned = await h.command('return.receive', { orderId: split.id, lineId: split.lines[0].id, quantity: '1', locationId: location.id, disposition: 'restock', reason: tag })
@@ -90,6 +95,6 @@ export async function foreignCurrencyJourney(h, tag = 'synthetic-larder-909') {
   assert.deepEqual(saved.invoices[0], firstInvoice, 'Later corrections retain the original invoice')
   assert.deepEqual(final.handoffs.find(h => h.id === firstHandoff.id), firstHandoff, 'Later corrections retain the original handoff')
   await h.command('return.receive', { orderId: split.id, lineId: split.lines[0].id, quantity: '20001', locationId: location.id, disposition: 'restock', reason: tag }, { error: 'RETURN_EXCEEDS' })
-  assert.deepEqual(await h.state(), final, 'An excessive return refuses without changing stock or money')
+  assert.deepEqual(business(await h.state()), business(final), 'An excessive return refuses without changing stock or money')
   return { orderId: split.id, onceOrderId: once.id, handoffId: lastBatch.id, itemId: item.id, invoices, customerId: customer.id, lastInvoiceCommand }
 }
