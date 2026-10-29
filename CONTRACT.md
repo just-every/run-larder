@@ -1958,8 +1958,8 @@ Judged from the code and tests at commit `3c55dbd74d5afa62377ee9983c69cdf88210b6
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 18 | 1 | 0 | 19 |
-| Target and push further | 68 | 23 | 53 | 144 |
-| All | 86 | 24 | 53 | 163 |
+| Target and push further | 68 | 24 | 52 | 144 |
+| All | 86 | 25 | 52 | 163 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -2117,7 +2117,7 @@ Judged from the code and tests at commit `3c55dbd74d5afa62377ee9983c69cdf88210b6
 | `SURFACE-002` | Physical stock classes | target | missing |  | No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta. |
 | `SURFACE-003` | Commercial and outside consequences | target | missing |  | No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta. |
 | `SURFACE-004` | Protected manufacturing data | target | missing |  | No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta. |
-| `SURFACE-005` | Authority and provider classes | target | missing |  | No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta. |
+| `SURFACE-005` | Authority and provider classes | target | partial | `tests/api/authority.test.mjs` — “GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live”; `tests/api/authority.test.mjs` — “GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live”; `tests/api/backup.test.mjs` — “MOVE-008 source history searches original IDs/files, exports every record and restores without credentials or remote actions” | Native owner-issued `member.scope` computes access people and both directions from effective restrictions, retains exact person and version facts, and restores classification as inert history. Other membership, site and custom-role changes, devices and grants remain unclassified. Protective configuration and credential security facts, outside account and paid-resource accounts facts, provider-retained consent, verification, personal terms and hosted card-entry gates, running-connector live facts, company-policy execution, autonomous consequential execution and shared MCP conformance remain unbuilt or unproved. Complete agent-door qualification remains omitted. |
 | `SURFACE-006` | Planning uncertainty and execution | target | missing |  | No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta. |
 | `SURFACE-007` | Manufacturing resource projections | target | missing |  | No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta. |
 | `SURFACE-008` | Evidence-bearing quality and engineering | target | missing |  | No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta. |

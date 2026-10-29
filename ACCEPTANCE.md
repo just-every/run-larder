@@ -9,9 +9,9 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Core | 86 | 24 | 40 | 150 |
-| Agent surface | 0 | 0 | 13 | 13 |
+| Agent surface | 0 | 1 | 12 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 86 | 24 | 53 | 163 |
+| Full target | 86 | 25 | 52 | 163 |
 
 Judged from the code and tests at commit `3c55dbd74d5afa62377ee9983c69cdf88210b6f2` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
@@ -2009,7 +2009,7 @@ Agent surface · target · **missing** · From new · Cites BASE-AGENT-003, BASE
 
 #### SURFACE-005 — Authority and provider classes
 
-Agent surface · target · **missing** · From new · Cites BASE-AGENT-005, BASE-AGENT-006
+Agent surface · target · **partial** · From new · Cites BASE-AGENT-005, BASE-AGENT-006
 
 **Requirement.** Manufacturing membership, site/custom-role changes, devices and grants carry access with people count and widening/narrowing direction. Protective configuration or credential handling carries security. Creating an outside account or paid resource carries accounts. Provider-retained consent, verification, personal terms or hosted card-entry steps are gated. Changing running connector behavior carries live.
 
@@ -2018,8 +2018,8 @@ Agent surface · target · **missing** · From new · Cites BASE-AGENT-005, BASE
 2. Create an outside resource and inspect accounts with provider; inspect gated with provider and exact step when its provider keeps consent, verification or hosted checkout for a person.
 3. Change a running connector and inspect live with the affected service; supplying an agent’s own confirmation changes none of those computed classes.
 
-**Evidence.** None.
-**Gap.** No Larder MCP registry, computed-class/company-policy implementation or conformance journey proves this delta.
+**Evidence.** `tests/api/authority.test.mjs` — “GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live”; `tests/api/authority.test.mjs` — “GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live”; `tests/api/backup.test.mjs` — “MOVE-008 source history searches original IDs/files, exports every record and restores without credentials or remote actions”
+**Gap.** Native owner-issued `member.scope` computes access people and both directions from effective restrictions, retains exact person and version facts, and restores classification as inert history. Other membership, site and custom-role changes, devices and grants remain unclassified. Protective configuration and credential security facts, outside account and paid-resource accounts facts, provider-retained consent, verification, personal terms and hosted card-entry gates, running-connector live facts, company-policy execution, autonomous consequential execution and shared MCP conformance remain unbuilt or unproved. Complete agent-door qualification remains omitted.
 
 #### SURFACE-006 — Planning uncertainty and execution
 

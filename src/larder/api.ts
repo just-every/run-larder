@@ -201,6 +201,12 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
     if (['erasure.contact', 'erasure.operator'].includes(type)) erasure = await contactOutcomes(env.DB, await erasurePlan(env.DB, before, actor, payload))
     if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
     const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], reportAuthority, automaticReport, ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type === 'so.review' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
+    if (type === 'member.scope') {
+      const target = await env.DB.prepare('SELECT id,version,role,status FROM oa_operators WHERE id=?').bind(payload.operatorId).first<import('./scope-classification').ScopeTarget>()
+      if (!target) fail('NOT_FOUND', 'Choose an invited person.')
+      if (target!.role === 'owner') fail('OWNER_ROLE', 'The owner keeps owner authority.')
+      c.scopeTarget = target!
+    }
     if (erasure) c.erasure = erasure
     enforcePayload(c, payload)
     if (type === 'import.undo') enforceRetention(before, s, payload.importId)
@@ -236,6 +242,7 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
       if (reportAuthority) await liveReportOwner(env.DB, payload.scheduleId, automaticReport)
       if (/oversold|reserved_stock|negative_stock/.test(message)) fail('DEPENDENCY', 'Stock changed underneath this action. Reload and try again.')
       if (/CHECK constraint failed/.test(message) && (await env.DB.prepare(`SELECT CASE WHEN (${authority(actor).sql}) THEN 1 ELSE 0 END AS ok`).bind(...authority(actor).params).first<{ ok: number }>())?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
+      if (/CHECK constraint failed/.test(message) && c.scopeTarget && attempt < 7) continue
       throw error
     }
   }
