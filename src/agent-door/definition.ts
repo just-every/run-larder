@@ -1,5 +1,6 @@
 import type { Bindings } from '../auth.server'
 import { ToolRefusal, type JsonSchemaObject, type ToolDefinition, type ToolContext, type ApprovalSummary } from '../modules/agent-door/index.ts'
+import { draftClasses } from './classification'
 import { nativeCommand, nativeView } from './native'
 import { readRecord, recordKinds } from './resources'
 export const string = { type: 'string', minLength: 1 }
@@ -22,7 +23,7 @@ async function summary(env: Bindings, command: string, args: Record<string, any>
 }
 export function write(env: Bindings, name: string, command: string, clauses: string[], inputSchema: JsonSchemaObject, resource?: keyof typeof recordKinds): ToolDefinition {
   return { name: `larder.${name}`, title: command, description: `Prepare internal work with native ${command}. Native roles, scope, state and exact command replay apply. No physical evidence, person signature, supplier send or payment is created.`,
-    scope: 'manufacturing:write', readOnly: false, inputSchema, outputSchema: {type:'object',properties:{id:string,version:{type:'integer'}},required:['id','version']}, classes: ['standard'], clauses: [...core,...clauses], classify: standard,
+    scope: 'manufacturing:write', readOnly: false, inputSchema, outputSchema: {type:'object',properties:{id:string,version:{type:'integer'}},required:['id','version']}, classes: ['standard'], clauses: [...core,...clauses], untrusted: true, classify: (args,ctx)=>draftClasses(env,command,args,ctx),
     summary: (args, ctx) => summary(env, command, args, ctx),
     async run(args, ctx) {
       const result = await nativeCommand(env, command, args, ctx) as Record<string, any>

@@ -237,7 +237,7 @@
       "executable": false
     },
     "docs/company-agents.md": {
-      "sha256": "a82f61d1ad8229e7776cb943ec1a6dabfbecef2ee94974f04f7aa51620d1d5ab",
+      "sha256": "373540511b398c6ea8ea0c80a9f2ab39c03480641bc8237f7e22c6802a8818d1",
       "executable": false
     },
     "docs/contract/COVERAGE.json": {
@@ -972,8 +972,12 @@
       "sha256": "0ad360afec17769feb570e0490955790c6d3dffc7f30cf3048f61dc1111f3494",
       "executable": false
     },
+    "src/agent-door/classification.ts": {
+      "sha256": "bffe6ea63f8f13cf390d6f4e31abd91905bdac059a319969fc6a44c7b384c8b2",
+      "executable": false
+    },
     "src/agent-door/definition.ts": {
-      "sha256": "949bde75f336d907f660a8b51eb8973758433c9e11162eaf0ab48971d31e21c0",
+      "sha256": "2b7a2eaea630914a2e9f0dc06ef7ed1ef6f0430226dfcc292805a817b9bf5e69",
       "executable": false
     },
     "src/agent-door/index.server.ts": {
@@ -989,7 +993,7 @@
       "executable": false
     },
     "src/agent-door/planner-drafts.ts": {
-      "sha256": "fab3b63d6e4a19f3ecd63774d9dab675b56c3989f80589406c8806d6c9d14870",
+      "sha256": "1299ec3916208ca09d07d1029c8bca59ec7298f2c37e0202bc74f23d70ab97d9",
       "executable": false
     },
     "src/agent-door/projection.ts": {
