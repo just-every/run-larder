@@ -441,6 +441,19 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 2. Replay channel events and verify exactly one demand record per order, one physical stock consumption per shipped quantity and the remaining commitments.
 3. Read provider-confirmed tracking on each connected order and distinguish an FBA replenishment transfer from a customer shipment.
 
+#### DEMAND-009 — Foreign-currency allocation to the cent: handoff, margin and invoiced amounts agree exactly across partial shipments, reversals, reshipments and partial-return corrections
+
+*Tier:* Core · *Cites:* BASE-ROLE-001 · *Rules:* D-2, D-3, D-4, D-6, D-8
+
+**Requirement.** Foreign-currency sales retain their recorded exchange rate and allocate cents consistently through shipment, correction, margin reporting and invoicing. This clause is split from DEMAND-001 by ct NEW, 29 October 2026 at 07:20 UTC; DEMAND-001 keeps its existing scope.
+
+**Acceptance.**
+1. Accept and ship 20,000 units at CAD 0.99 with rate 0.723456; USD handoff, margin revenue and invoice amounts are all exactly 14,324.43.
+2. Shipping two halves gives the same totals as shipping once.
+3. Reversing the first half and reshipping gives the same totals.
+4. Partial-return corrections allocate cents so that handoff, margin revenue and invoiced amounts still agree exactly.
+5. One public-door journey runs the 20,000-unit CAD 0.99 and 0.723456 probe with split shipment, reversal and reshipment end to end.
+
 ### Material planning
 
 #### MRP-001 — Time-phased demand netting
@@ -1958,8 +1971,8 @@ Judged from the code and tests at commit `3c55dbd74d5afa62377ee9983c69cdf88210b6
 | Clauses | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Published | 18 | 1 | 0 | 19 |
-| Target and push further | 68 | 23 | 53 | 144 |
-| All | 86 | 24 | 53 | 163 |
+| Target and push further | 68 | 23 | 54 | 145 |
+| All | 86 | 24 | 54 | 164 |
 
 | Clause | Title | Kind | Status | Evidence | Gap |
 | --- | --- | --- | --- | --- | --- |
@@ -2001,6 +2014,7 @@ Judged from the code and tests at commit `3c55dbd74d5afa62377ee9983c69cdf88210b6
 | `DEMAND-006` | Live order material and production status | target | done | `tests/api/order-status.test.mjs` — “DEMAND-006 next-read ranked SO/MO status recomputes receipts, quarantine, current ETAs, rank, reservations, cancellations and production without planning”; `tests/browser/order-status.spec.ts` — “DEMAND-006 both ranked lists update material and production status after receipt, ETA and re-rank at 1440/390” |  |
 | `DEMAND-007` | Order invoicing and payment status | target | partial | `src/larder/handoff.ts`; `src/larder/sales.ts`; `tests/api/flows.test.mjs` | Shipment-driven invoice preparation lines valued at the order price, with ledger acknowledgment and linked corrections for reversed shipments, ship in the accountant handoff; invoice records per order, Invoice all/some, bulk and automatic invoicing, refusal of unshipped quantity, invoice and payment status columns with filters, provider payment readback and the overdue release check are absent. |
 | `DEMAND-008` | One fulfillment list across sales channels | target | missing |  | The common wholesale/Shopify/Amazon fulfillment list, channel identity, channel import and connected shipment journeys are not implemented. |
+| `DEMAND-009` | Foreign-currency allocation to the cent: handoff, margin and invoiced amounts agree exactly across partial shipments, reversals, reshipments and partial-return corrections | target | missing |  | Accepted foreign-currency sales and exact shared cent allocations across shipment, reversal, reshipment, partial return, handoff, margin and invoice need implementation and the complete public-door probe. |
 | `MRP-001` | Time-phased demand netting | target | done | `tests/api/mrp-feasibility.test.mjs` — “MRP-001 released work nets demand on its completion day only while every pinned input is covered, explodes only the remainder and recovers when a PO lands before its inputs are needed”; `tests/api/mrp-feasibility.test.mjs` — “MRP-001 proven work chains through multilevel jobs and is followed to the demand it supplies”; `tests/api/mrp-feasibility.test.mjs` — “MRP-001 bought suggestions follow the supplier calendar, lead working days, MOQ and pack, and restore an uncovered floor from dated supply”; `tests/api/multilevel.test.mjs` — “MRP-001 dated physical and PO pools never cover earlier demand with late, held, expired, overdue or draft supply”; `tests/api/multilevel.test.mjs` — “MRP-001 protects each reservation bin on its demand date, pins released inputs and restores the read-only projection without treating unproven WIP as feasible supply”; `tests/api/multilevel.test.mjs` — “MRP-001 current safety floors share bins once, follow catalog edits, protect hard commitments and never treat expected or held stock as physical cover”; `tests/api/multilevel.test.mjs` — “MRP-001 dated multilevel pegs share stock and ETA pools, honor make/buy/phantom and aggregate yields, and disclose unresolved work without duplicate explosion”; `tests/api/multilevel.test.mjs` — “MRP-001 manufacturing offsets reject completion-day material, follow multilevel full-batch routing and keep released timing pinned across edits and restore”; `tests/browser/journey.spec.ts` — “HTTP-001 MRP-001 public Lobby, health and docs stay separate from private app and exports” |  |
 | `MRP-006` | Draft from a dated material suggestion | target | done | `tests/api/multilevel.test.mjs` — “MRP-006 dated drafts preserve reviewed quantities, release dates and source paths with stale, duplicate, policy and live-authority guards across restart and restore” |  |
 | `MRP-002` | Demand pegging and supply changes | target | done | `tests/api/multilevel.test.mjs` — “MRP-002 follows shared dated supply to customer demand and back through PO lines and received lots without changing commitments” |  |
