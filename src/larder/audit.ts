@@ -27,18 +27,18 @@ export function scrubText(t: string) {
 }
 
 // A value as the audit keeps it.
-export function scrub(value: unknown, depth = 0): unknown {
+export function scrub(value: unknown, depth = 0, retainStructure = false): unknown {
   if (value === null || value === undefined || typeof value === 'boolean' || typeof value === 'number') return value ?? null
   if (typeof value === 'bigint') return format(value)
   if (typeof value === 'string') { const t = scrubText(value); return t.length > 240 ? digest(t) : t }
   if (depth > 6) return digest(value)
   if (Array.isArray(value)) {
-    const items = value.map(v => scrub(v, depth + 1))
-    return JSON.stringify(items).length > 4000 ? { ...digest(value), count: value.length } : items
+    const items = value.map(v => scrub(v, depth + 1, retainStructure))
+    return !retainStructure && JSON.stringify(items).length > 4000 ? { ...digest(value), count: value.length } : items
   }
   const out: Record<string, unknown> = {}
-  for (const [k, v] of Object.entries(value as object)) out[k] = credentialKey.test(k) ? withheld : bodyKey.test(k) && v ? digest(v) : scrub(v, depth + 1)
-  return JSON.stringify(out).length > 8000 ? { ...digest(value), keys: Object.keys(out).length } : out
+  for (const [k, v] of Object.entries(value as object)) out[k] = credentialKey.test(k) ? withheld : bodyKey.test(k) && v ? digest(v) : scrub(v, depth + 1, retainStructure)
+  return !retainStructure && JSON.stringify(out).length > 8000 ? { ...digest(value), keys: Object.keys(out).length } : out
 }
 
 const byKind: Record<string, string> = {
@@ -90,10 +90,14 @@ export function auditEntries(c: Context, before: State, type: string, payload: a
   const out: AuditEntry[] = []
   const add = (kind: string, subjectId: string, subjectVersion: number, op: AuditEntry['op'], was: unknown, now: unknown, full: unknown = now) => {
     if (kind === 'varianceAnalyses') { was = digest(was); now = digest(now); full = { subjectId } }
+    // Native scope facts repeat exact location IDs in their restrictions and
+    // deltas. Keep those decision facts even when they exceed text size limits;
+    // credential and document scrubbing still applies to every field.
+    const retainStructure = kind === 'roles' && type === 'member.scope'
     out.push({
       id: `${c.commandId}:${out.length}`, at: c.now, actorId: c.actor.id, actorName: c.actor.name, actorRole: c.actor.role, source, commandId: c.commandId, commandType: type,
       domain: source === 'agent' && type === 'proposal.prepare' ? 'agent' : domainOf(c, kind, type, payload), subjectKind: kind, subjectId, subjectVersion, op,
-      before: scrub(was), after: scrub(now), reason, evidence, refs: refsOf(subjectId, full).join(' '),
+      before: scrub(was, 0, retainStructure), after: scrub(now, 0, retainStructure), reason, evidence, refs: refsOf(subjectId, full).join(' '),
     })
   }
   for (const kind of collections) {
