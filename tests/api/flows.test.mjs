@@ -2114,7 +2114,7 @@ test('Costed quote preparation reconciles fractional CAD prices, discounts, brea
   assert.deepEqual([conversion.quoteReview.totalAmount, conversion.quoteReview.totalUsdAmount], ['0.01', '0.00'])
 })
 
-test('Costed quote dates require shared scarce supply and live qualified joint calendars without booking or displacement', async t => {
+test('Costed quote dates compare scarce supply and qualified calendars, then accept exact split bookings and CAD invoice once', async t => {
   const h = await installation({ now: '2026-11-23T00:00:00.000Z' }); t.after(() => h.close())
   const raw = await h.command('item.save', { sku: 'synthetic-larder-928-raw', name: 'Scarce material', kind: 'buy', baseUnit: 'each', standardCost: '10' })
   const made = await h.command('item.save', { sku: 'synthetic-larder-928-made', name: 'Machined part', kind: 'make', baseUnit: 'each' })
@@ -2253,7 +2253,7 @@ test('Costed quote dates require shared scarce supply and live qualified joint c
   await j.command('capacity.labor', { ...extended, id: person.id, version: person.version + 1, name: 'Qualified milling person', operatorIds: [qualified.id], skills: ['milling'] })
   let nextSupply = await j.command('po.draft', { supplierId: vendor.id, expectedDate: '2026-11-27', reason: 'Two committed future blanks', lines: [{ itemId: material.id, quantity: '2', unitPrice: '10' }] })
   nextSupply = await j.command('po.approve', { poId: nextSupply.id, version: nextSupply.version })
-  let acceptanceQuote = await j.command('so.quote', { customerId: client.id, promiseDate: '2026-12-01', lines: [{ itemId: product.id, quantity: '6', unitPrice: '100' }] })
+  let acceptanceQuote = await salesperson.run('so.quote', { customerId: client.id, promiseDate: '2026-12-01', lines: [{ itemId: product.id, quantity: '6', unitPrice: '100' }] })
   const acceptanceInputs = { ...inputs, orderId: acceptanceQuote.id, version: acceptanceQuote.version, asOf: '2026-11-26T00:00:00.000Z', partialLines: [{ lineId: acceptanceQuote.lines[0].id, quantity: '4' }], remainderStart: '2026-11-28', overtime: [], lines: [{ lineId: acceptanceQuote.lines[0].id, unitPrice: '100' }] }
   acceptanceQuote = await j.command('so.review', acceptanceInputs)
   const selected = acceptanceQuote.quoteReview.options.find(option => option.kind === 'partial')
@@ -2289,6 +2289,8 @@ test('Costed quote dates require shared scarce supply and live qualified joint c
   competitor = await j.command('wo.release', { workOrderId: competitor.id, version: competitor.version })
   const competition = (await j.state()).orderStatuses
   assert.equal(competition.work.find(work => work.id === competitor.id).ingredientStatus, 'Not available')
+  const datedCompetition = await (await j.request('/api/larder/planning/materials')).json()
+  assert.equal(datedCompetition.requirements.find(requirement => requirement.documentId === competitor.id && requirement.itemId === material.id).shortage, '1')
   const received = await j.send('receipt.create', { poId: nextSupply.id, supplierReference: 'Received accepted blanks', lines: [{ lineId: nextSupply.lines[0].id, quantity: '2', locationId: rack.id }] })
   assert.equal(received.res.status, 200, JSON.stringify(received.body))
   const afterReceipt = await j.state()
@@ -2302,10 +2304,15 @@ test('Costed quote dates require shared scarce supply and live qualified joint c
   assert.deepEqual(invoiced.invoices[0].lines, accepted.customerTerms.lines)
   assert.deepEqual([invoiced.invoices[0].currency, invoiced.invoices[0].totalAmount, invoiced.invoices[0].totalUsdAmount, invoiced.invoices[0].usdRate, invoiced.invoices[0].marginAmount], ['CAD', '600.00', '450.00', '0.75', '40.00'])
   await j.command('so.invoice', { ...invoiceInput, version: invoiced.version }, { error: 'STATE' })
+  await j.command('erasure.audit', { operatorId: salesperson.id, request: 'Reviewed native audit erasure', reason: 'Erase the former salesperson audit labels' })
   const acceptanceAudit = await (await j.request('/api/larder/audit.json?type=so.reviewAccept')).json()
   assert.ok(acceptanceAudit.entries.some(entry => entry.subjectId === accepted.id && entry.commandId === sent.commandId && entry.actorId === operator.id))
   const fullArchive = await (await j.request('/api/larder/archive')).json()
   assert.ok(fullArchive.audit.some(entry => entry.command_id === sent.commandId && entry.subject_id === accepted.id))
+  assert.ok(fullArchive.auditErasureRequests.some(entry => entry.subject_id === salesperson.id))
+  const erasedAudit = fullArchive.audit.filter(entry => entry.actor_id === salesperson.id)
+  assert.ok(erasedAudit.length > 0)
+  assert.ok(erasedAudit.every(entry => entry.actor_name === '[erased]' && entry.erasure_id))
   const restoredAccepted = await installation({ now: '2026-11-23T00:00:00.000Z' }); t.after(() => restoredAccepted.close())
   const restoredResponse = await restoredAccepted.request('/api/larder/archive/restore', { method: 'POST', body: fullArchive })
   assert.equal(restoredResponse.status, 200, await restoredResponse.text())
@@ -2314,6 +2321,9 @@ test('Costed quote dates require shared scarce supply and live qualified joint c
   for (const key of ['movements', 'positions', 'reservations', 'scheduleBookings', 'workOrders']) assert.deepEqual(restoredRead[key], (await j.state())[key], key)
   const retainedAudit = await (await restoredAccepted.request('/api/larder/audit.json?type=so.reviewAccept')).json()
   assert.deepEqual(retainedAudit.entries, acceptanceAudit.entries)
+  const roundTrip = await (await restoredAccepted.request('/api/larder/archive')).json()
+  assert.deepEqual(roundTrip.audit, fullArchive.audit)
+  assert.deepEqual(roundTrip.auditErasureRequests, fullArchive.auditErasureRequests)
   await restoredAccepted.command('so.reviewAccept', decision, { commandId: sent.commandId, error: 'IDEMPOTENCY' })
 })
 

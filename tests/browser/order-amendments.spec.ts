@@ -182,7 +182,7 @@ test('DEMAND-005 owner reviews and approves an exact receipt reservation split a
   }
 })
 
-test('Costed quote review shows reconciled CAD terms and USD estimates at desktop and phone widths without accepting a commitment', async ({ page }) => {
+test('Costed quote journey retains CAD preparation and accepts a booked split and invoice at desktop and phone widths', async ({ page }) => {
   if (!process.env.LARDER_OPEN) throw new Error('A private local owner entry is required.')
   await page.goto(process.env.LARDER_OPEN); await page.waitForURL(url => ['/app', '/setup'].includes(url.pathname))
   if (new URL(page.url()).pathname === '/setup') { await page.getByRole('checkbox').check(); await page.getByRole('button', { name: 'Finish setup', exact: true }).click(); await page.waitForURL(url => url.pathname === '/app') }

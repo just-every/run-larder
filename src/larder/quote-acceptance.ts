@@ -1,7 +1,7 @@
 // Exact native owner decisions. Commercial acceptance never claims a supplier
 // receipt, physical execution, provider confirmation or statutory tax posting.
 import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
-import { decimal, format, min } from './decimal'
+import { decimal, divide, format, min } from './decimal'
 import { fail, forbidden } from './problem'
 import { bump, fresh, get, nextReference, row, text, type Context, type Row } from './model'
 import { gate } from './approval-policy'
@@ -29,7 +29,7 @@ export function quoteAcceptance(c: Context, type: string, p: any): Row | undefin
   if (!option || !option.digest || option.digest !== p.optionDigest) fail('QUOTE_OPTION', 'Choose the exact saved feasible option and its digest.')
   const { digest, ...content } = option
   if (sha256(canonicalJson(content)) !== digest) fail('QUOTE_OPTION', 'The option is not an intact current preparation. Prepare again.')
-  if (review.inputVersion !== c.s.version || review.preparedAt.slice(0, 10) !== c.now.slice(0, 10) || review.validUntil < c.now.slice(0, 10) || Date.parse(review.asOf) < Date.parse(c.now)) fail('STALE', 'Business inputs, validity or planning time changed. Prepare fresh options before acceptance.')
+  if (review.inputVersion !== c.s.version || review.preparedAt.slice(0, 10) !== c.now.slice(0, 10) || review.validUntil < c.now.slice(0, 10) || option.operations.some((operation: any) => operation.intervals.some((span: any) => Date.parse(span.startsAt) < Date.parse(c.now)))) fail('STALE', 'Business inputs, validity or planning time changed. Prepare fresh options before acceptance.')
   const reason = text(p.reason, 'acceptance reason')
   const customerApproval = customerAttestation(c, p.customerApproval)
   if (option.kind === 'overtime' && p.authorizeOvertime !== true) fail('OVERTIME_AUTHORITY', 'Explicitly authorize the exact retained overtime windows separately from the customer commitment.')
@@ -51,7 +51,7 @@ export function quoteAcceptance(c: Context, type: string, p: any): Row | undefin
   const savedMaterial = option.material.map((e: any) => ({ workOrderId: e.workOrderId, supplies: e.supplies, missing: e.missing, notBefore: e.notBefore }))
   if (canonicalJson(currentMaterial) !== canonicalJson(savedMaterial)) fail('STALE', 'The reviewed supply allocation changed. Prepare again.')
   const signed = gate(c, { category: 'margin', subjectKind: 'salesOrders', subject: order, measure: () => option.marginPercent === null ? null : decimal(option.marginPercent, 'option margin', { signed: true }), permitted: ['manager'], preparedBy: order.preparedBy, terms: { optionDigest: digest, customerApproval }, p })
-  if (signed && 'pending' in signed) fail('APPROVAL_REQUIRED', 'This exact preparation cannot wait for another signature. Use the existing explicit owner override with its accountable person, or prepare a qualifying margin.')
+  if (signed && 'pending' in signed) return fail('APPROVAL_REQUIRED', 'This exact preparation cannot wait for another signature. Use the existing explicit owner override with its accountable person, or prepare a qualifying margin.')
   signed?.consume(order.id)
   for (const window of option.overtime) {
     const calendar = get(c.s, window.kind === 'machine' ? 'machineCalendars' : 'laborCalendars', window.id)
@@ -86,7 +86,8 @@ export function quoteAcceptance(c: Context, type: string, p: any): Row | undefin
     const price = review.lines.find((l: any) => l.lineId === line.id)
     // Existing operational money reports stay in USD. Original customer terms
     // and reconciled cent extensions are retained independently and displayed.
-    line.unitPrice = format(decimal(price.unitPrice) * decimal(review.usdRate) / 1000000n * (100000000n - decimal(review.discountPercent)) / 100000000n)
+    line.unitPrice = format(divide(decimal(price.usdAmount), decimal(price.quantity)))
+    line.acceptedUsdAmount = price.usdAmount
     line.schedules = option.deliveries.filter((d: any) => d.lineId === line.id).map((d: any) => ({ quantity: d.quantity, date: d.shipDate }))
   }
   return bump(order, { status: 'confirmed', currency: 'USD', customerCurrency: review.currency, customerTerms, promiseDate: option.shipDate, confirmedBy: c.actor.id, confirmedAt: c.now,
@@ -102,7 +103,7 @@ export function receiveQuoteSupply(c: Context, receipt: Row) {
     let left = decimal(line.quantity)
     for (const work of c.s.workOrders.filter(w => w.status === 'released' && w.quoteSupply?.length)) {
       let changed = false
-      for (const supply of work.quoteSupply) if (supply.documentId === receipt.poId && supply.itemId === line.itemId) {
+      for (const supply of work.quoteSupply) if (supply.documentId === receipt.poId && supply.itemId === line.itemId && supply.purchaseLineId === line.lineId) {
         const take = min(left, decimal(supply.quantity) - decimal(supply.received))
         if (take <= 0n) continue
         const got = reserve(c, { demandKind: 'work', demandId: work.id, lineId: supply.lineId, itemId: line.itemId }, take, line.locationId)

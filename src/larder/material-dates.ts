@@ -108,7 +108,7 @@ function project(s: State, proven: Set<string>) {
   for (const share of quotePurchaseShares(s)) {
     let held = share.left
     const demand = demands.find(d => d.documentId === share.workOrderId && d.lineId === share.lineId && d.itemId === share.itemId)
-    for (const purchase of purchases) if (purchase.kind === 'purchase' && purchase.documentId === share.documentId && purchase.itemId === share.itemId) {
+    for (const purchase of purchases) if (purchase.kind === 'purchase' && purchase.documentId === share.documentId && purchase.itemId === share.itemId && purchase.lineId === share.purchaseLineId) {
       const take = min(held, purchase.left); held -= take; purchase.left -= take
       if (!demand || purchase.date < today || purchase.date > demand.date) continue
       const allocated = min(demand.left, take); demand.left -= allocated

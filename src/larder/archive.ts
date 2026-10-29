@@ -25,7 +25,7 @@ const base64 = (bytes: ArrayBuffer | Uint8Array) => { let s = ''; for (const b o
 export async function archive(env: Bindings, actor: Actor) {
   if (!['owner', 'manager'].includes(actor.role)) forbidden('Only the owner or a manager can export the business archive.')
   const s = await load(env.DB)
-  const [commands, attachments, people, historicalPeople, historicalRoles, currencyMigration, audit] = await env.DB.batch<any>([
+  const [commands, attachments, people, historicalPeople, historicalRoles, currencyMigration, audit, auditErasureRequests] = await env.DB.batch<any>([
     env.DB.prepare('SELECT * FROM larder_commands ORDER BY created_at,id'),
     env.DB.prepare('SELECT * FROM larder_attachments ORDER BY created_at,id'),
     env.DB.prepare('SELECT id,display_name AS name FROM oa_operators ORDER BY id'),
@@ -33,6 +33,7 @@ export async function archive(env: Bindings, actor: Actor) {
     env.DB.prepare("SELECT data FROM larder_records WHERE kind='archiveRoleHistory' AND id='archive'"),
     env.DB.prepare("SELECT data FROM larder_records WHERE kind='archiveCurrencyMigration' AND id='archive'"),
     env.DB.prepare('SELECT * FROM larder_audit ORDER BY seq'),
+    env.DB.prepare('SELECT * FROM larder_audit_erasures ORDER BY at,id'),
   ])
   checkFunctionalMoney(s)
   const content = {
@@ -42,7 +43,7 @@ export async function archive(env: Bindings, actor: Actor) {
     ...(currencyMigration.results.length ? { currencyMigration: JSON.parse(currencyMigration.results[0].data) } : {}),
     movements: s.movements.map(m => ({ ...m, quantity: m.quantity.toString(), unitCost: m.unitCost.toString() })),
     reservations: s.reservations.map(r => ({ ...r, quantity: r.quantity.toString() })),
-    audit: audit.results,
+    audit: audit.results, auditErasureRequests: auditErasureRequests.results,
     commands: commands.results, people: [...new Map([...historicalPeople.results.flatMap((r: any) => JSON.parse(r.data)), ...people.results].map((p: any) => [p.id, p])).values()].map((p: any) => s.contactErasures.some(e => e.subjectKind === 'operator' && e.subjectId === p.id) ? { ...p, name: '[erased]' } : p),
     unmappedRoles: historicalRoles.results.flatMap((r: any) => JSON.parse(r.data)),
     attachments: attachments.results.map((a: any) => ({ ...a, bytes: base64(a.bytes) })),
@@ -74,8 +75,9 @@ export async function restore(env: Bindings, actor: Actor, request: Request) {
   }
   for (const m of content.movements) statements.push(db.prepare('INSERT INTO larder_movements VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(m.id, m.sequence, m.itemId, m.locationId, m.status, m.lotId, Number(m.quantity), Number(m.unitCost), m.kind, m.documentKind, m.documentId, m.reversesId, m.actorId, m.commandId, m.importId, m.reason, m.createdAt))
   for (const r of content.reservations) statements.push(db.prepare('INSERT INTO larder_reservations VALUES(?,?,?,?,?,?,?)').bind(r.id, r.demandKind, r.demandId, r.lineId, r.itemId, r.locationId, Number(r.quantity)))
+  for (const entry of content.auditErasureRequests ?? []) statements.push(db.prepare('INSERT INTO larder_audit_erasures(id,at,actor_id,subject_kind,subject_id,entries,scope) VALUES(?,?,?,?,?,?,?)').bind(entry.id,entry.at,entry.actor_id,entry.subject_kind,entry.subject_id,entry.entries,entry.scope))
   for (const entry of content.audit ?? []) {
-    const columns = ['id','at','actor_id','actor_name','actor_role','source','command_id','command_type','domain','subject_kind','subject_id','subject_version','op','before','after','reason','evidence','refs']
+    const columns = ['seq','id','at','actor_id','actor_name','actor_role','source','command_id','command_type','domain','subject_kind','subject_id','subject_version','op','before','after','reason','evidence','refs','erasure_id']
     if (columns.some(key => entry[key] === undefined)) fail('ARCHIVE', 'An archived audit entry is incomplete.')
     statements.push(db.prepare(`INSERT INTO larder_audit(${columns.join(',')}) VALUES(${columns.map(() => '?').join(',')})`).bind(...columns.map(key => entry[key])))
   }

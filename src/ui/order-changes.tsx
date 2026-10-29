@@ -13,6 +13,7 @@ export function OrderChanges({ larder, order }: { larder: Larder; order: Rec }) 
   const s = larder.state!, allowed = can(s, ['manager', 'sales']), open = ['confirmed', 'part shipped'].includes(order.status)
   const changes = rows(s, 'orderChanges').filter(change => change.orderId === order.id).reverse()
   const preview = changes.find(change => change.status === 'preview')
+  if (order.customerTerms) return <Card title="Customer-approved order revisions"><p>These accepted customer-currency terms are retained with their invoice and booked work. A customer-currency correction requires a separate reviewed workflow; the ordinary USD revision form cannot change them.</p></Card>
   return <Card title="Customer-approved order revisions">
     <p>Record the customer’s approval, review the affected commitments, then apply the exact revision.</p>
     {allowed && open && <ChangeEditor key={`${order.id}:${order.version}`} larder={larder} order={order} />}

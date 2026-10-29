@@ -6,7 +6,7 @@ import type { State } from './model'
 
 export type IngredientStatus = 'In stock' | 'Expected' | 'Not available' | 'No BOM'
 export type ProductionStatus = 'not started' | 'blocked' | 'in progress' | 'done' | 'ready to ship'
-export type Supply = { kind: 'stock' | 'reservation' | 'purchase' | 'work'; documentId: string; reference: string; date: string; quantity: string }
+export type Supply = { kind: 'stock' | 'reservation' | 'purchase' | 'work'; documentId: string; purchaseLineId?: string; reference: string; date: string; quantity: string }
 export type StatusLine = { id: string; itemId: string; ingredientStatus: IngredientStatus; productionStatus: ProductionStatus; required: string; available: string; missing: string; supplies: Supply[]; ingredients?: StatusLine[]; supplyingWork?: { documentId: string; quantity: string; lines: StatusLine[] }[] }
 type Pool = Omit<Supply, 'quantity'> & { itemId: string; left: bigint }
 
@@ -16,14 +16,14 @@ export function supplyAllocator(s: State, on = new Date().toISOString().slice(0,
   const pools: Pool[] = s.items.map(i => ({ itemId: i.id, kind: 'stock', documentId: '', reference: i.sku, date: '',
     left: max(0n, usableOnHand(s, i.id, on) - s.reservations.filter(r => r.itemId === i.id).reduce((n, r) => n + r.quantity, 0n)) }))
   for (const p of s.purchaseOrders) if (['approved', 'confirmed', 'part received'].includes(p.status))
-    for (const l of p.lines) pools.push({ itemId: l.itemId, kind: 'purchase', documentId: p.id, reference: p.reference, date: purchaseDate(p, l),
+    for (const l of p.lines) pools.push({ itemId: l.itemId, kind: 'purchase', documentId: p.id, purchaseLineId: l.id, reference: p.reference, date: purchaseDate(p, l),
       left: max(0n, decimal(l.quantity) - decimal(l.received)) })
   for (const w of s.workOrders) if (w.status === 'released') pools.push({ itemId: w.itemId, kind: 'work', documentId: w.id, reference: w.reference,
     date: w.expectedOn ?? w.requiredBy, left: max(0n, decimal(w.quantity) - decimal(w.output) - decimal(w.scrap)) })
   const booked = quotePurchaseShares(s)
   for (const share of booked) {
     let left = share.left
-    for (const pool of pools) if (pool.kind === 'purchase' && pool.documentId === share.documentId && pool.itemId === share.itemId) { const take = min(left, pool.left); pool.left -= take; left -= take }
+    for (const pool of pools) if (pool.kind === 'purchase' && pool.documentId === share.documentId && pool.itemId === share.itemId && pool.purchaseLineId === share.purchaseLineId) { const take = min(left, pool.left); pool.left -= take; left -= take }
   }
   pools.sort((a, b) => Number(a.kind !== 'stock') - Number(b.kind !== 'stock') || a.date.localeCompare(b.date) || a.reference.localeCompare(b.reference) || a.documentId.localeCompare(b.documentId))
   const reservations = s.reservations.map(r => ({ ...r, left: r.quantity }))
@@ -36,15 +36,15 @@ export function supplyAllocator(s: State, on = new Date().toISOString().slice(0,
     }
     for (const share of booked) if (share.workOrderId === demandId && share.lineId === lineId && share.itemId === itemId && left > 0n) {
       const po = s.purchaseOrders.find(po => po.id === share.documentId && ['approved', 'confirmed', 'part received'].includes(po.status))
-      const line = po?.lines.find((line: any) => line.itemId === itemId)
+      const line = po?.lines.find((line: any) => line.id === share.purchaseLineId)
       if (!line) continue
       const q = min(left, share.left); share.left -= q; left -= q
-      if (q > 0n) supplies.push({ kind: 'purchase', documentId: po!.id, reference: po!.reference, date: purchaseDate(po!, line), quantity: format(q) })
+      if (q > 0n) supplies.push({ kind: 'purchase', documentId: po!.id, purchaseLineId: line.id, reference: po!.reference, date: purchaseDate(po!, line), quantity: format(q) })
     }
     for (const pool of pools) if (pool.itemId === itemId && pool.documentId !== demandId && left > 0n) {
       const q = min(left, pool.left); pool.left -= q; left -= q
       if (pool.kind === 'stock') physical += q
-      if (q > 0n) supplies.push({ kind: pool.kind, documentId: pool.documentId, reference: pool.reference, date: pool.date, quantity: format(q) })
+      if (q > 0n) supplies.push({ kind: pool.kind, documentId: pool.documentId, ...(pool.purchaseLineId ? { purchaseLineId: pool.purchaseLineId } : {}), reference: pool.reference, date: pool.date, quantity: format(q) })
     }
     return { id: lineId, itemId, required: format(required), available: format(physical), missing: format(left), supplies,
       ingredientStatus: left > 0n ? 'Not available' : physical < required ? 'Expected' : 'In stock', productionStatus: 'not started' }
