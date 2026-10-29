@@ -5,13 +5,13 @@ import type { ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { contractPageHtml } from '../base/contract-page'
 import { hostingPageHtml } from '../base/hosting-page'
-import { runPageHtml, siteNotFoundHtml, type RunData, type SiteBuild, type SiteContext } from '../base/run-site'
+import { runPageHtml, siteNotFoundHtml, type SiteBuild, type SiteContext } from '../base/run-site'
 import { identity } from '../identity'
 import { DocsArticle } from './docs/DocsArticle'
 import { DocsIndex } from './docs/DocsIndex'
 import { docsLead, docsPages, stripTags } from './docs/content'
 import { Landing, landingScript } from './landing/Landing'
-import run from './run.json'
+import data from './run-data'
 
 const entities: Record<string, string> = { '&amp;': '&', '&#39;': '’', '&quot;': '"', '&lt;': '<', '&gt;': '>' }
 const text = (html: string) => stripTags(html).replace(/&(?:amp|#39|quot|lt|gt);/g, entity => entities[entity]!)
@@ -23,7 +23,6 @@ const HOME_TITLE = 'Larder — Promise dates you can keep'
 const HOME_DESCRIPTION = 'Larder plans your materials and machines, runs the shop floor, traces every lot, costs every job and keeps QuickBooks in sync. 100% free, open source alternative to Katana, MRPeasy and Fishbowl.'
 
 export function sitePages({ styles, contract, hosting }: SiteContext): SiteBuild {
-  const data: RunData = run
   const document = (title: string, description: string, body: ReactElement, { theme = '#F4F4F4', script = '' } = {}) => '<!doctype html>' + renderToStaticMarkup(
     <html lang="en">
       <head>
