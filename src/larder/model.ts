@@ -20,8 +20,10 @@ export type Movement = {
 export type Reservation = { id: string; demandKind: 'sales' | 'work'; demandId: string; lineId: string; itemId: string; locationId: string; quantity: bigint }
 export type Attachment = { id: string; name: string; contentType: string; size: number; sha256: string; bytes: Uint8Array; createdBy: string; createdAt: string }
 export type State = Record<Collection, Row[]> & { version: number; movements: Movement[]; reservations: Reservation[] }
-export type Actor = { id: string; name: string; role: string; sessionId: string; operatorVersion: number; scope?: import('./scope').Scope }
-export type Context = { s: State; actor: Actor; commandId: string; type?: string; now: string; attachments: Attachment[]; reportAuthority?: Actor; automaticReport?: boolean; serviceSecret?: string; preparedBy?: string; people?: { id: string; name: string; role: string }[]; erasure?: import('./audit-erasure').ErasurePlan }
+export type DoorAttribution = { id: string; name: string; consent?: string; operationId: string; approvers: readonly { id: string; name: string }[]; envelope: string | null; localDocument: string | null; localRevision: number; admissionRevision: number | null }
+export type Actor = { agentDoor?: DoorAttribution; id: string; name: string; role: string; sessionId: string; operatorVersion: number; scope?: import('./scope').Scope }
+export type AgentPreparation = { preparedByAgent: {id:string;name:string}; preparedFor: {id:string;name:string}; preparation: string; operationId: string }
+export type Context = { agentPreparation?: AgentPreparation; s: State; actor: Actor; commandId: string; type?: string; now: string; attachments: Attachment[]; reportAuthority?: Actor; automaticReport?: boolean; serviceSecret?: string; preparedBy?: string; people?: { id: string; name: string; role: string }[]; erasure?: import('./audit-erasure').ErasurePlan }
 
 export const newId = () => crypto.randomUUID()
 
@@ -34,7 +36,7 @@ export function fresh(row: Row, version: unknown) {
 }
 
 export function row(c: Context, collection: Collection, data: Record<string, any>): Row {
-  const r = { ...data, id: data.id ?? newId(), version: 1, createdAt: c.now, createdBy: c.actor.id }
+  const r = { ...data, id: data.id ?? newId(), version: 1, createdAt: c.now, createdBy: c.actor.id, ...(c.actor.agentDoor ? { preparedByAgent: { id: c.actor.agentDoor.id, name: c.actor.agentDoor.name }, preparedFor: { id: c.actor.id, name: c.actor.name }, preparation: `${c.actor.agentDoor.name} for ${c.actor.name}`, operationId: c.actor.agentDoor.operationId, policyApprovers: c.actor.agentDoor.approvers } : c.agentPreparation ?? {}) }
   c.s[collection].push(r)
   return r
 }

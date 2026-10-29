@@ -36,6 +36,26 @@
     {
       "binding": "INSTALLATION_KEY",
       "environment": "INSTALLATION_KEY"
+    },
+    {
+      "binding": "RER_OWNER_CLAIM_ISSUER",
+      "environment": "RER_OWNER_CLAIM_ISSUER",
+      "optional": true
+    },
+    {
+      "binding": "RER_OWNER_CLAIM_INSTALLATION_ID",
+      "environment": "RER_OWNER_CLAIM_INSTALLATION_ID",
+      "optional": true
+    },
+    {
+      "binding": "RER_OWNER_CLAIM_PUBLIC_KEYS",
+      "environment": "RER_OWNER_CLAIM_PUBLIC_KEYS",
+      "optional": true
+    },
+    {
+      "binding": "RER_BUSINESS_TRUST",
+      "environment": "RER_BUSINESS_TRUST",
+      "optional": true
     }
   ],
   "platforms": [

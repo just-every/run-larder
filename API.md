@@ -1,6 +1,6 @@
 # Larder API
 
-The app and agents use the same door. Every request needs a native session cookie (an invited person signs in through the emailed link); agents are invited people given the `agent` role.
+The browser/API uses native sessions. Company agents enter the shared `/mcp` door with owner-bound Business credentials and signed company policy; see [Company agents](docs/company-agents.md). Existing native `agent` accounts keep their narrow draft/proposal role. Device, integration and import credentials retain their own native doors and purposes.
 
 - `GET /api/larder/state` — every record, the formatted movement ledger, reservations, positions, availability per item, shortages, weekly forecasts/MPS, the exception queue and owned `followUpCases` (including closed-case history), recent recorded actions and (for the owner) the team.
 - `GET /api/larder/planning/pegging` — current dated forward/reverse material allocations; see MRP-002 below.
