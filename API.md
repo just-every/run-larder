@@ -1054,7 +1054,9 @@ valuation, rate, estimated margin and each source shipment quantity. Partial,
 bulk and automatic provider invoices, tax determination and payment readback
 remain DEMAND-007 duties; issuing locally sends and posts nothing. Accepted
 costed terms are immutable through the ordinary amendment and cancellation
-doors pending exact customer-currency amendment qualification. The legacy
+doors pending exact customer-currency amendment qualification. Undoing or reversing
+an invoiced shipment likewise requires the unqualified exact linked-credit door;
+these attempts refuse without changing stock or issued terms. The legacy
 movement handoff refuses these shipment and return financial lines until exact
 invoice reconciliation is qualified, rather than emitting guessed values.
 

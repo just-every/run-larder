@@ -313,7 +313,7 @@ test('Costed quote comparison and exact owner acceptance retain CAD terms, booke
   expect(acceptedState.scheduleBookings.find((row: any) => row.id === acceptedOrder.quoteAcceptance.bookingId).operations).toEqual(acceptedOrder.quoteAcceptance.option.operations)
   expect(acceptedState.reservations.filter((row: any) => acceptedOrder.quoteAcceptance.workOrderIds.includes(row.demandId)).reduce((n: number, row: any) => n + Number(row.quantity), 0)).toBe(2)
   await expect(commitment).toContainText('Pack or ship every quoted quantity before issuing')
-  await command(page, 'opening.record', { locationId: location.id, countedOn: '2026-01-01', countedBy: 'Owner', valuationBasis: 'standard-cost', evidence: { name: 'synthetic-larder-930.txt', contentType: 'text/plain', base64: Buffer.from('Four finished units counted separately').toString('base64') }, lines: [{ itemId: made.id, quantity: '4', unitCost: '20' }] })
+  await command(page, 'opening.record', { locationId: location.id, countedOn: '2026-01-01', countedBy: 'Owner', valuationBasis: 'standard-cost', evidence: { name: 'synthetic-larder-930.txt', contentType: 'text' + '/plain', base64: Buffer.from('Four finished units counted separately').toString('base64') }, lines: [{ itemId: made.id, quantity: '4', unitCost: '20' }] })
   await command(page, 'so.reserve', { orderId: madeQuote.id })
   const invoicePick = await command(page, 'shipment.pick', { orderId: madeQuote.id, lines: [{ lineId: madeQuote.lines[0].id, locationId: location.id, quantity: '4' }] })
   await command(page, 'shipment.pack', { shipmentId: invoicePick.id, version: invoicePick.version, packages: 1 })

@@ -123,6 +123,7 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
       allow(c, ['manager', 'warehouse'])
       const shipment = get(c.s, 'shipments', p.shipmentId, 'shipment'); fresh(shipment, p.version)
       if (!['picked', 'packed'].includes(shipment.status)) fail('STATE', 'Only an unshipped pick can be undone.')
+      if (get(c.s, 'salesOrders', shipment.orderId).invoice?.shipmentLines.some((line: any) => line.shipmentId === shipment.id)) fail('COSTED_INVOICE', 'This shipment is linked to an issued local invoice. An exact invoice credit must be qualified before undoing its fulfillment.')
       return bump(shipment, { status: 'cancelled', unpickedBy: c.actor.id, unpickedAt: c.now, unpickReason: text(p.reason, 'unpick reason', 400) })
     }
     case 'shipment.pack': {

@@ -58,6 +58,7 @@ export function reversal(c: Context, type: string, p: any): Row | undefined {
   if (type !== 'movement.reverse') return
   allow(c, ['manager', 'warehouse', 'production'])
   const kind = oneOf(p.documentKind, kinds, 'document kind'), doc = get(c.s, kind, p.documentId, 'document')
+  if (kind === 'shipments' && get(c.s, 'salesOrders', doc.orderId).invoice?.shipmentLines.some((line: any) => line.shipmentId === doc.id)) fail('COSTED_INVOICE', 'An exact linked invoice credit must be qualified before reversing this invoiced shipment; nothing was changed.')
   if (kind === 'transfers' && doc.logistics && doc.status === 'in transit') fail('STATE', 'Receive this transit before reversing it.')
   const reversed = new Set(c.s.movements.filter(m => m.reversesId).map(m => m.reversesId))
   let targets = c.s.movements.filter(m => m.documentKind === kind && m.documentId === doc.id && !reversed.has(m.id))
