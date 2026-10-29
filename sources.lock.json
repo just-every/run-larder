@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "0b80daeeb8eec90160fc3224670c38f02a3d8f23b091561bda297c3da85613e2",
+      "sha256": "02a7c7d8a6dfd649c4fc9ba08a969ef9350647c4a38271eddeb00471f390e498",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -205,7 +205,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "6e629ae3d8692a1fd10ea96a3eb2f706f1e54d2b914706230ab0296b457869e5",
+      "sha256": "16d70959fd5f49404cbe9bd88b55af1fdf0921bc9bf73ae81257af0aa5e46b56",
       "executable": false
     },
     "DEMO.md": {
@@ -1089,7 +1089,7 @@
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "95010b52f9511118f0b0705f19c34963779e550114087449f093e65a99a8c62a",
+      "sha256": "4515dde611fed93a936b759adae126fcee4bcc2f6c6125cc4fdd9ac5608e7ed0",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -4085,7 +4085,7 @@
       "executable": false
     },
     "tests/api/schedule-approval.test.mjs": {
-      "sha256": "e02d316a38da792a5924b94be07861b280c64b26f27a9dd637d8a287ce6f4007",
+      "sha256": "8c85d881c097294404dd54e2682068cfaa086c15a7bb8e2d51d580a4eccc4218",
       "executable": false
     },
     "tests/api/subcontract.test.mjs": {

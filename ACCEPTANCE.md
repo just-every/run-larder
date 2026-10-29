@@ -234,7 +234,7 @@ Core · published · **partial** · Cites BASE-INPUT-002, BASE-ROLE-001, BASE-AG
 1. Prepare each of the five proposal kinds; inspect incomplete or stale refusal, exact decisions and the documented independent native-person decision flow.
 2. Under the held company policy, approve or decline the consequential calls; under the all-autonomous company policy, complete the same permitted jobs without waiting for a person.
 
-**Evidence.** `tests/api/authority.test.mjs` — “LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve”; `tests/api/backup.test.mjs` — “LARDER-020 an installation backup restores into a reset installation”
+**Evidence.** `tests/api/authority.test.mjs` — “LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve”; `tests/api/backup.test.mjs` — “LARDER-020 an installation backup restores into a reset installation”; `tests/api/schedule-approval.test.mjs` — “GOV-009 a reschedule proposal delaying a job past the schedule threshold needs two signatures, a deputy and an unchanged finite preview”
 **Gap.** Native preparation and independent person decisions retain server-computed action classes, exact consequence facts, reviewed inputs and genuine decision actors for all five kinds; stale or forged decisions refuse without business effects, replay is once-only, current scopes redact snapshots and restore is inert. Grouped replenishment applies the native spend policy to its combined USD exposure, with exact-review signatures and linked purchase approvals. Missing: configurable company-policy decisions through the agent door, all-autonomous consequential agent execution and shared MCP conformance.
 
 #### LARDER-016 — Odoo kit
