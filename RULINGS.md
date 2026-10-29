@@ -258,3 +258,15 @@ Conforms to the ruled form: kept for the life of the installation, no purge door
 **Sources:**
 - [Shop-floor timers record actual time; website task status can initially copy planned time.](https://support.katanamrp.com/en/articles/5967416-tracking-actual-completion-time-for-tasks)
 - [User permissions and hourly wages govern labor costing; operation timers respect working-day settings.](https://www.mrpeasy.com/resources/user-manual/)
+
+### DEMAND-009 — Foreign-currency cent allocation
+
+- Date: 2026-10-29 at 07:20 UTC
+- Ruler: ct (NEW ruling supplied in the builder brief)
+- Governs: DEMAND-009
+- Outcome: create one separate clause for exact foreign-currency allocation.
+  The five acceptance points cover the 20,000-unit CAD 0.99 quote at recorded
+  rate 0.723456, identical full and split shipment totals, reversal and
+  reshipment, partial-return corrections and one complete public-door journey.
+  USD handoff, margin revenue and invoiced amounts must agree to the cent at
+  14,324.43 for the full shipment. DEMAND-001's capped text is unchanged.

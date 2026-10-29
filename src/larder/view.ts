@@ -1,3 +1,4 @@
+import { saleTotals } from './sales-money'
 import { custodyBalances, ownershipBalances } from './warehouse-balances'
 import { rateReaders } from './scheduling/calendars'
 import { supplierPerformance } from './supplier-terms'
@@ -67,7 +68,7 @@ function fullView(s: State, actor: Actor, extra: Record<string, unknown>) {
   records.workOrders = records.workOrders.map(w => job(w, w))
   records.handoffs = records.handoffs.map(h => names(h, wages.movements) ? redactCosts(h) : h)
   return {
-    version: s.version, actor, ...records, supplierPerformance: supplierPerformance(s),
+    version: s.version, actor, ...records, salesMoney: saleTotals(s), supplierPerformance: supplierPerformance(s),
     workMaterialPools: Object.fromEntries(s.workOrders.filter(w => w.status === 'released' || (w.outputs ?? []).some((b: any) => !b.allocations)).map(w => [w.id, job(w, materialPoolView(s, w))])),
     workTransferCosts: Object.fromEntries(s.workOrders.map(w => [w.id, wages.jobs.has(w.id) ? restricted : format(materialCost(s, w))])),
     operationLedgers: Object.fromEntries(s.workOrders.filter(w => w.status === 'released' && w.routing?.length).map(w => [w.id, job(w, operationLedger(w, materialCost(s, w), lineId => reservedQuantity(s, w.id, lineId)))])),

@@ -1,3 +1,4 @@
+import { foreignCurrencyJourney } from './foreign-currency-journey.mjs'
 import { varianceFixture } from './variance-fixture.mjs'
 // One test per first-release clause (ACCEPTANCE.md LARDER-001 to LARDER-013), through the public
 // HTTP door of a real Worker with D1.
@@ -353,6 +354,39 @@ test('LARDER-012 handoff exports costs and invoice preparation; acknowledgements
   assert.deepEqual([next.lines[0].corrects.reference, next.lines[0].type], [batch.reference, 'Correction (reversal)'])
   // It offsets the invoice line it corrects exactly, at the order price.
   assert.equal(next.lines[0].amountCents, '-178.00')
+  const fx = await foreignCurrencyJourney({ ...h, command: (type, payload, opts) => type === 'so.invoice' ? accounts.run(type, payload, opts) : h.command(type, payload, opts) })
+  const afterFx = await h.state()
+  const denied = await h.person(['synthetic-larder-910', 'example.test'].join(String.fromCharCode(64)), 'warehouse')
+  const invoicePayload = { orderId: fx.orderId, version: afterFx.salesOrders.find(o => o.id === fx.orderId).version }
+  const refusalBaseline = await h.state()
+  await denied.run('so.invoice', invoicePayload, { error: 'FORBIDDEN' })
+  assert.deepEqual(await h.state(), refusalBaseline)
+  await h.command('member.scope', { operatorId: accounts.id, costsRestricted: true, locations: null })
+  const scopedBaseline = await h.state()
+  await accounts.run('so.invoice', fx.lastInvoiceCommand.payload, { commandId: fx.lastInvoiceCommand.commandId, error: 'FORBIDDEN' })
+  assert.deepEqual(await h.state(), scopedBaseline)
+  const restricted = await h.state(accounts.cookie)
+  assert.equal(restricted.salesMoney[fx.orderId].invoicedUsdAmount, 'restricted')
+  assert.equal(restricted.salesOrders.find(o => o.id === fx.orderId).invoices[0].usdAmount, 'restricted')
+  await h.command('member.scope', { operatorId: accounts.id, costsRestricted: false, locations: null })
+  await h.command('role.set', { operatorId: accounts.id, role: 'warehouse' })
+  const revokedBaseline = await h.state()
+  await accounts.run('so.invoice', fx.lastInvoiceCommand.payload, { commandId: fx.lastInvoiceCommand.commandId, error: 'FORBIDDEN' })
+  assert.deepEqual(await h.state(), revokedBaseline, 'Revoked financial authority cannot replay an invoice outcome')
+  await h.restart()
+  const restarted = await h.state()
+  assert.deepEqual(restarted.salesMoney, revokedBaseline.salesMoney)
+  assert.deepEqual(restarted.salesOrders.find(o => o.id === fx.orderId).invoices, revokedBaseline.salesOrders.find(o => o.id === fx.orderId).invoices)
+  const exported = await h.request('/api/larder/archive')
+  assert.equal(exported.status, 200)
+  const archive = await exported.json()
+  const restored = await installation(); t.after(() => restored.close())
+  const response = await restored.request('/api/larder/archive/restore', { method: 'POST', raw: JSON.stringify(archive) })
+  assert.equal(response.status, 200, await response.text())
+  const restoredState = await restored.state()
+  assert.deepEqual(restoredState.salesMoney, restarted.salesMoney)
+  assert.deepEqual(restoredState.salesOrders.find(o => o.id === fx.orderId).invoices, restarted.salesOrders.find(o => o.id === fx.orderId).invoices)
+  assert.equal(restored.outboundCount(), 0, 'Restored local invoices send nothing')
 })
 
 test('LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation', async t => {
