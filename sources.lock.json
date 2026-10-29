@@ -1489,7 +1489,7 @@
       "executable": false
     },
     "src/larder/proposals.ts": {
-      "sha256": "296968565f0d7223269466e980ff15ed48a07772811a093bbe17869a5620cc50",
+      "sha256": "6a4f768deeebb2e9d133381740691ce1840a914ded3eb85705f1696525656095",
       "executable": false
     },
     "src/larder/public-api.ts": {
@@ -3981,7 +3981,7 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "862bfba7a608ca38d35b556e9448bf0c68a128bb1ccaba8b94d27f07cff98fe8",
+      "sha256": "87cdfb4b65ad2cd46783f7c327d5421eabd5a364999921c924bd5fe7df61bcbf",
       "executable": false
     },
     "tests/api/backup.test.mjs": {

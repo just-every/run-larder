@@ -409,6 +409,26 @@ test('GOV-002 high-value PO and stock write-off need two signatures, a deputy si
   // Below the threshold a PO keeps its single approval.
   const small = await buyer.run('po.draft', { supplierId: w.supplier.id, expectedDate: day(7), reason: 'Small top-up', lines: [{ itemId: w.timber.id, quantity: '2', unitPrice: '9.5' }] })
   assert.equal((await mgrA.run('po.approve', { poId: small.id, version: small.version })).status, 'approved')
+  // Proposal approval adopts the plan, but never supplies a spend-policy signature on its PO.
+  const replenishment = async (quantity, unitPrice) => {
+    const proposal = await agent.run('proposal.prepare', { kind: 'replenishment', summary: 'Walnut restock', evidence: ['Workshop demand'], plan: { explanation: 'Buy walnut for the workshop', purchases: [{ supplierId: w.supplier.id, expectedDate: day(7), lines: [{ itemId: w.timber.id, quantity, unitPrice }] }] } })
+    const adopted = await buyer.run('proposal.approve', { proposalId: proposal.id, version: proposal.version })
+    return (await h.state()).purchaseOrders.find(x => x.id === adopted.result[0])
+  }
+  const progress = async poId => {
+    const state = await h.state(), purchase = state.purchaseOrders.find(x => x.id === poId)
+    const signed = state.approvalSignatures.filter(x => x.subjectId === poId)
+    return [purchase.exposure, purchase.status, signed.length, new Set(signed.map(x => x.signerId)).size, state.approvals.filter(x => x.subjectId === poId).length]
+  }
+  const proposed = await replenishment('20', '9.5'), journey = [await progress(proposed.id)]
+  await buyer.run('po.approve', { poId: proposed.id, version: proposed.version })
+  journey.push(await progress(proposed.id))
+  await buyer.run('po.approve', { poId: proposed.id, version: proposed.version }, { error: 'DUPLICATE_SIGNATURE' })
+  await mgrA.run('po.approve', { poId: proposed.id, version: proposed.version })
+  journey.push(await progress(proposed.id))
+  const smallProposal = await replenishment('10', '9')
+  journey.push(await progress(smallProposal.id))
+  assert.deepEqual(journey, [['190', 'draft', 0, 0, 0], ['190', 'draft', 1, 1, 0], ['190', 'approved', 2, 2, 1], ['90', 'approved', 0, 0, 1]])
   // Above it: the preparer and agents cannot sign, one person cannot sign twice, and one signature approves nothing.
   let po = await draft()
   await buyer.run('po.approve', { poId: po.id, version: po.version }, { error: 'FORBIDDEN' })
