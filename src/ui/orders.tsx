@@ -81,10 +81,16 @@ function OrderWorkspace({ larder, order }: { larder: Larder; order: Rec }) {
       <p className="meta">Promised {day(order.promiseDate)} · {order.lines.length} {order.lines.length === 1 ? 'item' : 'items'} · {qty(units)} {units === '1' ? 'unit' : 'units'}{order.customerReference && ` · Their ref ${order.customerReference}`}{order.sourceReference && ` · Odoo ${order.sourceReference}`}</p></header>
     <div className="workspace-grid">
       <Card title="Order lines" className="lines-card">
+        {order.currency && order.currency !== 'USD' && <>
+          <p>{commercialValue(s, order)} · Recorded rate {order.usdRate} USD per {order.currency} on {day(order.rateDate)}</p>
+          <p>Net shipped: {order.currency} {money(s.salesMoney?.[order.id]?.netAmount).replace('$', '')} · USD {money(s.salesMoney?.[order.id]?.netUsdAmount).replace('$', '')}</p>
+          <p>Locally invoiced: {order.currency} {money(s.salesMoney?.[order.id]?.invoicedAmount).replace('$', '')} · USD {money(s.salesMoney?.[order.id]?.invoicedUsdAmount).replace('$', '')}. External books and delivery are separate.</p>
+          {!!order.invoices?.length && <details><summary>Local invoice history</summary><ul>{order.invoices.map((invoice: any) => <li key={invoice.id}>{invoice.reference}: {invoice.currency} {money(invoice.amount).replace('$', '')} · USD {money(invoice.usdAmount).replace('$', '')} · {day(invoice.createdAt)}</li>)}</ul></details>}
+        </>}
         <Table head={['Product', 'Ordered', 'Reserved', 'Shipped', 'Short']} numeric={[1, 2, 3, 4]} stack={false}>{order.lines.map((l: any) => {
           const reserved = reservedFor(s, order.id, l.id), short = order.status === 'quote' ? '0' : minus(openOf(l), reserved)
           return <tr key={l.id} className={selected === l.itemId ? 'selected' : undefined} onClick={() => setSelected(l.itemId)}>
-            <td><button type="button" className="row-button" aria-pressed={selected === l.itemId} onClick={() => setSelected(l.itemId)}><span><strong>{itemName(s, l.itemId)}</strong><small>{sku(s, l.itemId)} · {positive(openOf(l)) || order.status === 'quote' ? <>Unshipped: {money(l.unitPrice)} {perUnit(unitOf(s, l.itemId))}</> : 'Prices retained on shipments'}</small>{l.schedules?.map((d: any, i: number) => <small key={i}>{qty(d.quantity)} due {day(d.date)}</small>)}</span></button></td>
+            <td><button type="button" className="row-button" aria-pressed={selected === l.itemId} onClick={() => setSelected(l.itemId)}><span><strong>{itemName(s, l.itemId)}</strong><small>{sku(s, l.itemId)} · {positive(openOf(l)) || order.status === 'quote' ? <>Unshipped: {order.currency && order.currency !== 'USD' ? `${order.currency} ` : ''}{money(l.unitPrice)} {perUnit(unitOf(s, l.itemId))}</> : 'Prices retained on shipments'}</small>{l.schedules?.map((d: any, i: number) => <small key={i}>{qty(d.quantity)} due {day(d.date)}</small>)}</span></button></td>
             <td className="num">{qty(minus(l.quantity, l.cancelled))}{positive(l.cancelled) && <small>{qty(l.cancelled)} cancelled</small>}</td><td className="num">{qty(reserved)}</td><td className="num">{qty(l.shipped)}</td>
             <td className="num"><span className={`short ${positive(short) ? 'bad' : 'ok'}`}>{qty(short)}</span></td></tr>
         })}</Table>

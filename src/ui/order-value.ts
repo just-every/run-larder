@@ -3,6 +3,10 @@ import { minus, money, plus, timesMoney } from './format'
 
 // Repricing remaining demand never revalues a shipment already issued.
 export function commercialValue(s: LarderState, order: Rec): string {
+  if (order.currency && order.currency !== 'USD') {
+    const value = s.salesMoney?.[order.id]
+    return value?.quotedAmount ? `${order.currency} ${money(value.quotedAmount).replace('$', '')} · USD ${money(value.quotedUsdAmount).replace('$', '')}` : 'restricted'
+  }
   if (order.status === 'quote') return money(plus(...order.lines.map((line: any) => timesMoney(line.quantity, line.unitPrice))))
   const issued = rows(s, 'shipments').filter(shipment => shipment.orderId === order.id && shipment.status === 'shipped').flatMap(shipment => shipment.lines)
   if (order.lines.some((line: any) => plus(...issued.filter((shipmentLine: any) => shipmentLine.lineId === line.id).map((shipmentLine: any) => shipmentLine.quantity)) !== line.shipped) || issued.some((line: any) => line.unitPrice === undefined)) return 'Historical price not recorded'

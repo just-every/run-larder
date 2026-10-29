@@ -1144,3 +1144,38 @@ Derived balances that include locations outside a member's reach read
 Rules, transfers, custody entries and original evidence travel in the complete
 JSON and CSV business archive. Restore retains them as records, never repeating
 a dispatch, receipt, movement or external action.
+
+## Exact customer-currency shipment money (DEMAND-009)
+
+`so.quote` accepts `currency: CAD`, `usdRate`, `rateDate` and `rateReference` with
+its ordinary line quantities and customer-currency unit prices. The positive
+rate is USD per CAD; its date must be a real calendar day no later than the
+recording day. `so.confirm` accepts these explicitly entered terms with the
+existing role, stock and USD margin-floor gates. This does not accept a costed
+review or book any of that review's indicative capacity options.
+
+New shipment snapshots retain the exact customer price, currency and rate.
+Amounts use integer products of quantity, price and rate, rounding half away
+from zero directly to cents. A posting takes the difference between rounded
+cumulative money and previously assigned cents for the same order line and
+issued terms. A reversal negates its original assigned cents; the next new
+posting takes any residual. Returns follow their exact shipment sources. No
+rounded USD unit price is multiplied back into a shipment total. Foreign-currency
+handoff CSV rows leave `unit_amount` empty and retain `customer_unit_amount`,
+`customer_amount`, `customer_currency` and `usd_per_customer_unit` alongside the
+authoritative USD `amount`.
+
+`so.invoice` takes only `{orderId, version}`. An unscoped owner, manager or
+accounts person records all uninvoiced posted shipment movements and their
+corrections as an immutable local invoice in the order's `invoices` history.
+An unshipped order, a stale version, a second invoice of the same sources or
+caller-supplied amounts is refused. Ordinary command replay returns the same
+invoice, subject to current financial authority and scope. These records send
+nothing and do not establish provider acceptance, settlement or tax compliance;
+connected invoicing and payments remain DEMAND-007's separate obligations.
+
+Handoff USD amounts, recognized margin revenue and local invoices use the same
+movement allocations. State exposes `salesMoney` for CAD orders with customer
+and USD quoted, net shipped and invoiced totals. Native order amounts label
+both currencies; exports preserve the customer-currency declaration, recorded
+rate, source movements and local invoices. Restoring those records is inert.
