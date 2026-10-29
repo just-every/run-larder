@@ -4,6 +4,7 @@
 // outstanding quantity; a cancel worth at least the owner's spend threshold needs the GOV-002 signatures. An
 // expedite or deferral is a recorded request (nothing is sent and the supplier's delivery date changes only
 // through po.revise). Updating the PO line's promise and telling the supplier is MRP-005.
+import { quotePurchaseShares } from './quote-supply'
 import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
 import { gate } from './approval-policy'
 import { decimal, format, max, min, times } from './decimal'
@@ -45,10 +46,10 @@ export function supplyChanges(s: State) {
   for (const po of s.purchaseOrders.filter(p => openPurchase.includes(p.status))) for (const line of po.lines) {
     const outstanding = max(0n, decimal(line.quantity) - decimal(line.received)), date = purchaseDate(po, line)
     if (outstanding <= 0n || date < today) continue
-    const k = key(po.id, line.id), use = served.get(k) ?? [], used = use.reduce((n, x) => n + decimal(x.quantity), 0n), late = needing.get(k) ?? []
+    const k = key(po.id, line.id), use = served.get(k) ?? [], committed = quotePurchaseShares(s).filter((share: any) => share.documentId === po.id && share.purchaseLineId === line.id).reduce((n: bigint, share: any) => n + share.left, 0n), used = max(committed, use.reduce((n, x) => n + decimal(x.quantity), 0n)), late = needing.get(k) ?? []
     const base = { poId: po.id, lineId: line.id, reference: po.reference, itemId: line.itemId, currentDate: date }
-    if (completeWithinTolerance(line)) {
-      recommendations.push({ key: JSON.stringify(['cancel', po.id, line.id, format(outstanding)]), kind: 'cancel', ...base, requestedDate: null, quantity: format(outstanding),
+    if (completeWithinTolerance(line) && outstanding > committed) {
+      recommendations.push({ key: JSON.stringify(['cancel', po.id, line.id, format(outstanding - committed)]), kind: 'cancel', ...base, requestedDate: null, quantity: format(outstanding - committed),
         reason: `${format(decimal(line.received))} of ${format(decimal(line.quantity))} delivered, within the line's ${line.tolerancePercent}% tolerance; closing the remainder completes it.`, affected: use })
     } else if (late.length) {
       const requestedDate = late.map(r => r.requiredBy).sort()[0]! > today ? late.map(r => r.requiredBy).sort()[0]! : today

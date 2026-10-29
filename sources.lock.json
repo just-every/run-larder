@@ -1677,7 +1677,7 @@
       "executable": false
     },
     "src/larder/supply-changes.ts": {
-      "sha256": "b50c68dd4c56c35a2398a738a32cd3312dce023e7a6758686c05e3d17a196f01",
+      "sha256": "80595d2ee7db1f3f7c66d0acf66536f4456b9f57f586d80fed16699bb266e756",
       "executable": false
     },
     "src/larder/time-entries.ts": {
@@ -3781,7 +3781,7 @@
       "executable": false
     },
     "src/ui/orders.tsx": {
-      "sha256": "9e2920be88518d70d51a9a732f11ac23bef0193e94e3ebe3c2c27b5b71ea636a",
+      "sha256": "2c89fb7409af220eef9fcacca68e18ddc1442ea9c722a0e02867292a8a440ba4",
       "executable": false
     },
     "src/ui/people.tsx": {
@@ -4029,7 +4029,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "caab2a54287869980b1528fc990e7d908ba34e5553b2bd0cd0c47d224f38fdd9",
+      "sha256": "a063c41e4b221d9ab56aac985afbb8f7d2e7685f89d58c90fe647c0b95acfda0",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {

@@ -2199,6 +2199,26 @@ test('Costed quote dates compare scarce supply and qualified calendars, then acc
   for (const key of ['workOrders', 'purchaseOrders', 'reservations', 'movements', 'positions', 'scheduleBookings', 'machineCalendars', 'laborCalendars']) assert.deepEqual(restoredState[key], baseline[key], 'Inert restored comparison: ' + key)
   const restoredQuote = restoredState.salesOrders.find(row => row.id === quote.id)
   await restoredInstallation.command('so.confirm', { orderId: quote.id, version: restoredQuote.version }, { error: 'QUOTE_PREPARATION' })
+  // Restored preparations grant no authority. Rebind the actual local person,
+  // prepare again, and separately authorize the exact overtime comparison.
+  const restoredOwner = restoredState.people.find(person => person.role === 'owner')
+  await restoredInstallation.command('capacity.labor', { ...calendar, id: person.id, version: person.version, name: 'Qualified milling person', operatorIds: [restoredOwner.id], skills: ['milling'] })
+  const freshOvertimeQuote = await restoredInstallation.command('so.review', { ...inputs, version: restoredQuote.version })
+  const overtimeOption = freshOvertimeQuote.quoteReview.options.find(option => option.kind === 'overtime')
+  assert.ok(overtimeOption)
+  const overtimeDecision = { orderId: quote.id, version: freshOvertimeQuote.version, optionId: overtimeOption.id, optionDigest: overtimeOption.digest, reason: 'Owner approves the exact overtime and customer commitment', customerApproval: { name: 'Purchasing lead', reference: 'Overtime delivery agreement', approvedOn: '2026-11-23' } }
+  await restoredInstallation.command('so.reviewAccept', overtimeDecision, { error: 'OVERTIME_AUTHORITY' })
+  const withOvertime = await restoredInstallation.command('so.reviewAccept', { ...overtimeDecision, authorizeOvertime: true })
+  const overtimeState = await restoredInstallation.state()
+  assert.equal(withOvertime.promiseDate, '2026-11-24')
+  assert.deepEqual([withOvertime.customerTerms.estimate.totalCost, withOvertime.customerTerms.marginUsdAmount], ['280.00', '20.00'])
+  assert.deepEqual(overtimeState.scheduleBookings.find(booking => booking.id === withOvertime.quoteAcceptance.bookingId).operations, overtimeOption.operations)
+  for (const collection of ['machineCalendars', 'laborCalendars']) {
+    const windows = overtimeState[collection].flatMap(calendar => calendar.overtimeHistory ?? [])
+    assert.ok(windows.some(window => window.orderId === quote.id && window.by === restoredOwner.id && window.reason === overtimeDecision.reason))
+  }
+  assert.deepEqual(overtimeState.movements, restoredState.movements)
+
   const normal = compared.options.find(option => option.kind === 'full-batch'), split = compared.options.find(option => option.kind === 'partial'), extra = compared.options.find(option => option.kind === 'overtime')
   assert.ok(normal && split && extra)
   assert.deepEqual([normal.shipDate, split.deliveries.map(leg => [leg.quantity, leg.shipDate]), extra.shipDate], ['2026-11-25', [['2', '2026-11-24'], ['2', '2026-11-25']], '2026-11-24'])
@@ -2220,6 +2240,8 @@ test('Costed quote dates compare scarce supply and qualified calendars, then acc
     const current = await j.state()
     for (const key of ['workOrders', 'purchaseOrders', 'reservations', 'movements', 'positions', 'scheduleBookings', 'machineCalendars', 'laborCalendars']) assert.deepEqual(current[key], previous[key], key)
   }
+  await inert(baseline)
+  await j.command('so.reviewAccept', { orderId: quote.id, version: result.version, optionId: extra.id, optionDigest: extra.digest, reason: 'Customer consent alone is not overtime authority', customerApproval: { name: 'Purchasing lead', reference: 'Recorded comparison', approvedOn: '2026-11-23' } }, { error: 'OVERTIME_AUTHORITY' })
   await inert(baseline)
   await j.command('so.confirm', { orderId: quote.id, version: result.version }, { error: 'QUOTE_PREPARATION' })
   await j.command('so.review', { ...inputs, version: result.version, partialLines: [{ lineId: quote.lines[0].id, quantity: '5' }] }, { error: 'INPUT' })
@@ -2253,6 +2275,7 @@ test('Costed quote dates compare scarce supply and qualified calendars, then acc
   await j.command('capacity.labor', { ...extended, id: person.id, version: person.version + 1, name: 'Qualified milling person', operatorIds: [qualified.id], skills: ['milling'] })
   let nextSupply = await j.command('po.draft', { supplierId: vendor.id, expectedDate: '2026-11-27', reason: 'Two committed future blanks', lines: [{ itemId: material.id, quantity: '2', unitPrice: '10' }] })
   nextSupply = await j.command('po.approve', { poId: nextSupply.id, version: nextSupply.version })
+  await j.command('approval.policy', { category: 'margin', thresholdPercent: '20', signatures: 2, reason: 'Two signatures below twenty percent' })
   let acceptanceQuote = await salesperson.run('so.quote', { customerId: client.id, promiseDate: '2026-12-01', lines: [{ itemId: product.id, quantity: '6', unitPrice: '100' }] })
   const acceptanceInputs = { ...inputs, orderId: acceptanceQuote.id, version: acceptanceQuote.version, asOf: '2026-11-26T00:00:00.000Z', partialLines: [{ lineId: acceptanceQuote.lines[0].id, quantity: '4' }], remainderStart: '2026-11-28', overtime: [], lines: [{ lineId: acceptanceQuote.lines[0].id, unitPrice: '100' }] }
   acceptanceQuote = await j.command('so.review', acceptanceInputs)
@@ -2270,6 +2293,9 @@ test('Costed quote dates compare scarce supply and qualified calendars, then acc
   await j.command('so.reviewAccept', decision, { error: 'STALE' })
   await unchanged(refusedBaseline)
   assert.equal((await j.request('/auth/operator/status', { method: 'POST', body: { operatorId: qualified.id, status: 'active' } })).status, 200)
+  await j.command('so.reviewAccept', decision, { error: 'APPROVAL_REQUIRED' })
+  await unchanged(refusedBaseline)
+  decision.override = { accountableId: operator.id, reason: 'Owner accepts this exact lower-margin customer commitment' }
   const sent = await j.send('so.reviewAccept', decision)
   assert.equal(sent.res.status, 200, JSON.stringify(sent.body))
   const accepted = sent.body.result, committed = await j.state()
@@ -2277,6 +2303,8 @@ test('Costed quote dates compare scarce supply and qualified calendars, then acc
   assert.deepEqual(accepted.lines[0].schedules, [{ quantity: '4', date: '2026-11-26' }, { quantity: '2', date: '2026-11-28' }])
   const booked = committed.scheduleBookings.find(booking => booking.id === accepted.quoteAcceptance.bookingId)
   assert.deepEqual(booked.operations, selected.operations)
+  assert.equal(accepted.quoteAcceptance.override.accountableId, operator.id)
+  assert.equal(accepted.quoteAcceptance.signatureIds.length, 1)
   assert.deepEqual(committed.movements, refusedBaseline.movements)
   assert.equal(committed.workOrders.filter(work => work.quoteOrderId === accepted.id).length, 2)
   assert.equal(committed.reservations.filter(r => accepted.quoteAcceptance.workOrderIds.includes(r.demandId)).reduce((n, r) => n + Number(r.quantity), 0), 4)
@@ -2285,6 +2313,10 @@ test('Costed quote dates compare scarce supply and qualified calendars, then acc
   assert.deepEqual(await j.command('so.reviewAccept', decision, { commandId: sent.commandId }), accepted)
   await unchanged(committed)
   await j.command('so.reviewAccept', decision, { error: 'STALE' })
+  nextSupply = await j.command('po.revise', { poId: nextSupply.id, version: nextSupply.version, expectedDate: '2026-12-10', note: 'Supplier delay must not release the committed share as excess' })
+  const delayedRecommendations = await (await j.request('/api/larder/planning/supply-changes')).json()
+  assert.ok(!delayedRecommendations.recommendations.some(recommendation => recommendation.poId === nextSupply.id && recommendation.kind === 'cancel'))
+  nextSupply = await j.command('po.revise', { poId: nextSupply.id, version: nextSupply.version, expectedDate: '2026-11-27', note: 'Supplier restores its confirmed date' })
   let competitor = await j.command('wo.draft', { itemId: product.id, quantity: '1', requiredBy: '2026-12-01', reason: 'Cannot reuse accepted supply' })
   competitor = await j.command('wo.release', { workOrderId: competitor.id, version: competitor.version })
   const competition = (await j.state()).orderStatuses
@@ -2325,6 +2357,14 @@ test('Costed quote dates compare scarce supply and qualified calendars, then acc
   assert.deepEqual(roundTrip.audit, fullArchive.audit)
   assert.deepEqual(roundTrip.auditErasureRequests, fullArchive.auditErasureRequests)
   await restoredAccepted.command('so.reviewAccept', decision, { commandId: sent.commandId, error: 'IDEMPOTENCY' })
+  const beforeSignout = await j.state(), revokedCookie = j.owner()
+  assert.ok((await j.request('/auth/signout', { method: 'POST', body: {} })).status < 400)
+  await j.command('so.reviewAccept', decision, { commandId: sent.commandId, error: 'AUTH' })
+  await j.signInOwner()
+  const revokedReplay = await j.request('/api/larder/commands', { method: 'POST', as: revokedCookie, body: { commandId: sent.commandId, type: 'so.reviewAccept', payload: decision } })
+  assert.equal(revokedReplay.status, 401)
+  await unchanged(beforeSignout)
+
 })
 
 test('STOCK-001 transit receipt and ruled putaway conserve lots, refuse unsafe bins and replenish exactly within current site scope', async t => {
