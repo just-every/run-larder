@@ -818,6 +818,27 @@ Customer promise amendments and spending retain their separate sales and buyer
 authorities. JSON and CSV archives retain every option, selection and booking;
 restore executes nothing.
 
+Each retained option has a server-computed `classification`: the `compare`
+action is informational and carries `standard`. Its facts retain exact job,
+machine slot, qualified person identity and role, required skills, sequence,
+intervals, material-source locations, displacement and unchanged promises.
+`estimatedCostUsd` is a projected planning estimate; `purchasingSpendUsd` and
+`cashExposureUsd` are zero. No purchasing, customer amendment, execution
+assignment, physical stock or outbound authority follows from these facts.
+
+Classification binds `optionDigest` to the retained option and `inputDigest` to
+current planning inputs and people. Before a native person signs a selected
+option, the server recomputes and compares its facts. The signature terms bind
+that classification and exact option digest. Adoption retains the `adopt`
+classification as reversible internal sequencing on the plan and booking;
+rejection retains an informational `reject` classification. `personDecision`
+records the actual deciding person, role, command and time. Classification,
+digests, facts and person-decision fields supplied by a caller are refused,
+including nested fields. Current scope and cost redaction also apply to saved
+outcomes and replay. Archived classifications and attribution are history, never
+new authority. Company-policy execution, autonomous consequential execution and
+shared MCP conformance remain unqualified.
+
 
 ### Exact batch variance and pick waves
 
