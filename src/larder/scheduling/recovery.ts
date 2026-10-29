@@ -22,6 +22,7 @@ import { instant, integer } from './calendars'
 import { capacityPreview } from './reschedule'
 import { recoveryProjection, recoveryOptions, recoveryEffects, protectedConflicts, recoveryInputsChanged } from './recovery-options'
 
+const personDecision = (c:Context) => ({kind:'person',actorId:c.actor.id,role:c.actor.role,commandId:c.commandId,at:c.now})
 const policy = (s:State) => s.schedulePolicies[0]
 const currentWindow = (c:Context,p:any) => {
   const asOf=instant(p.asOf ?? c.now,'planning start'),days=integer(p.days ?? 14,'planning horizon',1,60)
@@ -130,7 +131,7 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
       return recoveryClassification(c,o,current,'reject')
     })
     const classification=option?classifications[0]:classifications.length?{action:'reject',classes:['standard'],effect:'informational',inputDigest:current,options:classifications}:undefined
-    return bump(plan,{status:'rejected',decidedBy:c.actor.id,decidedAt:c.now,note,...(classification?{decisionClassification:classification,personDecision:{actorId:c.actor.id,role:c.actor.role,commandId:c.commandId,at:c.now}}:{})})
+    return bump(plan,{status:'rejected',decidedBy:c.actor.id,decidedAt:c.now,note,...(classification?{decisionClassification:classification,personDecision:personDecision(c)}:{})})
   }
   const reviewed=option?{...plan,after:option.after,changes:option.changes,effects:option.effects,protectionConflicts:option.protectionConflicts}:plan
   const problem=adoptionProblem(c,reviewed)
@@ -145,7 +146,7 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
   const signed=gate(c,{category:'schedule',subjectKind:'schedulePlans',subject:plan,measure:()=>largestJobDelay(reviewed.effects),permitted:['manager','production','planner'],preparedBy:plan.preparedBy,...(option?{terms:{optionId:option.id,optionDigest:recoveryOptionDigest(option),classification}}:{}),p})
   if(signed&&'pending' in signed)return signed.pending
   signed?.consume(plan.id)
-  if(option)Object.assign(plan,{after:option.after,changes:option.changes,effects:option.effects,protectionConflicts:option.protectionConflicts,selectedOptionId:option.id,promiseEffects:option.promiseEffects,decisionClassification:classification,personDecision:{actorId:c.actor.id,role:c.actor.role,commandId:c.commandId,at:c.now}})
+  if(option)Object.assign(plan,{after:option.after,changes:option.changes,effects:option.effects,protectionConflicts:option.protectionConflicts,selectedOptionId:option.id,promiseEffects:option.promiseEffects,decisionClassification:classification,personDecision:personDecision(c)})
   // A schedule approval carries no authority to bypass each adopted piece's door.
   if(plan.extraWork?.length)allow(c,['manager','production','planner'])
   for(const change of plan.overtime??[])allow(c,change.kind==='labor'?['manager']:['manager','planner'])
