@@ -1,6 +1,6 @@
 // New shipment lines retain their issued unit price and movement identities.
 // Older records explicitly expose that their historical commercial terms are absent.
-import { decimal, format, min } from './decimal'
+import { decimal, format, min, times } from './decimal'
 import { fail } from './problem'
 import { type Movement, type Row, type State } from './model'
 
@@ -9,9 +9,23 @@ export function shipmentPrice(s: State, movement: Movement) {
   const exact = shipment?.lines.find((line: any) => line.movementIds?.includes(movement.id))
   const legacy = shipment?.lines.filter((line: any) => !line.movementIds && line.itemId === movement.itemId && line.locationId === movement.locationId) ?? []
   const line = exact ?? (legacy.length === 1 ? legacy[0] : undefined)
-  if (line?.unitPrice !== undefined) return { unitPrice: line.unitPrice as string, priceBasis: 'issued shipment price' }
+  if (line?.unitPrice !== undefined) return { unitPrice: line.unitPrice as string, priceBasis: 'issued shipment price',
+    amount: line.deliveryMovements?.find((entry: any) => entry.movementId === movement.id)?.usdAmount as string | undefined }
   return fail('HISTORICAL_TERMS', 'The original issued shipment price is missing or cannot be identified. Reconcile the original source document and its historical price before preparing invoice values, returns or corrections.', { shipmentId: shipment?.id, reference: shipment?.reference, movementId: movement.id })
 
+}
+
+// Allocate an exact cent extension by cumulative quantity. Rounding the
+// difference of cumulative values keeps split shipments and lots reconciled.
+export function allocatedUsd(amount: string, quantity: string, before: bigint, take: bigint) {
+  const total = decimal(amount), whole = decimal(quantity, 'valued quantity', { positive: true })
+  const through = (q: bigint) => ((total * q + whole * 5000n) / (whole * 10000n)) * 10000n
+  return through(before + take) - through(before)
+}
+
+export function shipmentRevenue(s: State, movement: Movement) {
+  const terms = shipmentPrice(s, movement)
+  return terms.amount === undefined ? times(-movement.quantity, decimal(terms.unitPrice)) : decimal(terms.amount)
 }
 
 // The unreversed shipment movements of one order line.
@@ -32,7 +46,11 @@ export function returnSources(s: State, order: Row, line: any, quantity: bigint,
     let available = -movement.quantity - already
     const legacy = min(legacyReturned, available); legacyReturned -= legacy; available -= legacy
     const take = min(left, available)
-    if (take > 0n) allocated.push({ shipmentMovementId: movement.id, quantity: format(take), unitCost: format(movement.unitCost), ...shipmentPrice(s, movement) })
+    if (take > 0n) {
+      const terms = shipmentPrice(s, movement)
+      allocated.push({ shipmentMovementId: movement.id, quantity: format(take), unitCost: format(movement.unitCost), ...terms,
+        ...(terms.amount === undefined ? {} : { amount: format(allocatedUsd(terms.amount, format(-movement.quantity), already + legacy, take)) }) })
+    }
     left -= take
   }
   if (left) fail('RETURN_SOURCE', 'Recorded shipment sources do not cover this return. Resolve earlier shipment corrections first.')

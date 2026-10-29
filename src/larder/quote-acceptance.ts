@@ -1,14 +1,14 @@
 // Exact native owner decisions. Commercial acceptance never claims a supplier
 // receipt, physical execution, provider confirmation or statutory tax posting.
 import { canonicalJson, sha256 } from '../modules/import-kit/src/d1/index'
-import { decimal, divide, format, min } from './decimal'
+import { decimal, divide, format, max, min } from './decimal'
 import { fail, forbidden } from './problem'
 import { bump, fresh, get, nextReference, row, text, type Context, type Row } from './model'
 import { gate } from './approval-policy'
 import { production } from './production'
 import { customerAttestation } from './order-changes'
 import { recoveryProjection } from './scheduling/recovery-options'
-import { release, reserve } from './stock'
+import { release, reserve, reservedQuantity } from './stock'
 
 export function quoteAcceptance(c: Context, type: string, p: any): Row | undefined {
   if (!['so.reviewAccept', 'so.invoice'].includes(type)) return
@@ -107,8 +107,12 @@ export function receiveQuoteSupply(c: Context, receipt: Row) {
       for (const supply of work.quoteSupply) if (supply.documentId === receipt.poId && supply.itemId === line.itemId && supply.purchaseLineId === line.lineId) {
         const take = min(left, decimal(supply.quantity) - decimal(supply.received))
         if (take <= 0n) continue
-        const got = reserve(c, { demandKind: 'work', demandId: work.id, lineId: supply.lineId, itemId: line.itemId }, take, line.locationId)
-        supply.received = format(decimal(supply.received) + got); left -= got; changed ||= got > 0n
+        const component = work.components.find((part: any) => part.id === supply.lineId)
+        const needed = max(0n, decimal(component.required) - decimal(component.issued) - reservedQuantity(c.s, work.id, component.id))
+        reserve(c, { demandKind: 'work', demandId: work.id, lineId: supply.lineId, itemId: line.itemId }, min(take, needed), line.locationId)
+        // Receipt fulfils the purchase share even when replacement stock was
+        // already reserved or issued through the ordinary work doors.
+        supply.received = format(decimal(supply.received) + take); left -= take; changed = true
       }
       if (changed) bump(work, {})
     }

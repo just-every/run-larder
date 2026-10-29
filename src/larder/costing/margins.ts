@@ -1,5 +1,5 @@
 import { cents, decimal, divide, format, max, times } from '../decimal'
-import { shipmentPrice } from '../sales-terms'
+import { allocatedUsd, shipmentPrice, shipmentRevenue } from '../sales-terms'
 import { valuedRate, valuedAmount } from './valuation'
 import { jobCosts } from './jobs'
 import type { Row, State } from '../model'
@@ -40,7 +40,7 @@ export function marginReport(s: State, q = new URLSearchParams()) {
               quantity: format(-m.quantity),
               unitPrice: shipmentPrice(s, m).unitPrice,
               unitCost: format(valuedRate(s, m)),
-              revenue: format(times(-m.quantity, d(shipmentPrice(s, m).unitPrice))),
+              revenue: format(shipmentRevenue(s, m)),
               cost: format(-valuedAmount(s, m)),
             }
             const reversals = s.movements
@@ -50,7 +50,7 @@ export function marginReport(s: State, q = new URLSearchParams()) {
                 movementId: x.id,
                 kind: 'shipment reversal',
                 quantity: format(-x.quantity),
-                revenue: format(times(-x.quantity, d(original.unitPrice))),
+                revenue: format(-d(original.revenue)),
                 cost: format(-valuedAmount(s, x)),
               }))
             const returns = s.returns
@@ -69,7 +69,7 @@ export function marginReport(s: State, q = new URLSearchParams()) {
                       quantity: format(-returned.quantity),
                       unitPrice: x.unitPrice,
                       unitCost: format(valuedRate(s, m)),
-                      revenue: format(-times(returned.quantity, d(x.unitPrice))),
+                      revenue: format(x.amount === undefined ? -times(returned.quantity, d(x.unitPrice)) : -d(x.amount)),
                       cost: format(-valuedAmount(s, returned)),
                     }
                     return [
@@ -81,7 +81,7 @@ export function marginReport(s: State, q = new URLSearchParams()) {
                           movementId: v.id,
                           kind: 'return reversal',
                           quantity: format(-v.quantity),
-                          revenue: format(-times(v.quantity, d(x.unitPrice))),
+                          revenue: format(x.amount === undefined ? -times(v.quantity, d(x.unitPrice)) : d(x.amount)),
                           cost: format(-valuedAmount(s, v)),
                         })),
                     ]
@@ -98,7 +98,7 @@ export function marginReport(s: State, q = new URLSearchParams()) {
           net: bigint = sources.reduce((n, x) => n + d(x.quantity), 0n)
         let recognizedRevenue = revenue,
           recognizedCost = actual,
-          estimatedRevenue = times(quantity, d(l.unitPrice)),
+          estimatedRevenue = l.acceptedUsdAmount === undefined ? times(quantity, d(l.unitPrice)) : allocatedUsd(l.acceptedUsdAmount, l.quantity, 0n, quantity),
           estimatedCost = quoted,
           expectedRevenue = estimatedRevenue
         const charges = s.marginCharges

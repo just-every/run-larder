@@ -1,3 +1,4 @@
+import { allocatedUsd } from './sales-terms'
 import { averageCost } from './stock'
 // Quotes, confirmed orders, atomic reservation, pick/pack/ship and cancellation.
 import { assertLotNotHeld } from './quality'
@@ -107,15 +108,16 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
         if (pickedQuantity(c.s, order.id, line.id, location.id) + selected + q > reservedHere) fail('NOT_RESERVED', `Only ${format(reservedHere - pickedQuantity(c.s, order.id, line.id, location.id))} ${item.baseUnit} of ${item.name} is reserved at ${location.name} and not yet picked.`)
         selecting.set(selectionKey, selected + q)
         const promisedSchedules = commercialSnapshot(order).lines.find((snapshot: any) => snapshot.id === line.id)?.schedules
+        const usdValueBasis = line.acceptedUsdAmount === undefined ? undefined : { amount: line.acceptedUsdAmount, quantity: line.quantity }
         // TRACE-002: a serial item is picked by naming each serial, once across open picks.
         if (isSerial(item)) return stockSerials(c.s, item, l.serials, q, location.id).map(lot => {
           const held = c.s.shipments.find(x => ['picked', 'packed'].includes(x.status) && x.lines.some((pl: any) => pl.lotId === lot.id))
           if (held || picking.has(lot.id)) fail('SERIAL_PICKED', `Serial ${lot.code} is already picked${held ? ` on ${held.reference}` : ''}.`, { serial: lot.code })
           picking.add(lot.id); assertLotNotHeld(c.s, lot.id, 'picked'); pickLots(c, order, item.id, location.id, SCALE, lot.id)
-          return { lineId: line.id, itemId: item.id, unitPrice: line.unitPrice, promisedSchedules, locationId: location.id, lotId: lot.id, serial: lot.code, quantity: format(SCALE) }
+          return { lineId: line.id, itemId: item.id, unitPrice: line.unitPrice, usdValueBasis, promisedSchedules, locationId: location.id, lotId: lot.id, serial: lot.code, quantity: format(SCALE) }
         })
         if (l.lotId) assertLotNotHeld(c.s, get(c.s, 'lots', l.lotId, 'lot').id, 'picked')
-        return pickLots(c, order, item.id, location.id, q, l.lotId ? get(c.s, 'lots', l.lotId, 'lot').id : '').map(x => ({ lineId: line.id, itemId: item.id, unitPrice: line.unitPrice, promisedSchedules, locationId: location.id, lotId: x.lotId, quantity: format(x.quantity) }))
+        return pickLots(c, order, item.id, location.id, q, l.lotId ? get(c.s, 'lots', l.lotId, 'lot').id : '').map(x => ({ lineId: line.id, itemId: item.id, unitPrice: line.unitPrice, usdValueBasis, promisedSchedules, locationId: location.id, lotId: x.lotId, quantity: format(x.quantity) }))
       })
       return row(c, 'shipments', { reference: nextReference(c.s.shipments, 'SH'), orderId: order.id, lines, commercialTerms: { billingAddress: order.billingAddress ?? '', shippingAddress: order.shippingAddress ?? '', customerReference: order.customerReference, promiseDate: order.promiseDate, commercialRevision: order.commercialRevision ?? 1, orderVersion: order.version, recordedAt: c.now }, status: 'picked', packages: 0, weightKg: '0', carrier: '', tracking: '' })
     }
@@ -146,7 +148,12 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
         const movements = withdraw(c, { itemId: l.itemId, locationId: l.locationId, status: 'available', lotId: l.lotId, quantity: -q, kind: 'shipment', documentKind: 'shipments', documentId: shipment.id, reason: `Shipped on ${order.reference}` })
         l.certificates = movements.map(m => ({ movementId: m.id, itemId: m.itemId, lotId: m.lotId, lot: c.s.lots.find(lot => lot.id === m.lotId)?.code ?? '', sku: get(c.s, 'items', m.itemId).sku, quantity: format(-m.quantity), documents: structuredClone(approvedCertificates(c.s, m.itemId, m.lotId, c.now.slice(0, 10), order.customerId)), ...(lotDeviations(c.s, m.lotId).length ? { deviations: lotDeviations(c.s, m.lotId) } : {}) }))
         l.movementIds = movements.map(movement => movement.id)
-        l.deliveryMovements = movements.map(movement => ({ movementId: movement.id, schedules: removeDeliveries(order, line, -movement.quantity) }))
+        let valuedQuantity = decimal(line.shipped)
+        l.deliveryMovements = movements.map(movement => {
+          const usdAmount = l.usdValueBasis ? format(allocatedUsd(l.usdValueBasis.amount, l.usdValueBasis.quantity, valuedQuantity, -movement.quantity)) : undefined
+          valuedQuantity -= movement.quantity
+          return { movementId: movement.id, schedules: removeDeliveries(order, line, -movement.quantity), ...(usdAmount === undefined ? {} : { usdAmount }) }
+        })
         l.deliveries = l.deliveryMovements.flatMap((delivery: any) => delivery.schedules)
         line.shipped = format(decimal(line.shipped) + q)
       }

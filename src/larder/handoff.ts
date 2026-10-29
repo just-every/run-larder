@@ -3,7 +3,7 @@
 // Larder never posts journals; the accountant's ledger stays the authority.
 import { cents, decimal, format, times } from './decimal'
 import { fail } from './problem'
-import { shipmentPrice } from './sales-terms'
+import { shipmentPrice, shipmentRevenue } from './sales-terms'
 import { allow } from './roles'
 import { bump, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Movement, type Row, type State } from './model'
 
@@ -15,7 +15,7 @@ const handedOff = (s: State) => new Map(s.handoffs.flatMap(h => h.lines.flatMap(
 function invoiced(s: State, shipment: Movement, m: Movement) {
   const sh = s.shipments.find(x => x.id === shipment.documentId), o = s.salesOrders.find(x => x.id === sh?.orderId)
   const terms = shipmentPrice(s, shipment), price = decimal(terms.unitPrice)
-  return { party: s.parties.find(p => p.id === o?.customerId)?.name ?? '', document: `${sh?.reference} / ${o?.reference}`, partyReference: sh?.commercialTerms?.customerReference ?? o?.customerReference ?? '', unitAmount: format(price), amount: times(-m.quantity, price), cost: format(times(m.quantity, m.unitCost)), priceBasis: terms.priceBasis }
+  return { party: s.parties.find(p => p.id === o?.customerId)?.name ?? '', document: `${sh?.reference} / ${o?.reference}`, partyReference: sh?.commercialTerms?.customerReference ?? o?.customerReference ?? '', unitAmount: format(price), amount: shipmentRevenue(s, shipment) * (m.quantity < 0n ? 1n : -1n), cost: format(times(m.quantity, m.unitCost)), priceBasis: terms.priceBasis }
 
 }
 
@@ -33,7 +33,7 @@ function describe(s: State, m: Movement) {
   if (m.documentKind === 'openings') return { ...base, type: 'Opening stock', document: s.openings.find(x => x.id === m.documentId)?.reference ?? '' }
   if (m.documentKind === 'returns') {
     const record = s.returns.find(record => record.id === m.documentId), source = record?.sources?.find((source: any) => source.returnMovementId === m.id)
-    return source ? { ...base, type: 'Customer return', document: record?.reference ?? '', unitAmount: source.unitPrice, amount: -times(m.quantity, decimal(source.unitPrice)), priceBasis: source.priceBasis }
+    return source ? { ...base, type: 'Customer return', document: record?.reference ?? '', unitAmount: source.unitPrice, amount: source.amount === undefined ? -times(m.quantity, decimal(source.unitPrice)) : -decimal(source.amount), priceBasis: source.priceBasis }
       : { ...base, type: 'Customer return', document: record?.reference ?? '', priceBasis: 'legacy return has no recorded issued price; stock cost only' }
   }
   if (m.documentKind === 'reversals') {
@@ -42,7 +42,7 @@ function describe(s: State, m: Movement) {
     if (original?.documentKind === 'shipments') return { ...base, ...invoiced(s, original, m), type: 'Correction (reversal)', document }
     if (original?.documentKind === 'returns') {
       const record = s.returns.find(record => record.id === original.documentId), source = record?.sources?.find((source: any) => source.returnMovementId === original.id)
-      if (source) return { ...base, type: 'Correction (reversal)', document, unitAmount: source.unitPrice, amount: -times(m.quantity, decimal(source.unitPrice)), priceBasis: source.priceBasis }
+      if (source) return { ...base, type: 'Correction (reversal)', document, unitAmount: source.unitPrice, amount: source.amount === undefined ? -times(m.quantity, decimal(source.unitPrice)) : decimal(source.amount), priceBasis: source.priceBasis }
     }
     return { ...base, type: 'Correction (reversal)', document }
   }
