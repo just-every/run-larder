@@ -158,6 +158,32 @@ The agent prepares; nothing changes until a person approves the exact version.
 | `reschedule` | `{changes: [{workOrderId, priority, plannedStart}], conflicts?}` | production, planner, manager | updates priorities and planned starts; a changed work order makes it stale. |
 | `reconciliation` | `{handoffId, entries: [{lineId, ledgerId, amount}]}` | accounts, manager | records the acknowledgements. |
 
+Each proposal includes server-computed `classification`: `preparationClasses`
+is `["standard"]`; `classes` describes the proposed approved action.
+`facts` names its exact consequence, normalized quantities and USD exposure.
+Intake creates only a quote draft. Replenishment creates approved purchase orders
+and carries `money` and `commitment`, with no payment, supplier delivery or
+provider acceptance claim. Compensating item merges, internal work rescheduling
+and local handoff acknowledgments are `standard`; they do not assert destruction,
+customer promises, outside delivery or ledger posting.
+
+`inputs`, `inputsDigest` and `proposalVersion` retain the reviewed plan,
+evidence, source versions and computed business facts. The final native person
+decision recomputes them before applying any effect. Changed facts, even when
+the nominal classes stay the same, require a fresh proposal. Old unclassified
+proposals also require fresh preparation. Submitted classification, decision or
+actor fields are refused; these values cannot grant authority.
+
+The returned proposal and linked approval retain `decision` and
+`recordedDecision` respectively: the actual person's ID, current role, command,
+time, reviewed version, input digest and classification. A rejection records
+`standard` and no business action while retaining the proposed action classes.
+Current location and cost restrictions also cover these snapshots and replayed
+outcomes. Business backups preserve the original attribution and classifications
+without executing proposals or restoring old sessions. Native independent-person
+approval remains required; configurable agent execution under company policy,
+all-autonomous consequential execution and shared MCP conformance remain open.
+
 ## BOM CSV revisions (ENG-004)
 
 Download `/api/larder/boms.csv`, edit component SKUs, quantities, units, routing or effectivity, then send the file to `bom.bulkPreview`. CSV columns are `item_sku,revision,effective_on,component_sku,quantity,unit,routing,note`, one row per component. Keep the source revision; all rows for a made item carry the same effective date, note and routing JSON (ordered `{name,workCentre,minutes}` steps). The export includes the current effective revision of every active made SKU. `effective_on` is the proposed new revision's UTC date, today or later; exports default it to today. Quantity conversions must be exact. Free-text notes use reversible apostrophe escaping for spreadsheet formulas.
