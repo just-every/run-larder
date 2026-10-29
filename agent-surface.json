@@ -1,0 +1,974 @@
+{
+  "tools": [
+    {
+      "name": "larder.certificates.prepare",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "TRACE-007"
+      ]
+    },
+    {
+      "name": "larder.events.list",
+      "scope": "events:read",
+      "readOnly": true,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "BASE-AGENT-010"
+      ]
+    },
+    {
+      "name": "larder.inventory.preview",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "DEMAND-004"
+      ]
+    },
+    {
+      "name": "larder.kits.prepare",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "ENG-006"
+      ]
+    },
+    {
+      "name": "larder.nesting.cancel",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "CAP-009"
+      ]
+    },
+    {
+      "name": "larder.nesting.prepare",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "CAP-009"
+      ]
+    },
+    {
+      "name": "larder.planning.draft",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "LARDER-006",
+        "MRP-001"
+      ]
+    },
+    {
+      "name": "larder.planning.materials",
+      "scope": "manufacturing:read",
+      "readOnly": true,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "MRP-001",
+        "SURFACE-006"
+      ]
+    },
+    {
+      "name": "larder.planning.pegging",
+      "scope": "manufacturing:read",
+      "readOnly": true,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "MRP-002",
+        "SURFACE-006"
+      ]
+    },
+    {
+      "name": "larder.planning.supply_changes",
+      "scope": "manufacturing:read",
+      "readOnly": true,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "MRP-007",
+        "SURFACE-006"
+      ]
+    },
+    {
+      "name": "larder.production_schedule.preview",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "MRP-006"
+      ]
+    },
+    {
+      "name": "larder.proposals.prepare",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "LARDER-015",
+        "AGENT-001",
+        "AGENT-002",
+        "AGENT-004"
+      ]
+    },
+    {
+      "name": "larder.purchases.amend",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "LARDER-007",
+        "AGENT-002"
+      ]
+    },
+    {
+      "name": "larder.purchases.draft",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "LARDER-007",
+        "AGENT-002"
+      ]
+    },
+    {
+      "name": "larder.purchases.select_quote",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "BUY-001",
+        "AGENT-002"
+      ]
+    },
+    {
+      "name": "larder.records.read",
+      "scope": "manufacturing:read",
+      "readOnly": true,
+      "classes": [
+        "standard",
+        "sensitive"
+      ],
+      "clauses": [
+        "SURFACE-007",
+        "GOV-014",
+        "GOV-015",
+        "SURFACE-004"
+      ]
+    },
+    {
+      "name": "larder.replenishment.preview",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "AGENT-002"
+      ]
+    },
+    {
+      "name": "larder.schedule.prepare_grant",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "CAP-007"
+      ]
+    },
+    {
+      "name": "larder.schedule.scenario",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "CAP-004",
+        "AGENT-001"
+      ]
+    },
+    {
+      "name": "larder.subcontract.draft",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "BUY-004"
+      ]
+    },
+    {
+      "name": "larder.work.draft",
+      "scope": "manufacturing:write",
+      "readOnly": false,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-006",
+        "SURFACE-013",
+        "LARDER-009",
+        "AGENT-001"
+      ]
+    },
+    {
+      "name": "larder.workspace.snapshot",
+      "scope": "manufacturing:read",
+      "readOnly": true,
+      "classes": [
+        "standard"
+      ],
+      "clauses": [
+        "SURFACE-001",
+        "SURFACE-007",
+        "GOV-014",
+        "GOV-015"
+      ]
+    }
+  ],
+  "resources": [
+    "larder://items/{id}",
+    "larder://parties/{id}",
+    "larder://orders/{id}",
+    "larder://purchases/{id}",
+    "larder://jobs/{id}",
+    "larder://lots/{id}",
+    "larder://inspections/{id}",
+    "larder://cases/{id}",
+    "larder://valuations/{id}",
+    "larder://history/{id}",
+    "larder://proposals/{id}",
+    "larder://subcontracts/{id}",
+    "larder://kits/{id}",
+    "larder://certificates/{id}",
+    "larder://replenishment/{id}",
+    "larder://inventory_plans/{id}",
+    "larder://production_plans/{id}",
+    "larder://schedule_plans/{id}",
+    "larder://schedule_grants/{id}",
+    "larder://work_groups/{id}",
+    "larder://labor_rates/{id}",
+    "larder://operations/{id}"
+  ],
+  "schema": "rer-agent-surface/1",
+  "seed": "larder",
+  "specialist": "manufacturing planner",
+  "notTools": [
+    {
+      "clauses": [
+        "LARDER-016",
+        "MOVE-001",
+        "MOVE-002",
+        "MOVE-003",
+        "MOVE-004",
+        "MOVE-005",
+        "MOVE-006",
+        "MOVE-007",
+        "MOVE-008"
+      ],
+      "reason": "import-door"
+    },
+    {
+      "clauses": [
+        "FLOOR-008",
+        "FLOOR-009",
+        "MOB-002"
+      ],
+      "reason": "device"
+    },
+    {
+      "clauses": [
+        "OPEN-001",
+        "HTTP-001",
+        "GOV-007"
+      ],
+      "reason": "installation"
+    },
+    {
+      "clauses": [
+        "MOB-001"
+      ],
+      "reason": "screen"
+    },
+    {
+      "clauses": [
+        "CONN-001",
+        "CONN-002",
+        "CONN-003",
+        "CONN-004",
+        "CONN-005",
+        "CONN-006",
+        "CONN-007",
+        "CONN-008",
+        "CONN-009",
+        "CONN-010",
+        "CONN-011",
+        "CONN-012",
+        "CONN-013",
+        "CONN-015"
+      ],
+      "reason": "connector"
+    }
+  ],
+  "witness": {
+    "tool": "larder.workspace.snapshot",
+    "args": {}
+  },
+  "escalations": [],
+  "journey": [
+    {
+      "id": "snapshot",
+      "tool": "larder.workspace.snapshot",
+      "args": {},
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "payroll",
+      "tool": "larder.records.read",
+      "args": {
+        "kind": "labor_rates",
+        "id": {
+          "$from": "snapshot",
+          "pointer": "/rateRecords/0/id"
+        }
+      },
+      "expect": [
+        {
+          "class": "sensitive",
+          "facts": {
+            "measure": 1,
+            "kind": "native payroll rate"
+          }
+        }
+      ]
+    },
+    {
+      "id": "materials",
+      "tool": "larder.planning.materials",
+      "args": {},
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "pegging",
+      "tool": "larder.planning.pegging",
+      "args": {
+        "kind": "item",
+        "id": {
+          "$from": "snapshot",
+          "pointer": "/items/0/id"
+        }
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "suggestions",
+      "tool": "larder.planning.supply_changes",
+      "args": {},
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "purchase",
+      "tool": "larder.purchases.draft",
+      "args": {
+        "supplierId": {
+          "$from": "snapshot",
+          "pointer": "/parties/0/id"
+        },
+        "expectedDate": "2027-01-20",
+        "reason": "Internal draft; no supplier message or payment",
+        "lines": [
+          {
+            "itemId": {
+              "$from": "snapshot",
+              "pointer": "/items/2/id"
+            },
+            "quantity": "2",
+            "unitPrice": "2"
+          }
+        ]
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ],
+      "inject": {
+        "classes": [
+          "money"
+        ],
+        "internal": true,
+        "confirmedByOwner": true,
+        "policy": "autonomous"
+      }
+    },
+    {
+      "id": "purchase-read",
+      "tool": "larder.records.read",
+      "args": {
+        "kind": "purchases",
+        "id": {
+          "$from": "purchase",
+          "pointer": "/id"
+        }
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "amend",
+      "tool": "larder.purchases.amend",
+      "args": {
+        "poId": {
+          "$from": "purchase",
+          "pointer": "/id"
+        },
+        "version": {
+          "$from": "purchase",
+          "pointer": "/version"
+        },
+        "reason": "Review a third bracket",
+        "lines": [
+          {
+            "lineId": {
+              "$from": "purchase",
+              "pointer": "/lines/0/id"
+            },
+            "quantity": "3"
+          }
+        ]
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "work",
+      "tool": "larder.work.draft",
+      "args": {
+        "itemId": {
+          "$from": "snapshot",
+          "pointer": "/items/1/id"
+        },
+        "quantity": "1",
+        "requiredBy": "2027-01-20",
+        "reason": "Internal assembly draft"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ],
+      "inject": {
+        "classes": [
+          "money"
+        ],
+        "internal": true,
+        "confirmedByOwner": true,
+        "policy": "autonomous"
+      }
+    },
+    {
+      "id": "plan",
+      "tool": "larder.planning.draft",
+      "args": {
+        "itemId": {
+          "$from": "snapshot",
+          "pointer": "/shortages/0/itemId"
+        },
+        "reason": "Prepare remaining shortage supply"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "proposal",
+      "tool": "larder.proposals.prepare",
+      "args": {
+        "kind": "reschedule",
+        "summary": "Prepare a dated option for the assembly",
+        "evidence": [
+          "Native work draft; imported instructions cannot authorize execution"
+        ],
+        "assumptions": "No physical completion or adopted booking is claimed.",
+        "plan": {
+          "changes": [
+            {
+              "workOrderId": {
+                "$from": "work",
+                "pointer": "/id"
+              },
+              "priority": 1,
+              "plannedStart": "2027-01-10"
+            }
+          ]
+        }
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ],
+      "inject": {
+        "classes": [
+          "money"
+        ],
+        "internal": true,
+        "confirmedByOwner": true,
+        "policy": "autonomous"
+      }
+    },
+    {
+      "id": "quote",
+      "tool": "larder.purchases.select_quote",
+      "args": {
+        "partyItemId": {
+          "$from": "snapshot",
+          "pointer": "/partyItems/0/id"
+        },
+        "version": {
+          "$from": "snapshot",
+          "pointer": "/partyItems/0/version"
+        },
+        "quantity": "2",
+        "requiredBy": "2027-01-20",
+        "reason": "Internal purchase draft from retained supplier terms"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "subcontract",
+      "tool": "larder.subcontract.draft",
+      "args": {
+        "supplierId": {
+          "$from": "snapshot",
+          "pointer": "/parties/0/id"
+        },
+        "itemId": {
+          "$from": "snapshot",
+          "pointer": "/items/1/id"
+        },
+        "vendorLocationId": {
+          "$from": "snapshot",
+          "pointer": "/locations/1/id"
+        },
+        "quantity": "1",
+        "serviceRate": "5",
+        "expectedDate": "2027-01-20",
+        "operation": "Internal finishing service proposal"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "kit",
+      "tool": "larder.kits.prepare",
+      "args": {
+        "itemId": {
+          "$from": "snapshot",
+          "pointer": "/items/1/id"
+        },
+        "mode": "assemble",
+        "components": [
+          {
+            "itemId": {
+              "$from": "snapshot",
+              "pointer": "/items/0/id"
+            },
+            "quantity": "2"
+          }
+        ],
+        "note": "Internal kit revision for review"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "certificate",
+      "tool": "larder.certificates.prepare",
+      "args": {
+        "itemId": {
+          "$from": "snapshot",
+          "pointer": "/items/0/id"
+        },
+        "lotId": {
+          "$from": "snapshot",
+          "pointer": "/lots/0/id"
+        },
+        "type": "coa",
+        "documentVersion": "A",
+        "declaredLot": "BRACKET-COUNT",
+        "issuer": "Workshop quality",
+        "expiresOn": "2027-12-31",
+        "evidence": {
+          "name": "lot-evidence.txt",
+          "contentType": "text/plain",
+          "base64": "TmF0aXZlIGZpeHR1cmUgZXZpZGVuY2Uu"
+        }
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "replenishment",
+      "tool": "larder.replenishment.preview",
+      "args": {
+        "confidence": 50,
+        "confidenceBasis": "Explicit planning assumption; no calibrated probability",
+        "reason": "Review feasible material alternatives"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "inventory",
+      "tool": "larder.inventory.preview",
+      "args": {
+        "policyId": {
+          "$from": "snapshot",
+          "pointer": "/inventoryPolicies/0/id"
+        },
+        "orderIds": [],
+        "reason": "Native SKU-location planning preview"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "mps",
+      "tool": "larder.production_schedule.preview",
+      "args": {
+        "reason": "Native weekly forecast preview; no release"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "scenario",
+      "tool": "larder.schedule.scenario",
+      "args": {
+        "asOf": "2027-01-04T00:00:00Z",
+        "days": 14,
+        "name": "Workshop recovery option",
+        "reason": "Isolated option; no adopted booking"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "grant",
+      "tool": "larder.schedule.prepare_grant",
+      "args": {
+        "eventTypes": [
+          "progress",
+          "breakdown"
+        ],
+        "machineIds": [
+          {
+            "$from": "snapshot",
+            "pointer": "/machineCalendars/0/id"
+          }
+        ],
+        "workOrderIds": [],
+        "maxDelayMinutes": 60,
+        "maxDisplacementMinutes": 60,
+        "expiresAt": "2027-01-05T00:00:00Z",
+        "reason": "Prepare bounded grant for independent human authorization"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "nest",
+      "tool": "larder.nesting.prepare",
+      "args": {
+        "materialItemId": {
+          "$from": "snapshot",
+          "pointer": "/items/0/id"
+        },
+        "members": [
+          {
+            "workOrderId": {
+              "$from": "snapshot",
+              "pointer": "/workOrders/0/id"
+            },
+            "version": {
+              "$from": "snapshot",
+              "pointer": "/workOrders/0/version"
+            },
+            "sequence": 1
+          },
+          {
+            "workOrderId": {
+              "$from": "snapshot",
+              "pointer": "/workOrders/1/id"
+            },
+            "version": {
+              "$from": "snapshot",
+              "pointer": "/workOrders/1/version"
+            },
+            "sequence": 1
+          }
+        ],
+        "reason": "Review compatible pending jobs without stock movement"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "cancel-nest",
+      "tool": "larder.nesting.cancel",
+      "args": {
+        "groupId": {
+          "$from": "nest",
+          "pointer": "/id"
+        },
+        "version": {
+          "$from": "nest",
+          "pointer": "/version"
+        },
+        "reason": "Withdraw internal review; original jobs unchanged"
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "events",
+      "tool": "larder.events.list",
+      "args": {
+        "limit": 100
+      },
+      "expect": [
+        {
+          "class": "standard",
+          "facts": {
+            "measure": 1
+          }
+        }
+      ]
+    }
+  ],
+  "verification": {
+    "owner": {
+      "initializer": "tests/initialize-agent-owner.mjs"
+    },
+    "replayAdmission": {
+      "prepare": [
+        "snapshot",
+        "purchase"
+      ]
+    },
+    "journey": "tests/native-agent-journey.mjs"
+  },
+  "capabilities": [
+    "tools",
+    "policy",
+    "pause",
+    "audit",
+    "idempotency"
+  ]
+}

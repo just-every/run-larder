@@ -27,6 +27,6 @@ export function Activity({ larder }: { larder: Larder }) {
   return <>
     {['owner', 'manager'].includes(s.actor.role) && <AuditTrail />}
     <Card title="Recorded actions">{list.length === 0 ? <Empty>No actions recorded yet.</Empty> :
-      <Table head={['When', 'Who', 'What']}>{list.map(c => <tr key={c.id}><td>{when(c.createdAt)}</td><td>{personName(s, c.actorId)}</td><td>{actions[c.type] ?? words(String(c.type).replace('.', ' '))}</td></tr>)}</Table>}</Card>
+      <Table head={['When', 'Who', 'What']}>{list.map(c => <tr key={c.id}><td>{when(c.createdAt)}</td><td>{c.attribution || personName(s, c.actorId)}</td><td>{actions[c.type] ?? words(String(c.type).replace('.', ' '))}</td></tr>)}</Table>}</Card>
   </>
 }

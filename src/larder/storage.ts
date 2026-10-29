@@ -12,10 +12,34 @@ export const roleSql = `CASE WHEN EXISTS(SELECT 1 FROM larder_records WHERE kind
 
 // True only while this exact session is live, its operator active and unchanged,
 // and the operator still holds the role, scope and custom role the command was checked against (GOV-001).
-export const authority = (a: Actor) => ({
+export const authority = (a: Actor) => a.agentDoor ? doorAuthority(a) : ({
   sql: `EXISTS(SELECT 1 FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.id=? AND o.version=? AND s.operator_version=o.version AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>? AND ${roleSql}=? AND COALESCE((SELECT version FROM larder_records WHERE kind='roles' AND id=o.id),0)=? AND COALESCE((SELECT version FROM larder_records WHERE kind='customRoles' AND id=?),0)=?)`,
   params: [a.sessionId, a.id, a.operatorVersion, Date.now(), a.role, a.scope?.version ?? 0, a.scope?.customId ?? '', a.scope?.customVersion ?? 0] as unknown[],
 })
+
+
+// The shared door authenticates Business credentials. This fence rechecks its
+// exact policy snapshot and the native role/scope inside the domain batch.
+// It never creates a browser session for an agent.
+function doorAuthority(a: Actor) {
+  const door = a.agentDoor!
+  return {
+    sql: `EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.version=? AND o.status='active' AND ${roleSql}=?
+      AND COALESCE((SELECT version FROM larder_records WHERE kind='roles' AND id=o.id),0)=?
+      AND COALESCE((SELECT version FROM larder_records WHERE kind='customRoles' AND id=?),0)=?)
+      AND EXISTS(SELECT 1 FROM agent_door_state WHERE id=1 AND local_paused=0
+        AND envelope IS ? AND local_document IS ? AND local_revision=?
+        AND CASE WHEN envelope IS NOT NULL THEN
+          json_extract(envelope,'$.revision') IS ? AND COALESCE(json_extract(envelope,'$.paused'),0)=0
+          AND json_extract(envelope,'$.exp')*1000>?
+          AND NOT EXISTS(SELECT 1 FROM json_each(envelope,'$.revoked.consents') WHERE value=?)
+          AND NOT EXISTS(SELECT 1 FROM json_each(envelope,'$.revoked.agents') WHERE value=?)
+          ELSE local_revision IS ? END)
+      AND EXISTS(SELECT 1 FROM agent_door_agents WHERE id=? AND revoked=0)`,
+    params: [a.id, a.operatorVersion, a.role, a.scope?.version ?? 0, a.scope?.customId ?? '', a.scope?.customVersion ?? 0,
+      door.envelope, door.localDocument, door.localRevision, door.admissionRevision, Date.now(), door.consent ?? null, door.id, door.admissionRevision, door.id] as unknown[],
+  }
+}
 
 export async function load(db: D1Database): Promise<State> {
   const out = await db.batch<any>([
@@ -102,6 +126,7 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
     ...(erasure ? erasureStatements(db, c, erasure) : []),
     db.prepare('UPDATE larder_meta SET version=version+1 WHERE id=1'),
     db.prepare('INSERT INTO larder_commands VALUES(?,?,?,?,?,?)').bind(c.commandId, c.actor.id, type, digest, JSON.stringify(response), c.now),
+    ...(c.actor.agentDoor ? [db.prepare('INSERT INTO larder_command_agents VALUES(?,?,?,?,?,?,?)').bind(c.commandId,c.actor.agentDoor.id,c.actor.agentDoor.name,c.actor.id,c.actor.name,c.actor.agentDoor.operationId,JSON.stringify(c.actor.agentDoor.approvers))] : []),
     db.prepare('DELETE FROM larder_guard'),
   ])
   return response

@@ -32,7 +32,7 @@ export function TopBar({ larder, view, mode, setMode }: { larder: Larder; view: 
     <p className={`sync ${error ? 'bad' : busy ? 'busy' : ''}`} role="status"><span className="dot" aria-hidden="true" /><span className="sync-text">{error ? 'Last change not saved' : busy ? 'Saving…' : loadedAt ? <>All changes saved<span className="since"> · loaded {clock(loadedAt)}</span></> : 'Loading…'}</span></p>
     {state && <details className="account">
       <summary className="has-tooltip" aria-label="Account menu" aria-describedby="account-tooltip"><span className="control-tooltip" id="account-tooltip" role="tooltip">Account menu</span><span className="avatar" aria-hidden="true">{initials(state.actor.name)}</span><span className="who">{shortName(state.actor.name)}</span><Icon name="down" /></summary>
-      <div className="account-menu"><p><strong>{state.actor.name}</strong><small>{words(state.actor.role)}</small>{scopeNote(state) && <small>{scopeNote(state)}</small>}</p>{state.actor.role === 'owner' && <a href="#settings">Settings</a>}<button className="signout" type="button" onClick={() => void signOut()}><Icon name="signout" />Sign out</button></div>
+      <div className="account-menu"><p><strong>{state.actor.name}</strong><small>{words(state.actor.role)}</small>{state.businessName && <small>{state.businessName}</small>}{scopeNote(state) && <small>{scopeNote(state)}</small>}</p><a href="/agents">Agent policy and activity</a>{state.actor.role === 'owner' && <a href="#settings">Settings</a>}<button className="signout" type="button" onClick={() => void signOut()}><Icon name="signout" />Sign out</button></div>
     </details>}
   </header>
 }
@@ -56,7 +56,7 @@ export function PlannerStrip({ larder }: { larder: Larder }) {
   const latest = [...waiting].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))[0]
   return <aside className="planner" aria-label="Larder planner">
     <Icon name="info" /><strong>Larder planner</strong>
-    <p title={latest?.summary}>{latest ? <>{waiting.length} {waiting.length === 1 ? 'plan' : 'plans'} awaiting your approval: {subject(latest)}. Prepared {clock(new Date(latest.createdAt))} by {personName(s, latest.preparedBy)}.</> : 'No plans are waiting. Agents prepare drafts and proposals; a person approves them.'}</p>
+    <p title={latest?.summary}>{latest ? <>{waiting.length} {waiting.length === 1 ? 'plan' : 'plans'} awaiting your approval: {subject(latest)}. Prepared {clock(new Date(latest.createdAt))} by {latest.preparation || personName(s, latest.preparedBy)}.</> : 'No plans are waiting. Agents prepare drafts and proposals; a person approves them.'}</p>
     <a href="#more/activity">View worklog <Icon name="arrow" /></a>
   </aside>
 }

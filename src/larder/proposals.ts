@@ -64,6 +64,12 @@ function prepare(c: Context, p: any) {
 }
 
 function execute(c: Context, proposal: Row, earlierSignatures: number): unknown {
+  const previous=c.agentPreparation
+  if(proposal.preparedByAgent && proposal.preparedFor)c.agentPreparation={preparedByAgent:proposal.preparedByAgent,preparedFor:proposal.preparedFor,preparation:proposal.preparation,operationId:proposal.operationId}
+  try {return executePreparedProposal(c,proposal,earlierSignatures)}
+  finally {c.agentPreparation=previous}
+}
+function executePreparedProposal(c: Context, proposal: Row, earlierSignatures: number): unknown {
   const plan = proposal.plan
   if (proposal.kind === 'order-intake') {
     if (plan.lines.some((l: any) => l.quantity === null)) fail('INCOMPLETE', 'Some quantities are still missing. Ask the customer, then prepare the proposal again.')
