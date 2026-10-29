@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "79e7440df9bf5dd757af395f1c524490ad309dff5693ac00cc897c0a27a3c3bb",
+      "sha256": "4f9126b905bb90f76c89e58ad7fb753bbcc2ba80158527b216ff00002083ad58",
       "executable": false
     },
     "AGENTS.consumer.md": {
@@ -205,7 +205,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "df68742d59be8b7ac9af71104267e3a9bfa52b9b3bdc40bbcccd165f713cfaba",
+      "sha256": "2c6a1902c2c4f129dd8874f125690accf91595270ac1777576c5fd2ee110fd67",
       "executable": false
     },
     "DEMO.md": {
@@ -4093,7 +4093,7 @@
       "executable": false
     },
     "tests/api/schedule-approval.test.mjs": {
-      "sha256": "e02d316a38da792a5924b94be07861b280c64b26f27a9dd637d8a287ce6f4007",
+      "sha256": "8c85d881c097294404dd54e2682068cfaa086c15a7bb8e2d51d580a4eccc4218",
       "executable": false
     },
     "tests/api/subcontract.test.mjs": {
