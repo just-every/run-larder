@@ -197,7 +197,7 @@
       "executable": false
     },
     "base-copies.json": {
-      "sha256": "5aad5936a474d0a74a9419b7fbc32a3a600cc0366fa0855eee80d31098235c75",
+      "sha256": "933ba25179c7afe3553d68683294bf7cad677978219ad8ef79c41a1ae784619b",
       "executable": false
     },
     "CHANGELOG.md": {
@@ -845,7 +845,7 @@
       "executable": false
     },
     "scripts/edition-authoring/adopt.mjs": {
-      "sha256": "5371f1877e82035acdb668e1e50508130a3c224b2dfe88768cf39aeadcf48490",
+      "sha256": "c9cf80207b5f14164ce18cce63e08e0fcbb254d93b66263911ba74cdd4079c8f",
       "executable": false
     },
     "scripts/edition-authoring/ADOPTING.md": {
@@ -885,7 +885,7 @@
       "executable": false
     },
     "scripts/edition-authoring/lock.mjs": {
-      "sha256": "aad2d69c297bbc5567741f584c136cb00d927d6490e8244716fad65fcdd9cb9a",
+      "sha256": "c95f09ff1e0d7f457cc15a333d96d0c12c81337e2b37f7f10ddf2d10b60e72f2",
       "executable": false
     },
     "scripts/edition-authoring/manifest.mjs": {

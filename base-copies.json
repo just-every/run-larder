@@ -599,7 +599,7 @@
         "scripts/edition-authoring/copy-namespaces.mjs": "2e7f2bcd34c575e9b7ac72ee41f5e676fd6ac22ab27d5b64a313326fd9b42ed9",
         "scripts/edition-authoring/edition-migrations.mjs": "7e9837c9a373cf7f394a575230c9f386a289786a15cc9685e4f11911e9a84e88",
         "scripts/edition-authoring/files.mjs": "cd8ca780ed1f49977b183f025433227c12f844ff845b89a3a4a1d2d66f14e3e7",
-        "scripts/edition-authoring/lock.mjs": "255b570052a8e3cd785043c82e2088445d8e181a92c35c397444eafebe2ec1e4",
+        "scripts/edition-authoring/lock.mjs": "c95f09ff1e0d7f457cc15a333d96d0c12c81337e2b37f7f10ddf2d10b60e72f2",
         "scripts/edition-authoring/manifest.mjs": "0c93bd39b1dd869b23a9d2727671fe8f9c933a9d56c7a3df1ba83c4a6f816e7b",
         "scripts/edition-authoring/module-closure.mjs": "fb9cf1caa9760948e256464054647671c6800937cb20e43ef5ca180ad90c4e38",
         "scripts/edition-authoring/module-edges.mjs": "78961972b44c158e75416629ae1149c419b0cafe2b2cb1336130bbeba2f6620a",
@@ -887,20 +887,6 @@
         "scripts/edition-authoring/vendor/yaml/visit.mjs": "100644",
         "scripts/edition-authoring/workflow-copies.mjs": "100644",
         "scripts/edition-authoring/workflow-scripts.mjs": "100644"
-      },
-      "adapted": {
-        "scripts/edition-authoring/adopt.mjs": "11f94fec479228d71ba6d7dd6ea7796c0d42c544",
-        "scripts/edition-authoring/lock.mjs": "11f94fec479228d71ba6d7dd6ea7796c0d42c544"
-      },
-      "acknowledged": {
-        "scripts/edition-authoring/adopt.mjs": {
-          "sha256": "5371f1877e82035acdb668e1e50508130a3c224b2dfe88768cf39aeadcf48490",
-          "mode": "100644"
-        },
-        "scripts/edition-authoring/lock.mjs": {
-          "sha256": "aad2d69c297bbc5567741f584c136cb00d927d6490e8244716fad65fcdd9cb9a",
-          "mode": "100644"
-        }
       },
       "originFiles": [
         "edition-authoring/ADOPTING.md",
