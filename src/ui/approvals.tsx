@@ -12,7 +12,7 @@ const tone: Record<string, 'good' | 'warn' | 'bad' | 'neutral'> = { valid: 'good
 // GOV-002: who must sign what, the signatures given and what became of them, and who stands in for whom.
 export function Approvals({ larder }: { larder: Larder }) {
   const s = larder.state!, owner = s.actor.role === 'owner'
-  const subject = (x: any) => { const r = rows(s, x.subjectKind).find(y => y.id === x.subjectId); return `${(x.category === 'inventoryAdjustment' && writeOffs[x.terms?.decision]) || subjects[x.subjectKind] || words(x.subjectKind)} ${r?.reference ?? r?.code ?? r?.sku ?? ''}`.trim() }
+  const subject = (x: any) => { const r = rows(s, x.subjectKind).find(y => y.id === x.subjectId); return `${(x.category === 'inventoryAdjustment' && writeOffs[x.terms?.decision]) || (x.subjectKind === 'proposals' && r?.kind === 'replenishment' ? 'Grouped replenishment' : subjects[x.subjectKind]) || words(x.subjectKind)} ${r?.reference ?? r?.code ?? r?.sku ?? ''}`.trim() }
   const value = (x: any) => 'marginPercent' in x ? (x.marginPercent === null ? 'Unknown margin' : `${x.marginPercent}% margin`) : 'delayMinutes' in x ? `${x.delayMinutes} min of delay` : money(x.valueUsd)
   const policies = rows(s, 'approvalPolicies'), signatures = [...rows(s, 'approvalSignatures')].reverse(), delegations = [...rows(s, 'approvalDelegations')].reverse()
   const people = rows(s, 'people').filter(p => p.id !== s.actor.id && !['agent', 'viewer', 'operator'].includes(p.role))

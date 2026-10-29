@@ -160,7 +160,7 @@ function prepare(c: Context, p: any) {
   return proposal
 }
 
-function execute(c: Context, proposal: Row, earlierSignatures: number): unknown {
+function execute(c: Context, proposal: Row, earlierSignatures: number, decisionApproval: Row): unknown {
   const plan = proposal.plan
   if (proposal.kind === 'order-intake') {
     if (plan.lines.some((l: any) => l.quantity === null)) fail('INCOMPLETE', 'Some quantities are still missing. Ask the customer, then prepare the proposal again.')
@@ -170,7 +170,7 @@ function execute(c: Context, proposal: Row, earlierSignatures: number): unknown 
     if (shortageFingerprint(c.s, proposal.context.itemIds) !== proposal.context.fingerprint) fail('STALE', 'Orders, stock or supply changed since this was prepared. Ask for a fresh proposal.')
     return plan.purchases.map((x: any) => {
       const po = draftPurchase(c, { ...x, reason: `${plan.explanation} (proposal ${proposal.summary})` }, proposal.preparedBy)
-      const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision: 'approved', role: c.actor.role, note: `Approved with proposal`, proposalId: proposal.id, terms: { supplierId: po.supplierId, lines: po.lines, expectedDate: po.expectedDate, exposure: po.exposure } })
+      const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision: 'approved', role: c.actor.role, note: `Approved with proposal`, proposalId: proposal.id, proposalApprovalId: decisionApproval.id, ...(decisionApproval.signatureIds ? { signatureIds: decisionApproval.signatureIds, override: decisionApproval.override } : {}), terms: { supplierId: po.supplierId, lines: po.lines, expectedDate: po.expectedDate, exposure: po.exposure } })
       return bump(po, { status: 'approved', approvalId: approval.id, approvedBy: c.actor.id }).id
     })
   }
@@ -224,14 +224,19 @@ export function proposals(c: Context, type: string, p: any): Row | undefined {
       if (c.actor.role === 'agent' || c.actor.role === 'viewer') forbidden('Agents prepare; a person with authority approves.')
       const proposal = get(c.s, 'proposals', p.proposalId, 'proposal'); fresh(proposal, p.version)
       const rescheduling = proposal.kind === 'reschedule' && type === 'proposal.approve'
-      if (rescheduling) authorize(c, approvers.reschedule, 'schedule', proposal.preparedBy)
+      const purchasing = proposal.kind === 'replenishment' && type === 'proposal.approve'
+      if (rescheduling || purchasing) authorize(c, approvers[proposal.kind], purchasing ? 'spend' : 'schedule', proposal.preparedBy)
       else approver(c, approvers[proposal.kind], proposal.preparedBy)
       if (proposal.status !== 'awaiting approval') fail('STATE', 'This proposal was already decided.')
       const decision = type === 'proposal.approve' ? 'approved' : 'rejected'
-      // GOV-009: a reschedule whose largest per-job delay is at or above the schedule threshold needs the policy signatures.
-      const signed = rescheduling ? gate(c, { category: 'schedule', subjectKind: 'proposals', subject: proposal, measure: () => largestJobDelay(proposal.context.capacity?.effects), permitted: approvers.reschedule, preparedBy: proposal.preparedBy, p }) : null
+      // Grouped purchasing requires a fresh review even for its first signature
+      // and binds the total exposure, never each smaller order.
+      let computed = purchasing ? currentClassification(c, proposal) : null
+      const signed = rescheduling || purchasing ? gate(c, { category: purchasing ? 'spend' : 'schedule', subjectKind: 'proposals', subject: proposal,
+        measure: () => purchasing ? decimal(computed!.facts.cashExposureUsd) : largestJobDelay(proposal.context.capacity?.effects),
+        permitted: approvers[proposal.kind], preparedBy: proposal.preparedBy, ...(purchasing ? { terms: { classification: computed } } : {}), p }) : null
       if (signed && 'pending' in signed) return signed.pending
-      const computed = currentClassification(c, proposal)
+      computed ??= currentClassification(c, proposal)
       const recordedDecision = { decision, by: c.actor.id, role: c.actor.role, at: c.now, commandId: c.commandId,
         proposalVersion: proposal.version, inputsDigest: computed.inputsDigest,
         actionClasses: computed.classes, classes: decision === 'approved' ? computed.classes : ['standard'],
@@ -239,7 +244,7 @@ export function proposals(c: Context, type: string, p: any): Row | undefined {
       const approval = row(c, 'approvals', { subjectKind: 'proposals', subjectId: proposal.id, subjectVersion: proposal.version, decision, role: c.actor.role, recordedDecision, note: optionalText(p.note, 'note', 1000), ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
       signed?.consume(approval.id)
       // Each earlier signature was its own command, so the preview's snapshot has moved on by exactly that many versions.
-      const result = decision === 'approved' ? execute(c, proposal, signed ? signed.signatureIds.length - 1 : 0) : null
+      const result = decision === 'approved' ? execute(c, proposal, signed ? signed.signatureIds.length - 1 : 0, approval) : null
       return bump(proposal, { status: decision, approvalId: approval.id, decidedBy: c.actor.id, decision: recordedDecision, result })
     }
   }

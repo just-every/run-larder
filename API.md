@@ -180,7 +180,12 @@ time, reviewed version, input digest and classification. A rejection records
 `standard` and no business action while retaining the proposed action classes.
 Current location and cost restrictions also cover these snapshots and replayed
 outcomes. Business backups preserve the original attribution and classifications
-without executing proposals or restoring old sessions. Native independent-person
+without executing proposals or restoring old sessions. Grouped replenishment also uses the existing spend policy on the combined
+normalized USD exposure. Every signature binds the computed classification and
+reviewed inputs; an initial signature creates no purchase order. A completed
+proposal links its policy signatures to every resulting purchase approval.
+Changed review inputs refuse before any new signature is recorded. Declining
+never creates a spend signature or business effect. Native independent-person
 approval remains required; configurable agent execution under company policy,
 all-autonomous consequential execution and shared MCP conformance remain open.
 

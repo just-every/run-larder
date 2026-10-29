@@ -43,6 +43,16 @@ test('GOV-002 the owner sets a two-signature policy, a signature is given and th
     await page.reload(); await settled()
     await expect(signatures).toContainText('Invalidated')
     await shots('invalidated')
+    const beforeGroup = await (await page.request.get(origin + '/api/larder/state')).json()
+    const grouped = await send('proposal.prepare', { kind: 'replenishment', summary: 'Two reviewed deliveries', evidence: ['synthetic-larder-969'], plan: { explanation: 'One grouped purchasing decision', purchases: [1, 2].map(n => ({ supplierId: supplier.id, expectedDate: `2030-01-1${n}`, lines: [{ itemId: item.id, quantity: '6', unitPrice: '10' }] })) } })
+    const groupSignature = await send('proposal.approve', { proposalId: grouped.id, version: grouped.version })
+    expect(groupSignature.remainingAtSigning).toBe(1)
+    const afterGroup = await (await page.request.get(origin + '/api/larder/state')).json()
+    expect(afterGroup.purchaseOrders).toEqual(beforeGroup.purchaseOrders)
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await page.reload(); await settled()
+    await expect(signatures).toContainText('Grouped replenishment')
+    await shots('grouped-replenishment')
   } finally {
     // Later journeys share this installation: purchase orders go back to one approver.
     await send('approval.policy', { category: 'spend', thresholdUsd: '100', signatures: 2, enabled: false, reason: 'Approval journey finished' })
