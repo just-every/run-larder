@@ -121,7 +121,7 @@ function currentClassification(c: Context, proposal: Row) {
   // not manufacture risk review or a person's approval.
   if (!proposal.classification) fail('STALE', 'Prepare a new classified proposal before deciding it.')
   const computed = classification(c, proposal)
-  if (canonicalJson(computed) !== canonicalJson(proposal.classification)) fail('STALE', 'The reviewed proposal inputs or consequences changed. Prepare a fresh proposal.')
+  if (canonicalJson(computed) !== canonicalJson(proposal.classification)) fail('STALE', 'The reviewed proposal inputs or consequences changed after preview. Prepare a fresh proposal.')
   return computed
 }
 

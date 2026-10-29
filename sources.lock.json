@@ -1489,7 +1489,7 @@
       "executable": false
     },
     "src/larder/proposals.ts": {
-      "sha256": "ae0eed1d71ceee812c16008ca780da9eb6eacfe3c2902c206c2f612f18f0e57d",
+      "sha256": "618a80c52a701acd83ba8a332c5245b5cef5420e2799cdfac9e489c1839687f7",
       "executable": false
     },
     "src/larder/public-api.ts": {
