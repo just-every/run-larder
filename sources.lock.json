@@ -1557,7 +1557,7 @@
       "executable": false
     },
     "src/larder/sales-money.ts": {
-      "sha256": "cadbbe184134b492e5a2e045789bd84a432e3c0c9fa8d44a8dc088454d2b9b29",
+      "sha256": "5122325d5d30eb2b6966ba8deff07643bcf55cb15401a7631b28ee29c2b5b96d",
       "executable": false
     },
     "src/larder/sales-schedules.ts": {
