@@ -8,12 +8,12 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
-| Core | 84 | 26 | 40 | 150 |
+| Core | 85 | 25 | 40 | 150 |
 | Agent surface | 0 | 0 | 13 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 84 | 26 | 53 | 163 |
+| Full target | 85 | 25 | 53 | 163 |
 
-Judged from the code and tests at commit `83c9278ea058b58a1265eb8bcfc6de3a32493415` (28 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
+Judged from the code and tests at commit `adf3f047357d55ba48d43a44cce84ed63411bb99` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
 ## Core
 
@@ -214,7 +214,7 @@ Core · published · **done** · Cites BASE-ROLE-001, BASE-DATA-001 · Rules D-2
 
 #### LARDER-020 — Reconciled business archive
 
-Core · published · **partial** · From LARDER-013 · Cites BASE-DATA-001, BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
+Core · published · **done** · From LARDER-013 · Cites BASE-DATA-001, BASE-ROLE-001 · Rules D-2, D-3, D-4, D-6, D-8
 
 **Requirement.** The owner or manager exports the manufacturing archive with a checksum. An owner restores it into an empty installation atomically, reconciling every stock position.
 
@@ -222,7 +222,7 @@ Core · published · **partial** · From LARDER-013 · Cites BASE-DATA-001, BASE
 1. Export and restore the archive into an empty installation, compare every position and retained exception note, and refuse a damaged archive; round-trip an installation backup after migration/reset.
 
 **Evidence.** `tests/api/flows.test.mjs` — “LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation”; `tests/api/backup.test.mjs` — “LARDER-020 an installation backup restores into a reset installation”
-**Gap.** The cited HTTP archive journey restores records, balances and attachments and refuses a second restore. The installation-backup journey invokes portability libraries directly. Missing: a covering export/reset/import journey through the public installation commands.
+**Gap.** None.
 
 #### LARDER-015 — Exact-version operational proposals
 

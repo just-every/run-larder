@@ -76,6 +76,10 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
   assert.deepEqual(await businessArchive(h), archive, 'Nonempty import preserves every record and original')
   await run('reset', '--yes')
   assert.deepEqual(await tables(h.db), [], 'Reset actually removes the installation data')
+  const damagedEmpty = await h.rer('import', '--input', 'exports/damaged.rer', '--yes')
+  assert.notEqual(damagedEmpty.code, 0)
+  assert.match(damagedEmpty.stdout + damagedEmpty.stderr, /part_checksum/)
+  assert.deepEqual(await tables(h.db), [], 'Damaged import leaves the empty destination untouched')
   await run('import', '--input', 'exports/installation.rer', '--yes')
   // Preserve the original all-table comparison before a fresh sign-in adds its
   // authentication audit. All business comparisons below use HTTP.
