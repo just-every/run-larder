@@ -107,12 +107,15 @@ function project(s: State, proven: Set<string>) {
   // delayed share remains held, with a shortage on its owner, not resold.
   for (const share of quotePurchaseShares(s)) {
     let held = share.left
-    const demand = demands.find(d => d.documentId === share.workOrderId && d.lineId === share.lineId && d.itemId === share.itemId)
+    const owned = demands.filter(d => d.documentId === share.workOrderId && d.lineId === share.lineId && d.itemId === share.itemId)
     for (const purchase of purchases) if (purchase.kind === 'purchase' && purchase.documentId === share.documentId && purchase.itemId === share.itemId && purchase.lineId === share.purchaseLineId) {
       const take = min(held, purchase.left); held -= take; purchase.left -= take
-      if (!demand || purchase.date < today || purchase.date > demand.date) continue
-      const allocated = min(demand.left, take); demand.left -= allocated
-      if (allocated > 0n) demand.sources.push({ kind: 'purchase', documentId: purchase.documentId, lineId: purchase.lineId, reference: purchase.reference, date: purchase.date, quantity: format(allocated), reserved: true })
+      let remaining = take
+      for (const demand of owned) {
+        if (purchase.date < today || purchase.date > demand.date) continue
+        const allocated = min(demand.left, remaining); demand.left -= allocated; remaining -= allocated
+        if (allocated > 0n) demand.sources.push({ kind: 'purchase', documentId: purchase.documentId, lineId: purchase.lineId, reference: purchase.reference, date: purchase.date, quantity: format(allocated), reserved: true })
+      }
     }
   }
   const latePurchases = (d: Demand) => purchases.filter(p => p.itemId === d.itemId && p.left > 0n && (p.date > d.date || p.date < today)).map(p => ({ kind: p.kind, documentId: p.documentId, lineId: p.lineId, reference: p.reference, date: p.date, quantity: format(p.left), reason: p.date < today ? 'overdue; receipt not recorded' : 'after required date' }))

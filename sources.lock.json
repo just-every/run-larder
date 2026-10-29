@@ -1369,7 +1369,7 @@
       "executable": false
     },
     "src/larder/material-dates.ts": {
-      "sha256": "45648b6ad1a3edd5b5a86023caaa41c1a17a90d553be2bd43d8a69b370ae6286",
+      "sha256": "4476dc6bb6dee43dd2b0928d831ba328be239daa47e12098c744fa25066b8c77",
       "executable": false
     },
     "src/larder/material-demand.ts": {
@@ -1509,7 +1509,7 @@
       "executable": false
     },
     "src/larder/quote-acceptance.ts": {
-      "sha256": "d276a20d88245ec2af32b50b8d372d29fd82df4304618f38c9c5045474a5d025",
+      "sha256": "ce8e84afb5e93ff6b9edf46082d030d8aa7e30b25c96eb632daa2e619ebdccb7",
       "executable": false
     },
     "src/larder/quote-review.ts": {
@@ -4029,7 +4029,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "a063c41e4b221d9ab56aac985afbb8f7d2e7685f89d58c90fe647c0b95acfda0",
+      "sha256": "2cf5c35c7347c373a8939d7506967f035a5ad33cff33265251ac74461045cb2f",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {

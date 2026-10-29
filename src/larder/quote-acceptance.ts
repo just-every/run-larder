@@ -69,10 +69,11 @@ export function quoteAcceptance(c: Context, type: string, p: any): Row | undefin
     const material = option.material.find((m: any) => m.workOrderId === work.id)
     work.quoteSupply = []
     for (const component of work.components) {
-      const part = material.items.find((i: any) => i.itemId === component.itemId)
-      const physical = part.supplies.filter((s: any) => s.kind === 'stock').reduce((n: bigint, s: any) => n + decimal(s.quantity), 0n)
+      const supplies = material.items.filter((part: any) => part.itemId === component.itemId).flatMap((part: any) => part.supplies)
+      if (supplies.reduce((n: bigint, source: any) => n + decimal(source.quantity), 0n) !== decimal(component.required)) fail('STALE', 'Every pinned component must retain its complete reviewed supply share.')
+      const physical = supplies.filter((s: any) => s.kind === 'stock').reduce((n: bigint, s: any) => n + decimal(s.quantity), 0n)
       if (reserve(c, { demandKind: 'work', demandId: work.id, lineId: component.id, itemId: component.itemId }, physical) !== physical) fail('STALE', 'The exact physical supply share is no longer available.')
-      for (const supply of part.supplies.filter((s: any) => s.kind === 'purchase')) work.quoteSupply.push({ ...supply, itemId: component.itemId, lineId: component.id, received: '0' })
+      for (const supply of supplies.filter((s: any) => s.kind === 'purchase')) work.quoteSupply.push({ ...supply, itemId: component.itemId, lineId: component.id, received: '0' })
     }
     work.shortages = work.components.map((part: any) => ({ itemId: part.itemId, short: format(decimal(part.required) - c.s.reservations.filter(r => r.demandId === work.id && r.lineId === part.id).reduce((n, r) => n + r.quantity, 0n)) })).filter((p: any) => p.short !== '0')
     work.expectedOn = work.requiredBy
