@@ -3,9 +3,11 @@
 import { Miniflare, convertV4MiniflareOptions } from 'miniflare'
 import { unstable_splitSqlQuery } from 'wrangler'
 import { build } from 'esbuild'
-import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, relative, resolve } from 'node:path'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { randomUUID, randomBytes } from 'node:crypto'
 import assert from 'node:assert/strict'
 
@@ -29,8 +31,35 @@ export async function migrate(db) {
     await db.batch(unstable_splitSqlQuery(await readFile('migrations/core/' + file, 'utf8')).map(q => db.prepare(q)))
 }
 
-export async function installation({ now, modelEdge, modelKey } = {}) {
+// Public installation commands get an isolated checkout, home and canonical
+// Wrangler state. Apply the real migrations before the HTTP owner bootstrap;
+// this deliberately does not exercise the separate clean-install setup door.
+async function commandInstallation(root) {
+  const checkout = join(root, 'checkout'), home = join(root, 'home')
+  const excluded = new Set(['.git', 'node_modules', '.wrangler', '.seed', '.rer', '.cache', 'dist', '.output', '.tanstack', '.dev.vars', '.dev.vars.previous', 'test-results', 'playwright-report'])
+  await cp(resolve('.'), checkout, { recursive: true, filter: source => !excluded.has(relative(resolve('.'), source).split(/[\\/]/)[0]) })
+  await symlink(resolve('node_modules'), join(checkout, 'node_modules'), 'dir')
+  await mkdir(home)
+  const env = { ...process.env, HOME: home, WRANGLER_SEND_METRICS: 'false', CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: 'false', CLOUDFLARE_INCLUDE_PROCESS_ENV: 'false' }
+  for (const key of Object.keys(env)) if (/^(?:GH_TOKEN|GITHUB_TOKEN|RER_CLOUD_KEY|CLOUDFLARE_API_TOKEN|CLOUDFLARE_ACCOUNT_ID|SESSION_SECRET|INSTALLATION_KEY|SETUP_TOKEN|OWNER_EMAIL|AUTH_|MAIL_)/.test(key)) delete env[key]
+  const run = async (program, args) => {
+    try { return { code: 0, ...await promisify(execFile)(program, args, { cwd: checkout, env, timeout: 120000, maxBuffer: 2 * 1024 * 1024 }) } }
+    catch (error) {
+      if (typeof error.code !== 'number') throw error
+      return { code: error.code, stdout: error.stdout, stderr: error.stderr }
+    }
+  }
+  const migrated = await run('pnpm', ['exec', 'wrangler', 'd1', 'migrations', 'apply', 'foundation', '--local', '--persist-to', '.wrangler/state', '--config', 'wrangler.jsonc'])
+  assert.equal(migrated.code, 0, migrated.stdout + migrated.stderr)
+  const config = JSON.parse(await readFile(join(checkout, 'wrangler.jsonc'), 'utf8'))
+  return { checkout, persistence: join(checkout, '.wrangler/state/v3'), databases: Object.fromEntries(config.d1_databases.map(d => [d.binding, d.database_id])), run }
+}
+
+export async function installation({ now, modelEdge, modelKey, publicCommands = false } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'larder-api-'))
+  let native
+  try { native = publicCommands ? await commandInstallation(root) : undefined }
+  catch (error) { await rm(root, { recursive: true, force: true }); throw error }
   let origin = 'http://localhost'
   const setup = randomBytes(32).toString('hex')
   let code = await script(now)
@@ -45,13 +74,14 @@ export async function installation({ now, modelEdge, modelKey } = {}) {
     return Response.json({ id: `test-${mails.length}` })
   }
   const sessionSecret = randomBytes(32).toString('hex'), devKey = randomBytes(32).toString('hex')
+  const bindings = () => ({ ...(modelEdge ? { ANTHROPIC_API_KEY: modelKey ?? 'synthetic-larder-814', OPENROUTER_API_KEY: modelKey ?? 'synthetic-larder-814' } : {}), AUTH_LOCAL: 'true', AUTH_ORIGIN: origin, OWNER_EMAIL: 'owner@example.test', SESSION_SECRET: sessionSecret, SETUP_TOKEN: setup, MAIL_PROVIDER: 'resend', MAIL_API_KEY: 'test-only-resend-key', MAIL_FROM: 'auth@example.test', RER_DEV_KEY: devKey })
   const options = port => ({
     ...convertV4MiniflareOptions({
-      host: '127.0.0.1', port, modules: true, script: code, compatibilityDate: '2026-09-08', compatibilityFlags: ['nodejs_compat'], d1Databases: ['DB'],
-      bindings: { ...(modelEdge ? { ANTHROPIC_API_KEY: modelKey ?? 'synthetic-larder-814', OPENROUTER_API_KEY: modelKey ?? 'synthetic-larder-814' } : {}), AUTH_LOCAL: 'true', AUTH_ORIGIN: origin, OWNER_EMAIL: 'owner@example.test', SESSION_SECRET: sessionSecret, SETUP_TOKEN: setup, MAIL_PROVIDER: 'resend', MAIL_API_KEY: 'test-only-resend-key', MAIL_FROM: 'auth@example.test', RER_DEV_KEY: devKey },
+      host: '127.0.0.1', port, modules: true, script: code, compatibilityDate: '2026-09-08', compatibilityFlags: ['nodejs_compat'], d1Databases: native?.databases ?? ['DB'],
+      bindings: bindings(),
       outboundService,
     }),
-    resourcePersistencePath: root,
+    resourcePersistencePath: native?.persistence ?? root,
   })
   let mf = new Miniflare(options(0))
   try {
@@ -59,7 +89,8 @@ export async function installation({ now, modelEdge, modelKey } = {}) {
     origin = address.origin
     await mf.setOptions(options(Number(address.port)))
     let db = await mf.getD1Database('DB')
-    await migrate(db)
+    if (!native) await migrate(db)
+    else await writeFile(join(native.checkout, '.dev.vars'), Object.entries({ ...bindings(), INSTALLATION_KEY: randomBytes(32).toString('hex') }).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join('\n') + '\n', { mode: 0o600 })
     let owner = ''
     const request = (path, { method = 'GET', body, as = owner, raw } = {}) => fetch(origin + path, {
       method, redirect: 'manual', headers: { origin, 'content-type': 'application/json', ...(as ? { cookie: as } : {}) },
@@ -108,7 +139,24 @@ export async function installation({ now, modelEdge, modelKey } = {}) {
       if (role) await command('role.set', { operatorId: session.operator.id, role })
       return { cookie, id: session.operator.id, run: (type, payload, opts = {}) => command(type, payload, { as: cookie, ...opts }) }
     }
-    return { async advanceClock(next) {
+    return { commandRoot: native?.checkout, async rer(...args) {
+      assert.ok(native, 'Public commands require a disposable installation')
+      await mf.dispose()
+      try { return await native.run('pnpm', ['exec', 'rer', ...args]) }
+      finally {
+        mf = new Miniflare(options(Number(new URL(origin).port)))
+        await mf.ready
+        db = await mf.getD1Database('DB')
+      }
+    }, async signInOwner() {
+      const sent = await request('/auth/magic-link', { method: 'POST', as: '', body: { email: bindings().OWNER_EMAIL } })
+      assert.equal(sent.status, 202, await sent.text())
+      const token = String(mails.at(-1).text).match(/http[^\s]+\/auth\/confirm\?token=([^\s]+)/)
+      assert.ok(token, 'Owner receives an ordinary sign-in link')
+      const confirmed = await request('/auth/confirm', { method: 'POST', as: '', body: { token: decodeURIComponent(token[1]) } })
+      assert.equal(confirmed.status, 303, await confirmed.text())
+      owner = confirmed.headers.getSetCookie().map(v => v.split(';')[0]).join('; ')
+    }, async advanceClock(next) {
       assert.ok(now !== undefined && next > now, 'Advance an explicitly fixed command clock')
       code = await script(next); now = next
       await mf.setOptions(options(Number(new URL(origin).port)))
