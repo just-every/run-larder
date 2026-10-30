@@ -3,6 +3,8 @@
 import { Marked, type Tokens } from 'marked'
 import site from '../../../docs/site.json'
 import rulings from '../../../RULINGS.md?raw'
+import { runRequirements, startLine } from '../../base/run-site'
+import run from '../run-data'
 
 export type DocsPage = { slug: string; title: string; lead: string; html: string; toc: { id: string; text: string }[]; section: string }
 export type DocsSection = { title: string; pages: { slug: string; title: string; lead: string }[] }
@@ -11,7 +13,12 @@ const files: Record<string, string> = { ...import.meta.glob('../../../docs/**/*.
 const source = (file: string) => {
   const text = files[`../../../docs/${file}`]
   if (text === undefined) throw new Error(`Docs: docs/${file} is listed in docs/site.json but missing.`)
+  // Keep the Markdown readable on GitHub; the built guide uses the same
+  // repository, installer recipe and requirements as the shared Run chooser.
   return text.replace(/^\s*<!--[^\n]*-->\s*$/gm, '')
+    .replace(/^curl -fsSL https:\/\/runeditrun\.com\/install\.sh \| sh -s -- dev [A-Za-z0-9._/-]+$/gm, startLine(run))
+    .replace(/`npx -y @runeditrun\/rer dev [A-Za-z0-9._/-]+`/g, '`' + run.clone + '`')
+    .replace(/Git is required; rer brings Node and pnpm\./g, runRequirements)
 }
 const fileSlug = new Map(site.sections.flatMap(section => section.pages.map(page => [page.file, page.slug] as const)))
 const escape = (text: string) => text.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!))

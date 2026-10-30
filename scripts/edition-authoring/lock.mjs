@@ -3,11 +3,11 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {manifest, VERSION} from './manifest.mjs';
 import {snapshot, merge} from './sources.mjs';
-import {hash, json, tracked} from './files.mjs';
+import {hash, json, tracked, toolFiles} from './files.mjs';
 
 function toolsIdentity() {
   const dir = path.dirname(fileURLToPath(import.meta.url));
-  const names = fs.readdirSync(dir).filter(p => p.endsWith('.mjs') && !p.endsWith('.test.mjs')).sort();
+  const names = toolFiles(dir);
   const bytes = names.map(p => p + '\0' + fs.readFileSync(path.join(dir, p), 'utf8')).join('\0');
   return {id: 'runeditrun/edition-authoring', version: VERSION, sha256: hash(bytes)};
 }
@@ -22,7 +22,7 @@ export function resolveSources(root, retain = false, diagnostics = false, additi
   const components = [];
   for (const component of recipe.components) {
     const selected = component.source;
-    if (selected.workspace) throw Error('Retain workspace edits by promotion or commit and exact revision selection before locking or release');
+    if (selected.workspace) throw Error('Retain workspace edits by promotion or commit and exact revision selection before locking/release');
     const reference = selected.kind === 'git' ? selected : selected.origin;
     const baseline = reference ? snapshot(root, reference, retain) : null;
     if (selected.kind === 'git') merge(files, selected.destination, baseline.files);

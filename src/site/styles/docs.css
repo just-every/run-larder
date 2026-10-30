@@ -24,7 +24,7 @@
 .docs-body a { text-decoration-color: var(--red); text-underline-offset: 3px; text-decoration-thickness: 1.5px; }
 .docs-body code { padding: 2px 6px; border-radius: 5px; background: #E8E8E8; font: 500 .86em/1.4 var(--font-mono); overflow-wrap: anywhere; }
 .docs-code { position: relative; margin-top: 18px; border-radius: 12px; background: var(--rer-code-background); color: var(--rer-code-text); box-shadow: var(--shadow-card); }
-.docs-code pre { margin: 0; padding: 20px 96px 20px 22px; overflow-x: auto; font: 500 15px/1.75 var(--font-mono); }
+.docs-code pre { margin: 0; padding: 20px 96px 20px 22px; white-space: pre-wrap; overflow-wrap: anywhere; font: 500 15px/1.75 var(--font-mono); }
 .docs-code code { padding: 0; background: none; color: inherit; font: inherit; overflow-wrap: normal; }
 .docs-copy { position: absolute; top: 12px; right: 12px; min-height: 34px; padding: 0 14px; border: 1px solid #5A5A5A; border-radius: 8px; background: transparent; color: #E6E6E6; font-size: 14px; font-weight: 500; cursor: pointer; }
 .docs-copy:hover { background: #3A3A3A; }
