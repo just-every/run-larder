@@ -18,6 +18,13 @@ async function script(now, beforeCommit = false) {
     const fixed = await build({ entryPoints: ['tests/api/worker.ts'], bundle: true, write: false, format: 'esm', platform: 'neutral', target: 'es2022', external: ['node:*', 'cloudflare:*'], loader: { '.css': 'text', '.svg': 'text' },
       plugins: [{ name: 'fixed-command-clock', setup(builder) {
         if (now !== undefined) builder.onLoad({ filter: /[/\\]larder[/\\]clock\.ts$/ }, () => ({ contents: `export const commandTime = () => ${JSON.stringify(now)}`, loader: 'ts' }))
+        // Fixed-clock assertions include the dispatch read projection as well as
+        // writes, so a second read cannot differ only by its computed timestamp.
+        if (now !== undefined) builder.onLoad({ filter: /[/\\]larder[/\\]operations\.ts$/ }, async ({ path }) => {
+          const source = await readFile(path, 'utf8'), needle = 'now = new Date().toISOString()'
+          assert.equal(source.split(needle).length, 2, 'Instrument the one dispatch projection clock')
+          return { contents: source.replace(needle, `now = ${JSON.stringify(now)}`), loader: 'ts' }
+        })
         // Test-only barrier: interleave a second real HTTP command before the
         // first command's atomic batch. Production has no barrier or override.
         if (beforeCommit) builder.onLoad({ filter: /[/\\]larder[/\\]storage\.ts$/ }, async ({ path }) => {

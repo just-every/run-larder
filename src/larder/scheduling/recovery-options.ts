@@ -68,7 +68,9 @@ export function recoveryOptions(c: Context, before: Plan, projection: ReturnType
       return alternatives.length ? [{ workOrderId: w.id, sequence: step.sequence, current, alternatives }] : []
     })
   })
+  const materialItems = new Set(s.workOrders.filter(w => ['draft', 'released'].includes(w.status)).flatMap(w => (w.status === 'released' ? w.components : activeBom(s, w.itemId)?.components)?.map((l: any) => l.itemId) ?? []))
   const sources = {
+    locationIds: [...new Set(s.movements.filter(m => materialItems.has(m.itemId)).map(m => m.locationId))],
     demandIds: [...new Set(affected.flatMap(w => (w.demandSources ?? []).map((d: any) => d.documentId)))],
     workOrderIds: affected.map(w => w.id), purchaseOrderIds: [...new Set(projection.materialEffects.filter(m => affected.some(w => w.id === m.workOrderId)).flatMap(m => m.supplies.filter((p: any) => p.kind === 'purchase').map((p: any) => p.documentId)))],
     reservationIds: s.reservations.filter(r => affected.some(w => w.id === r.demandId)).map(r => r.id),
@@ -117,7 +119,7 @@ export function recoveryOptions(c: Context, before: Plan, projection: ReturnType
     options.push({ id: `option-${options.length + 1}`, name: `Alternate recovery ${options.length + 1}`, feasible: true, changes, after, effects: recoveryEffects(before, after), protectionConflicts: conflicts,
       changedPromiseCount: 0, promiseEffects: promises, movedOperations: moved, sequence: [...after.operations].sort((a, b) => a.startsAt.localeCompare(b.startsAt) || a.key.localeCompare(b.key)).map((o, index) => ({ position: index + 1, ...o })),
       planningCostUsd: costKnown ? format(after.operations.reduce((total, o) => total + decimal(o.planningCost!), 0n)) : null,
-      cashExposureUsd: '0', requiredRoles: ['planner'], sources, uncertainty: 'Finite production and current material allocation only; future receipt, quality, execution and shipping gates still apply. Unknown tariffs stay unknown. No new purchase or customer-date change.',
+      materialEffects: projection.materialEffects, cashExposureUsd: '0', requiredRoles: ['planner'], sources, uncertainty: 'Finite production and current material allocation only; future receipt, quality, execution and shipping gates still apply. Unknown tariffs stay unknown. No new purchase or customer-date change.',
     })
   }
   search(0, new Map())
