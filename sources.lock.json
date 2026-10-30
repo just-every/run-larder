@@ -4449,11 +4449,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "5ac93fde5a1e10d38c4156b5c021610173fba222190a1f9e5db1fe3e3dece0e5",
+      "sha256": "27238333cc0af33860892926cf433f1672e35b5fb9e897640cd15b07e21649d1",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "0b5d3e7b637fe25a2f46eb7fafbae538f5bbbd930966e28e03cf053a907fab96",
+      "sha256": "795f04a1b937010680069e1a17a083578bed09b35bc06c5e2c021c82b7ba5859",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
