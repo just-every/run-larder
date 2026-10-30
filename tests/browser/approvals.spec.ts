@@ -44,7 +44,7 @@ test('GOV-002 the owner sets a two-signature policy, a signature is given and th
     await expect(signatures).toContainText('Invalidated')
     await shots('invalidated')
     const beforeGroup = await (await page.request.get(origin + '/api/larder/state')).json()
-    const grouped = await send('proposal.prepare', { kind: 'replenishment', summary: 'Two reviewed deliveries', evidence: ['synthetic-larder-969'], plan: { explanation: 'One grouped purchasing decision', purchases: [1, 2].map(n => ({ supplierId: supplier.id, expectedDate: `2030-01-1${n}`, lines: [{ itemId: item.id, quantity: '6', unitPrice: '10' }] })) } })
+    const grouped = await send('proposal.prepare', { kind: 'replenishment', summary: 'Two reviewed deliveries', evidence: ['Supplier delivery review'], plan: { explanation: 'One grouped purchasing decision', purchases: [1, 2].map(n => ({ supplierId: supplier.id, expectedDate: `2030-01-1${n}`, lines: [{ itemId: item.id, quantity: '6', unitPrice: '10' }] })) } })
     const groupSignature = await send('proposal.approve', { proposalId: grouped.id, version: grouped.version })
     expect(groupSignature.remainingAtSigning).toBe(1)
     const afterGroup = await (await page.request.get(origin + '/api/larder/state')).json()
