@@ -1564,7 +1564,7 @@ Core · target · **done** · Cites BASE-DATA-001, BASE-ROLE-001, BASE-AUDIT-001
 **Acceptance.**
 1. Import history, search a closed lot/job, export and restore to an empty installation, then compare records/files/totals and confirm no live provider credential or duplicate remote action.
 
-**Evidence.** `tests/api/backup.test.mjs` — “MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions”; `tests/browser/history.spec.ts` — “MOVE-008 preview and commit source history, find closed job/lot, download original and portable exports at 1440/390”
+**Evidence.** `tests/api/backup.test.mjs` — “MOVE-008 source history searches original IDs/files, exports every record and restores without credentials or remote actions”; `tests/browser/history.spec.ts` — “MOVE-008 preview and commit source history, find closed job/lot, download original and portable exports at 1440/390”
 **Gap.** None.
 
 ### Roles security and ownership
