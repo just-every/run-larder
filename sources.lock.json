@@ -4589,7 +4589,7 @@
       "executable": false
     },
     "tests/browser/approvals.spec.ts": {
-      "sha256": "db1b5f5d46d083cb96691a8c79cd31d1255e8106d3bebb7619b140bd9340b2c6",
+      "sha256": "72f078ef3a29917bb9d3547c4edac5aa0132ed5783b1021746970ab91a3f1542",
       "executable": false
     },
     "tests/browser/audit.spec.ts": {
