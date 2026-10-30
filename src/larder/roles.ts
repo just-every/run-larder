@@ -1,6 +1,7 @@
 import { fail, forbidden } from './problem'
 import { bump, get, list, oneOf, row, text, type Context, type Row } from './model'
 import { approvalDoor } from './scope'
+import { scopeClassification } from './scope-classification'
 
 // Larder roles. The owner holds every authority; an agent prepares drafts and
 // proposals and never approves, posts stock or changes roles. GOV-001: a planner
@@ -46,13 +47,16 @@ export function roleCommand(c: Context, type: string, p: any): Row | undefined {
     if (existing) return bump(existing, { role: custom.base, customRoleId: custom.id })
     return row(c, 'roles', { id: p.operatorId, role: custom.base, customRoleId: custom.id })
   }
+  for (const key of Object.keys(p)) if (!['operatorId', 'sites', 'locations', 'costsRestricted', 'reason'].includes(key)) fail('INPUT', 'Scope facts are computed by the server; send only the member restrictions.', { field: key })
   const places = p.locations === null || p.locations === undefined ? null : [...new Set<string>(list<string>(p.locations, 'locations'))]
   for (const id of places ?? []) get(c.s, 'locations', id, 'location')
   const sites = p.sites === undefined || p.sites === null ? null : [...new Set<string>(list<string>(p.sites, 'sites'))]
   for (const id of sites ?? []) get(c.s, 'sites', id, 'site')
   const next = { sites, locations: places, costsRestricted: p.costsRestricted === true }
-  if (existing) return bump(existing, next)
-  return row(c, 'roles', { id: p.operatorId, role: 'viewer', ...next })
+  const previous = existing ? structuredClone(existing) : undefined
+  const changed = existing ? bump(existing, next) : row(c, 'roles', { id: p.operatorId, role: 'viewer', ...next })
+  changed.scopeClassification = scopeClassification(c, previous, changed, c.scopeTarget ?? fail('NOT_FOUND', 'Choose an invited person.'))
+  return changed
 }
 
 function customRole(c: Context, p: any): Row {
