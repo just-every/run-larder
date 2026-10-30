@@ -12,12 +12,20 @@ import { randomUUID, randomBytes } from 'node:crypto'
 import assert from 'node:assert/strict'
 
 let bundle
-async function script(now) {
-  if (now !== undefined) {
-    assert.equal(new Date(now).toISOString(), now, 'Use an explicit fixed command clock')
+async function script(now, beforeCommit = false) {
+  if (now !== undefined || beforeCommit) {
+    if (now !== undefined) assert.equal(new Date(now).toISOString(), now, 'Use an explicit fixed command clock')
     const fixed = await build({ entryPoints: ['tests/api/worker.ts'], bundle: true, write: false, format: 'esm', platform: 'neutral', target: 'es2022', external: ['node:*', 'cloudflare:*'], loader: { '.css': 'text', '.svg': 'text' },
       plugins: [{ name: 'fixed-command-clock', setup(builder) {
-        builder.onLoad({ filter: /[/\\]larder[/\\]clock\.ts$/ }, () => ({ contents: `export const commandTime = () => ${JSON.stringify(now)}`, loader: 'ts' }))
+        if (now !== undefined) builder.onLoad({ filter: /[/\\]larder[/\\]clock\.ts$/ }, () => ({ contents: `export const commandTime = () => ${JSON.stringify(now)}`, loader: 'ts' }))
+        // Test-only barrier: interleave a second real HTTP command before the
+        // first command's atomic batch. Production has no barrier or override.
+        if (beforeCommit) builder.onLoad({ filter: /[/\\]larder[/\\]storage\.ts$/ }, async ({ path }) => {
+          const source = await readFile(path, 'utf8'), needle = '  await db.batch(['
+          assert.equal(source.split(needle).length, 2, 'Instrument the one command batch')
+          const barrier = `  if (type === 'member.scope') await fetch('https://scope-commit.synthetic.invalid/', { method: 'POST', body: JSON.stringify({ type, commandId: c.commandId, stateVersion: before.version }) })\n`
+          return { contents: source.replace(needle, barrier + needle), loader: 'ts' }
+        })
       } }] })
     return fixed.outputFiles[0].text
   }
@@ -55,18 +63,19 @@ async function commandInstallation(root) {
   return { checkout, persistence: join(checkout, '.wrangler/state/v3'), databases: Object.fromEntries(config.d1_databases.map(d => [d.binding, d.database_id])), run }
 }
 
-export async function installation({ now, modelEdge, modelKey, publicCommands = false } = {}) {
+export async function installation({ now, modelEdge, modelKey, publicCommands = false, beforeCommit } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'larder-api-'))
   let native
   try { native = publicCommands ? await commandInstallation(root) : undefined }
   catch (error) { await rm(root, { recursive: true, force: true }); throw error }
   let origin = 'http://localhost'
   const setup = randomBytes(32).toString('hex')
-  let code = await script(now)
+  let code = await script(now, Boolean(beforeCommit))
   // The mail provider is the network edge: invitations reach this fake Resend.
   const mails = []
   let outboundRequests = 0
   const outboundService = async request => {
+    if (request.url === 'https://scope-commit.synthetic.invalid/' && beforeCommit) { await beforeCommit(await request.json()); return Response.json({ ok: true }) }
     outboundRequests++
     if (['https://api.anthropic.com/v1/messages', 'https://openrouter.ai/api/v1/chat/completions'].includes(request.url) && modelEdge) return modelEdge(request)
     if (request.url !== 'https://api.resend.com/emails') return new Response('Unexpected outbound request', { status: 599 })
@@ -158,7 +167,7 @@ export async function installation({ now, modelEdge, modelKey, publicCommands = 
       owner = confirmed.headers.getSetCookie().map(v => v.split(';')[0]).join('; ')
     }, async advanceClock(next) {
       assert.ok(now !== undefined && next > now, 'Advance an explicitly fixed command clock')
-      code = await script(next); now = next
+      code = await script(next, Boolean(beforeCommit)); now = next
       await mf.setOptions(options(Number(new URL(origin).port)))
       db = await mf.getD1Database('DB')
     }, outboundCount: () => outboundRequests, get mf() { return mf }, origin, get db() { return db }, async restart() {
