@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "7a6a7600391a585ae871efa5371bc543993a758ff26ce34944ab72cd637c6b8e",
+      "sha256": "48731489e89cf34db938234ab5dae4f43cbebb30c30a4e5de5652da118c034a0",
       "executable": false
     },
     "agent-surface.json": {
@@ -209,7 +209,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "39fabbac3e823779c06cf5e15f41d81b11396a04e7a8658c8852ccc5edf706de",
+      "sha256": "4f22448bc530ef02ccf1276cec3f1388bc9a62757f89f83791344105516c237d",
       "executable": false
     },
     "DEMO.md": {
@@ -4553,7 +4553,7 @@
       "executable": false
     },
     "tests/api/schedule-approval.test.mjs": {
-      "sha256": "e02d316a38da792a5924b94be07861b280c64b26f27a9dd637d8a287ce6f4007",
+      "sha256": "8c85d881c097294404dd54e2682068cfaa086c15a7bb8e2d51d580a4eccc4218",
       "executable": false
     },
     "tests/api/subcontract.test.mjs": {
