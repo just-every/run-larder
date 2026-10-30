@@ -1104,7 +1104,9 @@ test('GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted membe
   await boss.run('schedule.adopt', payload, { commandId, error: 'FORBIDDEN' })
   assert.deepEqual(await recoveryBusiness(h), replayBaseline)
   await deactivate(h, boss)
+  const revokedBaseline = await recoveryBusiness(h)
   assert.equal((await h.request('/api/larder/commands', { method: 'POST', as: boss.cookie, body: { commandId, type: 'schedule.adopt', payload } })).status, 401)
+  assert.deepEqual(await recoveryBusiness(h), revokedBaseline)
   assert.equal(h.outboundCount(), outbound)
 })
 

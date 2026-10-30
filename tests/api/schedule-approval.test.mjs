@@ -232,7 +232,7 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
   assert.deepEqual(done.signatureIds, [signatureB.id, (await h.state()).approvalSignatures.find(s => s.subjectId === done.id && s.signerId === planner.id && s.terms.optionId === done.selectedOptionId).id])
   const after = await h.state(), chosen = second.recoveryOptions[1]
   assert.deepEqual(done.decisionClassification, { ...chosen.classification, action: 'adopt', effect: 'reversible-internal-sequencing' })
-  assert.deepEqual(done.personDecision, { actorId: planner.id, role: 'planner', commandId: decisionCommand, at: '2026-10-25T12:00:00.000Z' })
+  assert.deepEqual(done.personDecision, { kind: 'person', actorId: planner.id, role: 'planner', commandId: decisionCommand, at: '2026-10-25T12:00:00.000Z' })
   assert.equal(done.decidedBy, planner.id)
   assert.deepEqual(after.scheduleBookings.find(b => b.id === done.bookingId).classification, done.decisionClassification)
   const replayBaseline = await recoveryBusiness(h)
@@ -250,9 +250,9 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
   const currentRecovery = (await h.state()).schedulePlans.find(p => p.event?.commandId === capacityEvent.commandId)
   assert.equal(currentRecovery.automation.status, 'review'); assert.ok(currentRecovery.recoverySearch.sources.demandIds.includes(order.id))
   assert.equal((await h.state()).scheduleBookings.length, after.scheduleBookings.length)
-  const rejectionBaseline = await h.state(), rejectedOption = currentRecovery.recoveryOptions[0]
-  const rejected = await reviewer.run('schedule.reject', { planId: currentRecovery.id, version: currentRecovery.version, optionId: rejectedOption.id, reason: 'synthetic-larder-834 retain the adopted intervals' })
-  assert.deepEqual(rejected.decisionClassification, { ...rejectedOption.classification, action: 'reject' })
+  const rejectionBaseline = await h.state()
+  const rejected = await reviewer.run('schedule.reject', { planId: currentRecovery.id, version: currentRecovery.version, reason: 'synthetic-larder-834 retain the adopted intervals' })
+  assert.deepEqual(rejected.decisionClassification, { action: 'reject', classes: ['standard'], effect: 'informational', inputDigest: currentRecovery.inputDigest, options: currentRecovery.recoveryOptions.map(o => ({ ...o.classification, action: 'reject' })) })
   assert.deepEqual([rejected.status, rejected.decidedBy, rejected.personDecision.actorId], ['rejected', reviewer.id, reviewer.id])
   for (const key of ['scheduleBookings', 'workOrders', 'machineCalendars', 'laborCalendars', 'salesOrders', 'purchaseOrders', 'movements', 'reservations']) assert.deepEqual((await h.state())[key], rejectionBaseline[key], key)
   const currentOrder = (await h.state()).salesOrders.find(o => o.id === order.id)

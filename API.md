@@ -858,7 +858,9 @@ option, the server recomputes and compares its facts. The signature terms bind
 that classification and exact option digest. Adoption retains the `adopt`
 classification as reversible internal sequencing on the plan and booking;
 rejection retains an informational `reject` classification. `personDecision`
-records the actual deciding person, role, command and time. Classification,
+identifies its kind as `person` and records the actual deciding person, role,
+command and time. Earlier comparisons without retained computed facts require
+fresh preparation before option adoption. Classification,
 digests, facts and person-decision fields supplied by a caller are refused,
 including nested fields. Current scope and cost redaction also apply to saved
 outcomes and replay. Archived classifications and attribution are history, never
