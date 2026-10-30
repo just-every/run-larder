@@ -1205,3 +1205,38 @@ movement allocations. State exposes `salesMoney` for CAD orders with customer
 and USD quoted, net shipped and invoiced totals. Native order amounts label
 both currencies; exports preserve the customer-currency declaration, recorded
 rate, source movements and local invoices. Restoring those records is inert.
+
+### Native member scope classification
+
+Only the owner can call `member.scope`. Send `operatorId`, optional `sites`,
+`locations`, `costsRestricted` and `reason`; classification labels, confirmations
+and other extra fields are refused. Existing role and scope authorization still
+applies. Omitted lists mean unrestricted and an omitted cost restriction means
+false, as in the existing Settings form.
+
+The returned role and owner state retain the latest `scopeClassification`;
+the append-only audit and recorded command outcomes retain prior decisions.
+It records `classes: ["access"]`, the applied effect, exact target and actor IDs,
+native operator versions and status, the business state version, member and
+custom-role versions, and the member and effective restrictions before and after.
+These are historical facts at that version, never a new grant or current-session
+credential. No personal contact labels or cost amounts are copied into them.
+
+`access.people` counts the one active person whose effective authority changes,
+or zero when custom-role limits mask the edit or the person is inactive.
+`direction` is widening, narrowing, mixed or unchanged; widening and narrowing
+remain separate booleans. Current added and removed location IDs accompany them.
+Effective site reach also includes future bins: `effective.futureSites` is null
+for unrestricted future sites, an exact site list, or empty when an explicit
+member or custom-role location list prevents future reach. Restricting future
+reach can narrow access without removing a current bin. Cost and wage visibility
+is compared after both member and custom-role restrictions apply.
+
+The atomic command retries against changed business inputs and fences the exact
+native target version and status. Replaying a command returns its historical
+outcome once, without applying its old restrictions again. Existing scope and
+cost redaction still apply; non-owners do not receive scope facts from state,
+and restricted members cannot read the audit or business archive. Business
+archives retain recorded classification outcomes and unmapped role history as
+inert evidence; restoring history executes no scope command or remote action.
+This door does not qualify agent execution or provider classifications.

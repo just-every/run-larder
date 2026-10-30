@@ -197,7 +197,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "64e1159a7e93fd219f6bad8b18da1e1f5359ed60d5c366e0d3ce64d78fa803da",
+      "sha256": "8916f724e0bc53f3b14c8c6549de4342fb1f3e60b8fa06b8772d080d59dba32c",
       "executable": false
     },
     "base-copies.json": {
@@ -1169,7 +1169,7 @@
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "f33ffd8a15dd4d477a0420cabf495b3255ca3a1c999cab999a1de7f034739143",
+      "sha256": "cc06f50e4d4285506b1bcbcebc56544c51a191ec38a2952f8384f3bbf3d9f2e7",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -1469,7 +1469,7 @@
       "executable": false
     },
     "src/larder/model.ts": {
-      "sha256": "86604ce2214c03d6fb9b62a8d1e9bbd3dcb255dfbb06015337211cf6ea664e9e",
+      "sha256": "29da79225cc0a6f17374efd8b972c35822ed855cb9646fe9aca2540aad454515",
       "executable": false
     },
     "src/larder/mrp.ts": {
@@ -1625,7 +1625,7 @@
       "executable": false
     },
     "src/larder/roles.ts": {
-      "sha256": "bc84d54ee6cad980489be4a78706b217279f484cd59c91bb4e0e2c8479957801",
+      "sha256": "026b0c088f9ae78ab588c21b9a6f40a3528abc59e6462199568c10fee7a24f3d",
       "executable": false
     },
     "src/larder/routing.ts": {
@@ -1708,6 +1708,10 @@
       "sha256": "de429d7fd73a7cce25f92f4a514903410aff1ddb5593fcf97eb1d4b832d335df",
       "executable": false
     },
+    "src/larder/scope-classification.ts": {
+      "sha256": "9dc2e7e623095bf876e53cd521b61921dd58f2d8273d32e076f7aa34e2399256",
+      "executable": false
+    },
     "src/larder/scope-cost.ts": {
       "sha256": "df6f92660e07bb0f136f84ca3d51b5e8c2c35fab838bed02f052f8f2fa1da4f4",
       "executable": false
@@ -1737,7 +1741,7 @@
       "executable": false
     },
     "src/larder/storage.ts": {
-      "sha256": "394e992bbfd7e8692f0f16399e57d5e92192dde5806d0b41bc2b740e902dd66d",
+      "sha256": "f51a8664f5de474638a0154f8766ac1993424db1166755dce4a13b1b61716f18",
       "executable": false
     },
     "src/larder/subcontract-custody.ts": {
@@ -4445,11 +4449,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "f2bc9eda905369a95337d9546fa708cc935046b06026cc724b58a0d054443d0b",
+      "sha256": "20e6fd6712ea1d4189e328bb0bf299123545aee17e2b4b0673ff3fac4f048574",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "bf90f42a78bcc03b807a74ec53ba3e179ba053f367a9b5a79ac9e3c2023e9b9e",
+      "sha256": "0a8358f8a4331cd40ad6661ee7b9d7a88d73b87d65cac5aa497256112a805b0a",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {

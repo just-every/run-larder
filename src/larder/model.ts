@@ -23,7 +23,7 @@ export type State = Record<Collection, Row[]> & { version: number; movements: Mo
 export type DoorAttribution = { id: string; name: string; consent?: string; operationId: string; approvers: readonly { id: string; name: string }[]; envelope: string | null; localDocument: string | null; localRevision: number; admissionRevision: number | null }
 export type Actor = { agentDoor?: DoorAttribution; id: string; name: string; role: string; sessionId: string; operatorVersion: number; scope?: import('./scope').Scope }
 export type AgentPreparation = { preparedByAgent: {id:string;name:string}; preparedFor: {id:string;name:string}; preparation: string; operationId: string }
-export type Context = { agentPreparation?: AgentPreparation; s: State; actor: Actor; commandId: string; type?: string; now: string; attachments: Attachment[]; reportAuthority?: Actor; automaticReport?: boolean; serviceSecret?: string; preparedBy?: string; people?: { id: string; name: string; role: string }[]; erasure?: import('./audit-erasure').ErasurePlan }
+export type Context = { agentPreparation?: AgentPreparation; s: State; actor: Actor; commandId: string; type?: string; now: string; attachments: Attachment[]; scopeTarget?: import('./scope-classification').ScopeTarget; reportAuthority?: Actor; automaticReport?: boolean; serviceSecret?: string; preparedBy?: string; people?: { id: string; name: string; role: string }[]; erasure?: import('./audit-erasure').ErasurePlan }
 
 export const newId = () => crypto.randomUUID()
 
