@@ -2061,7 +2061,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-003, BASE
 2. Read the same records as accounts and a site/cost-restricted operator; reconcile the resource projection with each actor’s manufacturing screen.
 
 **Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — released CLI 0.2.91 production-door verifier passed 1571/1571 BASE-AGENT points on the declared CORE subset, including typed optional-family refusals; native replay, conflict, stale revision, Pause, archive attribution and retained-custody journey passed; 22 touched authorization/backup journeys, production build and typecheck passed. Wider target clauses remain partial.
-**Gap.** UNDECLARED optional family: resources. Native primary records remain policy-controlled read tools with classification, redaction and visibility. Resource refresh and multi-sponsor conformance remain unscoped and unproved.
+**Gap.** UNDECLARED optional family: resources. Native primary records remain policy-controlled read tools with classification, redaction and visibility. Resource refresh and multi-sponsor conformance remain unscoped and unproved. Exclusion-only optional-family refusal evidence does not establish delivery of this target capability.
 
 #### SURFACE-008 — Evidence-bearing quality and engineering
 
@@ -2087,7 +2087,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-010
 2. Observe supplier-date, material-usable and ledger-reconciled events in the handoffs below without inventing physical arrival or accepted books.
 
 **Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — released CLI 0.2.91 production-door verifier passed 1571/1571 BASE-AGENT points on the declared CORE subset, including typed optional-family refusals; native replay, conflict, stale revision, Pause, archive attribution and retained-custody journey passed; 22 touched authorization/backup journeys, production build and typecheck passed. Wider target clauses remain partial.
-**Gap.** UNDECLARED optional families: events and subscriptions. Base 0.2.91 checks their discovery omission, typed refusal and unchanged native witness; manufacturing event effects and delivery remain unimplemented.
+**Gap.** UNDECLARED optional families: events and subscriptions. Base 0.2.91 checks their discovery omission, typed refusal and unchanged native witness; manufacturing event effects and delivery remain unimplemented. Exclusion-only optional-family refusal evidence does not establish delivery of this target capability.
 
 #### SURFACE-010 — Bounded cost-analysis tool
 
@@ -2100,7 +2100,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006, BASE
 2. Under both company policies, inspect external, sensitive and any money facts and the company’s decision; direct and routed providers remain distinct evidence routes.
 
 **Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — released CLI 0.2.91 production-door verifier passed 1571/1571 BASE-AGENT points on the declared CORE subset, including typed optional-family refusals; native replay, conflict, stale revision, Pause, archive attribution and retained-custody journey passed; 22 touched authorization/backup journeys, production build and typecheck passed. Wider target clauses remain partial.
-**Gap.** UNDECLARED families: provider spend, paid model execution and provider mail edges. No cost is registered; spend none does not enforce caps.
+**Gap.** UNDECLARED families: provider spend, paid model execution and provider mail edges. No cost is registered; spend none does not enforce caps. Exclusion-only optional-family refusal evidence does not establish delivery of this target capability.
 
 #### SURFACE-011 — Manufacturing specialist handoffs
 
@@ -2113,7 +2113,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-010
 2. A failed or uncertain ledger readback leaves its owned follow-up case open; a retried submission alone closes nothing.
 
 **Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — released CLI 0.2.91 production-door verifier passed 1571/1571 BASE-AGENT points on the declared CORE subset, including typed optional-family refusals; native replay, conflict, stale revision, Pause, archive attribution and retained-custody journey passed; 22 touched authorization/backup journeys, production build and typecheck passed. Wider target clauses remain partial.
-**Gap.** UNDECLARED families: cross-specialist handoffs, subscriptions and multi-sponsor delivery. No sibling/provider effect is claimed.
+**Gap.** UNDECLARED families: cross-specialist handoffs, subscriptions and multi-sponsor delivery. No sibling/provider effect is claimed. Exclusion-only optional-family refusal evidence does not establish delivery of this target capability.
 
 #### SURFACE-012 — Manufacturing prompts and capacity limits
 
@@ -2126,7 +2126,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-011, BASE
 2. Inspect an oversized import or model snapshot and a bounded planning search, retaining explicit recoverable limits rather than an invented business-volume cap.
 
 **Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — released CLI 0.2.91 production-door verifier passed 1571/1571 BASE-AGENT points on the declared CORE subset, including typed optional-family refusals; native replay, conflict, stale revision, Pause, archive attribution and retained-custody journey passed; 22 touched authorization/backup journeys, production build and typecheck passed. Wider target clauses remain partial.
-**Gap.** UNDECLARED optional family: prompts. CORE discovery names the manufacturing planner and transport capacities; the four target job prompts, autonomous supplier sends, paid cost investigation and wider specialist week remain unproved.
+**Gap.** UNDECLARED optional family: prompts. CORE discovery names the manufacturing planner and transport capacities; the four target job prompts, autonomous supplier sends, paid cost investigation and wider specialist week remain unproved. Exclusion-only optional-family refusal evidence does not establish delivery of this target capability.
 
 #### SURFACE-013 — A seeded manufacturing week through MCP
 
