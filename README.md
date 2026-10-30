@@ -21,14 +21,13 @@ Tests: `pnpm run test:larder` (API flows) and `node tests/browser/run.mjs` (brow
 
 ## Run it locally
 
-Two lines, as on [run-larder.com/run](https://run-larder.com/run): install `rer`, then start Larder.
+One line, as on [run-larder.com/run](https://run-larder.com/run), installs `rer` and starts Larder:
 
 ```sh
-curl -fsSL https://runeditrun.com/install.sh | sh
-rer dev just-every/run-larder
+curl -fsSL https://runeditrun.com/install.sh | sh -s -- dev just-every/run-larder
 ```
 
-Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-larder` does both in one line. To start it again later, run `cd run-larder && rer dev`.
+Git is required; rer brings Node and pnpm. Already have Node 22 or later? `npx -y @runeditrun/rer dev just-every/run-larder` does the same. To start it again later, run `cd run-larder && rer dev`.
 This edition is runnable after composition. From the composed edition's
 checkout root, `rer dev` alone launches it for review: it installs pinned
 dependencies, sets up a local owner on a free port, starts the real app and
