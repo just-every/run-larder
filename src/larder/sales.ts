@@ -1,4 +1,6 @@
 import { averageCost } from './stock'
+import { saleCurrency, saleAllocations } from './sales-money'
+import { cents } from './decimal'
 // Quotes, confirmed orders, atomic reservation, pick/pack/ship and cancellation.
 import { assertLotNotHeld } from './quality'
 import { approvedCertificates } from './certificate-policy'
@@ -31,7 +33,7 @@ export function quoteLines(c: Context, lines: unknown) {
 export function createQuote(c: Context, p: any, preparedBy?: string): Row {
   const customer = get(c.s, 'parties', p.customerId, 'customer')
   if (customer.kind === 'supplier') fail('INPUT', `${customer.name} is set up as a supplier only.`)
-  return row(c, 'salesOrders', { channel: optionalText(p.channel, 'sales channel', 80) || 'direct', reference: nextReference(c.s.salesOrders, 'SO'), customerId: customer.id, customerReference: optionalText(p.customerReference, 'customer reference', 120), promiseDate: date(p.promiseDate, 'promise date'), note: optionalText(p.note, 'note', 1000), billingAddress: optionalText(p.billingAddress, 'billing address', 2000), shippingAddress: optionalText(p.shippingAddress, 'shipping address', 2000), lines: quoteLines(c, p.lines), status: 'quote', preparedBy: preparedBy ?? c.actor.id })
+  return row(c, 'salesOrders', { ...saleCurrency(p, c.now.slice(0, 10)), channel: optionalText(p.channel, 'sales channel', 80) || 'direct', reference: nextReference(c.s.salesOrders, 'SO'), customerId: customer.id, customerReference: optionalText(p.customerReference, 'customer reference', 120), promiseDate: date(p.promiseDate, 'promise date'), note: optionalText(p.note, 'note', 1000), billingAddress: optionalText(p.billingAddress, 'billing address', 2000), shippingAddress: optionalText(p.shippingAddress, 'shipping address', 2000), lines: quoteLines(c, p.lines), status: 'quote', preparedBy: preparedBy ?? c.actor.id })
 }
 
 const lineOf = (order: Row, lineId: unknown) => order.lines.find((l: any) => l.id === lineId) ?? fail('NOT_FOUND', 'That order line was not found.')
@@ -53,7 +55,7 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
       const order = get(c.s, 'salesOrders', p.orderId, 'order'); fresh(order, p.version)
       if (order.status !== 'quote') fail('STATE', 'Only a quote can be edited here. Prepare a reviewed amendment for a confirmed order.')
       if (order.quoteReview) fail('QUOTE_PREPARATION', 'Explicitly discard the current costed review with a reason before editing the original USD quote.')
-      return bump(order, { customerReference: optionalText(p.customerReference, 'customer reference', 120), promiseDate: date(p.promiseDate, 'promise date'), note: optionalText(p.note, 'note', 1000), billingAddress: p.billingAddress === undefined ? order.billingAddress ?? '' : optionalText(p.billingAddress, 'billing address', 2000), shippingAddress: p.shippingAddress === undefined ? order.shippingAddress ?? '' : optionalText(p.shippingAddress, 'shipping address', 2000), lines: quoteLines(c, p.lines) })
+      return bump(order, { customerReference: optionalText(p.customerReference, 'customer reference', 120), promiseDate: date(p.promiseDate, 'promise date'), note: optionalText(p.note, 'note', 1000), billingAddress: p.billingAddress === undefined ? order.billingAddress ?? '' : optionalText(p.billingAddress, 'billing address', 2000), shippingAddress: p.shippingAddress === undefined ? order.shippingAddress ?? '' : optionalText(p.shippingAddress, 'shipping address', 2000), ...saleCurrency({ currency: order.currency, usdRate: order.usdRate, rateDate: order.rateDate, rateReference: order.rateReference, ...p }, c.now.slice(0, 10)), lines: quoteLines(c, p.lines) })
     }
     case 'so.confirm': {
       allow(c, ['manager', 'sales'])
@@ -61,12 +63,24 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
       if (order.status !== 'quote') fail('STATE', 'Only a quote can be confirmed.')
       if (order.quoteReview) fail('QUOTE_PREPARATION', 'Costed quote options are preparation only. Discard the review before confirming the original USD quote; reviewed prices and dates are not applied.')
       // GOV-002 margin floor: an order below it needs the policy's signatures from managers.
-      const signed = gate(c, { category: 'margin', subjectKind: 'salesOrders', subject: order, measure: () => orderMargin(c.s, order.lines), permitted: ['manager'], preparedBy: order.preparedBy, p })
+      const signed = gate(c, { category: 'margin', subjectKind: 'salesOrders', subject: order, measure: () => orderMargin(c.s, order.lines, order.usdRate ?? '1'), permitted: ['manager'], preparedBy: order.preparedBy, p })
       if (signed && 'pending' in signed) return signed.pending
       if (signed) signed.consume(row(c, 'approvals', { subjectKind: 'salesOrders', subjectId: order.id, subjectVersion: order.version, decision: 'approved', role: c.actor.role, category: 'margin', signatureIds: signed.signatureIds, override: signed.override }).id)
       bump(order, { status: 'confirmed', confirmedBy: c.actor.id, confirmedAt: c.now })
       if (p.reserve !== false) order.reservation = reserveOrder(c, order)
       return order
+    }
+    case 'so.invoice': {
+      allow(c, ['manager', 'accounts'])
+      if (Object.keys(p).some(key => !['orderId', 'version'].includes(key))) fail('INPUT', 'Invoice amounts and sources are computed from posted shipment movements; send only the order and its version.')
+      const order = get(c.s, 'salesOrders', p.orderId, 'order'); fresh(order, p.version)
+      const used = new Set((order.invoices ?? []).flatMap((invoice: any) => invoice.lines.map((line: any) => line.movementId)))
+      const lines = [...saleAllocations(c.s).values()].filter(line => line.orderId === order.id && !used.has(line.movementId))
+      if (!lines.length) fail('NOTHING_TO_INVOICE', 'No uninvoiced shipped quantity or posted correction is available.')
+      const total = (key: 'amount' | 'usdAmount') => cents(lines.reduce((n, line) => n + decimal(line[key], 'invoice amount', { signed: true }), 0n))
+      const invoice = { id: newId(), version: 1, reference: `${order.reference}-INV-${(order.invoices ?? []).length + 1}`, currency: order.currency ?? 'USD', usdRate: order.usdRate ?? '1', rateDate: order.rateDate ?? null, rateReference: order.rateReference ?? '', lines, amount: total('amount'), usdAmount: total('usdAmount'), createdAt: c.now, createdBy: c.actor.id, status: 'recorded locally; not sent or posted to external books' }
+      bump(order, { invoices: [...(order.invoices ?? []), invoice] })
+      return invoice as Row
     }
     case 'so.reserve': {
       allow(c, ['manager', 'sales', 'warehouse'])
@@ -116,7 +130,7 @@ export function sales(c: Context, type: string, p: any): Row | undefined {
         if (l.lotId) assertLotNotHeld(c.s, get(c.s, 'lots', l.lotId, 'lot').id, 'picked')
         return pickLots(c, order, item.id, location.id, q, l.lotId ? get(c.s, 'lots', l.lotId, 'lot').id : '').map(x => ({ lineId: line.id, itemId: item.id, unitPrice: line.unitPrice, promisedSchedules, locationId: location.id, lotId: x.lotId, quantity: format(x.quantity) }))
       })
-      return row(c, 'shipments', { reference: nextReference(c.s.shipments, 'SH'), orderId: order.id, lines, commercialTerms: { billingAddress: order.billingAddress ?? '', shippingAddress: order.shippingAddress ?? '', customerReference: order.customerReference, promiseDate: order.promiseDate, commercialRevision: order.commercialRevision ?? 1, orderVersion: order.version, recordedAt: c.now }, status: 'picked', packages: 0, weightKg: '0', carrier: '', tracking: '' })
+      return row(c, 'shipments', { reference: nextReference(c.s.shipments, 'SH'), orderId: order.id, lines, commercialTerms: { currency: order.currency ?? 'USD', usdRate: order.usdRate ?? '1', rateDate: order.rateDate ?? null, rateReference: order.rateReference ?? '', allocationPolicy: 'cumulative exact products; source-negating corrections', billingAddress: order.billingAddress ?? '', shippingAddress: order.shippingAddress ?? '', customerReference: order.customerReference, promiseDate: order.promiseDate, commercialRevision: order.commercialRevision ?? 1, orderVersion: order.version, recordedAt: c.now }, status: 'picked', packages: 0, weightKg: '0', carrier: '', tracking: '' })
     }
     case 'shipment.unpick': {
       allow(c, ['manager', 'warehouse'])

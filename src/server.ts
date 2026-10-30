@@ -7,8 +7,10 @@ import { staticAssetResponse } from './base/static-assets'
 import { deploymentHealth } from './base/deployment-health'
 import { lobbyResponse } from './base/lobby'
 import { setupStateResponse } from './base/setup-state'
+import { rejectedResponse } from './base/rejected-response'
 import { authResponse, runtimeBindings, type Bindings } from './auth.server'
 import { identity } from './identity'
+import { larderAgentDoor, larderBusinessSettings } from './agent-door/index.server'
 import { larderResponse, runDueReports } from './larder/api'
 
 const api = new Hono<{ Bindings: Bindings }>()
@@ -30,6 +32,16 @@ export default withDemo({
   async fetch(request, env, execution) {
     const asset = await staticAssetResponse(request, env)
     if (asset) return asset
+    const bindings = runtimeBindings(env)
+    const path = new URL(request.url).pathname
+    if (['/api/rer/business-settings','/rer-business-logo','/rer-business.css'].includes(path)) {
+      const business = await larderBusinessSettings(bindings).handle(request)
+      if (business) return rejectedResponse(request,business)
+    }
+    if (path === '/mcp' || path.startsWith('/agents') || path === '/api/rer/agent-policy' || path.startsWith('/.well-known/oauth-protected-resource')) {
+      const door = await larderAgentDoor(bindings).handle(request)
+      if (door) return rejectedResponse(request,door)
+    }
     const larder = await larderResponse(request, env)
     if (larder) return larder
     const auth = await authResponse(request, env)

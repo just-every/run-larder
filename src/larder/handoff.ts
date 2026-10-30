@@ -3,6 +3,7 @@
 // Larder never posts journals; the accountant's ledger stays the authority.
 import { cents, decimal, format, times } from './decimal'
 import { fail } from './problem'
+import { saleAllocations } from './sales-money'
 import { shipmentPrice } from './sales-terms'
 import { allow } from './roles'
 import { bump, fresh, get, list, newId, nextReference, optionalText, row, text, type Context, type Movement, type Row, type State } from './model'
@@ -61,16 +62,18 @@ function pendingValuations(s: State) {
   return s.costValuations.filter(v => v.status === 'approved' && !v.batchAllocation && !done.has(v.id))
 }
 export function handoffLines(s: State) {
-  const done = handedOff(s)
+  const done = handedOff(s), allocations = saleAllocations(s)
   const movementLines = s.movements.filter(m => !done.has(m.id) && !internal.has(m.kind)).map(m => {
-    const d = describe(s, m), corrects = m.reversesId ? done.get(m.reversesId) ?? null : null
+    const allocation = allocations.get(m.id), description = describe(s, m)
+    const d = allocation ? { ...description, amount: decimal(allocation.usdAmount, 'allocated USD', { signed: true }), customerAmount: allocation.amount, currency: allocation.currency, usdRate: allocation.usdRate, customerUnitAmount: allocation.unitPrice, unitAmount: allocation.currency === 'USD' ? description.unitAmount : '', commercialSourceMovementId: allocation.sourceMovementId, allocationPolicy: 'cumulative exact products; source-negating corrections' } : description
+    const corrects = m.reversesId ? done.get(m.reversesId) ?? null : null
     return { id: newId(), movementIds: [m.id], ...d, quantity: format(m.quantity), amount: format(d.amount), amountCents: cents(d.amount), corrects, date: m.createdAt.slice(0, 10) }
   })
   const valuationLines = pendingValuations(s).flatMap(v => v.lines.map((l: any) => ({ id:newId(),movementIds:[],valuationIds:[v.id],sourceMovementIds:[l.movementId],itemSku:s.items.find(i=>i.id===l.itemId)?.sku??'',itemName:s.items.find(i=>i.id===l.itemId)?.name??'',type:'Production valuation correction (no stock quantity)',party:'',partyReference:'',document:s.workOrders.find(w=>w.id===v.workOrderId)?.reference??'',unitAmount:l.unitCost,quantity:'0',amount:l.valueChange,amountCents:cents(decimal(l.valueChange,'valuation correction',{signed:true})),corrects:null,date:v.approvedAt.slice(0,10) })))
   return [...movementLines,...valuationLines,...purchasingCorrections(s)]
 }
 
-export const handoffColumns = ['line', 'date', 'type', 'document', 'party', 'party_reference', 'sku', 'item', 'quantity', 'unit_amount', 'amount', 'corrects_batch', 'corrects_line']
+export const handoffColumns = ['line', 'date', 'type', 'document', 'party', 'party_reference', 'sku', 'item', 'quantity', 'unit_amount', 'amount', 'corrects_batch', 'corrects_line', 'functional_currency', 'customer_currency', 'customer_amount', 'usd_per_customer_unit', 'customer_unit_amount']
 export function handoffCsv(h: Row) {
   const cell = (v: unknown) => {
     // Spreadsheet formula prefixes are neutralised; negative numbers stay numbers.
@@ -78,7 +81,7 @@ export function handoffCsv(h: Row) {
     if (/^[=+@\t\r]/.test(t) || /^-(?!\d)/.test(t)) t = "'" + t
     return /[",\n\r]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t
   }
-  return [handoffColumns.join(','), ...h.lines.map((l: any) => [l.id, l.date, l.type, l.document, l.party, l.partyReference, l.itemSku, l.itemName, l.quantity, l.unitAmount, l.amountCents, l.corrects?.reference ?? '', l.corrects?.lineId ?? ''].map(cell).join(','))].join('\r\n') + '\r\n'
+  return [handoffColumns.join(','), ...h.lines.map((l: any) => [l.id, l.date, l.type, l.document, l.party, l.partyReference, l.itemSku, l.itemName, l.quantity, l.unitAmount, l.amountCents, l.corrects?.reference ?? '', l.corrects?.lineId ?? '', 'USD', l.currency ?? '', l.customerAmount ?? '', l.usdRate ?? '', l.customerUnitAmount ?? ''].map(cell).join(','))].join('\r\n') + '\r\n'
 }
 
 function reconcile(h: Row) {

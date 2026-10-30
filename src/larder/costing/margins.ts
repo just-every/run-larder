@@ -1,4 +1,5 @@
 import { cents, decimal, divide, format, max, times } from '../decimal'
+import { saleAllocations, saleExtension } from '../sales-money'
 import { shipmentPrice } from '../sales-terms'
 import { valuedRate, valuedAmount } from './valuation'
 import { jobCosts } from './jobs'
@@ -11,6 +12,7 @@ const percent = (revenue: bigint, cost: bigint | null) =>
 const costTotal = (r: any) => (r.actualCost === null ? null : d(r.actualCost))
 
 export function marginReport(s: State, q = new URLSearchParams()) {
+  const allocations = saleAllocations(s)
   const rows = s.salesOrders
     .filter((o) => !q.get('orderId') || o.id === q.get('orderId'))
     .flatMap((o) =>
@@ -40,7 +42,10 @@ export function marginReport(s: State, q = new URLSearchParams()) {
               quantity: format(-m.quantity),
               unitPrice: shipmentPrice(s, m).unitPrice,
               unitCost: format(valuedRate(s, m)),
-              revenue: format(times(-m.quantity, d(shipmentPrice(s, m).unitPrice))),
+              revenue: allocations.get(m.id)?.usdAmount ?? format(times(-m.quantity, d(shipmentPrice(s, m).unitPrice))),
+              customerAmount: allocations.get(m.id)?.amount ?? null,
+              currency: allocations.get(m.id)?.currency ?? 'USD',
+              usdRate: allocations.get(m.id)?.usdRate ?? '1',
               cost: format(-valuedAmount(s, m)),
             }
             const reversals = s.movements
@@ -50,7 +55,8 @@ export function marginReport(s: State, q = new URLSearchParams()) {
                 movementId: x.id,
                 kind: 'shipment reversal',
                 quantity: format(-x.quantity),
-                revenue: format(times(-x.quantity, d(original.unitPrice))),
+                revenue: allocations.get(x.id)?.usdAmount ?? format(times(-x.quantity, d(original.unitPrice))),
+                customerAmount: allocations.get(x.id)?.amount ?? null,
                 cost: format(-valuedAmount(s, x)),
               }))
             const returns = s.returns
@@ -69,7 +75,10 @@ export function marginReport(s: State, q = new URLSearchParams()) {
                       quantity: format(-returned.quantity),
                       unitPrice: x.unitPrice,
                       unitCost: format(valuedRate(s, m)),
-                      revenue: format(-times(returned.quantity, d(x.unitPrice))),
+                      revenue: allocations.get(returned.id)?.usdAmount ?? format(-times(returned.quantity, d(x.unitPrice))),
+                      customerAmount: allocations.get(returned.id)?.amount ?? null,
+                      currency: allocations.get(returned.id)?.currency ?? 'USD',
+                      usdRate: allocations.get(returned.id)?.usdRate ?? '1',
                       cost: format(-valuedAmount(s, returned)),
                     }
                     return [
@@ -81,7 +90,8 @@ export function marginReport(s: State, q = new URLSearchParams()) {
                           movementId: v.id,
                           kind: 'return reversal',
                           quantity: format(-v.quantity),
-                          revenue: format(-times(v.quantity, d(x.unitPrice))),
+                          revenue: allocations.get(v.id)?.usdAmount ?? format(-times(v.quantity, d(x.unitPrice))),
+                          customerAmount: allocations.get(v.id)?.amount ?? null,
                           cost: format(-valuedAmount(s, v)),
                         })),
                     ]
@@ -98,7 +108,7 @@ export function marginReport(s: State, q = new URLSearchParams()) {
           net: bigint = sources.reduce((n, x) => n + d(x.quantity), 0n)
         let recognizedRevenue = revenue,
           recognizedCost = actual,
-          estimatedRevenue = times(quantity, d(l.unitPrice)),
+          estimatedRevenue = o.currency && o.currency !== 'USD' ? saleExtension(quantity, l.unitPrice, o.usdRate) : times(quantity, d(l.unitPrice)),
           estimatedCost = quoted,
           expectedRevenue = estimatedRevenue
         const charges = s.marginCharges
@@ -190,6 +200,9 @@ export function marginReport(s: State, q = new URLSearchParams()) {
           channel: o.channel ?? 'legacy channel not recorded',
           reference: o.reference,
           currency: 'USD',
+          customerCurrency: o.currency ?? 'USD',
+          usdRate: o.usdRate ?? '1',
+          customerRevenue: cents(sources.reduce((n, source) => n + d(source.customerAmount ?? source.revenue), 0n)),
           quantity: format(quantity),
           netShipped: format(net),
           remainingQuantity: format(open),

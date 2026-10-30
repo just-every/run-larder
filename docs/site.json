@@ -44,6 +44,10 @@
         {
           "slug": "backup-and-restore",
           "file": "backup-and-restore.md"
+        },
+        {
+          "slug": "company-agents",
+          "file": "company-agents.md"
         }
       ]
     },

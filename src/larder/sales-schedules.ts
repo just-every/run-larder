@@ -42,6 +42,6 @@ export function pickedQuantity(s: State, orderId: string, lineId: string, locati
 }
 export function commercialSnapshot(order: Row) {
   return structuredClone({ id: order.id, version: order.version, reference: order.reference, customerId: order.customerId,
-    customerReference: order.customerReference, promiseDate: order.promiseDate, billingAddress: order.billingAddress ?? '', shippingAddress: order.shippingAddress ?? '',
+    currency: order.currency ?? 'USD', usdRate: order.usdRate ?? '1', rateDate: order.rateDate ?? null, rateReference: order.rateReference ?? '', customerReference: order.customerReference, promiseDate: order.promiseDate, billingAddress: order.billingAddress ?? '', shippingAddress: order.shippingAddress ?? '',
     status: order.status, lines: order.lines.map((line: any) => ({ ...line, activeQuantity: format(decimal(line.quantity) - decimal(line.cancelled)), schedules: deliveries(order, line) })) })
 }

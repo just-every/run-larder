@@ -84,14 +84,14 @@ const changedFields = (old: Record<string, any>, next: Record<string, any>) => {
 const bulkAbove = 40
 
 export function auditEntries(c: Context, before: State, type: string, payload: any, imported = false): AuditEntry[] {
-  const source = c.actor.role === 'agent' ? 'agent' : imported ? 'import' : 'person'
+  const source = c.actor.agentDoor || c.actor.role === 'agent' ? 'agent' : imported ? 'import' : 'person'
   const evidence = c.attachments.map(a => ({ id: a.id, name: scrubText(a.name).slice(0, 120), sha256: a.sha256, size: a.size }))
   const reason = c.erasure ? scrubPersonalValues(reasonOf(payload), c.erasure.values) : reasonOf(payload)
   const out: AuditEntry[] = []
   const add = (kind: string, subjectId: string, subjectVersion: number, op: AuditEntry['op'], was: unknown, now: unknown, full: unknown = now) => {
     if (kind === 'varianceAnalyses') { was = digest(was); now = digest(now); full = { subjectId } }
     out.push({
-      id: `${c.commandId}:${out.length}`, at: c.now, actorId: c.actor.id, actorName: c.actor.name, actorRole: c.actor.role, source, commandId: c.commandId, commandType: type,
+      id: `${c.commandId}:${out.length}`, at: c.now, actorId: c.actor.id, actorName: c.actor.agentDoor ? `${c.actor.agentDoor.name} for ${c.actor.name}` : c.actor.name, actorRole: c.actor.role, source, commandId: c.commandId, commandType: type,
       domain: source === 'agent' && type === 'proposal.prepare' ? 'agent' : domainOf(c, kind, type, payload), subjectKind: kind, subjectId, subjectVersion, op,
       before: scrub(was), after: scrub(now), reason, evidence, refs: refsOf(subjectId, full).join(' '),
     })

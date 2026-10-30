@@ -93,7 +93,7 @@ export function grantRefusal(c: Context, grant: Row, plan: Row): string | null {
   if (grant.status !== 'active') return 'Grant is not active.'
   const lapsed = grantLapsed(c, grant)
   if (lapsed) return lapsed
-  if (c.actor.role === 'agent' || plan.kind !== 'reflow') return 'Only recorded human events qualify.'
+  if (c.actor.agentDoor || c.actor.role === 'agent' || plan.kind !== 'reflow') return 'Only recorded human events qualify.'
   if (!grant.eventTypes.includes(recoveryEvent(plan.event.type))) return 'Event type is outside the grant.'
   if (plan.after.protectionConflicts?.length || plan.protectionConflicts.length) return 'Protected intervals conflict.'
   if (plan.after.jobs.some((j: any) => (j.late && !plan.before.jobs.find((b: any) => b.workOrderId === j.workOrderId)?.late) || (j.unscheduled && !plan.before.jobs.find((b: any) => b.workOrderId === j.workOrderId)?.unscheduled))) return 'A job became newly late or unscheduled.'

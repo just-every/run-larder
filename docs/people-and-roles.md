@@ -37,7 +37,7 @@ A **custom role** is a named copy of one role (not owner or agent) that can only
 
 ## Agents prepare, people approve
 
-An agent signs in like any team member, with the agent role, and works through the same commands. It can prepare:
+Company agents use the [shared MCP door](company-agents.md), under signed company policy and their current native sponsor. An existing native agent account may still sign in with its narrow role. Both paths retain native permissions and the separate manufacturing approval lifecycle. They can prepare:
 
 - an order from a pasted customer enquiry (kept as text, never obeyed as instructions; a missing quantity blocks approval),
 - grouped purchase orders for what is short, with the cash exposure,

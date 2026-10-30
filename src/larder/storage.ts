@@ -1,3 +1,4 @@
+import { agentCustodyEmptySql } from './agent-attribution'
 import { serviceKeyStatements } from './service-keys'
 import { bookingGuards } from './scheduling/booking-guards'
 // Load the whole operational state and commit a command's changes as one
@@ -12,10 +13,34 @@ export const roleSql = `CASE WHEN EXISTS(SELECT 1 FROM larder_records WHERE kind
 
 // True only while this exact session is live, its operator active and unchanged,
 // and the operator still holds the role, scope and custom role the command was checked against (GOV-001).
-export const authority = (a: Actor) => ({
+export const authority = (a: Actor) => a.agentDoor ? doorAuthority(a) : ({
   sql: `EXISTS(SELECT 1 FROM oa_sessions s JOIN oa_operators o ON o.id=s.operator_id WHERE s.id=? AND o.id=? AND o.version=? AND s.operator_version=o.version AND o.status='active' AND s.revoked_at IS NULL AND s.expires_at>? AND ${roleSql}=? AND COALESCE((SELECT version FROM larder_records WHERE kind='roles' AND id=o.id),0)=? AND COALESCE((SELECT version FROM larder_records WHERE kind='customRoles' AND id=?),0)=?)`,
   params: [a.sessionId, a.id, a.operatorVersion, Date.now(), a.role, a.scope?.version ?? 0, a.scope?.customId ?? '', a.scope?.customVersion ?? 0] as unknown[],
 })
+
+
+// The shared door authenticates Business credentials. This fence rechecks its
+// exact policy snapshot and the native role/scope inside the domain batch.
+// It never creates a browser session for an agent.
+function doorAuthority(a: Actor) {
+  const door = a.agentDoor!
+  return {
+    sql: `EXISTS(SELECT 1 FROM oa_operators o WHERE o.id=? AND o.version=? AND o.status='active' AND ${roleSql}=?
+      AND COALESCE((SELECT version FROM larder_records WHERE kind='roles' AND id=o.id),0)=?
+      AND COALESCE((SELECT version FROM larder_records WHERE kind='customRoles' AND id=?),0)=?)
+      AND EXISTS(SELECT 1 FROM agent_door_state WHERE id=1 AND local_paused=0
+        AND envelope IS ? AND local_document IS ? AND local_revision=?
+        AND CASE WHEN envelope IS NOT NULL THEN
+          json_extract(envelope,'$.revision') IS ? AND COALESCE(json_extract(envelope,'$.paused'),0)=0
+          AND json_extract(envelope,'$.exp')*1000>?
+          AND NOT EXISTS(SELECT 1 FROM json_each(envelope,'$.revoked.consents') WHERE value=?)
+          AND NOT EXISTS(SELECT 1 FROM json_each(envelope,'$.revoked.agents') WHERE value=?)
+          ELSE local_revision IS ? END)
+      AND EXISTS(SELECT 1 FROM agent_door_agents WHERE id=? AND revoked=0)`,
+    params: [a.id, a.operatorVersion, a.role, a.scope?.version ?? 0, a.scope?.customId ?? '', a.scope?.customVersion ?? 0,
+      door.envelope, door.localDocument, door.localRevision, door.admissionRevision, Date.now(), door.consent ?? null, door.id, door.admissionRevision, door.id] as unknown[],
+  }
+}
 
 export async function load(db: D1Database): Promise<State> {
   const out = await db.batch<any>([
@@ -76,6 +101,7 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
   const response = { ok: true, result, version: before.version + 1 }
   await db.batch([
     db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${a.sql}) AND (SELECT version FROM larder_meta WHERE id=1)=? THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...a.params, before.version),
+    ...(erasure ? [db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN ${agentCustodyEmptySql} THEN 1 ELSE 0 END)`).bind(crypto.randomUUID())] : []),
     // Original report consent is fenced with the snapshot, audit and replay.
     ...(report ? [db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${report.sql}) AND EXISTS(SELECT 1 FROM larder_report_sessions b JOIN oa_sessions s ON s.id=json_extract(b.actor,'$.sessionId') JOIN oa_operators o ON o.id=s.operator_id WHERE b.schedule_id=? AND b.actor=? AND o.role='owner' ${c.automaticReport ? "AND s.kind IN ('native','oidc','password')" : ''}) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...report.params, (result as any).id, JSON.stringify(c.reportAuthority))] : []),
     // A supervisor can lose authority after the handler read. Verify the
@@ -102,6 +128,7 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
     ...(erasure ? erasureStatements(db, c, erasure) : []),
     db.prepare('UPDATE larder_meta SET version=version+1 WHERE id=1'),
     db.prepare('INSERT INTO larder_commands VALUES(?,?,?,?,?,?)').bind(c.commandId, c.actor.id, type, digest, JSON.stringify(response), c.now),
+    ...(c.actor.agentDoor ? [db.prepare('INSERT INTO larder_command_agents VALUES(?,?,?,?,?,?,?)').bind(c.commandId,c.actor.agentDoor.id,c.actor.agentDoor.name,c.actor.id,c.actor.name,c.actor.agentDoor.operationId,JSON.stringify(c.actor.agentDoor.approvers))] : []),
     db.prepare('DELETE FROM larder_guard'),
   ])
   return response

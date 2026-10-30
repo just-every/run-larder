@@ -1,3 +1,4 @@
+import { foreignCurrencyJourney } from '../api/foreign-currency-journey.mjs'
 import { test, expect, type Page } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -291,4 +292,47 @@ test('Costed quote review shows reconciled CAD terms and USD estimates at deskto
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   const after = await (await page.request.get(origin + '/api/larder/state')).json()
   for (const key of ['workOrders', 'purchaseOrders', 'reservations', 'movements', 'positions', 'scheduleBookings', 'machineCalendars', 'laborCalendars']) expect(after[key], key).toEqual(baseline[key])
+  // Extend the existing commercial sanity journey through the real native HTTP
+  // door, then read the accepted CAD order and its retained local invoices.
+  const request = async (path: string) => {
+    const response = await page.request.get(origin + path)
+    return { status: response.status(), json: () => response.json(), text: () => response.text() }
+  }
+  const fx = await foreignCurrencyJourney({
+    command: async (type: string, payload: object, opts: any = {}) => {
+      const response = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: opts.commandId ?? crypto.randomUUID(), type, payload } })
+      const body = await response.json()
+      if (opts.error) { expect(body.ok).toBe(false); expect(body.error.code).toBe(opts.error); return body }
+      expect(body.ok, JSON.stringify(body.error)).toBe(true); return body.result
+    }, state: async () => (await request('/api/larder/state')).json(), request,
+  }, `synthetic-larder-909-${suffix}`)
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await open(page, `orders/${fx.orderId}`)
+  const lines = page.locator('.lines-card')
+  await expect(lines).toContainText('CAD 19,800.00 · USD 14,324.43')
+  await expect(lines).toContainText('Recorded rate 0.723456 USD per CAD')
+  await expect(lines).toContainText('Net shipped: CAD 19,800.00 · USD 14,324.43')
+  await expect(lines).toContainText('Locally invoiced: CAD 19,800.00 · USD 14,324.43')
+  await page.getByText('Local invoice history', { exact: true }).click()
+  await expect(lines).toContainText('CAD 9,900.00 · USD 7,162.21')
+  await expect(lines).toContainText('USD −$7,162.21'.replace('$', ''))
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 1000 })
+    await shot(page, 'foreign-currency-allocated-invoices')
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await open(page, 'orders')
+  await expect(page.getByRole('row').filter({ has: page.getByRole('link', { name: (await (await request('/api/larder/state')).json()).salesOrders.find((o: any) => o.id === fx.orderId).reference, exact: true }) })).toContainText('CAD 19,800.00 · USD 14,324.43')
+  for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await shot(page, 'foreign-currency-order-list') }
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await open(page, 'handoff/margins')
+  await page.getByLabel('Sales order', { exact: true }).selectOption(fx.orderId)
+  await page.getByRole('button', { name: 'Apply report filters', exact: true }).click()
+  await expect(page.locator('main')).toContainText('$14,324.43 revenue')
+  for (const width of [1440, 390]) { await page.setViewportSize({ width, height: 1000 }); await shot(page, 'foreign-currency-margin') }
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await open(page, `handoff/${fx.handoffId}`)
+  await shot(page, 'foreign-currency-handoff')
+  await page.setViewportSize({ width: 390, height: 1000 }); await shot(page, 'foreign-currency-handoff')
+
 })

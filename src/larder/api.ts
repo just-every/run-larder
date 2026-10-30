@@ -1,3 +1,4 @@
+import { larderBusinessPresentation } from '../agent-door/business-settings.server'
 import { business } from './business'
 import { warehouseLogistics } from './warehouse-logistics'
 import { serviceActor, serviceKeys } from './service-keys'
@@ -29,6 +30,7 @@ import { migrateAudArchive } from './currency-migration'
 import { approvalCommand } from './approval-policy'
 import { cutover } from './cutover'
 import { cutoverGuard } from './cutover-guard'
+import { attributeAgentChanges, agentCustodyEmptySql } from './agent-attribution'
 import { auditEntries } from './audit'
 import { contactOutcomes, erasureCommand, erasurePlan } from './audit-erasure'
 import { receiptJobAllocation } from './receipt-job-allocation'
@@ -117,7 +119,7 @@ const handlers = [warehouseLogistics, business, quoteReview, serviceKeys, retent
 async function people(env: Bindings, actor: Actor) {
   const named = (await env.DB.prepare(`SELECT o.id,o.display_name AS name,${roleSql} AS role FROM oa_operators o WHERE o.status='active'`).all()).results
   const operators = actor.role === 'owner' ? (await env.DB.prepare(`SELECT o.id,o.email,o.display_name AS name,o.status,${roleSql} AS role FROM oa_operators o ORDER BY o.created_at`).all()).results : []
-  const commands = (await env.DB.prepare('SELECT id,actor_id AS actorId,type,created_at AS createdAt FROM larder_commands ORDER BY created_at DESC LIMIT 200').all()).results
+  const commands = (await env.DB.prepare("SELECT c.id,c.actor_id AS actorId,c.type,c.created_at AS createdAt,CASE WHEN a.command_id IS NOT NULL THEN a.agent_name || ' for ' || a.sponsor_name ELSE NULL END AS attribution FROM larder_commands c LEFT JOIN larder_command_agents a ON a.command_id=c.id ORDER BY c.created_at DESC LIMIT 200").all()).results
   return { people: named, operators, commands }
 }
 
@@ -131,7 +133,7 @@ async function command(env: Bindings, actor: Actor, request: Request): Promise<R
   return executeCommand(env, actor, body)
 }
 
-async function executeCommand(env: Bindings, actor: Actor, body: any, automaticReport = false): Promise<Response> {
+export async function executeCommand(env: Bindings, actor: Actor, body: any, automaticReport = false): Promise<Response> {
   // FLOOR-004 retains its explicit production authoring authority. Operators
   // and other readers never recover a rework rate from a prior command replay.
   const respond = (body: any) => json(scopeOf(actor).costs && body?.result ? { ...body, result: redactCosts(body.result) } : Array.isArray(body?.result?.labor) && !readsWages(actor, body.result) ? { ...body, result: withoutWages(body.result) } : body)
@@ -149,8 +151,9 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
   }
   if (type.startsWith('variance.') && actor.role !== 'owner') forbidden('Only the owner may review model evidence or authorize a run.')
   if (type === 'business.save' && actor.role !== 'owner') forbidden('Only the owner configures the business identity.')
+  if (type === 'so.invoice' && !['owner', 'manager', 'accounts'].includes(actor.role)) forbidden('Only accounts or managers may record a local invoice.')
   gateCommand(actor, type, payload)
-  if (['so.review', 'so.reviewClear'].includes(type) && isScoped(actor)) forbidden('Costed quote preparation requires unrestricted commercial and location access.')
+  if (['so.review', 'so.reviewClear', 'so.invoice'].includes(type) && isScoped(actor)) forbidden('Costed quote preparation requires unrestricted commercial and location access.')
   if ((type.startsWith('costing.') || type.startsWith('reports.')) && !costingReaders.includes(actor.role)) forbidden('Only accounts or managers may use costing.')
   if (blindSessions(await load(env.DB), actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
   if (type === 'count.schedule') {
@@ -173,6 +176,10 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
     // A recorded outcome that names a location the member has since lost stays closed to them.
     if (scopeOf(actor).locations !== null && names(previous.result, hiddenLocations(await load(env.DB), scopeOf(actor)))) forbidden('This outcome involves a location outside your location scope.')
     return respond(previous)
+  }
+  if (actor.role === 'owner' && ['erasure.audit','erasure.contact','erasure.operator'].includes(type)) {
+    const custody=await env.DB.prepare(`SELECT CASE WHEN ${agentCustodyEmptySql} THEN 1 ELSE 0 END AS empty`).first<{empty:number}>()
+    if(custody?.empty!==1)fail('AGENT_CUSTODY','Retained agent decisions, approvals or outcomes require a client-scoped custody/redaction mapping before erasure can complete.')
   }
   let erasure = ['erasure.audit', 'erasure.contact', 'erasure.operator'].includes(type) ? await erasurePlan(env.DB, await load(env.DB), actor, payload) : undefined
   if (type === 'exception.assign' || type === 'exception.escalate') {
@@ -200,7 +207,7 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
     const before = await load(env.DB), s = structuredClone(before)
     if (['erasure.contact', 'erasure.operator'].includes(type)) erasure = await contactOutcomes(env.DB, await erasurePlan(env.DB, before, actor, payload))
     if (blindSessions(s, actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
-    const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], reportAuthority, automaticReport, ...((type === 'proposal.prepare' || type === 'proposal.approve' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type === 'so.review' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
+    const c: Context = { s, actor, commandId, type, now: commandTime(), attachments: [], reportAuthority, automaticReport, ...((type === 'proposal.prepare' || type === 'proposal.approve' || type === 'proposal.reject' || type.startsWith('approval.') || ['po.approve', 'count.approve', 'count.reject', 'so.confirm', 'so.changeApprove', 'quality.release', 'quarantine.decide', 'nonconformance.release', 'nonconformance.reject', 'lot.dispose', 'nonconformance.deviation.approve', 'supply.change.approve', 'po.tolerance'].includes(type) || type.startsWith('schedule.') || type === 'nest.import' || type === 'so.review' || type.startsWith('replenishment.') || ['maintenance.create','maintenance.update','maintenance.release','wo.operation.pause','wo.operation.resume','wo.operation.progress','wo.operation.complete','po.revise','po.confirm','order.rank','work.expected'].includes(type)) ? { people: (await people(env, actor)).people as any } : {}) }
     if (erasure) c.erasure = erasure
     enforcePayload(c, payload)
     if (type === 'import.undo') enforceRetention(before, s, payload.importId)
@@ -214,6 +221,7 @@ async function executeCommand(env: Bindings, actor: Actor, body: any, automaticR
     voidBatchReviews(c)
     enforceRetention(before, s, undefined, type)
     cutoverGuard(before, s, c.now)
+    attributeAgentChanges(c,before)
     const audit = auditEntries(c, before, type, payload, type.startsWith('import.'))
     if (type === 'import.commit' || type === 'import.undo') {
       await publishImport(env, c, before, type, digest, result!, audit)
@@ -288,7 +296,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (versionedResource) return json(publicPage(await load(env.DB), actor, versionedResource[1], url.searchParams))
     if (path === '/retention/operator') return json(await operatorRetentionPreview(env.DB, await load(env.DB), actor, url.searchParams.get('operatorId')))
     if (path === '/retention/contact') return json(retentionPreview(await load(env.DB), actor, url.searchParams.get('partyId'), commandTime()))
-    if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, await people(env, actor))) }
+    if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, { ...await people(env, actor), businessName: await larderBusinessPresentation(env).resolve('display_name','') })) }
     // GOV-001: a scoped member reads these through their scope (see scope-view.ts); the audit, archive, handoff,
     // imports and attachment doors need an unscoped person.
     const scope = scopeOf(actor), scoped = isScoped(actor), read = async <T>(compute: (s: any) => T | Promise<T>) => scopedRead(await load(env.DB), scope, compute)

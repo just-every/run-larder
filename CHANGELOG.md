@@ -1,5 +1,19 @@
 # Changelog
 
+## Company-agent runtime refresh
+
+- Align nesting, master production, replenishment and dated/scenario planning tool citations with their existing native contract clauses.
+- Refresh the adopted agent-door runtime and pinned CLI to released Base 0.2.87, retaining the declared core planner subset and native authority.
+- Keep manufacturing events, subscriptions, multiple sponsors, resource refresh and provider execution explicitly partial; the shared harness still requires record-change events for core-only adoption.
+
+## Company-agent planner door
+
+- Add the shared MCP and company-policy door with native owner-id sponsorship, current manufacturing permissions, Pause, audit and once-only command replay.
+- Expose the supported internal preparation and record-reading registry. Preserve physical-evidence, manufacturing-signature, import, device and connector boundaries. Native activity and records name the agent and sponsoring person separately.
+- Preserve command attribution through business archive export/restore. Close native erasure while retained agent artifacts exist, pending a client-scoped Base custody/redaction hook.
+- Add additive agent/Business/attribution migrations and a production-door conformance journey. Events, subscriptions, provider spend and wider manufacturing execution remain partial; the pinned Base 0.2.86 verifier still requires events for a core-only declaration.
+
+
 ## Contract source before fbc24c7de793f07f5cd93f62ac4856adf7b251da
 
 # Larder product contract
