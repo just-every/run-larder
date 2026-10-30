@@ -41,9 +41,10 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
   const buyer = await h.person(['synthetic-larder-961', 'example.test'].join('@'), 'buyer')
   const draftWork = await h.command('wo.draft', { itemId: w.board.id, quantity: '1', requiredBy: '2026-11-05', reason: 'Retained internal scheduling draft' })
   const duplicate = await h.command('item.save', { sku: 'synthetic-larder-962', name: 'Archived duplicate', baseUnit: 'each' })
+  await h.command('approval.policy', { category: 'spend', thresholdUsd: '100', signatures: 2, expiryMinutes: 60, reason: 'Two people approve consequential restocking' })
   const plans = [
     ['order-intake', { customerId: w.customer.id, enquiry: 'Source data only', lines: [{ itemId: w.board.id, quantity: '1', unitPrice: '89' }], promiseDate: '2026-11-05', message: 'Draft reply only' }],
-    ['replenishment', { explanation: 'Reviewed small restock', purchases: [{ supplierId: w.supplier.id, expectedDate: '2026-11-04', lines: [{ itemId: w.timber.id, quantity: '2', unitPrice: '9.5' }] }] }],
+    ['replenishment', { explanation: 'Reviewed policy-bound restock', purchases: [{ supplierId: w.supplier.id, expectedDate: '2026-11-04', lines: [{ itemId: w.timber.id, quantity: '20', unitPrice: '9.5' }] }] }],
     ['item-merge', { duplicateItemId: duplicate.id, keepItemId: w.timber.id }],
     ['reschedule', { changes: [{ workOrderId: draftWork.id, priority: 2, plannedStart: '2026-11-03' }], conflicts: [] }],
     ['reconciliation', { handoffId: handoff.id, entries: handoff.lines.map(l => ({ lineId: l.id, ledgerId: 'synthetic-larder-963', amount: l.amountCents })) }],
@@ -55,6 +56,11 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
     const commandId = 'synthetic-larder-retained-' + retainedProposals.length
     const payload = { proposalId: prepared.id, version: prepared.version }
     const type = kind === 'reconciliation' ? 'proposal.reject' : 'proposal.approve'
+    if (kind === 'replenishment') {
+      const first = await h.command(type, payload)
+      assert.equal(first.remainingAtSigning, 1)
+      assert.deepEqual(first.terms.classification, prepared.classification)
+    }
     const outcome = await (person ? person.run : h.command)(type, payload, { commandId })
     assert.deepEqual(outcome.classification, prepared.classification)
     assert.deepEqual(outcome.decision.classification, prepared.classification)
@@ -129,6 +135,9 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
   }
   const restoredBuy = after.proposals.find(p => p.kind === 'replenishment')
   assert.deepEqual(restoredBuy.classification.classes, ['money', 'commitment'])
+  const restoredApproval = after.approvals.find(a => a.id === restoredBuy.approvalId)
+  assert.equal(restoredApproval.signatureIds.length, 2)
+  assert.deepEqual(after.approvalSignatures.filter(sig => sig.subjectId === restoredBuy.id).map(sig => [sig.status, sig.consumedBy]), [['used', restoredApproval.id], ['used', restoredApproval.id]])
   assert.equal(restoredBuy.decision.by, buyer.id, 'Restore keeps the genuine buyer, never attributes their decision to the restoring owner')
   assert.equal(after.proposals.find(p => p.id === pending.id).status, 'awaiting approval')
   assert.equal(after.proposals.find(p => p.id === pending.id).decision, undefined)
