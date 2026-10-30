@@ -11,6 +11,7 @@ import { approver, type Role } from './roles'
 import { effectiveScope } from './scope'
 import { costDoors } from './scope-cost'
 import { balance } from './stock'
+import { shortages } from './planning'
 import { bump, get, oneOf, optionalText, row, text, type Context, type Row, type State } from './model'
 import { integer } from './scheduling/calendars'
 import { planningDigest } from './scheduling/fingerprint'
@@ -47,7 +48,14 @@ const inputsOf: Record<string, (s: State, r: Row, terms: any, people?: Person[])
   // reschedule proposal is bound by its version and by the work and calendars it moves.
   schedulePlans: (s, p, _t, people) => ({ status: p.status, inputDigest: p.inputDigest, current: !people || planningDigest(s, people as any) === p.inputDigest, changes: sha256(canonicalJson({ effects: p.effects, changes: p.changes, overtime: p.overtime, extraWork: p.extraWork, operations: p.after.operations })) }),
   scheduleGrants: (_s, g) => ({ status: g.status, eventTypes: g.eventTypes, machineIds: g.machineIds, workOrderIds: g.workOrderIds, maxDelayMinutes: g.maxDelayMinutes, maxDisplacementMinutes: g.maxDisplacementMinutes, expiresAt: g.expiresAt, protectionVersion: g.protectionVersion }),
-  proposals: (s, p) => ({ status: p.status, work: (p.plan?.changes ?? []).map((ch: any) => [ch.workOrderId, ch.plannedStart, s.workOrders.find(w => w.id === ch.workOrderId)?.version ?? null]), calendars: [...s.machineCalendars, ...s.laborCalendars].map(x => [x.id, x.version]) }),
+  proposals: (s, p) => p.kind === 'replenishment' ? {
+    status: p.status, classification: p.classification,
+    items: s.items.filter(i => p.context.itemIds.includes(i.id)),
+    suppliers: s.parties.filter(party => p.plan.purchases.some((po: any) => po.supplierId === party.id)),
+    supplierTerms: s.partyItems.filter(term => p.context.itemIds.includes(term.itemId) && p.plan.purchases.some((po: any) => po.supplierId === term.partyId)),
+    sourceLocations: s.movements.filter(m => p.context.itemIds.includes(m.itemId)).map(m => m.locationId),
+    shortages: shortages(s).filter(shortage => p.context.itemIds.includes(shortage.itemId)),
+  } : ({ status: p.status, work: (p.plan?.changes ?? []).map((ch: any) => [ch.workOrderId, ch.plannedStart, s.workOrders.find(w => w.id === ch.workOrderId)?.version ?? null]), calendars: [...s.machineCalendars, ...s.laborCalendars].map(x => [x.id, x.version]) }),
   lots: (s, _lot, t) => stockOf(s, t),
   items: (s, _item, t) => stockOf(s, t),
 }

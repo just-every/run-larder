@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "45b5f35fc5146cdd11b44a1c7939bd3b0b2345b4dfae4cb30bcf9ef724ad89f0",
+      "sha256": "7a6a7600391a585ae871efa5371bc543993a758ff26ce34944ab72cd637c6b8e",
       "executable": false
     },
     "agent-surface.json": {
@@ -197,7 +197,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "64e1159a7e93fd219f6bad8b18da1e1f5359ed60d5c366e0d3ce64d78fa803da",
+      "sha256": "5386871a8933187069e56f267eca94cff7ccbaf240777e5da4e17496a1c3025b",
       "executable": false
     },
     "base-copies.json": {
@@ -209,7 +209,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "ef1b491d64307df92a84b0d4c64ae8652e821bf2c13407c84285ffdfdc4230c8",
+      "sha256": "39fabbac3e823779c06cf5e15f41d81b11396a04e7a8658c8852ccc5edf706de",
       "executable": false
     },
     "DEMO.md": {
@@ -1173,7 +1173,7 @@
       "executable": false
     },
     "src/larder/approval-policy.ts": {
-      "sha256": "e921129da1388be22ce31551f75c2e1036d0c7f57afcc5ae1e71cf6f2b752088",
+      "sha256": "ec7bae11cc1ee4a05acba104b1dc92e43cbd433d34d7542dc087d88c78968f5b",
       "executable": false
     },
     "src/larder/archive-csv.ts": {
@@ -1569,7 +1569,7 @@
       "executable": false
     },
     "src/larder/proposals.ts": {
-      "sha256": "d6714b6664bf60816fc548a8931973e4af6766ccbaedda73869b8765b71eff42",
+      "sha256": "2be193c0ee3033fb8cbe6d7f8065b435791bda86a915d2990836d08086c13ce5",
       "executable": false
     },
     "src/larder/public-api.ts": {
@@ -4085,7 +4085,7 @@
       "executable": false
     },
     "src/ui/approvals.tsx": {
-      "sha256": "ec8c4f0b19e91583ffc32333982325badb6741a34b048b58e56bea9a248eb956",
+      "sha256": "3397ed9e820d8c587ad12f263bcd130618862a36820cfcf63c7276843302a66e",
       "executable": false
     },
     "src/ui/archive.tsx": {
@@ -4445,11 +4445,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "f2bc9eda905369a95337d9546fa708cc935046b06026cc724b58a0d054443d0b",
+      "sha256": "33835ed35509cba480f5afc81b09bb0ed59acc888532af4e9141a40534afbf16",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "bf90f42a78bcc03b807a74ec53ba3e179ba053f367a9b5a79ac9e3c2023e9b9e",
+      "sha256": "a56790b0a21ae456d894ed04b2bd33b939a250e04b7339949597c30366f76722",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
@@ -4589,7 +4589,7 @@
       "executable": false
     },
     "tests/browser/approvals.spec.ts": {
-      "sha256": "94b3526beb2387b5fef6fb91a2f932d1a1aa1ef2bb0ae1ffe4e1fc64e8744632",
+      "sha256": "db1b5f5d46d083cb96691a8c79cd31d1255e8106d3bebb7619b140bd9340b2c6",
       "executable": false
     },
     "tests/browser/audit.spec.ts": {

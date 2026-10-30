@@ -224,6 +224,49 @@ test('LARDER-015 agents prepare intake, replenishment, merges, reschedules and r
   await h.command('capacity.labor', { ...crew, closedDates: ['2026-10-30'], reason: 'Crew unavailable on reviewed day' })
   for (const type of ['proposal.approve', 'proposal.reject'])
     await unchanged(() => h.command(type, { proposalId: changedFinite.id, version: changedFinite.version }, { error: 'STALE' }))
+  // Grouped replenishment follows the same spend policy as a direct purchase.
+  // Two individually small orders still bind their combined reviewed exposure.
+  await h.command('approval.policy', { category: 'spend', thresholdUsd: '100', signatures: 2, expiryMinutes: 60, reason: 'Independent people approve grouped spend' })
+  const groupedPlan = { explanation: 'Two deliveries, one reviewed purchasing decision', purchases: [1, 2].map(n => ({ supplierId: w.supplier.id, expectedDate: `2026-11-0${n}`, lines: [{ itemId: w.timber.id, quantity: '6', unitPrice: '9.5' }] })) }
+  const grouped = await prepare({ kind: 'replenishment', summary: 'Grouped purchasing review', evidence: ['synthetic-larder-966'], plan: groupedPlan })
+  assert.equal(grouped.classification.facts.cashExposureUsd, '114')
+  const beforeSign = await h.invariant()
+  const firstPayload = { proposalId: grouped.id, version: grouped.version }
+  const first = await buyer.run('proposal.approve', firstPayload, { commandId: 'synthetic-larder-first-signature' })
+  assert.equal(first.remainingAtSigning, 1)
+  assert.equal(first.signerId, buyer.id)
+  assert.deepEqual(first.terms.classification, grouped.classification)
+  const pendingState = await h.invariant()
+  for (const key of ['purchaseOrders', 'movements', 'positions', 'reservations', 'approvals', 'proposals'])
+    assert.deepEqual(pendingState[key], beforeSign[key], 'A first signature executes no business action: ' + key)
+  assert.deepEqual(await buyer.run('proposal.approve', firstPayload, { commandId: 'synthetic-larder-first-signature' }), first)
+  await unchanged(() => buyer.run('proposal.approve', firstPayload, { error: 'DUPLICATE_SIGNATURE' }))
+  await unchanged(() => agent.run('proposal.approve', firstPayload, { error: 'FORBIDDEN' }))
+  const committed = await decide(grouped)
+  const committedState = await h.invariant()
+  const approval = committedState.approvals.find(a => a.id === committed.approvalId)
+  assert.equal(approval.signatureIds.length, 2)
+  assert.ok(approval.signatureIds.includes(first.id))
+  assert.deepEqual(committedState.approvalSignatures.filter(sig => sig.subjectId === grouped.id).map(sig => [sig.status, sig.consumedBy]), [['used', approval.id], ['used', approval.id]])
+  assert.deepEqual(committed.result.map(id => committedState.purchaseOrders.find(po => po.id === id).status), ['approved', 'approved'])
+  for (const id of committed.result) {
+    const poApproval = committedState.approvals.find(a => a.subjectKind === 'purchaseOrders' && a.subjectId === id)
+    assert.equal(poApproval.proposalApprovalId, approval.id)
+    assert.deepEqual(poApproval.signatureIds, approval.signatureIds)
+  }
+  const changedGroup = await prepare({ kind: 'replenishment', summary: 'Stale grouped purchasing review', evidence: ['synthetic-larder-967'], plan: groupedPlan })
+  const priorSignature = await buyer.run('proposal.approve', { proposalId: changedGroup.id, version: changedGroup.version })
+  assert.equal(priorSignature.remainingAtSigning, 1)
+  const changedSupplier = (await h.state()).parties.find(p => p.id === w.supplier.id)
+  await h.command('party.save', { ...changedSupplier, terms: 'Revised after grouped preview' })
+  assert.equal((await h.state()).approvalSignatures.find(sig => sig.id === priorSignature.id).status, 'invalidated')
+  await unchanged(() => h.command('proposal.approve', { proposalId: changedGroup.id, version: changedGroup.version }, { error: 'STALE' }))
+  const freshGroup = await prepare({ kind: 'replenishment', summary: 'Declined grouped purchasing review', evidence: ['synthetic-larder-968'], plan: groupedPlan })
+  const beforeReject = await h.invariant()
+  await decide(freshGroup, null, 'proposal.reject')
+  const afterReject = await h.invariant()
+  assert.deepEqual(afterReject.purchaseOrders, beforeReject.purchaseOrders)
+  assert.deepEqual(afterReject.approvalSignatures, beforeReject.approvalSignatures)
   // State reads and retained decision facts follow current location and cost restrictions.
   const reader = await h.person(['synthetic-larder-952', 'example.test'].join('@'), 'manager')
   await h.command('member.scope', { operatorId: reader.id, locations: null, costsRestricted: true })
@@ -236,10 +279,16 @@ test('LARDER-015 agents prepare intake, replenishment, merges, reschedules and r
   assert.equal(seenPurchase.decision.classification.facts.purchases[0].lines[0].unitPrice, 'restricted')
   assert.equal(seenPurchase.decision.classification.inputs.business.items[0].standardCost, 'restricted')
   assert.equal(JSON.stringify(restricted.proposals).includes('9.5'), false)
+  const hiddenSignature = restricted.approvalSignatures.find(sig => sig.id === first.id)
+  assert.equal(hiddenSignature.terms.classification.facts.cashExposureUsd, 'restricted')
+  assert.equal(hiddenSignature.terms.classification.inputsDigest, 'restricted')
+  assert.equal(hiddenSignature.terms.classification.facts.purchases[0].lines[0].unitPrice, 'restricted')
   await h.command('member.scope', { operatorId: reader.id, locations: [w.loc.id], costsRestricted: false })
   restricted = await h.state(reader.cookie)
   assert.equal(restricted.proposals.some(p => p.id === merge.id), false)
   assert.equal(restricted.approvals.some(a => a.subjectId === merge.id), false)
+  assert.equal(restricted.approvalSignatures.some(sig => sig.subjectId === grouped.id), false)
+  assert.equal(restricted.approvals.some(a => a.subjectId === grouped.id), false)
   assert.equal(JSON.stringify(restricted).includes(merge.id), false)
   await h.command('role.set', { operatorId: buyer.id, role: 'viewer' })
   await unchanged(() => buyer.run('proposal.approve', { proposalId: replen.id, version: replen.version, note: 'Exact inputs reviewed' }, { commandId: bought.decision.commandId, error: 'FORBIDDEN' }))
@@ -578,7 +627,15 @@ test('GOV-002 high-value PO and stock write-off need two signatures, a deputy si
   // Proposal approval adopts the plan, but never supplies a spend-policy signature on its PO.
   const replenishment = async (quantity, unitPrice) => {
     const proposal = await agent.run('proposal.prepare', { kind: 'replenishment', summary: 'Walnut restock', evidence: ['Workshop demand'], plan: { explanation: 'Buy walnut for the workshop', purchases: [{ supplierId: w.supplier.id, expectedDate: day(7), lines: [{ itemId: w.timber.id, quantity, unitPrice }] }] } })
-    const adopted = await buyer.run('proposal.approve', { proposalId: proposal.id, version: proposal.version })
+    const payload = { proposalId: proposal.id, version: proposal.version }
+    const beforeAdoption = await h.invariant()
+    let adopted = await buyer.run('proposal.approve', payload)
+    if (adopted.remainingAtSigning !== undefined) {
+      assert.equal(adopted.remainingAtSigning, 1)
+      assert.deepEqual((await h.invariant()).purchaseOrders, beforeAdoption.purchaseOrders)
+      adopted = await mgrA.run('proposal.approve', payload)
+      assert.equal((await h.state()).approvals.find(a => a.id === adopted.approvalId).signatureIds.length, 2)
+    }
     return (await h.state()).purchaseOrders.find(x => x.id === adopted.result[0])
   }
   const progress = async poId => {
