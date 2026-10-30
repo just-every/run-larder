@@ -181,7 +181,7 @@
       "executable": false
     },
     "ACCEPTANCE.md": {
-      "sha256": "45b5f35fc5146cdd11b44a1c7939bd3b0b2345b4dfae4cb30bcf9ef724ad89f0",
+      "sha256": "00119ad783219545a72d08981a495c70ad87e99402f90421b4c0d42af6e82b4c",
       "executable": false
     },
     "agent-surface.json": {
@@ -197,7 +197,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "64e1159a7e93fd219f6bad8b18da1e1f5359ed60d5c366e0d3ce64d78fa803da",
+      "sha256": "d5630b38fb247f5cc2de385f81a7a17bd73d8819fc3dd3eab880335532a727c9",
       "executable": false
     },
     "base-copies.json": {
@@ -209,7 +209,7 @@
       "executable": false
     },
     "CONTRACT.md": {
-      "sha256": "ef1b491d64307df92a84b0d4c64ae8652e821bf2c13407c84285ffdfdc4230c8",
+      "sha256": "fd7c05bea8a6ac143d27db6731f78fe222de8fb9e7b473656af3d4f4c23e5fc5",
       "executable": false
     },
     "DEMO.md": {
@@ -1661,7 +1661,7 @@
       "executable": false
     },
     "src/larder/scheduling/booking.ts": {
-      "sha256": "34e882166a66a6ca430bbb155b7f81de6706bf446aa1598a2d7b822d9bcb0c8c",
+      "sha256": "96cb763889609671e6e3bd8bbf72034272714190f35641492cfbdd0e2ba776cf",
       "executable": false
     },
     "src/larder/scheduling/calendars.ts": {
@@ -1696,12 +1696,16 @@
       "sha256": "1a34bd0e0075510bece19cdadb3a431b975b86bb4f35a33d8d033a24e8ab4772",
       "executable": false
     },
+    "src/larder/scheduling/recovery-classification.ts": {
+      "sha256": "540e3a3fdc308e97de330272b37e03e8b47771d734a6f0d13357a28c89d79279",
+      "executable": false
+    },
     "src/larder/scheduling/recovery-options.ts": {
-      "sha256": "c29a4f6d0f1d0966e3485ce62af3c9de0c6a18e8d4a740c3e0071752b234d4b7",
+      "sha256": "63937e9731e23e2cdbe2f386ff43185171ef6714aca0bbfb04435fcace259914",
       "executable": false
     },
     "src/larder/scheduling/recovery.ts": {
-      "sha256": "1cbaad8a435f2758d9872af54b592c1fa6368f4112347de95a8e6331353d7ae1",
+      "sha256": "a7993ac5c38e0cafb8ec8d556f12e8646b01c4c62fb8de48eb26b1cccd4df970",
       "executable": false
     },
     "src/larder/scheduling/reschedule.ts": {
@@ -4445,11 +4449,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "f2bc9eda905369a95337d9546fa708cc935046b06026cc724b58a0d054443d0b",
+      "sha256": "92fe8b397cd0c96984d05e6320fc8f2dfb659b158e0f3b15e99c4279b7d3aac0",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "bf90f42a78bcc03b807a74ec53ba3e179ba053f367a9b5a79ac9e3c2023e9b9e",
+      "sha256": "ccaea28857555cecd90d0f4fbdd0bb3cbca1d13c34a568cdc6b0f157f769c167",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
@@ -4544,6 +4548,10 @@
       "sha256": "36a5d62ead3ea85fc01d82f96d4b59f37923f1006f84dc243ed8259b11f9b992",
       "executable": false
     },
+    "tests/api/recovery-fixture.mjs": {
+      "sha256": "350284d1d127c0c56134f29dc3118012f94681ecdcf65ec8aff40d0023685ffe",
+      "executable": false
+    },
     "tests/api/rework.test.mjs": {
       "sha256": "317c2cf4e96668188d63ad3406b499864020ae5167d64a46257be8ea5c5903e5",
       "executable": false
@@ -4553,7 +4561,7 @@
       "executable": false
     },
     "tests/api/schedule-approval.test.mjs": {
-      "sha256": "e02d316a38da792a5924b94be07861b280c64b26f27a9dd637d8a287ce6f4007",
+      "sha256": "2c0ed82faffaf951b68629f63b98f0f0f97ab9715cf8d8f71bae60572dcffe9e",
       "executable": false
     },
     "tests/api/subcontract.test.mjs": {

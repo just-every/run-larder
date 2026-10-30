@@ -2,6 +2,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { installation, workshop } from './harness.mjs'
+import { recoveryFixture, recoveryBusiness } from './recovery-fixture.mjs'
 
 const calendar = (name, changes = {}) => ({ name, timeZone: 'America/New_York', effectiveFrom: '2026-01-01', effectiveTo: '2027-12-31', shifts: [{ weekdays: [0, 1, 2, 3, 4, 5, 6], start: 0, end: 1440, breaks: [] }], closedDates: [], usHolidays: false, exceptions: [], capacity: 1, efficiency: 100, reason: 'synthetic-larder-91 calendar approval', ...changes })
 const week = '2026-11-25T00:00:00Z'
@@ -165,24 +166,7 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
   const h = await installation({ now: '2026-10-25T12:00:00.000Z' }); t.after(() => h.close())
   const w = await workshop(h), owner = (await h.state()).actor
   const planner = await h.person('recovery-planner@example.test', 'planner'), reviewer = await h.person('recovery-reviewer@example.test', 'production'), agent = await h.person('recovery-agent@example.test', 'agent')
-  const raw = await h.command('item.save', { sku: 'RECOVERY-INPUT', name: 'Recovery input', kind: 'buy', baseUnit: 'each' })
-  const product = await h.command('item.save', { sku: 'RECOVERY-PART', name: 'Recovery part', kind: 'make', baseUnit: 'each' })
-  const names = ['Recovery primary', 'Recovery alternate A', 'Recovery alternate B']
-  for (const [index, name] of names.entries()) {
-    const machine = await h.command('capacity.machine', calendar(name, { timeZone: 'UTC', ...(index === 0 ? { closedDates: ['2026-11-26', '2026-11-27', '2026-11-28'] } : {}) }))
-    await h.command('capacity.sequence', { id: machine.id, version: machine.version, tools: ['Recovery fixture'], initialFamily: 'part', changeovers: [], planningHourlyCost: String(60 + index * 30), reason: 'Recorded qualified machine and public estimate' })
-  }
-  await h.command('capacity.labor', calendar('Recovery operator', { timeZone: 'UTC', operatorIds: [owner.id], skills: ['recovery cutting'] }))
-  await h.command('bom.revise', { itemId: product.id, components: [{ itemId: raw.id, quantity: '1' }], routing: [{ name: 'Recovery cut', workCentre: names[0], eligibleCentres: names, setupFamily: 'part', requiredTools: ['Recovery fixture'], requiredSkills: ['recovery cutting'], minutes: 60 }] })
-  let order = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-11-27', lines: [{ itemId: product.id, quantity: '2', unitPrice: '90' }] })
-  order = await h.command('so.confirm', { orderId: order.id, version: order.version, reserve: false })
-  let job = await h.command('plan.draft', { itemId: product.id, reason: 'Approved customer demand' })
-  job = await h.command('wo.release', { workOrderId: job.id, version: job.version })
-  const pinned = await planner.run('proposal.prepare', { kind: 'reschedule', summary: 'Original primary machine', evidence: ['Pinned routing'], plan: { changes: [{ workOrderId: job.id, plannedStart: '2026-11-25', scheduleChoices: { 1: names[0] } }], capacity: { asOf: week, days: 7 } } })
-  await h.command('proposal.approve', { proposalId: pinned.id, version: pinned.version })
-  let po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-11-25', reason: 'Named input source', lines: [{ itemId: raw.id, quantity: '2', unitPrice: '8' }] })
-  po = await h.command('po.approve', { poId: po.id, version: po.version })
-  await planner.run('schedule.protect', { asOf: week, days: 7, freezeUntil: week, manualLocks: [], reason: 'Continuous recovery window; no frozen operations' })
+  const { names, order, job, po } = await recoveryFixture(h, w, planner)
   const slip = await h.send('po.revise', { poId: po.id, version: po.version, expectedDate: '2026-11-26', note: 'Supplier reports one day late' })
   assert.equal(slip.body.ok, true)
   const currentPlan = async commandId => (await h.state()).schedulePlans.find(p => p.event?.commandId === commandId)
@@ -194,9 +178,22 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
     assert.deepEqual(plan.recoverySearch.sources.workOrderIds, [job.id])
     assert.notEqual(plan.recoveryOptions[0].movedOperations[0].machineId, plan.recoveryOptions[1].movedOperations[0].machineId)
     for (const option of plan.recoveryOptions) {
+      const classification = option.classification
+      assert.deepEqual([classification.action, classification.classes, classification.effect, classification.inputDigest], ['compare', ['standard'], 'informational', plan.inputDigest])
+      assert.match(classification.optionDigest, /^[a-f0-9]{64}$/)
+      assert.equal(classification.optionId, option.id)
+      const facts = classification.facts
+      assert.equal(facts.estimatedCostUsd, option.planningCostUsd)
+      assert.match(facts.costBasis, /estimate only/)
+      assert.deepEqual([facts.cashExposureUsd, facts.purchasingSpendUsd, facts.customerCommitmentsChanged, facts.outbound, facts.stockChanged, facts.executionAssignmentsChanged], ['0', '0', false, false, false, false])
+      assert.deepEqual(facts.displacement, option.effects)
+      assert.deepEqual(facts.unchangedPromises, option.promiseEffects)
+      assert.deepEqual(facts.changes, option.changes)
       assert.equal(option.feasible, true); assert.equal(option.changedPromiseCount, 0)
       assert.equal(option.after.unscheduled.length, 0)
       const op = option.after.operations.find(o => o.workOrderId === job.id)
+      const classified = facts.operations.find(o => o.key === op.key)
+      assert.deepEqual([classified.workOrderId, classified.machineId, classified.operatorId, classified.intervals, classified.position, classified.requiredSkills, classified.qualifiedPersonRole], [job.id, op.machineId, owner.id, op.intervals, option.sequence.find(o => o.key === op.key).position, ['recovery cutting'], 'owner'])
       assert.ok(names.slice(1).includes(op.machine)); assert.equal(op.operatorId, owner.id)
       assert.ok(op.startsAt >= '2026-11-26T00:00:00.000Z'); assert.ok(op.endsAt <= order.promiseDate + 'T23:59:59.999Z')
       assert.deepEqual(option.sequence.find(o => o.key === op.key).intervals, op.intervals)
@@ -211,21 +208,39 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
   assert.equal(stopped.body.ok, true)
   const second = await currentPlan(stopped.commandId); proveOptions(second)
   assert.ok(second.recoverySearch.sources.maintenanceIds.includes(stopped.body.result.id))
+  const refusalBaseline = await recoveryBusiness(h), outboundBefore = h.outboundCount()
   await reviewer.run('schedule.adopt', { planId: first.id, version: first.version, optionId: first.recoveryOptions[0].id, reason: 'Old ETA event comparison' }, { error: 'STALE' })
   const adopt = (who, optionId, more = {}, error) => who.run('schedule.adopt', { planId: second.id, version: second.version, optionId, reason: 'Exact alternate comparison reviewed', ...more }, error && { error })
   await adopt(agent, second.recoveryOptions[0].id, {}, 'FORBIDDEN')
   await adopt(reviewer, 'not-a-retained-option', {}, 'INPUT')
+  for (const forged of [{ classification: second.recoveryOptions[0].classification }, { decisionClassification: { classes: ['standard'] } }, { personDecision: { actorId: owner.id } }, { optionDigest: 'synthetic-larder-822' }, { override: { classification: { classes: [] } } }]) await adopt(reviewer, second.recoveryOptions[0].id, forged, 'AUTHORITY')
+  assert.deepEqual(await recoveryBusiness(h), refusalBaseline, 'Forged, unauthorized and stale decisions leave every business record and booking unchanged')
+  assert.equal(h.outboundCount(), outboundBefore)
   // Both signatures must name the same option. Signing another option cannot spend the first signature.
   await h.command('approval.policy', { category: 'schedule', thresholdMinutes: 0, signatures: 2, reason: 'Independent exact option signatures' })
   const signatureA = await adopt(planner, second.recoveryOptions[0].id)
   assert.equal(signatureA.remainingAtSigning, 1)
+  assert.deepEqual(signatureA.terms.classification.classes, ['standard'])
+  assert.equal(signatureA.terms.optionDigest, second.recoveryOptions[0].classification.optionDigest)
+  assert.equal(signatureA.terms.classification.inputDigest, second.inputDigest)
   const signatureB = await adopt(reviewer, second.recoveryOptions[1].id)
   assert.equal(signatureB.remainingAtSigning, 1)
   assert.equal((await h.state()).scheduleBookings.length, 0)
-  const before = await h.state(), done = await adopt(planner, second.recoveryOptions[1].id)
+  const before = await h.state(), decisionPayload = { planId: second.id, version: second.version, optionId: second.recoveryOptions[1].id, reason: 'Exact alternate comparison reviewed' }, decisionCommand = 'synthetic-larder-823-adopt'
+  const done = await planner.run('schedule.adopt', decisionPayload, { commandId: decisionCommand })
   assert.equal(done.status, 'adopted'); assert.equal(done.selectedOptionId, second.recoveryOptions[1].id)
   assert.deepEqual(done.signatureIds, [signatureB.id, (await h.state()).approvalSignatures.find(s => s.subjectId === done.id && s.signerId === planner.id && s.terms.optionId === done.selectedOptionId).id])
   const after = await h.state(), chosen = second.recoveryOptions[1]
+  assert.deepEqual(done.decisionClassification, { ...chosen.classification, action: 'adopt', effect: 'reversible-internal-sequencing' })
+  assert.deepEqual(done.personDecision, { actorId: planner.id, role: 'planner', commandId: decisionCommand, at: '2026-10-25T12:00:00.000Z' })
+  assert.equal(done.decidedBy, planner.id)
+  assert.deepEqual(after.scheduleBookings.find(b => b.id === done.bookingId).classification, done.decisionClassification)
+  const replayBaseline = await recoveryBusiness(h)
+  assert.deepEqual(await planner.run('schedule.adopt', decisionPayload, { commandId: decisionCommand }), done)
+  assert.deepEqual(await recoveryBusiness(h), replayBaseline, 'An identical decision replay adds no booking, signature or business effect')
+  await planner.run('schedule.adopt', { ...decisionPayload, optionId: second.recoveryOptions[0].id }, { commandId: decisionCommand, error: 'IDEMPOTENCY' })
+  assert.deepEqual(await recoveryBusiness(h), replayBaseline)
+  assert.equal(h.outboundCount(), outboundBefore)
   assert.deepEqual(after.scheduleBookings.find(b => b.id === done.bookingId).operations, chosen.after.operations)
   assert.deepEqual(after.workOrders.find(j => j.id === job.id).scheduleChoices, chosen.changes[0].scheduleChoices)
   for (const key of ['salesOrders', 'movements', 'reservations', 'purchaseOrders']) assert.deepEqual(after[key], before[key])
@@ -235,6 +250,11 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
   const currentRecovery = (await h.state()).schedulePlans.find(p => p.event?.commandId === capacityEvent.commandId)
   assert.equal(currentRecovery.automation.status, 'review'); assert.ok(currentRecovery.recoverySearch.sources.demandIds.includes(order.id))
   assert.equal((await h.state()).scheduleBookings.length, after.scheduleBookings.length)
+  const rejectionBaseline = await h.state(), rejectedOption = currentRecovery.recoveryOptions[0]
+  const rejected = await reviewer.run('schedule.reject', { planId: currentRecovery.id, version: currentRecovery.version, optionId: rejectedOption.id, reason: 'synthetic-larder-834 retain the adopted intervals' })
+  assert.deepEqual(rejected.decisionClassification, { ...rejectedOption.classification, action: 'reject' })
+  assert.deepEqual([rejected.status, rejected.decidedBy, rejected.personDecision.actorId], ['rejected', reviewer.id, reviewer.id])
+  for (const key of ['scheduleBookings', 'workOrders', 'machineCalendars', 'laborCalendars', 'salesOrders', 'purchaseOrders', 'movements', 'reservations']) assert.deepEqual((await h.state())[key], rejectionBaseline[key], key)
   const currentOrder = (await h.state()).salesOrders.find(o => o.id === order.id)
   const cancellation = await h.send('so.cancelLine', { orderId: order.id, version: currentOrder.version, lineId: currentOrder.lines[0].id, quantity: '1', customerApproval: { name: 'synthetic-larder-814 customer', reference: 'synthetic-larder-814 confirmed quantity', approvedOn: '2026-10-25' }, reason: 'Re-read changed approved demand' })
   assert.equal(cancellation.body.ok, true, JSON.stringify(cancellation.body.error))

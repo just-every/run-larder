@@ -12,7 +12,7 @@ export function adoptionProblem(c: Context, plan: Row): { code: string; message:
 // changes, overtime, work drafts, stock or any other business mutation.
 export function bookIntervals(c: Context, plan: Row, reason: string, approvedBy: string, automatic?: { grantId: string; grantVersion: number }) {
   for (const old of c.s.scheduleBookings.filter(b => b.status === 'active')) bump(old, { status: 'superseded', supersededBy: plan.id })
-  const booking = row(c, 'scheduleBookings', { status: 'active', planId: plan.id, asOf: plan.asOf, days: plan.days, operations: plan.after.operations, approvedBy, approvedAt: c.now, reason, ...(automatic ? { automatic: true, ...automatic, commandId: c.commandId } : {}) })
+  const booking = row(c, 'scheduleBookings', { status: 'active', planId: plan.id, asOf: plan.asOf, days: plan.days, operations: plan.after.operations, approvedBy, approvedAt: c.now, reason, ...(plan.decisionClassification ? { classification: plan.decisionClassification } : {}), ...(automatic ? { automatic: true, ...automatic, commandId: c.commandId } : {}) })
   return bump(plan, { status: 'adopted', bookingId: booking.id, decidedBy: approvedBy, decidedAt: c.now, note: reason,
     ...(automatic ? { semantics: 'Automatic internal intervals under a recorded human grant; no stock, customer date, spend, calendar, assignment or outbound authority.', autoApplication: { ...automatic, approverId: approvedBy, commandId: c.commandId, at: c.now, before: plan.before.operations, after: plan.after.operations, displacement: plan.effects } } : {}) })
 }
