@@ -986,6 +986,28 @@ test('GOV-014 location scope: a scoped member sees, changes and downloads nothin
   const erasedAudit = (await (await h.request('/api/larder/audit?commandId=' + scopeCommandId)).json()).entries
   assert.deepEqual(erasedAudit, audit.entries)
   assert.equal(h.outboundCount(), outbound)
+  // Ordinary disjoint bin scopes retain the whole decision in both audit
+  // snapshots, even when repeated exact IDs exceed the prose digest limit.
+  const bins = []
+  for (let i = 0; i < 64; i++) bins.push((await h.command('location.save', { name: `synthetic-larder-${926 + i}` })).id)
+  const firstScope = await h.command('member.scope', { operatorId: p2.id, locations: bins.slice(0, 32), costsRestricted: true })
+  const swapId = 'synthetic-larder-scope-retention-1'
+  const swapped = await h.command('member.scope', { operatorId: p2.id, locations: bins.slice(32), costsRestricted: false }, { commandId: swapId })
+  assert.deepEqual(swapped.scopeClassification.access, { people: 1, direction: 'mixed', widening: true, narrowing: true, addedLocations: bins.slice(32).sort(), removedLocations: bins.slice(0, 32).sort() })
+  assert.deepEqual(swapped.scopeClassification.before, firstScope.scopeClassification.after)
+  const swapAudit = (await (await h.request('/api/larder/audit?commandId=' + swapId)).json()).entries
+  assert.equal(swapAudit.length, 1)
+  assert.deepEqual(swapAudit[0].before.scopeClassification, firstScope.scopeClassification)
+  assert.deepEqual(swapAudit[0].after.scopeClassification, swapped.scopeClassification)
+  assert.equal(swapAudit[0].actorId, owner.id)
+  const restoredScope = await h.command('member.scope', { operatorId: p2.id, locations: null })
+  assert.equal(restoredScope.scopeClassification.access.direction, 'widening')
+  await h.restart()
+  assert.deepEqual((await (await h.request('/api/larder/audit?commandId=' + swapId)).json()).entries, swapAudit)
+  const auditExport = await (await h.request('/api/larder/audit.json')).json()
+  assert.deepEqual(auditExport.entries.find(e => e.commandId === swapId).after.scopeClassification, swapped.scopeClassification)
+  const csvAudit = await (await h.request('/api/larder/audit.csv')).text()
+  assert.ok(csvAudit.includes(JSON.stringify(swapped.scopeClassification).replaceAll('"', '""')))
 })
 
 // GOV-015 GOV-016 costs-and-wages scope and custom roles (ct scope-review-50 b, c).
