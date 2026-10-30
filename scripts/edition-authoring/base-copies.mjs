@@ -12,7 +12,8 @@ import crypto from 'node:crypto';
 import {execFileSync} from 'node:child_process';
 import {hash, json, git, raw, gitReader, safe, noLinks, testSource} from './files.mjs';
 import {snapshot, acknowledgementDrift} from './base-acknowledgements.mjs';
-import {requireMaterializedCopies} from './copy-checkout.mjs';
+import {completeAuthoringImports, requireMaterializedCopies, preflightRefresh} from './copy-checkout.mjs';
+import {completeRuntimeCopies} from './runtime-dependencies.mjs';
 
 export const RECORD = 'base-copies.json';
 const commit = /^[a-f0-9]{40}$/, sha256 = /^[a-f0-9]{64}$/;
@@ -382,12 +383,22 @@ export function refreshCopies(root, {positional: [revision], record: recordPath,
       if (!sources.length && !Object.keys(copy.adapted || {}).length) throw Error(`No Base source at ${copy.originPath} in ${revision}`);
       return {copy, sources, retired, removed: Object.keys(copy.files).filter(name => !Object.hasOwn(copy.adapted || {}, name) && !sources.some(([source]) => mapped(source, copy.originPath, copy.path) === name))};
     });
+    completeAuthoringImports(root, plans, {tree: next, read, revision, base: origin.repository});
+    completeRuntimeCopies(plans, {tree: next, read, local, upstream, revision, checkTarget(name) {
+      safe(name); noLinks(root, name);
+      const target = path.join(root, name);
+      if (fs.existsSync(target) && !fs.lstatSync(target).isFile()) throw Error(`Runtime dependency is not a regular file: ${name}`);
+    }});
+    // Closure may add individually recorded siblings when the seed originally
+    // selected runtime files one at a time instead of copying the directory.
+    record.copies = plans.map(plan => plan.copy).sort((a, b) => a.path.localeCompare(b.path));
     // A migration a database may already have applied is never rewritten in place:
     // the schema change it brings belongs in a new migration of the seed's own.
     const applied = plans.flatMap(({copy, sources}) => sources.map(([source, {object}]) => [mapped(source, copy.originPath, copy.path), object])
       .filter(([name, object]) => name.split('/').slice(0, -1).includes('migrations') && local(name) && local(name) !== upstream.get(object)).map(([name]) => name));
     if (applied.length) throw Error(`Refusing to rewrite migrations that may already be applied: ${applied.join(', ')}. Base changed these files after they were copied; keep them as they are, drop them from ${recordPath}, and add a new migration for the change instead.`);
     const bytes = read.blobs(plans.flatMap(plan => plan.sources.map(([, {object}]) => object)));
+    preflightRefresh(root, plans, recordPath, files);
     const changes = [];
     for (const {copy, sources, removed} of plans) {
       for (const name of removed) { noLinks(root, name); fs.rmSync(path.join(root, name), {force: true}); }
