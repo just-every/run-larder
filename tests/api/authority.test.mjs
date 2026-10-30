@@ -3,6 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile, readdir } from 'node:fs/promises'
 import { installation, workshop, evidence } from './harness.mjs'
+import { recoveryFixture, recoveryBusiness } from './recovery-fixture.mjs'
 
 test('GOV-001 roles and sessions are checked on every command and read', async t => {
   const h = await installation(); t.after(() => h.close())
@@ -1130,6 +1131,38 @@ test('GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted membe
   // A restriction lifted by the owner takes effect on the next request too.
   await h.command('member.scope', { operatorId: boss.id, locations: null, costsRestricted: false })
   assert.equal((await h.state(boss.cookie)).items.find(i => i.id === gauge.id).standardCost, '33.3131')
+
+  // Recovery facts follow the same live cost and location restrictions as the
+  // retained option; adopting standard internal intervals buys nothing.
+  const recovery = await recoveryFixture(h, w)
+  await h.command('receipt.create', { poId: recovery.po.id, supplierReference: 'synthetic-larder-824', lines: [{ lineId: recovery.po.lines[0].id, quantity: '1', locationId: w.store.id, lot: 'synthetic-larder-825' }] })
+  await h.command('member.scope', { operatorId: boss.id, locations: null, costsRestricted: true })
+  await h.command('member.scope', { operatorId: clerk.id, locations: [w.loc.id], costsRestricted: false })
+  const event = await h.send('po.revise', { poId: recovery.po.id, version: (await h.state()).purchaseOrders.find(p => p.id === recovery.po.id).version, expectedDate: '2026-11-26', note: 'synthetic-larder-826 supplier slip' })
+  assert.equal(event.res.status, 200)
+  const plan = (await h.state()).schedulePlans.find(p => p.event?.commandId === event.commandId)
+  assert.equal(plan.recoveryOptions.length, 2)
+  const selected = plan.recoveryOptions[0], restricted = (await h.state(boss.cookie)).schedulePlans.find(p => p.id === plan.id).recoveryOptions[0].classification
+  assert.deepEqual(restricted.classes, ['standard'])
+  assert.equal(restricted.facts.estimatedCostUsd, 'restricted')
+  assert.equal(restricted.facts.operations[0].planningCost, 'restricted')
+  assert.equal(restricted.facts.cashExposureUsd, 'restricted')
+  assert.ok(!JSON.stringify((await h.state(clerk.cookie)).schedulePlans).includes(plan.id), 'A comparison with hidden source locations is omitted')
+  const payload = { planId: plan.id, version: plan.version, optionId: selected.id, reason: 'synthetic-larder-827 exact standard internal recovery' }, commandId = 'synthetic-larder-828-adopt'
+  const adopted = await boss.run('schedule.adopt', payload, { commandId })
+  assert.deepEqual([adopted.decisionClassification.effect, adopted.decisionClassification.facts.estimatedCostUsd, adopted.personDecision.actorId], ['reversible-internal-sequencing', 'restricted', boss.id])
+  const full = (await h.state()).schedulePlans.find(p => p.id === plan.id)
+  assert.equal(full.decisionClassification.facts.estimatedCostUsd, selected.planningCostUsd)
+  assert.equal((await h.state()).scheduleBookings.find(b => b.id === full.bookingId).classification.facts.estimatedCostUsd, selected.planningCostUsd)
+  const deniedView = await h.state(clerk.cookie)
+  assert.ok(!JSON.stringify(deniedView.scheduleBookings).includes(full.bookingId), 'Adopted facts retain hidden source locations, so no booking leaks')
+  await h.command('member.scope', { operatorId: boss.id, locations: [w.loc.id], costsRestricted: true })
+  const replayBaseline = await recoveryBusiness(h), outbound = h.outboundCount()
+  await boss.run('schedule.adopt', payload, { commandId, error: 'FORBIDDEN' })
+  assert.deepEqual(await recoveryBusiness(h), replayBaseline)
+  await deactivate(h, boss)
+  assert.equal((await h.request('/api/larder/commands', { method: 'POST', as: boss.cookie, body: { commandId, type: 'schedule.adopt', payload } })).status, 401)
+  assert.equal(h.outboundCount(), outbound)
 })
 
 // A one-line purchase, and a service order dispatched from its lot, received and ready to bill, each at a distinctive price.

@@ -1,6 +1,7 @@
 import { scheduleGrant, grantLapsed, grantRefusal, suspendGrant } from './grants'
 import { adoptionProblem, bookIntervals } from './booking'
 import { planningDigest } from './fingerprint'
+import { recoveryClassification, recoveryOptionDigest, refuseRecoveryFacts } from './recovery-classification'
 export { planningDigest } from './fingerprint'
 import { draftWork } from '../production'
 import { supplierQuote } from '../supplier-terms'
@@ -10,7 +11,7 @@ import { move, balance } from '../stock'
 // Durable event proposals and isolated schedule scenarios. No observer may
 // approve execution, change a customer date, buy, or perform an external action.
 // Internal interval booking alone may be delegated by a bounded human grant.
-import { canonicalJson, sha256 } from '../../modules/import-kit/src/d1/index'
+import { canonicalJson } from '../../modules/import-kit/src/d1/index'
 import { bump, fresh, get, list, row, text, type Context, type State, type Row } from '../model'
 import { allow, approver } from '../roles'
 import { authorize, gate } from '../approval-policy'
@@ -77,14 +78,17 @@ function scenario(c:Context,p:any,kind='scenario',event?:any) {
   const after=projection.plan
   const protectionConflicts=protectedConflicts(c.s,after)
   const computed=event ? recoveryOptions(c,before,projection,event,window.asOf,window.days) : null
+  const inputDigest=planningDigest(c.s,c.people)
+  if(computed)for(const option of computed.options)option.classification=recoveryClassification(c,option,inputDigest,'compare')
   return row(c,'schedulePlans',{kind,status:'review',name:text(p.name??`${event?.type} recovery`,'plan name',200),reason:text(p.reason??'Event-driven review; explicit human approval required.','plan reason'),
     preparedBy:c.actor.id,preparedRole:c.actor.role,...window,before,after,changes,outages,extraWork,inventoryUnavailable,alternateSuppliers,overtime,materialEffects:projection.materialEffects,effects:recoveryEffects(before,after),protectionConflicts,
     ...(computed ? {recoveryOptions:computed.options,recoverySearch:computed.search} : {}),
     event:event?{type:event.type,commandId:c.commandId,at:c.now,version:c.s.version+1}:null,changedPromiseCount:0,
-    inputDigest:planningDigest(c.s,c.people),day:c.now.slice(0,10),semantics:'Proposal only. Customer dates, purchases, stock and execution remain unchanged. No automatic sequencing or outbound effects.'})
+    inputDigest,day:c.now.slice(0,10),semantics:'Proposal only. Customer dates, purchases, stock and execution remain unchanged. No automatic sequencing or outbound effects.'})
 }
 
 export function recovery(c:Context,type:string,p:any):Row|undefined {
+  if(['schedule.scenario','schedule.adopt','schedule.reject'].includes(type))refuseRecoveryFacts(p)
   if(type.startsWith('schedule.grant.'))return scheduleGrant(c,type,p)
   if(type==='schedule.protect') {
     allow(c,['manager','planner'])
@@ -115,17 +119,33 @@ export function recovery(c:Context,type:string,p:any):Row|undefined {
   if(plan.status!=='review')fail('STATE','This plan was already decided.')
   if(['promises','spend','automatic'].some(k=>p[k]!==undefined))fail('AUTHORITY','Customer dates and spending require their separate recorded authority.')
   const note=text(p.reason,'decision reason')
-  if(type==='schedule.reject')return bump(plan,{status:'rejected',decidedBy:c.actor.id,decidedAt:c.now,note})
   const option=p.optionId===undefined?undefined:plan.recoveryOptions?.find((o:any)=>o.id===p.optionId)
   if(p.optionId!==undefined&&!option)fail('INPUT','Choose an exact retained recovery option.')
+  if(type==='schedule.reject') {
+    const options=option?[option]:plan.recoveryOptions??[]
+    const current=planningDigest(c.s,c.people)
+    if(options.length&&plan.inputDigest!==current)fail('STALE','Planning inputs changed. Prepare a fresh comparison.')
+    const classifications=options.map((o:any)=>{
+      if(canonicalJson(recoveryClassification(c,o,current,'compare'))!==canonicalJson(o.classification??null))fail('STALE','Recovery facts changed. Prepare a fresh comparison.')
+      return recoveryClassification(c,o,current,'reject')
+    })
+    const classification=option?classifications[0]:classifications.length?{action:'reject',classes:['standard'],effect:'informational',inputDigest:current,options:classifications}:undefined
+    return bump(plan,{status:'rejected',decidedBy:c.actor.id,decidedAt:c.now,note,...(classification?{decisionClassification:classification,personDecision:{actorId:c.actor.id,role:c.actor.role,commandId:c.commandId,at:c.now}}:{})})
+  }
   const reviewed=option?{...plan,after:option.after,changes:option.changes,effects:option.effects,protectionConflicts:option.protectionConflicts}:plan
   const problem=adoptionProblem(c,reviewed)
   if(problem)fail(problem.code,problem.message)
+  let classification
+  if(option) {
+    const comparison=recoveryClassification(c,option,planningDigest(c.s,c.people),'compare')
+    if(canonicalJson(comparison)!==canonicalJson(option.classification??null))fail('STALE','Recovery facts changed. Prepare a fresh comparison.')
+    classification=recoveryClassification(c,option,comparison.inputDigest,'adopt')
+  }
   // GOV-009: a plan whose largest per-job delay is at or above the schedule threshold needs the policy signatures on its exact changes.
-  const signed=gate(c,{category:'schedule',subjectKind:'schedulePlans',subject:plan,measure:()=>largestJobDelay(reviewed.effects),permitted:['manager','production','planner'],preparedBy:plan.preparedBy,...(option?{terms:{optionId:option.id,optionDigest:sha256(canonicalJson(option))}}:{}),p})
+  const signed=gate(c,{category:'schedule',subjectKind:'schedulePlans',subject:plan,measure:()=>largestJobDelay(reviewed.effects),permitted:['manager','production','planner'],preparedBy:plan.preparedBy,...(option?{terms:{optionId:option.id,optionDigest:recoveryOptionDigest(option),classification}}:{}),p})
   if(signed&&'pending' in signed)return signed.pending
   signed?.consume(plan.id)
-  if(option)Object.assign(plan,{after:option.after,changes:option.changes,effects:option.effects,protectionConflicts:option.protectionConflicts,selectedOptionId:option.id,promiseEffects:option.promiseEffects})
+  if(option)Object.assign(plan,{after:option.after,changes:option.changes,effects:option.effects,protectionConflicts:option.protectionConflicts,selectedOptionId:option.id,promiseEffects:option.promiseEffects,decisionClassification:classification,personDecision:{actorId:c.actor.id,role:c.actor.role,commandId:c.commandId,at:c.now}})
   // A schedule approval carries no authority to bypass each adopted piece's door.
   if(plan.extraWork?.length)allow(c,['manager','production','planner'])
   for(const change of plan.overtime??[])allow(c,change.kind==='labor'?['manager']:['manager','planner'])

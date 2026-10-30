@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { installation, workshop } from './harness.mjs'
+import { recoveryFixture } from './recovery-fixture.mjs'
 
 const tables = async db => (await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND (name LIKE 'larder_%' OR name LIKE 'oa_operators') ORDER BY name").all()).results.map(r => r.name)
 const rows = async (db, table) => (await db.prepare(`SELECT * FROM "${table}" ORDER BY 1`).all()).results
@@ -171,7 +172,7 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
 // MOVE-008: every existing business collection, source originals and portable
 // table cells go through authenticated HTTP, including restore into a second DB.
 test('MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now: '2026-10-29T12:00:00.000Z' }); t.after(() => h.close())
   const w = await workshop(h)
   const originalFile = { name: 'job-closed.txt', contentType: 'text/plain', base64: Buffer.from('Closed job ✓\nQty 3; quality signoff; invoice 712').toString('base64') }
   const kinds = ['closed-job', 'shipment', 'bill', 'quality', 'lot']
@@ -223,6 +224,18 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   const latestScopeState = await h.state()
   assert.deepEqual(await h.command('member.scope', scopePayload, { commandId: scopeId }), scopeResult)
   assert.deepEqual(await h.state(), latestScopeState, 'Recovering a prior classification leaves the latest restrictions in place')
+  const reviewer = await h.person(['synthetic-larder-829', 'example.test'].join('@'), 'production')
+  const recovery = await recoveryFixture(h, w)
+  const event = await h.send('maintenance.create', { workCentre: recovery.names[0], kind: 'breakdown', expectedReturnAt: '2026-11-30T00:00:00Z', repairOwner: 'synthetic-larder-830 supervisor', note: 'synthetic-larder-831 breakdown' })
+  assert.equal(event.res.status, 200)
+  const recoveryPlan = (await h.state()).schedulePlans.find(p => p.event?.commandId === event.commandId)
+  assert.equal(recoveryPlan.recoveryOptions.length, 2)
+  const chosen = recoveryPlan.recoveryOptions[0]
+  const recoveryDecision = await reviewer.run('schedule.adopt', { planId: recoveryPlan.id, version: recoveryPlan.version, optionId: chosen.id, reason: 'synthetic-larder-832 independent exact recovery' }, { commandId: 'synthetic-larder-833-adopt' })
+  assert.equal(recoveryDecision.decidedBy, reviewer.id)
+  assert.equal(recoveryDecision.personDecision.actorId, reviewer.id)
+  assert.deepEqual(recoveryDecision.decisionClassification.classes, ['standard'])
+  assert.equal(recoveryDecision.decisionClassification.optionDigest, chosen.classification.optionDigest)
   const archive = await (await h.request('/api/larder/archive')).json()
   const csv = await (await h.request('/api/larder/archive.csv')).text()
   const decoded = { records: {} }
@@ -240,7 +253,7 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   const raw = JSON.stringify(archive)
   for (const value of ['test-only-resend-key', 'SESSION_SECRET', 'SETUP_TOKEN', 'MAIL_API_KEY', h.owner().split('=')[1]]) assert.ok(!raw.includes(value), 'no reusable installation credential')
   assert.ok(!('oa_sessions' in archive)); assert.ok(!('oa_operators' in archive))
-  const target = await installation(); t.after(() => target.close())
+  const target = await installation({ now: '2026-10-29T12:00:00.000Z' }); t.after(() => target.close())
   const targetOutbound = target.outboundCount(), sourceOutbound = h.outboundCount()
   const restored = await (await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })).json()
   assert.equal(restored.ok, true, JSON.stringify(restored))
@@ -264,6 +277,17 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   assert.deepEqual(afterRestart.commands.find(c => c.id === laterScopeId), savedLaterScope)
   assert.deepEqual(afterRestart.unmappedRoles.find(r => r.id === viewer.id).scopeClassification, laterScope.scopeClassification)
   assert.deepEqual(again.records, { ...archive.records, roles: [] })
+  const retainedRecovery = again.records.schedulePlans.find(p => p.id === recoveryPlan.id)
+  assert.deepEqual(retainedRecovery.recoveryOptions, recoveryPlan.recoveryOptions)
+  assert.deepEqual(retainedRecovery.decisionClassification, recoveryDecision.decisionClassification)
+  assert.deepEqual(retainedRecovery.personDecision, recoveryDecision.personDecision)
+  assert.equal(retainedRecovery.decidedBy, reviewer.id)
+  assert.deepEqual(again.records.scheduleBookings.find(b => b.id === retainedRecovery.bookingId).classification, retainedRecovery.decisionClassification)
+  assert.equal((await target.request('/api/larder/state', { as: reviewer.cookie })).status, 401, 'Historical recovery attribution does not revive the old session')
+  const restoredDecision = { planId: recoveryPlan.id, version: recoveryPlan.version, optionId: chosen.id, reason: 'synthetic-larder-832 independent exact recovery' }
+  await target.command('schedule.adopt', restoredDecision, { commandId: 'synthetic-larder-833-adopt', error: 'IDEMPOTENCY' })
+  await target.command('schedule.adopt', { ...restoredDecision, version: retainedRecovery.version }, { error: 'STATE' })
+  assert.deepEqual((await target.state()).scheduleBookings, again.records.scheduleBookings, 'Restored comparisons and person signatures authorize no new booking')
   for (const key of ['movements', 'reservations', 'commands', 'attachments', 'reconciliation']) assert.deepEqual(again[key], archive[key], key)
   assert.ok(archive.people.every(p => again.people.some(r => r.id === p.id && r.name === p.name)))
   assert.deepEqual((await target.state()).positions, (await h.state()).positions)
