@@ -197,7 +197,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "8916f724e0bc53f3b14c8c6549de4342fb1f3e60b8fa06b8772d080d59dba32c",
+      "sha256": "c6426a2e3fd0eb80a076adaa243bd93a8a530b1c3466e8f81e8c2b10010a8777",
       "executable": false
     },
     "base-copies.json": {
@@ -1173,7 +1173,7 @@
       "executable": false
     },
     "src/larder/approval-policy.ts": {
-      "sha256": "e921129da1388be22ce31551f75c2e1036d0c7f57afcc5ae1e71cf6f2b752088",
+      "sha256": "ec7bae11cc1ee4a05acba104b1dc92e43cbd433d34d7542dc087d88c78968f5b",
       "executable": false
     },
     "src/larder/archive-csv.ts": {
@@ -1569,7 +1569,7 @@
       "executable": false
     },
     "src/larder/proposals.ts": {
-      "sha256": "d6714b6664bf60816fc548a8931973e4af6766ccbaedda73869b8765b71eff42",
+      "sha256": "2be193c0ee3033fb8cbe6d7f8065b435791bda86a915d2990836d08086c13ce5",
       "executable": false
     },
     "src/larder/public-api.ts": {
@@ -4089,7 +4089,7 @@
       "executable": false
     },
     "src/ui/approvals.tsx": {
-      "sha256": "ec8c4f0b19e91583ffc32333982325badb6741a34b048b58e56bea9a248eb956",
+      "sha256": "3397ed9e820d8c587ad12f263bcd130618862a36820cfcf63c7276843302a66e",
       "executable": false
     },
     "src/ui/archive.tsx": {
@@ -4449,11 +4449,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "f199739764eacb595cf70eb5548f1988467f82a50b4e9b8f4bc36f2d95139846",
+      "sha256": "e217390934dc703b1c67a5ed874628944b4fa015a1c912ceb4b1520c98726569",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "795f04a1b937010680069e1a17a083578bed09b35bc06c5e2c021c82b7ba5859",
+      "sha256": "64fa78c06676a3beea1bb74b9b9e4c8b1a8a97bbf6afd4f390e5ed46e67a43ff",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
@@ -4593,7 +4593,7 @@
       "executable": false
     },
     "tests/browser/approvals.spec.ts": {
-      "sha256": "94b3526beb2387b5fef6fb91a2f932d1a1aa1ef2bb0ae1ffe4e1fc64e8744632",
+      "sha256": "db1b5f5d46d083cb96691a8c79cd31d1255e8106d3bebb7619b140bd9340b2c6",
       "executable": false
     },
     "tests/browser/audit.spec.ts": {
