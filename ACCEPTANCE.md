@@ -9,9 +9,9 @@ The primary journey: bring the workshop’s records across, quote and confirm re
 | Tier | Done | Partial | Missing | Total |
 | --- | ---: | ---: | ---: | ---: |
 | Core | 86 | 26 | 39 | 151 |
-| Agent surface | 0 | 13 | 0 | 13 |
+| Agent surface | 0 | 8 | 5 | 13 |
 | Later | 0 | 0 | 0 | 0 |
-| Full target | 86 | 39 | 39 | 164 |
+| Full target | 86 | 34 | 44 | 164 |
 
 Judged from the code and tests at commit `3de37ee6da8ff1f5034c3186076bc0d0999e8676` (29 October 2026). Field proof register: 11 rows; 0 passed, 0 failed, 11 not run.
 
@@ -2052,7 +2052,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006, BASE
 
 #### SURFACE-007 — Manufacturing resource projections
 
-Agent surface · target · **partial** · From new · Cites BASE-AGENT-003, BASE-ROLE-001
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-003, BASE-ROLE-001
 
 **Requirement.** Manufacturing resources expose exact item, party, order, purchase, job, operation, lot, inspection, case, valuation and source-history records within GOV-014 and GOV-015.
 
@@ -2060,7 +2060,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-003, BASE
 1. Follow the resource links from a partial receipt, work output and shipment to their exact lots, pegs, costs and retained files.
 2. Read the same records as accounts and a site/cost-restricted operator; reconcile the resource projection with each actor’s manufacturing screen.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — released CLI 0.2.91 production-door verifier passed 1571/1571 BASE-AGENT points on the declared CORE subset, including typed optional-family refusals; native replay, conflict, stale revision, Pause, archive attribution and retained-custody journey passed; 22 touched authorization/backup journeys, production build and typecheck passed. Wider target clauses remain partial.
+**Evidence.** None.
 **Gap.** UNDECLARED optional family: resources. Native primary records remain policy-controlled read tools with classification, redaction and visibility. Resource refresh and multi-sponsor conformance remain unscoped and unproved.
 
 #### SURFACE-008 — Evidence-bearing quality and engineering
@@ -2078,7 +2078,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-007, BASE
 
 #### SURFACE-009 — Manufacturing change events
 
-Agent surface · target · **partial** · From new · Cites BASE-AGENT-010
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-010
 
 **Requirement.** The manufacturing event vocabulary identifies orders, purchases, receipts, work, quality, stock and reconciliation transitions and their resource links.
 
@@ -2086,12 +2086,12 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-010
 1. Receive, produce, hold, release and partly ship seeded goods; follow the corresponding typed manufacturing events back to the same record revisions.
 2. Observe supplier-date, material-usable and ledger-reconciled events in the handoffs below without inventing physical arrival or accepted books.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — released CLI 0.2.91 production-door verifier passed 1571/1571 BASE-AGENT points on the declared CORE subset, including typed optional-family refusals; native replay, conflict, stale revision, Pause, archive attribution and retained-custody journey passed; 22 touched authorization/backup journeys, production build and typecheck passed. Wider target clauses remain partial.
+**Evidence.** None.
 **Gap.** UNDECLARED optional families: events and subscriptions. Base 0.2.91 checks their discovery omission, typed refusal and unchanged native witness; manufacturing event effects and delivery remain unimplemented.
 
 #### SURFACE-010 — Bounded cost-analysis tool
 
-Agent surface · target · **partial** · From new · Cites BASE-AGENT-006, BASE-AGENT-011
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-006, BASE-AGENT-011
 
 **Requirement.** The cost-analysis tool follows AGENT-003’s exact minimized disclosure and route boundary. It reports the selected token/USD estimate before the company-policy decision, retaining cited hypotheses and separate future revision authority.
 
@@ -2099,12 +2099,12 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-006, BASE
 1. Run exact allowed and over-cap snapshots, source/destination changes and an unsent revocation; inspect refusal or the single permitted send without history changes.
 2. Under both company policies, inspect external, sensitive and any money facts and the company’s decision; direct and routed providers remain distinct evidence routes.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — released CLI 0.2.91 production-door verifier passed 1571/1571 BASE-AGENT points on the declared CORE subset, including typed optional-family refusals; native replay, conflict, stale revision, Pause, archive attribution and retained-custody journey passed; 22 touched authorization/backup journeys, production build and typecheck passed. Wider target clauses remain partial.
+**Evidence.** None.
 **Gap.** UNDECLARED families: provider spend, paid model execution and provider mail edges. No cost is registered; spend none does not enforce caps.
 
 #### SURFACE-011 — Manufacturing specialist handoffs
 
-Agent surface · target · **partial** · From new · Cites BASE-AGENT-010
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-010
 
 **Requirement.** The specialist listens for approved demand and supplier dates and emits material-usable, shipment and reconciliation events for linked specialists. Pantry owns books, Pier wholesale, Orbit CRM, Nook messages and Chest source documents.
 
@@ -2112,12 +2112,12 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-010
 1. Follow approved demand through a late supplier, usable receipt, job completion and shipment, linking each receiving specialist to manufacturing evidence.
 2. A failed or uncertain ledger readback leaves its owned follow-up case open; a retried submission alone closes nothing.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — released CLI 0.2.91 production-door verifier passed 1571/1571 BASE-AGENT points on the declared CORE subset, including typed optional-family refusals; native replay, conflict, stale revision, Pause, archive attribution and retained-custody journey passed; 22 touched authorization/backup journeys, production build and typecheck passed. Wider target clauses remain partial.
+**Evidence.** None.
 **Gap.** UNDECLARED families: cross-specialist handoffs, subscriptions and multi-sponsor delivery. No sibling/provider effect is claimed.
 
 #### SURFACE-012 — Manufacturing prompts and capacity limits
 
-Agent surface · target · **partial** · From new · Cites BASE-AGENT-011, BASE-AGENT-013
+Agent surface · target · **missing** · From new · Cites BASE-AGENT-011, BASE-AGENT-013
 
 **Requirement.** Registry-derived prompts offer order-to-shipment planning, supplier follow-up, cost investigation and quality investigation. Capacity bounds are the documented installation rate/body/byte limits; business thresholds and provider spend are company policy.
 
@@ -2125,7 +2125,7 @@ Agent surface · target · **partial** · From new · Cites BASE-AGENT-011, BASE
 1. Discover each named manufacturing job and follow its clauses, resource templates, events and documented capacity limits from the agent documentation.
 2. Inspect an oversized import or model snapshot and a bounded planning search, retaining explicit recoverable limits rather than an invented business-volume cap.
 
-**Evidence.** `agent-surface.json`; `tests/initialize-agent-owner.mjs`; `tests/native-agent-journey.mjs` — released CLI 0.2.91 production-door verifier passed 1571/1571 BASE-AGENT points on the declared CORE subset, including typed optional-family refusals; native replay, conflict, stale revision, Pause, archive attribution and retained-custody journey passed; 22 touched authorization/backup journeys, production build and typecheck passed. Wider target clauses remain partial.
+**Evidence.** None.
 **Gap.** UNDECLARED optional family: prompts. CORE discovery names the manufacturing planner and transport capacities; the four target job prompts, autonomous supplier sends, paid cost investigation and wider specialist week remain unproved.
 
 #### SURFACE-013 — A seeded manufacturing week through MCP
