@@ -829,7 +829,7 @@ Core · target · **done** · Cites BASE-ROLE-001, BASE-AUDIT-001 · Rules D-2, 
 **Requirement.** A PO line retains its requested date separately from the supplier-confirmed date. A buyer records an outside confirmation with its source, reference and original evidence; inbound mail fills the same confirmation record. The screen and audit show both dates without treating a request as supplier agreement. The native decision follows RL-13. The [operating rules](docs/contract/OPERATING-DETAILS.md#buy-009) retain the detailed bounds and record semantics.
 
 **Acceptance.**
-1. Approve a deferral on a PO line and read its requested date with the supplier's date unchanged; as a buyer record the supplier's phone confirmation with its reference, and read the supplier-confirmed date beside the requested date and the promised date, with the audit entrya confirmation without a source are refused.
+1. Approve a deferral on a PO line and read its requested date with the supplier's date unchanged; as a buyer record the supplier's phone confirmation with its reference, and read the supplier-confirmed date beside the requested date and the promised date, with the audit entry. Refuse a confirmation without a source or reference.
 
 **Evidence.** `tests/api/supply-changes.test.mjs` — “MRP-007 supply that lands weeks before its demand recommends a deferral to the day it is first needed and an approved deferral is only a recorded request, and the supplier's confirmation lands beside it as its own date, audited”
 **Gap.** None.
