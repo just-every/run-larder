@@ -114,6 +114,8 @@ Conforms to the ruled form: manual, released jobs only, accepted unreserved stoc
 
 (Carved from MRP-005 on ct's ruling of 22 October 2026; the rider's original wording:) "Keep two fields: the line's requested date (set by the approved MRP-002 decision, changes no supplier date) and its supplier-confirmed date.
 
+**CT wording ruling — 2026-10-31.** Repair BUY-009 acceptance point 1 by separating the audit readback from the refusal: "with the audit entry. Refuse a confirmation without a source or reference." Preserve the requested-date, supplier-confirmed-date and promised-date readbacks and the requirement's existing source and reference duties. This is a grammar repair with no new obligation, status change or new proof; Evidence, Gap and counts remain unchanged.
+
 ### RL-14 — Co-products and by-products
 
 - Date: 2026-10-25
