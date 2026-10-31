@@ -6,10 +6,12 @@ import { recoveryFixture, recoveryBusiness } from './recovery-fixture.mjs'
 
 const calendar = (name, changes = {}) => ({ name, timeZone: 'America/New_York', effectiveFrom: '2026-01-01', effectiveTo: '2027-12-31', shifts: [{ weekdays: [0, 1, 2, 3, 4, 5, 6], start: 0, end: 1440, breaks: [] }], closedDates: [], usHolidays: false, exceptions: [], capacity: 1, efficiency: 100, reason: 'synthetic-larder-91 calendar approval', ...changes })
 const week = '2026-11-25T00:00:00Z'
-const inDays = n => new Date(Date.now() + n * 86400000).toISOString()
+// Keep the planning window and authority lifetimes on the same fixture clock.
+const now = '2026-10-25T12:00:00.000Z'
+const inDays = n => new Date(Date.parse(now) + n * 86400000).toISOString()
 
 test('GOV-009 a two-signature schedule threshold gates an above-threshold plan adoption and a grant with a deputy, invalidates on changed inputs, caps every grant, denies agents and takes the named owner override', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const w = await workshop(h), owner = (await h.state()).actor
   const person = (name, role) => h.person(`gov9-${name}@example.test`, role)
   const manager = await person('manager', 'manager'), planner = await person('planner', 'planner'), production = await person('production', 'production'), reviewer = await person('reviewer', 'manager'), principal = await person('principal', 'manager')
@@ -102,8 +104,8 @@ test('GOV-009 a two-signature schedule threshold gates an above-threshold plan a
   // A signed grant ends when the plan it was signed against changes or any signer loses authority, and its replacement needs fresh signatures.
   for (const g of (await h.state()).scheduleGrants.filter(x => x.status === 'active')) await planner.run('schedule.grant.revoke', { grantId: g.id, version: g.version, reason: 'Replace standing grants' })
   const standing = { ...args, eventTypes: ['ETA'], maxDelayMinutes: 11000, maxDisplacementMinutes: 11000 }
-  let eta = 27
-  const rank = async () => { const current = (await h.state()).purchaseOrders.find(x => x.id === po.id); await h.command('po.revise', { poId: current.id, version: current.version, expectedDate: `2026-11-${++eta}`, note: 'synthetic-larder-105 supplier ETA slip' }); return (await h.state()).schedulePlans.filter(p => p.kind === 'reflow').at(-1) }
+  let eta = 27, tick = Date.parse(now)
+  const rank = async () => { await h.advanceClock(new Date(++tick).toISOString()); const current = (await h.state()).purchaseOrders.find(x => x.id === po.id); await h.command('po.revise', { poId: current.id, version: current.version, expectedDate: `2026-11-${++eta}`, note: 'synthetic-larder-105 supplier ETA slip' }); return (await h.state()).schedulePlans.filter(p => p.kind === 'reflow').at(-1) }
   const dual = async () => { const g = await planner.run('schedule.grant.prepare', standing); await approve(reviewer, g); return approve(grantDeputy, g) }
   let live = await dual()
   const applied = await rank();
@@ -121,7 +123,7 @@ test('GOV-009 a two-signature schedule threshold gates an above-threshold plan a
 })
 
 test('GOV-009 a reschedule proposal delaying a job past the schedule threshold needs two signatures, a deputy and an unchanged finite preview', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const w = await workshop(h), person = (name, role) => h.person(`gov9r-${name}@example.test`, role)
   const planner = await person('planner', 'planner'), production = await person('production', 'production'), principal = await person('principal', 'planner'), deputy = await person('deputy', 'sales'), agent = await person('agent', 'agent'), operator = await person('operator', 'operator'), manager = await person('manager', 'manager')
   await h.command('capacity.machine', calendar('Bench'))

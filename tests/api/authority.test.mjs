@@ -1070,7 +1070,9 @@ test('GOV-014 location scope: a scoped member sees, changes and downloads nothin
 
 // GOV-015 GOV-016 costs-and-wages scope and custom roles (ct scope-review-50 b, c).
 test('GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const now = '2026-10-25T12:00:00.000Z'
+  const h = await installation({ now }); t.after(() => h.close())
+  const day = n => new Date(Date.parse(now) + n * 86400000).toISOString().slice(0, 10)
   const w = await workshop(h), ownerId = (await h.state()).actor.id
   const gauge = await h.command('item.save', { sku: 'GAUGE', name: 'Depth gauge', kind: 'buy', baseUnit: 'each', standardCost: '33.3131', salePrice: '71.4242' })
   await h.command('partyItem.save', { partyId: w.supplier.id, itemId: gauge.id, partyCode: 'G-1', price: '5.5151', leadDays: 3 })

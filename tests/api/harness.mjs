@@ -18,6 +18,13 @@ async function script(now, beforeCommit = false) {
     const fixed = await build({ entryPoints: ['tests/api/worker.ts'], bundle: true, write: false, format: 'esm', platform: 'neutral', target: 'es2022', external: ['node:*', 'cloudflare:*'], loader: { '.css': 'text', '.svg': 'text' },
       plugins: [{ name: 'fixed-command-clock', setup(builder) {
         if (now !== undefined) builder.onLoad({ filter: /[/\\]larder[/\\]clock\.ts$/ }, () => ({ contents: `export const commandTime = () => ${JSON.stringify(now)}`, loader: 'ts' }))
+        // Delegated booking guards must check grant/window expiry against the
+        // same fixture clock as the command, including after advanceClock().
+        if (now !== undefined) builder.onLoad({ filter: /[/\\]scheduling[/\\]booking-guards\.ts$/ }, async ({ path }) => {
+          const source = await readFile(path, 'utf8'), needle = "julianday('now')"
+          assert.equal(source.split(needle).length, 3, 'Instrument both atomic booking clocks')
+          return { contents: source.replaceAll(needle, `julianday('${now}')`), loader: 'ts' }
+        })
         // Fixed-clock assertions include the dispatch read projection as well as
         // writes, so a second read cannot differ only by its computed timestamp.
         if (now !== undefined) builder.onLoad({ filter: /[/\\]larder[/\\]operations\.ts$/ }, async ({ path }) => {

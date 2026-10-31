@@ -5125,7 +5125,7 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "6d13f8af721480b8c36f09a099953ba29423d51b47cb8fa1a32046f3ce360faa",
+      "sha256": "bce27cefc09a1cee992ee8cf4e5f109c04d213451cf389d0301af36d414bbc0b",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
@@ -5165,7 +5165,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "1d3689b3d2513bdd75d914fad5174b5b2fbbf209d5c1e443164883e3578a7c13",
+      "sha256": "407c5524c0ac83eb20c61ab2aa68c43b21561b36e111219485fa84e6f6a204fb",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -5181,7 +5181,7 @@
       "executable": false
     },
     "tests/api/harness.mjs": {
-      "sha256": "4ef37f244cc28a6f08edc501fd680c8ac0389843200b25e354ad87012f19edb9",
+      "sha256": "72befb98d720d6b11ee255f310a886cda09cb8a62acd06125d7f80da8f91d170",
       "executable": false
     },
     "tests/api/inventory.test.mjs": {
@@ -5237,7 +5237,7 @@
       "executable": false
     },
     "tests/api/schedule-approval.test.mjs": {
-      "sha256": "730788d2fce1ed85968224eedff6fba25b4c0eba5f85871d6c63579f602c29c4",
+      "sha256": "c6a71fb2b0d27aa1c10ee4657a5223a7928cf2b1e75009044a676f0f24e84347",
       "executable": false
     },
     "tests/api/subcontract.test.mjs": {

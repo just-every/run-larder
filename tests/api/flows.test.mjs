@@ -526,6 +526,8 @@ test('BUY-001 supplier constraints, feasible quote and scheduled approval surviv
 })
 
 const capacityCalendar = (name, changes = {}) => ({ name, timeZone: 'America/New_York', effectiveFrom: '2026-01-01', effectiveTo: '2027-12-31', shifts: [{ weekdays: [0, 1, 2, 3, 4, 5, 6], start: 0, end: 1440, breaks: [] }], closedDates: [], usHolidays: false, exceptions: [], capacity: 1, efficiency: 100, reason: 'synthetic-larder-1 calendar approval', ...changes })
+// Commands must stay before these scenarios' fixed November planning windows.
+const scheduleNow = '2026-10-25T12:00:00.000Z'
 const finite = async (h, asOf = '2026-11-25T00:00:00Z', days = 7, as) => {
   const response = await h.request(`/api/larder/scheduling/finite?asOf=${encodeURIComponent(asOf)}&days=${days}`, { as })
   assert.equal(response.status, 200); return response.json()
@@ -712,7 +714,7 @@ test('CAP-004 finite multistep plan exposes critical path, load and truthful lat
 })
 
 test('CAP-005 finite reschedule previews displacement and unchanged promises, requires independent approval and rejects shop-floor stale inputs or capacity conflicts', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now: scheduleNow }); t.after(() => h.close())
   const w = await workshop(h), owner = (await h.state()).actor, planner = await h.person('synthetic-larder-35@example.test', 'planner'), other = await h.person('synthetic-larder-36@example.test', 'planner'), agent = await h.person('synthetic-larder-37@example.test', 'agent')
   const scheduledPerson = await h.person('synthetic-larder-54@example.test', 'operator')
   await h.command('capacity.machine', capacityCalendar('Bench'))
@@ -775,7 +777,7 @@ test('CAP-005 finite reschedule previews displacement and unchanged promises, re
 })
 
 test('Qualified alternate comparison keeps pinned instructions, setup transitions, tools, labor, delivery and USD estimates through approval and restore', async t => {
-  const h = await installation(); t.after(() => h.close()); const w = await workshop(h), owner = (await h.state()).actor
+  const h = await installation({ now: scheduleNow }); t.after(() => h.close()); const w = await workshop(h), owner = (await h.state()).actor
   const planner = await h.person('synthetic-larder-601@example.test', 'planner'), agent = await h.person('synthetic-larder-602@example.test', 'agent')
   await h.command('capacity.labor', capacityCalendar('Alternate operator', { operatorIds: [owner.id], skills: ['cutting'] }))
   const machines = []
@@ -836,7 +838,7 @@ test('Qualified alternate comparison keeps pinned instructions, setup transition
 })
 
 test('Event recovery persists once after restart, preserves frozen and manual work, exposes displacement and refuses automatic or external authority', async t=>{
-  const h=await installation();t.after(()=>h.close());const w=await workshop(h), owner=(await h.state()).actor
+  const h=await installation({now:scheduleNow});t.after(()=>h.close());const w=await workshop(h), owner=(await h.state()).actor
   const future='2026-11-25T00:00:00Z'
   await h.command('capacity.machine',capacityCalendar('Bench'))
   await h.command('capacity.labor',capacityCalendar('Recovery operator',{operatorIds:[owner.id],skills:[]}))
@@ -911,7 +913,7 @@ test('Isolated outage scenarios protect this week and manual locks, atomically b
   const materialReview=await uncoveredCase.command('schedule.scenario',{asOf:'2026-11-25T00:00:00Z',days:14,name:'Material-aware fence',reason:'Retain the explicit material conflict without a phantom frozen interval'})
   assert.equal(materialReview.protectionConflicts.length,0)
   assert.ok(materialReview.after.unscheduled.some(o=>o.workOrderId===unsupported.id&&o.reason.includes('material allocation')))
-  const h=await installation();t.after(()=>h.close());const w=await workshop(h),owner=(await h.state()).actor
+  const h=await installation({now:scheduleNow});t.after(()=>h.close());const w=await workshop(h),owner=(await h.state()).actor
   await h.command('capacity.machine',capacityCalendar('Bench'))
   await h.command('capacity.machine',capacityCalendar('Finish'))
   await h.command('capacity.labor',capacityCalendar('Scenario operator',{operatorIds:[owner.id],skills:[]}))
@@ -950,7 +952,7 @@ test('Isolated outage scenarios protect this week and manual locks, atomically b
   const inventoryBefore=await h.state(),inventory=await h.command('schedule.scenario',{asOf:'2026-11-25T00:00:00Z',days:14,name:'Unavailable free inventory',reason:'synthetic-larder-826 stock risk',inventoryUnavailable:[{itemId:w.timber.id,locationId:w.loc.id,quantity:'1',reason:'synthetic-larder-827 physical assumption'}]})
   assert.equal(inventory.inventoryUnavailable.length,1);assert.deepEqual((await h.state()).movements,inventoryBefore.movements)
   await h.command('schedule.adopt',{planId:inventory.id,version:inventory.version,reason:'synthetic-larder-828 no stock authority'},{error:'POLICY'})
-  const terms=await h.command('supplier.terms',{partyId:w.supplier.id,itemId:w.timber.id,partyCode:'synthetic-larder-829',packQuantity:'2',moq:'2',leadDays:1,leadDaysMax:2,weekdays:[0,1,2,3,4,5,6],currency:'USD',price:'9.5',breaks:[],rateOn:new Date().toISOString().slice(0,10),rateSource:'synthetic-larder-830 local quote',paymentTerms:'Net 30',freightTerms:'Delivered'})
+  const terms=await h.command('supplier.terms',{partyId:w.supplier.id,itemId:w.timber.id,partyCode:'synthetic-larder-829',packQuantity:'2',moq:'2',leadDays:1,leadDaysMax:2,weekdays:[0,1,2,3,4,5,6],currency:'USD',price:'9.5',breaks:[],rateOn:scheduleNow.slice(0,10),rateSource:'synthetic-larder-830 local quote',paymentTerms:'Net 30',freightTerms:'Delivered'})
   const supplierBefore=await h.state(),supplier=await h.command('schedule.scenario',{asOf:'2026-11-25T00:00:00Z',days:14,name:'Alternate supplier',reason:'synthetic-larder-831 supply comparison',alternateSuppliers:[{partyItemId:terms.id,quantity:'1',requiredBy:'2026-12-05'}]})
   assert.deepEqual([supplier.alternateSuppliers[0].quantity,supplier.alternateSuppliers[0].exposure],['2','19']);assert.deepEqual((await h.state()).purchaseOrders,supplierBefore.purchaseOrders)
   await h.command('schedule.adopt',{planId:supplier.id,version:supplier.version,reason:'synthetic-larder-832 no implicit spend'},{error:'POLICY'})
@@ -1025,7 +1027,7 @@ test('Replenishment revises MOQ and uncertain lead bounds, explains dated covera
 })
 
 test('Bounded grants independently authorize one internal reflow, stop at limits or lost authority, and restore inactive without replay',async t=>{
-  const h=await installation();t.after(()=>h.close());const w=await workshop(h),owner=(await h.state()).actor
+  const h=await installation({now:scheduleNow});t.after(()=>h.close());const w=await workshop(h),owner=(await h.state()).actor
   const planner=await h.person('synthetic-larder-951@example.test','planner'),reviewer=await h.person('synthetic-larder-952@example.test','manager'),agent=await h.person('synthetic-larder-953@example.test','agent')
   const start='2026-11-25T00:00:00Z'
   const machine=await h.command('capacity.machine',capacityCalendar('Grant bench'))
@@ -1037,7 +1039,7 @@ test('Bounded grants independently authorize one internal reflow, stop at limits
   job=await h.command('wo.operation.start',{workOrderId:job.id,version:job.version,sequence:1,workCentre:'Grant bench',station:'synthetic-larder-955 tablet',reason:'synthetic-larder-956 started work'})
   await h.command('order.rank',{kind:'work',orderId:jobs[2].id,version:jobs[2].version,rank:1})
   let protection=await planner.run('schedule.protect',{asOf:start,days:14,freezeUntil:start,manualLocks:[],reason:'synthetic-larder-957 explicit unfrozen window'})
-  const args={eventTypes:['progress','breakdown','priority','ETA'],machineIds:[machine.id],workOrderIds:[],maxDelayMinutes:1440,maxDisplacementMinutes:1440,expiresAt:new Date(Date.now()+86400000).toISOString(),reason:'synthetic-larder-958 bounded grant'}
+  const args={eventTypes:['progress','breakdown','priority','ETA'],machineIds:[machine.id],workOrderIds:[],maxDelayMinutes:1440,maxDisplacementMinutes:1440,expiresAt:'2026-10-26T12:00:00.000Z',reason:'synthetic-larder-958 bounded grant'}
   for(const missing of ['eventTypes','machineIds','maxDelayMinutes','maxDisplacementMinutes','expiresAt']){const bad={...args};delete bad[missing];await planner.run('schedule.grant.prepare',bad,{error:'INPUT'})}
   let agentGrant=await agent.run('schedule.grant.prepare',args)
   await agent.run('schedule.grant.approve',{grantId:agentGrant.id,version:agentGrant.version,reason:'synthetic-larder-968 agent cannot authorize'},{error:'FORBIDDEN'})
@@ -1085,9 +1087,9 @@ test('Bounded grants independently authorize one internal reflow, stop at limits
   plan=await rank();assert.equal(plan.status,'review');assert.match(plan.automation.reason,/approver/);assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
   // A fresh live approval after expiry uses the owner exception; a recorded
   // expiry stops the next event, without an invented background clock.
-  await replace({expiresAt:new Date(Date.now()+4000).toISOString()})
+  await replace({expiresAt:'2026-10-25T12:00:04.000Z'})
   grant=await h.command('schedule.grant.approve',{grantId:grant.id,version:grant.version,reason:'synthetic-larder-965 owner approval'})
-  await new Promise(r=>setTimeout(r,Math.max(0,Date.parse(grant.expiresAt)-Date.now()+50)))
+  await h.advanceClock('2026-10-25T12:00:04.050Z')
   plan=await rank();assert.equal(plan.status,'review');assert.match(plan.automation.reason,/expired/);assert.deepEqual((await h.state()).scheduleBookings,revisedBookings)
   await replace();grant=await h.command('schedule.grant.approve',{grantId:grant.id,version:grant.version,reason:'synthetic-larder-966 current owner approval'})
   const scenario=await h.command('schedule.scenario',{asOf:start,days:14,name:'Never automatic',reason:'synthetic-larder-967 isolated scenario'})
