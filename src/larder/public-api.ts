@@ -38,12 +38,15 @@ const detailHref = (kind: DetailKind, id: string) => `/api/larder/v1/resources/$
 
 export function publicDetail(s: State, actor: Actor, kind: string, id: string) {
   const view = stateView(s, actor, {}) as Record<string, any>
+  const visibleMovements = new Set(view.movements.map((m: any) => m.id))
+  const exactWork = (id: string) => !s.movements.some(m => m.documentKind === 'workOrders' && m.documentId === id && !visibleMovements.has(m.id))
   const rows = (k: DetailKind): any[] => k === 'outputs'
-    ? view.workOrders.flatMap((w: any) => (w.outputs ?? []).map((o: any) => ({ ...o, workOrderId: w.id, version: w.version })))
+    ? view.workOrders.filter((w: any) => exactWork(w.id)).flatMap((w: any) => (w.outputs ?? []).map((o: any) => ({ ...o, workOrderId: w.id, version: w.version })))
     : view[detailCollections[k]]
   const find = (k: DetailKind, key: string) => {
     // Native order summaries can include received or shipped quantities from
     // other sites. Never turn such a summary into an exact detail resource.
+    if (k === 'work' && !exactWork(key)) return undefined
     if (k === 'purchases' && s.receipts.some(r => r.poId === key && !view.receipts.some((v: any) => v.id === r.id))) return undefined
     if (k === 'orders' && s.shipments.some(r => r.orderId === key && !view.shipments.some((v: any) => v.id === r.id))) return undefined
     return rows(k).find(r => r.id === key)
