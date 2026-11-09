@@ -6,7 +6,7 @@ import { fail } from './problem'
 import { commercialSnapshot } from './sales-schedules'
 
 const doors = new Set(['po.draft', 'po.selectQuote', 'po.amend', 'po.approve', 'so.changePreview', 'so.changeApprove'])
-const serverFields = new Set(['classification', 'classes', 'riskClass', 'riskClasses', 'facts', 'consequences', 'actionClassification', 'consequenceFacts', 'decisionClassification', 'commercialClassification', 'decision', 'recordedDecision', 'personDecision', 'actor', 'approvedBy', 'approvedAt', 'recordedBy', 'recordedAt'])
+const serverFields = new Set(['classification', 'classes', 'actionClasses', 'preparationClasses', 'riskClass', 'riskClasses', 'facts', 'consequences', 'actionClassification', 'consequenceFacts', 'decisionClassification', 'commercialClassification', 'decision', 'recordedDecision', 'personDecision', 'actor', 'approvedBy', 'approvedAt', 'recordedBy', 'recordedAt', 'signerId', 'signerRole', 'onBehalfOf'])
 
 export function refuseCommercialFacts(type: string, payload: unknown) {
   const supplied = (value: any): boolean => value && typeof value === 'object' && Object.entries(value).some(([key, child]) => serverFields.has(key) || supplied(child))
@@ -28,11 +28,11 @@ export function commercialClassification(c: Context, subject: Row, effect: 'prep
 }
 
 export function purchaseTerms(po: Row) {
-  const amount = format(po.lines.reduce((n: bigint, line: any) => n + times(decimal(line.quantity), decimal(line.unitPrice)), 0n))
-  if (amount !== po.exposure) fail('STALE', 'The stored purchase amount does not match its lines. Review the draft again.')
+  const amount = po.lines.reduce((n: bigint, line: any) => n + times(decimal(line.quantity), decimal(line.unitPrice)), 0n)
+  if (amount !== decimal(po.exposure)) fail('STALE', 'The stored purchase amount does not match its lines. Review the draft again.')
   return {
     poId: po.id, version: po.version, reference: po.reference, supplierId: po.supplierId,
-    supplier: structuredClone(po.supplierSnapshot), amount, currency: po.currency,
+    supplier: JSON.parse(JSON.stringify(po.supplierSnapshot)), amount: format(amount), currency: po.currency,
     expectedDate: po.expectedDate, requiredBy: po.requiredBy, lines: structuredClone(po.lines),
   }
 }

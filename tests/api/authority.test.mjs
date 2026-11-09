@@ -609,7 +609,8 @@ test('GOV-004 a changed BOM is followed through scheduling, operator correction,
 
 // GOV-002: thresholds, dual signatures with a deputy, input-change invalidation and a named owner override.
 test('GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal\'s seat, changed inputs invalidate, agents are denied and an owner override names its accountable human', async t => {
-  const h = await installation(); t.after(() => h.close())
+  let interleave = async () => {}
+  const h = await installation({ beforeCommit: facts => interleave(facts) }); t.after(() => h.close())
   const w = await workshop(h)
   const mgrA = await h.person('gov2-a@example.test', 'manager'), mgrB = await h.person('gov2-b@example.test', 'manager'), buyer = await h.person('gov2-buyer@example.test', 'buyer')
   const sales = await h.person('gov2-sales@example.test', 'sales'), agent = await h.person('gov2-agent@example.test', 'agent'), warehouse = await h.person('gov2-wh@example.test', 'warehouse')
@@ -758,6 +759,39 @@ test('GOV-002 high-value PO and stock write-off need two signatures, a deputy si
   const po5 = await draft('30')
   assert.equal((await mgrA.run('po.approve', { poId: po5.id, version: po5.version })).status, 'approved')
   await policy('spend', '100', 2)
+  // A competing business write forces fresh facts inside the existing batch.
+  const raced = await draft('1'), racedId = 'synthetic-larder-commercial-race'
+  const attempts = []
+  let afterCompeting
+  interleave = async facts => {
+    if (facts.commandId !== racedId) return
+    attempts.push(facts.stateVersion)
+    if (attempts.length === 1) {
+      await h.command('location.save', { name: 'synthetic-larder-commercial-bin' })
+      afterCompeting = await h.invariant()
+    }
+  }
+  const racedOutcome = await mgrA.run('po.approve', { poId: raced.id, version: raced.version }, { commandId: racedId })
+  interleave = async () => {}
+  assert.equal(attempts.length, 2)
+  assert.equal(racedOutcome.classification.basis.stateVersion, afterCompeting.version)
+  assert.equal(racedOutcome.classification.facts.terms.amount, '9.5')
+  assert.deepEqual(racedOutcome.classification.classes, ['money', 'commitment'])
+  assert.equal((await h.state()).approvals.filter(a => a.subjectId === raced.id).length, 1)
+  // Editing those reviewed terms instead causes a stale refusal, not a
+  // signature or an approval computed from the abandoned first attempt.
+  const edited = await draft('1'), editedId = 'synthetic-larder-commercial-edit-race'
+  let editAttempts = 0, editedBaseline
+  interleave = async facts => {
+    if (facts.commandId !== editedId || editAttempts++) return
+    await buyer.run('po.amend', { poId: edited.id, version: edited.version, lines: [{ lineId: edited.lines[0].id, quantity: '2' }], reason: 'synthetic-larder-commercial-new-terms' })
+    editedBaseline = await h.invariant()
+  }
+  await mgrA.run('po.approve', { poId: edited.id, version: edited.version }, { commandId: editedId, error: 'STALE' })
+  interleave = async () => {}
+  const editedAfter = await h.invariant()
+  for (const key of ['purchaseOrders', 'approvals', 'approvalSignatures', 'movements', 'positions', 'reservations', 'commands']) assert.deepEqual(editedAfter[key], editedBaseline[key], key)
+  assert.equal((await (await h.request('/api/larder/audit?commandId=' + editedId)).json()).entries.length, 0)
   // Every threshold, deputy and override change is in the audit with its actor, reason and exact before and after.
   const trail = async type => (await (await h.request(`/api/larder/audit?type=${type}&limit=200`)).json()).entries
   const policies = (await trail('approval.policy')).filter(e => e.subjectKind === 'approvalPolicies' && e.after.threshold)
@@ -1121,6 +1155,7 @@ test('GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted membe
   assert.equal(state.items.find(i => i.id === gauge.id).standardCost, 'restricted')
   assert.equal(state.laborRates[0].hourlyRate, 'restricted')
   assert.equal(state.purchaseOrders.find(p => p.id === po.id).classification.facts.terms.amount, 'restricted')
+  assert.equal((await h.state(accounts.cookie)).purchaseOrders.find(p => p.id === po.id).classification.facts.terms.amount, '32.9292')
   assert.equal(state.approvals.find(a => a.subjectId === po.id).classification.facts.terms.lines[0].unitPrice, 'restricted')
   for (const path of ['/catalog.csv', '/boms.csv', `/lots/${lot.id}/trace`, `/lots/${lot.id}/trace.csv`, `/purchasing/quotes?itemId=${gauge.id}&quantity=1&requiredBy=${day(9)}`, '/planning/materials', '/planning/supply-changes', '/scheduling/finite?asOf=2026-11-25T00:00:00Z&days=7', '/history'])
     assert.deepEqual(found(await read(boss.cookie, path)), [], path)

@@ -90,9 +90,9 @@ export function auditEntries(c: Context, before: State, type: string, payload: a
   const out: AuditEntry[] = []
   const add = (kind: string, subjectId: string, subjectVersion: number, op: AuditEntry['op'], was: unknown, now: unknown, full: unknown = now) => {
     if (kind === 'varianceAnalyses') { was = digest(was); now = digest(now); full = { subjectId } }
-    // Native scope facts repeat exact location IDs in their restrictions and
-    // deltas. Keep those decision facts even when they exceed text size limits;
-    // credential and document scrubbing still applies to every field.
+    // Keep exact scope deltas and reviewed commercial terms, including nested
+    // dated promises, rather than replacing decision facts with size digests.
+    // Credential and document scrubbing still applies to every field.
     const retainStructure = (kind === 'roles' && type === 'member.scope') ||
       (['purchaseOrders', 'approvals', 'approvalSignatures', 'salesOrders', 'orderChanges'].includes(kind) && ['po.draft', 'po.selectQuote', 'po.amend', 'po.approve', 'so.changePreview', 'so.changeApprove'].includes(type))
     out.push({
