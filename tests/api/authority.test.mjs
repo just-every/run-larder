@@ -559,7 +559,8 @@ test('GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007
 
 // GOV-004: one thread through revision, scheduling, operator correction, quality release and a stock adjustment, then query, export, refused deletion and planted secrets.
 test('GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets', async t => {
-  const h = await installation({ now: '2026-10-20T12:00:00.000Z' }); t.after(() => h.close())
+  let interleave = async () => {}
+  const h = await installation({ now: '2026-10-20T12:00:00.000Z', beforeCommit: facts => interleave(facts) }); t.after(() => h.close())
   const w = await workshop(h), file = text => ({ name: 'qa.txt', contentType: 'text/plain', base64: Buffer.from(text).toString('base64') })
   const manager = await h.person('audit-manager@example.test', 'manager'), operator = await h.person('audit-operator@example.test', 'operator')
   const q1 = await h.person('audit-q1@example.test', 'quality'), q2 = await h.person('audit-q2@example.test', 'quality')
@@ -700,6 +701,28 @@ test('GOV-004 a changed BOM is followed through scheduling, operator correction,
   assert.equal((await h.request('/api/larder/audit/events', { as: manager.cookie })).status, 403)
   await deactivate(h, manager)
   assert.equal((await h.request('/api/larder/audit/events', { as: manager.cookie })).status, 401)
+  assert.deepEqual(await journal(h), afterAppend)
+
+  // Lose native authority after validation but before the atomic batch. The
+  // denied receipt must leave no event, source record, movement or file behind.
+  const writer = await h.person(['synthetic-larder-event-revoked', 'example.test'].join('@'), 'manager')
+  const revokedId = 'synthetic-larder-event-revoked'
+  const revokedPayload = { poId: extraPo.id, supplierReference: 'synthetic-larder-event-revoked', documents: [evidence('Retained only on a committed receipt')], lines: [{ lineId: extraPo.lines[0].id, quantity: '1', locationId: w.loc.id, lot: 'synthetic-larder-event-revoked' }] }
+  const beforeRevoked = await h.invariant(), attachmentsBeforeRevoked = await h.db.prepare('SELECT COUNT(*) AS n FROM larder_attachments').first()
+  let reachedBatch = 0
+  interleave = async facts => {
+    if (facts.commandId !== revokedId) return
+    reachedBatch++
+    await deactivate(h, writer)
+  }
+  const revoked = await h.send('receipt.create', revokedPayload, { as: writer.cookie, commandId: revokedId })
+  interleave = async () => {}
+  assert.equal(reachedBatch, 1)
+  assert.equal(revoked.res.status, 401)
+  assert.equal(revoked.body.error.code, 'AUTH')
+  const afterRevoked = await h.invariant()
+  for (const key of ['version', 'purchaseOrders', 'receipts', 'lots', 'movements', 'positions', 'reservations', 'commands']) assert.deepEqual(afterRevoked[key], beforeRevoked[key], key)
+  assert.deepEqual(await h.db.prepare('SELECT COUNT(*) AS n FROM larder_attachments').first(), attachmentsBeforeRevoked)
   assert.deepEqual(await journal(h), afterAppend)
 
   assert.equal((await h.request('/api/larder/audit.csv', { as: '' })).status, 401)

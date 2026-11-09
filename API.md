@@ -1463,6 +1463,7 @@ handoffs. Supplier dates and usability facts remain local journal entries;
 passing inspection alone, date extensions, other stock doors and additional
 vocabulary are not delivered as usability events by this bounded slice. A local handoff acknowledgment never
 establishes accepted books.
+
 ### Native commercial decision facts
 
 The existing `po.draft`, `po.selectQuote`, `po.amend`, `po.approve`,

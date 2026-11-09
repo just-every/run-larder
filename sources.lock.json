@@ -197,7 +197,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "234c207c9341cf6f061260c32df2a3feb2cb90c1e7b50b7eade384afffe91947",
+      "sha256": "eb3e4ae69714b81681145b6c250795173aef9d3431ae3bbb9f298d4646ce4d9d",
       "executable": false
     },
     "base-copies.json": {
@@ -5141,11 +5141,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "3bbd44ed1809136573e649cb90ba5a8c4e4772ca4ad8afb508530626263f72d1",
+      "sha256": "73542b2d0b1b33d195cf3fc88108c4506d47e96773fb2c6905c8a10a3c600e8f",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "b6106fc419c14af53189e7d9d54b25bb07a1b5a044e4e23848788b66b4871a8b",
+      "sha256": "3c2977ed9b082673d3c5a3aab3a806cf9f6b651a22a59bb7f581e5bcc06ae46d",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
@@ -5185,7 +5185,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "2ffcbcdb953878c6aa6ee9cb932f33690ab2aa5e6e98c0c50edb5c81108c148f",
+      "sha256": "22adb3e66b80b03bc0e542c637ff18374de4d61f89251ebd5fe863a3bf910aca",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -5201,7 +5201,7 @@
       "executable": false
     },
     "tests/api/harness.mjs": {
-      "sha256": "c9b0031de28fcfa1fa13ca35dbfe252d24b57757fe2f6e96561cf2cac1161bb8",
+      "sha256": "9e1a3100c2761063c6dedc105bf2730708dd01b0fbbd67e1b2a32b17ef1be42a",
       "executable": false
     },
     "tests/api/inventory.test.mjs": {

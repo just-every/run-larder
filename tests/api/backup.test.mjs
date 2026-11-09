@@ -1,5 +1,5 @@
-import { journal } from './change-event-proof.mjs'
 import { resourceFixture, assertResourceJourney } from './resource-fixture.mjs'
+import { journal } from './change-event-proof.mjs'
 // The installation backup: what `rer export` writes restores with `rer import`
 // after `rer reset --yes`, with import applying the committed migrations
 // through the seed adapter and preserving every Larder record.
@@ -298,6 +298,7 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   const engineeringInput = { changeId: engineeringPrepared.id, version: engineeringPrepared.version }, engineeringCommand = 'synthetic-larder-engineering-backup'
   const engineeringApproved = await h.command('engineering.approve', engineeringInput, { commandId: engineeringCommand })
   const engineeringPending = await engineer.run('engineering.propose', await engineeringPayload('Unapproved engineering evidence'))
+  assert.deepEqual(eventJournal.events.filter(e => e.type === 'work.output-recorded').map(e => e.details.good), ['1', '3'], 'Both committed output batches retain their own event quantities')
   const archive = await (await h.request('/api/larder/archive')).json()
   assert.deepEqual(archive.changeEvents, eventJournal.events)
   const csv = await (await h.request('/api/larder/archive.csv')).text()
