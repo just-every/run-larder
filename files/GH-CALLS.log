@@ -1,0 +1,7 @@
+api repos/just-every/run-larder/actions/runs?head_sha=551dcb4&per_page=100 --jq .workflow_runs[] | {id,name,event,status,conclusion,head_sha,html_url}
+api repos/just-every/run-larder/actions/runs?head_sha=551dcb45e91fbb320b8b96786e45446174aba822&per_page=100 --jq .workflow_runs[] | {id,name,event,status,conclusion,head_sha,html_url}
+api repos/just-every/run-larder/actions/runs?head_sha=994221ab4976c1ead53e2fb931ced4bd21a07ccf&per_page=100 --jq .workflow_runs[] | {id,name,event,status,conclusion,head_sha,html_url}
+api repos/just-every/run-larder/actions/runs?head_sha=17488203f4a85e31d12caceede2fd7804d5edaf6&per_page=100 --jq [.workflow_runs[] | {id,name,event,status,conclusion,head_sha,head_branch,html_url}]
+api repos/just-every/run-larder/actions/runs/42605469280 --jq {status,conclusion,head_sha,html_url}
+api repos/just-every/run-larder/actions/runs/42605469280 --jq {status,conclusion,head_sha,html_url}
+api repos/just-every/run-larder/actions/runs/42605469280 --jq {status,conclusion,head_sha,html_url}

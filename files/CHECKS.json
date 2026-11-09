@@ -117,7 +117,8 @@
     "branch": "cloud/sx-larder-c-f610",
     "success": true,
     "attempt": 1,
-    "log": "PUSH.log"
+    "log": "PUSH.log",
+    "remote_head": "17488203f4a85e31d12caceede2fd7804d5edaf6"
   },
   "browser_screenshots": [
     {
@@ -186,11 +187,20 @@
     }
   ],
   "ci": {
-    "run_id": 42605469280,
+    "conclusion": "success",
+    "head_sha": "17488203f4a85e31d12caceede2fd7804d5edaf6",
+    "html_url": "https://github.com/just-every/run-larder/actions/runs/42605469280",
+    "status": "completed",
+    "id": 42605469280,
     "event": "push",
-    "head": "17488203f4a85e31d12caceede2fd7804d5edaf6",
-    "status": "in_progress",
-    "conclusion": null,
-    "observed_at": "2026-11-09T11:01:28.528655+00:00"
-  }
+    "observed_at": "2026-11-09T11:16:36.514795+00:00"
+  },
+  "prior_evidence_validation": {
+    "head": "842235bec3e80a65058ab65c558464057603320c",
+    "status": "restored",
+    "manifest_sha256": "cd836346fe21210a1bde649f3e87269a8125dcd09aaba588685e697dcdee4a45",
+    "product_head": "17488203f4a85e31d12caceede2fd7804d5edaf6"
+  },
+  "github_calls": 7,
+  "terminal_custody": "READY"
 }
