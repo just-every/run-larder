@@ -22,7 +22,7 @@ export function bom(c: Context, type: string, p: any): Row | undefined {
 
 // Internal validated revision writer; reviewed engineering approval uses this
 // only after its own exact-state and authority checks.
-export function saveBom(c: Context, p: any): Row {
+export function saveBom(c: Context, p: any, preparation = false): Row {
   const item = get(c.s, 'items', p.itemId, 'item')
   if (item.kind !== 'make') fail('NOT_MADE', `${item.name} is bought, not made. Mark it as made before giving it a bill of materials.`)
   const components = list(p.components, 'components', 200).map((line: any) => {
@@ -42,7 +42,7 @@ export function saveBom(c: Context, p: any): Row {
   const previous = activeBom(c.s, item.id, c.now.slice(0, 10))
   if (immediate && previous) bump(previous, { status: 'superseded' })
   const revision = Math.max(0, ...c.s.boms.filter(b => b.itemId === item.id).map(b => b.revision)) + 1
-  const saved = row(c, 'boms', { itemId: item.id, revision, yield: yieldRate, components, routing, approvedBy: c.actor.id, approvedAt: c.now, note: optionalText(p.note, 'change note', 400), effectiveOn, status: immediate ? 'active' : 'scheduled' })
+  const saved = row(c, 'boms', { itemId: item.id, revision, yield: yieldRate, components, routing, ...(preparation ? { preparedBy: c.actor.id, preparedAt: c.now } : { approvedBy: c.actor.id, approvedAt: c.now }), note: optionalText(p.note, 'change note', 400), effectiveOn, status: immediate ? 'active' : 'scheduled' })
   validateBomGraph(c.s, c.now.slice(0, 10))
   return saved
 }

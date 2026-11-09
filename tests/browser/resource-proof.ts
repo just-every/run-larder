@@ -1,6 +1,7 @@
 import { expect, type Page, type Browser } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
 import { resourceFixture } from '../api/resource-fixture.mjs'
 
 const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787'
@@ -55,7 +56,14 @@ export async function resourceScreens(page: Page, browser: Browser) {
         const { href, links, ...pegs } = projection.planning
         const current = await member.request.get(origin + href)
         expect(current.status()).toBe(200); expect(await current.json()).toEqual(pegs)
+        expect(projection.files.some((file: any) => file.id === f.receipt.documents[0].id)).toBe(true)
+        for (const file of projection.files) {
+          const download = await member.request.get(origin + file.href)
+          expect(download.status()).toBe(200)
+          expect(createHash('sha256').update(await download.body()).digest('hex')).toBe(file.sha256)
+        }
       }
+      expect((await member.request.get(origin + `/api/larder/attachments/${f.billFile.id}`)).status()).toBe(role === 'accounts' ? 200 : 403)
       expect(receipt.data.lines[0].quantity).toBe('6'); expect(output.data.good).toBe('3'); expect(shipment.data.lines[0].quantity).toBe('2')
       for (const projection of [output, shipment]) {
         const [allocation] = projection.physical.allocations
