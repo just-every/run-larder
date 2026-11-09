@@ -1,0 +1,452 @@
+TAP version 13
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: GOV-001 roles and sessions are checked on every command and read
+ok 1 - GOV-001 roles and sessions are checked on every command and read
+  ---
+  duration_ms: 15314.849428
+  type: 'test'
+  ...
+# Subtest: LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve
+ok 2 - LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve
+  ---
+  duration_ms: 25367.418356
+  type: 'test'
+  ...
+# Subtest: GOV-001 TRACE-005 quality role inherits TRACE-003/004/006/007 authority with independence and live revocation, and nothing outside quality
+ok 3 - GOV-001 TRACE-005 quality role inherits TRACE-003/004/006/007 authority with independence and live revocation, and nothing outside quality
+  ---
+  duration_ms: 4126.713657
+  type: 'test'
+  ...
+# Subtest: GOV-001 planner role inherits DEMAND-003 forecast/MPS, DEMAND-004 policy and FLOOR-005 split/merge authority with independent approval, and nothing outside planning
+ok 4 - GOV-001 planner role inherits DEMAND-003 forecast/MPS, DEMAND-004 policy and FLOOR-005 split/merge authority with independent approval, and nothing outside planning
+  ---
+  duration_ms: 9028.785594
+  type: 'test'
+  ...
+# Subtest: GOV-001 engineer role inherits ENG-007 catalog export, preparation and independent approval and controls ENG-002/004/005 revisions, never change approval or anything outside engineering
+ok 5 - GOV-001 engineer role inherits ENG-007 catalog export, preparation and independent approval and controls ENG-002/004/005 revisions, never change approval or anything outside engineering
+  ---
+  duration_ms: 5642.509366
+  type: 'test'
+  ...
+# Subtest: GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007 operations, posts no stock and loses access when revoked
+ok 6 - GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007 operations, posts no stock and loses access when revoked
+  ---
+  duration_ms: 10311.104214
+  type: 'test'
+  ...
+# Subtest: GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets
+ok 7 - GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets
+  ---
+  duration_ms: 8499.310548
+  type: 'test'
+  ...
+# Subtest: GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human
+ok 8 - GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human
+  ---
+  duration_ms: 10315.403709
+  type: 'test'
+  ...
+# Subtest: GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override
+ok 9 - GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override
+  ---
+  duration_ms: 4132.894649
+  type: 'test'
+  ...
+# Subtest: GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live
+ok 10 - GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live
+  ---
+  duration_ms: 18615.02401
+  type: 'test'
+  ...
+# Subtest: GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live
+ok 11 - GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live
+  ---
+  duration_ms: 19592.71612
+  type: 'test'
+  ...
+# Subtest: a cost-restricted member reads no purchase, service-order or cutover total that a hidden price can be recovered from
+ok 12 - a cost-restricted member reads no purchase, service-order or cutover total that a hidden price can be recovered from
+  ---
+  duration_ms: 6156.451165
+  type: 'test'
+  ...
+# Subtest: a cost-restricted member cannot download a supplier bill, while its other service evidence stays open
+ok 13 - a cost-restricted member cannot download a supplier bill, while its other service evidence stays open
+  ---
+  duration_ms: 4483.251684
+  type: 'test'
+  ...
+# Subtest: a deputy holds a delegated approval only while the principal's custom role still includes it
+ok 14 - a deputy holds a delegated approval only while the principal's custom role still includes it
+  ---
+  duration_ms: 6267.464914
+  type: 'test'
+  ...
+# Subtest: Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors
+ok 15 - Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors
+  ---
+  duration_ms: 12646.66042
+  type: 'test'
+  ...
+# Subtest: Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore
+ok 16 - Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore
+  ---
+  duration_ms: 24777.767594
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: LARDER-020 an installation backup restores into a reset installation
+ok 17 - LARDER-020 an installation backup restores into a reset installation
+  ---
+  duration_ms: 195255.97983
+  type: 'test'
+  ...
+# Subtest: MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions
+ok 18 - MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions
+  ---
+  duration_ms: 28793.304229
+  type: 'test'
+  ...
+# Subtest: US-001 restore refuses undeclared or non-USD functional money without relabelling amounts or writing records
+ok 19 - US-001 restore refuses undeclared or non-USD functional money without relabelling amounts or writing records
+  ---
+  duration_ms: 24354.851482
+  type: 'test'
+  ...
+# Subtest: US business settings retain Ohio identity, local dates and per-record currencies through restart and restore
+ok 20 - US business settings retain Ohio identity, local dates and per-record currencies through restart and restore
+  ---
+  duration_ms: 8948.75258
+  type: 'test'
+  ...
+# Subtest: AUD archive migration records exact rates, original money and stock reconciliation through restart and restore
+ok 21 - AUD archive migration records exact rates, original money and stock reconciliation through restart and restore
+  ---
+  duration_ms: 10847.922924
+  type: 'test'
+  ...
+# Subtest: AUD migration refuses missing consent, guessed rates, incompatible records and non-owner or revoked authority
+ok 22 - AUD migration refuses missing consent, guessed rates, incompatible records and non-owner or revoked authority
+  ---
+  duration_ms: 3661.53524
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: LARDER-001 items, variants, units and parties; ambiguous conversions are refused
+ok 23 - LARDER-001 items, variants, units and parties; ambiguous conversions are refused
+  ---
+  duration_ms: 6193.892144
+  type: 'test'
+  ...
+# Subtest: LARDER-002 opening stock by location with date, valuation basis and evidence
+ok 24 - LARDER-002 opening stock by location with date, valuation basis and evidence
+  ---
+  duration_ms: 4744.051005
+  type: 'test'
+  ...
+# Subtest: LARDER-003 versioned BOM and routing; released work keeps its revision
+ok 25 - LARDER-003 versioned BOM and routing; released work keeps its revision
+  ---
+  duration_ms: 5861.251087
+  type: 'test'
+  ...
+# Subtest: LARDER-004 quote and confirm an order; physical, reserved and expected stock stay separate
+ok 26 - LARDER-004 quote and confirm an order; physical, reserved and expected stock stay separate
+  ---
+  duration_ms: 3791.148095
+  type: 'test'
+  ...
+# Subtest: LARDER-005 reservations are atomic: competing orders never consume the same stock
+ok 27 - LARDER-005 reservations are atomic: competing orders never consume the same stock
+  ---
+  duration_ms: 3179.120886
+  type: 'test'
+  ...
+# Subtest: LARDER-006 shortages are reviewed and drafted into purchase and work orders with dates and reasons
+ok 28 - LARDER-006 shortages are reviewed and drafted into purchase and work orders with dates and reasons
+  ---
+  duration_ms: 3279.058839
+  type: 'test'
+  ...
+# Subtest: LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded
+ok 29 - LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded
+  ---
+  duration_ms: 6441.952369
+  type: 'test'
+  ...
+# Subtest: LARDER-008 partial receipts record supplier lots and quarantine decisions
+ok 30 - LARDER-008 partial receipts record supplier lots and quarantine decisions
+  ---
+  duration_ms: 4470.226275
+  type: 'test'
+  ...
+# Subtest: LARDER-009 released work issues materials and records output and scrap
+ok 31 - LARDER-009 released work issues materials and records output and scrap
+  ---
+  duration_ms: 8518.441342
+  type: 'test'
+  ...
+# Subtest: LARDER-010 pick, pack and partially ship against reservations; the rest stays committed
+ok 32 - LARDER-010 pick, pack and partially ship against reservations; the rest stays committed
+  ---
+  duration_ms: 14148.099611
+  type: 'test'
+  ...
+# Subtest: LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit
+ok 33 - LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit
+  ---
+  duration_ms: 5469.945665
+  type: 'test'
+  ...
+# Subtest: LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile
+ok 34 - LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile
+  ---
+  duration_ms: 17094.342191
+  type: 'test'
+  ...
+# Subtest: LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation
+ok 35 - LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation
+  ---
+  duration_ms: 8008.159514
+  type: 'test'
+  ...
+# Subtest: BUY-001 supplier constraints, feasible quote and scheduled approval survive supplier revisions and restore
+ok 36 - BUY-001 supplier constraints, feasible quote and scheduled approval survive supplier revisions and restore
+  ---
+  duration_ms: 9602.137837
+  type: 'test'
+  ...
+# Subtest: CAP-001 persisted overnight holiday calendars, breaks, outages, efficiency and parallel named machine intervals survive archive restore
+ok 37 - CAP-001 persisted overnight holiday calendars, breaks, outages, efficiency and parallel named machine intervals survive archive restore
+  ---
+  duration_ms: 11526.233032
+  type: 'test'
+  ...
+# Subtest: CAP-002 one qualified person constrains two machines independently, vacation and task limits hold, rates are restricted and revocation blocks replay
+ok 38 - CAP-002 one qualified person constrains two machines independently, vacation and task limits hold, rates are restricted and revocation blocks replay
+  ---
+  duration_ms: 21715.085454
+  type: 'test'
+  ...
+# Subtest: CAP-004 finite multistep plan exposes critical path, load and truthful late/unscheduled drilldowns without overbooking or changing promises
+ok 39 - CAP-004 finite multistep plan exposes critical path, load and truthful late/unscheduled drilldowns without overbooking or changing promises
+  ---
+  duration_ms: 4050.271777
+  type: 'test'
+  ...
+# Subtest: CAP-005 finite reschedule previews displacement and unchanged promises, requires independent approval and rejects shop-floor stale inputs or capacity conflicts
+ok 40 - CAP-005 finite reschedule previews displacement and unchanged promises, requires independent approval and rejects shop-floor stale inputs or capacity conflicts
+  ---
+  duration_ms: 16698.263493
+  type: 'test'
+  ...
+# Subtest: Qualified alternate comparison keeps pinned instructions, setup transitions, tools, labor, delivery and USD estimates through approval and restore
+ok 41 - Qualified alternate comparison keeps pinned instructions, setup transitions, tools, labor, delivery and USD estimates through approval and restore
+  ---
+  duration_ms: 17550.060605
+  type: 'test'
+  ...
+# Subtest: Event recovery persists once after restart, preserves frozen and manual work, exposes displacement and refuses automatic or external authority
+ok 42 - Event recovery persists once after restart, preserves frozen and manual work, exposes displacement and refuses automatic or external authority
+  ---
+  duration_ms: 16050.062707
+  type: 'test'
+  ...
+# Subtest: Isolated outage scenarios protect this week and manual locks, atomically book next week and reject an ETA-stale adoption without a partial schedule
+ok 43 - Isolated outage scenarios protect this week and manual locks, atomically book next week and reject an ETA-stale adoption without a partial schedule
+  ---
+  duration_ms: 38151.128979
+  type: 'test'
+  ...
+# Subtest: Replenishment revises MOQ and uncertain lead bounds, explains dated coverage and USD cash, approves selected suggestions and retains rejected reasons
+ok 44 - Replenishment revises MOQ and uncertain lead bounds, explains dated coverage and USD cash, approves selected suggestions and retains rejected reasons
+  ---
+  duration_ms: 9935.559065
+  type: 'test'
+  ...
+# Subtest: Bounded grants independently authorize one internal reflow, stop at limits or lost authority, and restore inactive without replay
+ok 45 - Bounded grants independently authorize one internal reflow, stop at limits or lost authority, and restore inactive without replay
+  ---
+  duration_ms: 29976.973919
+  type: 'test'
+  ...
+# Subtest: COST-004 shipment and return margins keep open commitments, channel/customer totals and costs scope
+ok 46 - COST-004 shipment and return margins keep open commitments, channel/customer totals and costs scope
+  ---
+  duration_ms: 3918.058583
+  type: 'test'
+  ...
+# Subtest: COST-003 component usage and price variances reconcile two jobs to one order and export their sources
+ok 47 - COST-003 component usage and price variances reconcile two jobs to one order and export their sources
+  ---
+  duration_ms: 7350.740384
+  type: 'test'
+  ...
+# Subtest: COST-001 approved time overtime and service costs roll through scrap and downstream work as correcting valuations
+ok 48 - COST-001 approved time overtime and service costs roll through scrap and downstream work as correcting valuations
+  ---
+  duration_ms: 10588.338922
+  type: 'test'
+  ...
+# Subtest: COST-006 COST-008 filtered performance retains denominators and missing clocks, receipt rejects and in-app scheduled snapshots
+ok 49 - COST-006 COST-008 filtered performance retains denominators and missing clocks, receipt rejects and in-app scheduled snapshots
+  ---
+  duration_ms: 83045.873359
+  type: 'test'
+  ...
+# Subtest: COST-001 unvalued production lots keep weighted average until an actual valuation is approved
+ok 50 - COST-001 unvalued production lots keep weighted average until an actual valuation is approved
+  ---
+  duration_ms: 5975.38879
+  type: 'test'
+  ...
+# Subtest: CAP-008 three original jobs retain demand and revisions in an inert nesting review with reconciled yield, offcuts and cost shares
+ok 51 - CAP-008 three original jobs retain demand and revisions in an inert nesting review with reconciled yield, offcuts and cost shares
+  ---
+  duration_ms: 10087.094831
+  type: 'test'
+  ...
+# Subtest: CAP-008 invalid nesting and incompatible or changed jobs leave no partial review or attachment
+ok 52 - CAP-008 invalid nesting and incompatible or changed jobs leave no partial review or attachment
+  ---
+  duration_ms: 6509.906887
+  type: 'test'
+  ...
+# Subtest: CAP-008 nesting preparation obeys live roles, location scope and cost restrictions including replay
+ok 53 - CAP-008 nesting preparation obeys live roles, location scope and cost restrictions including replay
+  ---
+  duration_ms: 13849.451404
+  type: 'test'
+  ...
+# Subtest: CAP-008 owner-approved nesting consumes once, recovers a traced offcut and attributes each original output cost
+ok 54 - CAP-008 owner-approved nesting consumes once, recovers a traced offcut and attributes each original output cost
+  ---
+  duration_ms: 15845.484684
+  type: 'test'
+  ...
+# Subtest: CAP-008 stale or impossible physical nesting approval leaves every job and offcut unposted
+ok 55 - CAP-008 stale or impossible physical nesting approval leaves every job and offcut unposted
+  ---
+  duration_ms: 3989.755207
+  type: 'test'
+  ...
+# Subtest: CAP-008 controlled source recovery requires current evidence, quarantines independent offcuts and preserves exact genealogy through reuse, restart and inert restore
+ok 56 - CAP-008 controlled source recovery requires current evidence, quarantines independent offcuts and preserves exact genealogy through reuse, restart and inert restore
+  ---
+  duration_ms: 41107.350707
+  type: 'test'
+  ...
+# Subtest: DEMAND-005 reviewed receipt split shows displacement, both promises and estimated margins, then atomically reserves exact totals without stock or promise changes
+ok 57 - DEMAND-005 reviewed receipt split shows displacement, both promises and estimated margins, then atomically reserves exact totals without stock or promise changes
+  ---
+  duration_ms: 7141.647007
+  type: 'test'
+  ...
+# Subtest: DEMAND-005 stale, overallocated, duplicated and picked receipt splits refuse without changing hard reservations
+ok 58 - DEMAND-005 stale, overallocated, duplicated and picked receipt splits refuse without changing hard reservations
+  ---
+  duration_ms: 3453.305893
+  type: 'test'
+  ...
+# Subtest: DEMAND-005 sales, planners, managers and agents cannot take reservation approval authority through the command API
+ok 59 - DEMAND-005 sales, planners, managers and agents cannot take reservation approval authority through the command API
+  ---
+  duration_ms: 3693.747918
+  type: 'test'
+  ...
+# Subtest: Cited variance explanations require exact owner consent and capped single sends, retain repeat causes and compare approved future work without rewriting history
+ok 60 - Cited variance explanations require exact owner consent and capped single sends, retain repeat causes and compare approved future work without rewriting history
+  ---
+  duration_ms: 17493.068452
+  type: 'test'
+  ...
+# Subtest: STOCK-004 exact bin-sequenced wave sorts three orders and carries current site scope
+ok 61 - STOCK-004 exact bin-sequenced wave sorts three orders and carries current site scope
+  ---
+  duration_ms: 9572.983446
+  type: 'test'
+  ...
+# Subtest: Supplier RMA settles a partial rejected lot with quarantined replacement and reconciled original-bill credit without rewriting stock
+ok 62 - Supplier RMA settles a partial rejected lot with quarantined replacement and reconciled original-bill credit without rewriting stock
+  ---
+  duration_ms: 34506.059771
+  type: 'test'
+  ...
+# Subtest: Supplier invoices retain three-way variances, refuse self-resolution and duplicate bills, and expose incremental billing without invented payment state
+ok 63 - Supplier invoices retain three-way variances, refuse self-resolution and duplicate bills, and expose incremental billing without invented payment state
+  ---
+  duration_ms: 3632.545976
+  type: 'test'
+  ...
+# Subtest: Late landed charges allocate exact stock and open WIP corrections by explicit policy, reject stale approval and hand off each correction once
+ok 64 - Late landed charges allocate exact stock and open WIP corrections by explicit policy, reject stale approval and hand off each correction once
+  ---
+  duration_ms: 3850.20296
+  type: 'test'
+  ...
+# Subtest: Late landed charges conserve quantity, value and weight allocations across receipts and direct COGS
+ok 65 - Late landed charges conserve quantity, value and weight allocations across receipts and direct COGS
+  ---
+  duration_ms: 10204.372761
+  type: 'test'
+  ...
+# Subtest: Supplier financial state and original evidence obey live cost restrictions
+ok 66 - Supplier financial state and original evidence obey live cost restrictions
+  ---
+  duration_ms: 3034.946374
+  type: 'test'
+  ...
+# Subtest: Supplier serial replacement keeps one-unit identity, refuses reused and fractional serials, and remains quarantined
+ok 67 - Supplier serial replacement keeps one-unit identity, refuses reused and fractional serials, and remains quarantined
+  ---
+  duration_ms: 2987.909746
+  type: 'test'
+  ...
+# Subtest: Costed quote preparation reconciles fractional CAD prices, discounts, breaks, USD margin and inert history
+ok 68 - Costed quote preparation reconciles fractional CAD prices, discounts, breaks, USD margin and inert history
+  ---
+  duration_ms: 6816.680415
+  type: 'test'
+  ...
+# Subtest: Costed quote dates require shared scarce supply and live qualified joint calendars without booking or displacement
+ok 69 - Costed quote dates require shared scarce supply and live qualified joint calendars without booking or displacement
+  ---
+  duration_ms: 27833.608908
+  type: 'test'
+  ...
+# Subtest: STOCK-001 transit receipt and ruled putaway conserve lots, refuse unsafe bins and replenish exactly within current site scope
+ok 70 - STOCK-001 transit receipt and ruled putaway conserve lots, refuse unsafe bins and replenish exactly within current site scope
+  ---
+  duration_ms: 7778.360403
+  type: 'test'
+  ...
+# Subtest: STOCK-001 customer-owned and consigned custody stays separate from owned availability, honors capacity and live site scope and survives restore
+ok 71 - STOCK-001 customer-owned and consigned custody stays separate from owned availability, honors capacity and live site scope and survives restore
+  ---
+  duration_ms: 7525.713417
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: DEMAND-002 approved amendments split promises, preserve issued terms and production costs, cancel only unconsumed commitments, and reject stale or unsafe changes
+ok 72 - DEMAND-002 approved amendments split promises, preserve issued terms and production costs, cancel only unconsumed commitments, and reject stale or unsafe changes
+  ---
+  duration_ms: 14895.701524
+  type: 'test'
+  ...
+# Subtest: DEMAND-002 dated quantities net once, stale review is refused, and unpick resolves a blocked cancellation without posting stock
+ok 73 - DEMAND-002 dated quantities net once, stale review is refused, and unpick resolves a blocked cancellation without posting stock
+  ---
+  duration_ms: 3812.977562
+  type: 'test'
+  ...
+1..73
+# tests 73
+# suites 0
+# pass 73
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 1112127.309202

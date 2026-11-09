@@ -1,0 +1,68 @@
+TAP version 13
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human
+ok 1 - GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human
+  ---
+  duration_ms: 19027.977241
+  type: 'test'
+  ...
+# Subtest: GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override
+ok 2 - GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override
+  ---
+  duration_ms: 4794.964408
+  type: 'test'
+  ...
+# Subtest: GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live
+ok 3 - GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live
+  ---
+  duration_ms: 12125.655106
+  type: 'test'
+  ...
+# Subtest: GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live
+ok 4 - GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live
+  ---
+  duration_ms: 10004.036565
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: LARDER-020 an installation backup restores into a reset installation
+ok 5 - LARDER-020 an installation backup restores into a reset installation
+  ---
+  duration_ms: 180219.751838
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded
+ok 6 - LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded
+  ---
+  duration_ms: 4012.308934
+  type: 'test'
+  ...
+# Subtest: BUY-001 supplier constraints, feasible quote and scheduled approval survive supplier revisions and restore
+ok 7 - BUY-001 supplier constraints, feasible quote and scheduled approval survive supplier revisions and restore
+  ---
+  duration_ms: 7897.310789
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: DEMAND-002 approved amendments split promises, preserve issued terms and production costs, cancel only unconsumed commitments, and reject stale or unsafe changes
+ok 8 - DEMAND-002 approved amendments split promises, preserve issued terms and production costs, cancel only unconsumed commitments, and reject stale or unsafe changes
+  ---
+  duration_ms: 37991.259382
+  type: 'test'
+  ...
+# Subtest: DEMAND-002 dated quantities net once, stale review is refused, and unpick resolves a blocked cancellation without posting stock
+ok 9 - DEMAND-002 dated quantities net once, stale review is refused, and unpick resolves a blocked cancellation without posting stock
+  ---
+  duration_ms: 3199.396512
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 291978.255328

@@ -1,0 +1,124 @@
+{
+  "files": [
+    {
+      "blob": "594d0225c6855a0143840beb04c057c3f2c1c994",
+      "bytes": 1556,
+      "path": "LOCAL-HYGIENE.json",
+      "sha256": "88c8cca7a063c0634ec6b1e8533f4011d23335771c85c90d9f591468fdda33ab"
+    },
+    {
+      "blob": "1253c243cb1a69d9050d9afccc6fad7bd5fb8fe0",
+      "bytes": 2415,
+      "path": "PLAN.md",
+      "sha256": "4b39d1f92e53f7b26801b442c02efb549673094d85f1daf4ee73dc4788840b7d"
+    },
+    {
+      "blob": "86846def9e3fb5ad69e7881e57e8ebb99614e6b3",
+      "bytes": 17221,
+      "path": "PROBE.json",
+      "sha256": "2515a9da74d61f32fec8831bdfa40e46e285fb588ffdd2cc66bebcf1633622ae"
+    },
+    {
+      "blob": "5ef61c0abdc90918b9ae21aae00de5bb6174ccf1",
+      "bytes": 6530,
+      "path": "RECEIPT.json",
+      "sha256": "d6147186b6df5c0bc60440dad34090f17b109b465e3c4205e15e2129b641d37b"
+    },
+    {
+      "blob": "1ce653174c3684e665ce8e7ee32662f128fe3b00",
+      "bytes": 14228,
+      "path": "REPORT.md",
+      "sha256": "b0296bc7d2aeb0317786c956282076e85fbb6c3635b52d8b8ff7b49956158214"
+    },
+    {
+      "blob": "9abb44a179911f4499763c9a05772ef1e18c403a",
+      "bytes": 2595,
+      "path": "build.log",
+      "sha256": "a5decd98a7f5029e96ade0be8c2c8e07ae5abdae078ebb0058130c611ffd37f2"
+    },
+    {
+      "blob": "6f831fc9bbb5e1a2eb2422a564a1dca9a973c052",
+      "bytes": 226,
+      "path": "candidate-ci.json",
+      "sha256": "c2af3a2a7b32e6ff6a74b886abe361f6e57a618535dec37ea41ddf1f849b4568"
+    },
+    {
+      "blob": "b59d39532e8a030ff74f6339019ab7870ef51548",
+      "bytes": 70,
+      "path": "contract-check.log",
+      "sha256": "b04031901cfff3e9bc42a429b52cbc14c2442ffb68817fd62a245ac52847b422"
+    },
+    {
+      "blob": "58dd21c218846e90dd798f1845377f7422e45cac",
+      "bytes": 28,
+      "path": "contract-write.log",
+      "sha256": "14cee29b7bd19487e15f4013d4fb85016e022ef21d230676971a6490c88436d2"
+    },
+    {
+      "blob": "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391",
+      "bytes": 0,
+      "path": "first-party.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "blob": "6c06b4f77041ae7653945079f9b8081318ed30c6",
+      "bytes": 254,
+      "path": "git-identity.txt",
+      "sha256": "09f8ba58dac467455ab08d443e49059febc32ad42058b272ebe845abc6c98835"
+    },
+    {
+      "blob": "2578dd09ee086e7bd320d2c6817e3b7f5cb38ca5",
+      "bytes": 23703,
+      "path": "http-broad.log",
+      "sha256": "7c050d241a8ad6fd1bed8206b6ac213b0dbe589de9431436ed9367c12e3d1849"
+    },
+    {
+      "blob": "298dee51e72c9a3ec936f232e80d3913ea158f03",
+      "bytes": 3784,
+      "path": "http-candidate.log",
+      "sha256": "7f4c140327ecf9328bb54e5fb73ee9f5b37b998944724ca37c9717a2588da4ff"
+    },
+    {
+      "blob": "dc6ffe7a206a0a2f00664ebbf6b26366cbc6025c",
+      "bytes": 223753,
+      "path": "lock-check.json",
+      "sha256": "9830c1b79368390c03ba9bbb01e921b7ed96c1861b5131c511804c805fa1c719"
+    },
+    {
+      "blob": "d914f5a6269c686d71714d10b04f642592870e2e",
+      "bytes": 2076,
+      "path": "main-ci.json",
+      "sha256": "b3292f60c51907dc9fd92ed7afe28562ae50cfb2a8b45e7734686e3fd4bd0eb1"
+    },
+    {
+      "blob": "d05497992f3f1355e6a24b7318bf1240a0a379b8",
+      "bytes": 8117,
+      "path": "native-commercial-probe.mjs",
+      "sha256": "a663f7352c6bb3deb01aa054b3d96ad079ae8df4e3dc5b507f3cebfe40ce1330"
+    },
+    {
+      "blob": "da9050095efd9a705e89339bf33dbe082e9d523f",
+      "bytes": 10264,
+      "path": "probe.log",
+      "sha256": "eb78acfad4b8ff92e433e51c22dc10c76fc57f8cc5737b1ea75039c23e8ce31d"
+    },
+    {
+      "blob": "96cc98c671eebf0007c90c997dc7c4b52b2820a3",
+      "bytes": 132,
+      "path": "remote-refs.txt",
+      "sha256": "16bc0dc1101337b3dd77b8e4a3cfcb62604a40eb2a5072b2afcb97e0a8848c2e"
+    },
+    {
+      "blob": "5aa40d1e0bbd82c9756b3306dab52ab709a74c62",
+      "bytes": 92,
+      "path": "typecheck.log",
+      "sha256": "99715c6882a663043b5676d9dfea16055193493b9b14ecb3507964134f7ebb02"
+    }
+  ],
+  "product_branch": "cloud/sx-larder-c-f604",
+  "product_head": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+  "ref": "refs/heads/evidence/sx-larder-c-f604",
+  "repository": "just-every/run-larder",
+  "schema": 1,
+  "tag": "sx-larder-c-f604"
+}

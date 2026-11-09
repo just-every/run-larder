@@ -1,0 +1,175 @@
+{
+  "schema": 1,
+  "tag": "sx-larder-c-f604",
+  "repository": "just-every/run-larder",
+  "branch": "cloud/sx-larder-c-f604",
+  "head": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+  "tree": "e3e073b8fe940979016dbaf73e288e00e5498d00",
+  "origin_main": "171f7266ef82b5973a5d5036a37e60e5f6c6ea43",
+  "product_pushed": true,
+  "remote_refs": [
+    "f0bcac8c7aaede63a22bef7767be70191ec5f676\trefs/heads/cloud/sx-larder-c-f604",
+    "171f7266ef82b5973a5d5036a37e60e5f6c6ea43\trefs/heads/main"
+  ],
+  "pr": null,
+  "generated_at": "2026-11-09T10:04:04.553616+00:00",
+  "checks": [
+    {
+      "name": "candidate native HTTP journeys",
+      "command": "node --test --test-concurrency=1 --test-name-pattern='LARDER-007|BUY-001|DEMAND-002|GOV-002 high-value|GOV-002 orders below|GOV-014 location|GOV-015 GOV-016|LARDER-020 an installation backup' tests/api/flows.test.mjs tests/api/order-amendments.test.mjs tests/api/authority.test.mjs tests/api/backup.test.mjs",
+      "exit": 0,
+      "head": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+      "passed": 9,
+      "failed": 0,
+      "log": "http-candidate.log"
+    },
+    {
+      "name": "candidate typecheck",
+      "command": "pnpm run typecheck",
+      "exit": 0,
+      "head": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+      "log": "typecheck.log"
+    },
+    {
+      "name": "candidate production build",
+      "command": "npx -y @runeditrun/rer build",
+      "exit": 0,
+      "head": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+      "log": "build.log"
+    },
+    {
+      "name": "candidate first-party profile",
+      "command": "pnpm exec rer check --profile first-party",
+      "exit": 0,
+      "head": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+      "log": "first-party.log"
+    },
+    {
+      "name": "candidate public-door probe",
+      "command": "node native-commercial-probe.mjs PROBE.json",
+      "exit": 0,
+      "head": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+      "observations": 8,
+      "receipt": "PROBE.json",
+      "log": "probe.log"
+    },
+    {
+      "name": "contract generation",
+      "command": "node src/base/contract-docs.mjs write; node src/base/contract-docs.mjs check",
+      "exit": 0,
+      "head": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+      "logs": [
+        "contract-write.log",
+        "contract-check.log"
+      ],
+      "generated_views_restored_from": "171f7266ef82b5973a5d5036a37e60e5f6c6ea43"
+    },
+    {
+      "name": "source lock",
+      "command": "node scripts/edition-authoring/cli.mjs lock; node scripts/edition-authoring/cli.mjs check",
+      "exit": 0,
+      "head": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+      "receipt": "lock-check.json",
+      "sha256": "c478adaa64167fbbbe3b0024a93162e2e3777dc6f070f63b8970bca6b215405d"
+    },
+    {
+      "name": "migration ledger",
+      "command": "none",
+      "exit": 0,
+      "reason": "No migration added or edited"
+    },
+    {
+      "name": "broad touched-file regression",
+      "command": "node --test --test-concurrency=1 tests/api/flows.test.mjs tests/api/order-amendments.test.mjs tests/api/authority.test.mjs tests/api/backup.test.mjs",
+      "exit": 0,
+      "passed": 73,
+      "failed": 0,
+      "source_tree": "fc836f2054bd113be03910327f026bd6c0dea1b4",
+      "source_head": "65536eecf7ece06b963dcee2c35c63c76085a532",
+      "qualification": "Intermediate source tree, before the final open-promise value and approval-format corrections. Final affected journeys rerun above.",
+      "log": "http-broad.log"
+    }
+  ],
+  "tests": [
+    {
+      "path": "tests/api/authority.test.mjs",
+      "line": 611,
+      "name": "GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human"
+    },
+    {
+      "path": "tests/api/authority.test.mjs",
+      "line": 826,
+      "name": "GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override"
+    },
+    {
+      "path": "tests/api/authority.test.mjs",
+      "line": 883,
+      "name": "GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live"
+    },
+    {
+      "path": "tests/api/authority.test.mjs",
+      "line": 1131,
+      "name": "GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live"
+    },
+    {
+      "path": "tests/api/backup.test.mjs",
+      "line": 22,
+      "name": "LARDER-020 an installation backup restores into a reset installation"
+    },
+    {
+      "path": "tests/api/flows.test.mjs",
+      "line": 147,
+      "name": "LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded"
+    },
+    {
+      "path": "tests/api/flows.test.mjs",
+      "line": 462,
+      "name": "BUY-001 supplier constraints, feasible quote and scheduled approval survive supplier revisions and restore"
+    },
+    {
+      "path": "tests/api/order-amendments.test.mjs",
+      "line": 19,
+      "name": "DEMAND-002 approved amendments split promises, preserve issued terms and production costs, cancel only unconsumed commitments, and reject stale or unsafe changes"
+    },
+    {
+      "path": "tests/api/order-amendments.test.mjs",
+      "line": 183,
+      "name": "DEMAND-002 dated quantities net once, stale review is refused, and unpick resolves a blocked cancellation without posting stock"
+    }
+  ],
+  "ci": [
+    {
+      "conclusion": null,
+      "event": "push",
+      "head_sha": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+      "html_url": "https://github.com/just-every/run-larder/actions/runs/42597236581",
+      "id": 42597236581,
+      "name": "Verify",
+      "status": "in_progress"
+    }
+  ],
+  "github_api_calls": 3,
+  "publication_scan": {
+    "commit": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+    "complete": null,
+    "historyScanned": null,
+    "findings": null,
+    "reason": "Cloud route delegates the full-history publication scan to the Mac lander"
+  },
+  "main_equals_candidate": false,
+  "run_site": "Pending guarded landing; no candidate Run site claim",
+  "counts_before": {
+    "done": 86,
+    "partial": 39,
+    "missing": 39,
+    "total": 164
+  },
+  "counts_after": {
+    "done": 86,
+    "partial": 39,
+    "missing": 39,
+    "total": 164
+  },
+  "new_test_registrations": 0,
+  "removed_test_registrations": 0
+}

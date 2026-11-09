@@ -1,0 +1,53 @@
+{
+  "head": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+  "tree": "e3e073b8fe940979016dbaf73e288e00e5498d00",
+  "origin_main": "171f7266ef82b5973a5d5036a37e60e5f6c6ea43",
+  "full_history": true,
+  "local_changed_line_check_only": true,
+  "publication_scan": {
+    "complete": null,
+    "historyScanned": null,
+    "findings": null,
+    "reason": "Delegated to maintained Mac lander; no cloud publication-scan claim"
+  },
+  "added_literal_email_lines": 0,
+  "contract_and_generated_views_unchanged": true,
+  "registrations_added": 0,
+  "registrations_removed": 0,
+  "counts_before": {
+    "done": 86,
+    "partial": 39,
+    "missing": 39
+  },
+  "counts_after": {
+    "done": 86,
+    "partial": 39,
+    "missing": 39
+  },
+  "commits": [
+    {
+      "head": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+      "author": "Run Edit Run fleet",
+      "author_email": "fleet@runeditrun.com",
+      "committer": "Run Edit Run fleet",
+      "committer_email": "fleet@runeditrun.com",
+      "trailers": "absent"
+    },
+    {
+      "head": "65536eecf7ece06b963dcee2c35c63c76085a532",
+      "author": "Run Edit Run fleet",
+      "author_email": "fleet@runeditrun.com",
+      "committer": "Run Edit Run fleet",
+      "committer_email": "fleet@runeditrun.com",
+      "trailers": "absent"
+    },
+    {
+      "head": "e1eae3e45e51cdfa3a5c08415b6196ef8b7eeea7",
+      "author": "Run Edit Run fleet",
+      "author_email": "fleet@runeditrun.com",
+      "committer": "Run Edit Run fleet",
+      "committer_email": "fleet@runeditrun.com",
+      "trailers": "absent"
+    }
+  ]
+}

@@ -1,0 +1,527 @@
+{
+  "schema": 1,
+  "head": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
+  "status": "passed",
+  "observations": [
+    {
+      "clause": "SURFACE-003",
+      "point": "native preparation",
+      "door": "authenticated HTTP commands and state",
+      "input": {
+        "supplierId": "314865fd-069b-47b2-b847-1aafcf8b8307",
+        "expectedDate": "2026-11-05",
+        "reason": "synthetic-larder-974",
+        "lines": [
+          {
+            "itemId": "98c7e927-3a26-47a3-b4b8-d4d33117e229",
+            "quantity": "3.125",
+            "unitPrice": "9.876543"
+          }
+        ]
+      },
+      "output": {
+        "version": 1,
+        "classes": [
+          "standard"
+        ],
+        "actionClasses": [
+          "money",
+          "commitment"
+        ],
+        "effect": "prepared",
+        "commandId": "3e86c9ad-b1bb-4133-b97f-cdf98fd09045",
+        "action": "po.draft",
+        "at": "2026-10-29T12:00:00.000Z",
+        "actor": {
+          "id": "ceb0c157-0f3b-4cf7-9e49-12d56a53ab02",
+          "role": "buyer",
+          "source": "person"
+        },
+        "basis": {
+          "stateVersion": 14,
+          "subjectId": "56772a76-d73d-454a-885b-327d946a786e",
+          "subjectVersion": 1
+        },
+        "facts": {
+          "terms": {
+            "poId": "56772a76-d73d-454a-885b-327d946a786e",
+            "version": 1,
+            "reference": "PO-0001",
+            "supplierId": "314865fd-069b-47b2-b847-1aafcf8b8307",
+            "supplier": {
+              "id": "314865fd-069b-47b2-b847-1aafcf8b8307",
+              "name": "Tasmanian Timber Co",
+              "terms": ""
+            },
+            "amount": "30.864197",
+            "currency": "USD",
+            "expectedDate": "2026-11-05",
+            "requiredBy": "",
+            "lines": [
+              {
+                "id": "6c56dfb9-5b13-450b-a7b9-0ea2cb3be79a",
+                "itemId": "98c7e927-3a26-47a3-b4b8-d4d33117e229",
+                "quantity": "3.125",
+                "unitPrice": "9.876543",
+                "received": "0",
+                "rejected": "0",
+                "tolerancePercent": "0",
+                "expectedDate": "2026-11-05"
+              }
+            ]
+          },
+          "purchaseCommitment": false,
+          "customerCommitment": false,
+          "paymentPosted": false,
+          "providerCharge": false,
+          "providerAcceptance": false,
+          "externalDelivery": false,
+          "audienceChanged": false
+        }
+      }
+    },
+    {
+      "clause": "SURFACE-003",
+      "point": "pending signature",
+      "door": "authenticated HTTP commands and state",
+      "input": {
+        "poId": "56772a76-d73d-454a-885b-327d946a786e",
+        "version": 1
+      },
+      "output": {
+        "version": 1,
+        "classes": [
+          "standard"
+        ],
+        "actionClasses": [
+          "money",
+          "commitment"
+        ],
+        "effect": "pending",
+        "commandId": "synthetic-larder-probe-pending",
+        "action": "po.approve",
+        "at": "2026-10-29T12:00:00.000Z",
+        "actor": {
+          "id": "7b58a07f-9af7-4e90-8e46-20d0dd2cb949",
+          "role": "manager",
+          "source": "person"
+        },
+        "basis": {
+          "stateVersion": 15,
+          "subjectId": "56772a76-d73d-454a-885b-327d946a786e",
+          "subjectVersion": 1
+        },
+        "facts": {
+          "terms": {
+            "poId": "56772a76-d73d-454a-885b-327d946a786e",
+            "version": 1,
+            "reference": "PO-0001",
+            "supplierId": "314865fd-069b-47b2-b847-1aafcf8b8307",
+            "supplier": {
+              "id": "314865fd-069b-47b2-b847-1aafcf8b8307",
+              "name": "Tasmanian Timber Co",
+              "terms": ""
+            },
+            "amount": "30.864197",
+            "currency": "USD",
+            "expectedDate": "2026-11-05",
+            "requiredBy": "",
+            "lines": [
+              {
+                "id": "6c56dfb9-5b13-450b-a7b9-0ea2cb3be79a",
+                "itemId": "98c7e927-3a26-47a3-b4b8-d4d33117e229",
+                "quantity": "3.125",
+                "unitPrice": "9.876543",
+                "received": "0",
+                "rejected": "0",
+                "tolerancePercent": "0",
+                "expectedDate": "2026-11-05"
+              }
+            ]
+          },
+          "purchaseCommitment": false,
+          "customerCommitment": false,
+          "paymentPosted": false,
+          "providerCharge": false,
+          "providerAcceptance": false,
+          "externalDelivery": false,
+          "audienceChanged": false
+        }
+      }
+    },
+    {
+      "clause": "SURFACE-003",
+      "point": "unsafe refusal",
+      "door": "authenticated HTTP commands and state",
+      "input": "supplied classes and preparer approval",
+      "output": {
+        "forged": "INPUT",
+        "preparer": "FORBIDDEN",
+        "unchanged": true
+      }
+    },
+    {
+      "clause": "SURFACE-003",
+      "point": "applied purchase",
+      "door": "authenticated HTTP commands and state",
+      "input": {
+        "poId": "56772a76-d73d-454a-885b-327d946a786e",
+        "version": 1
+      },
+      "output": {
+        "version": 1,
+        "classes": [
+          "money",
+          "commitment"
+        ],
+        "actionClasses": [
+          "money",
+          "commitment"
+        ],
+        "effect": "applied",
+        "commandId": "synthetic-larder-probe-applied",
+        "action": "po.approve",
+        "at": "2026-10-29T12:00:00.000Z",
+        "actor": {
+          "id": "1b51d22d-2771-49bf-a292-f4fdc8dd620e",
+          "role": "owner",
+          "source": "person"
+        },
+        "basis": {
+          "stateVersion": 16,
+          "subjectId": "56772a76-d73d-454a-885b-327d946a786e",
+          "subjectVersion": 1
+        },
+        "facts": {
+          "terms": {
+            "poId": "56772a76-d73d-454a-885b-327d946a786e",
+            "version": 1,
+            "reference": "PO-0001",
+            "supplierId": "314865fd-069b-47b2-b847-1aafcf8b8307",
+            "supplier": {
+              "id": "314865fd-069b-47b2-b847-1aafcf8b8307",
+              "name": "Tasmanian Timber Co",
+              "terms": ""
+            },
+            "amount": "30.864197",
+            "currency": "USD",
+            "expectedDate": "2026-11-05",
+            "requiredBy": "",
+            "lines": [
+              {
+                "id": "6c56dfb9-5b13-450b-a7b9-0ea2cb3be79a",
+                "itemId": "98c7e927-3a26-47a3-b4b8-d4d33117e229",
+                "quantity": "3.125",
+                "unitPrice": "9.876543",
+                "received": "0",
+                "rejected": "0",
+                "tolerancePercent": "0",
+                "expectedDate": "2026-11-05"
+              }
+            ]
+          },
+          "purchaseCommitment": true,
+          "customerCommitment": false,
+          "paymentPosted": false,
+          "providerCharge": false,
+          "providerAcceptance": false,
+          "externalDelivery": false,
+          "audienceChanged": false
+        }
+      }
+    },
+    {
+      "clause": "SURFACE-003",
+      "point": "applied amendment and boundary",
+      "door": "authenticated HTTP commands and state",
+      "input": {
+        "previewId": "e47472a8-994e-4f9a-86d2-2eff82bd5ae0",
+        "version": 1
+      },
+      "output": {
+        "version": 1,
+        "classes": [
+          "commitment"
+        ],
+        "actionClasses": [
+          "commitment"
+        ],
+        "effect": "applied",
+        "commandId": "synthetic-larder-probe-amendment",
+        "action": "so.changeApprove",
+        "at": "2026-10-29T12:00:00.000Z",
+        "actor": {
+          "id": "8895424e-1610-417f-b213-03fb9f25bf83",
+          "role": "sales",
+          "source": "person"
+        },
+        "basis": {
+          "stateVersion": 20,
+          "subjectId": "e47472a8-994e-4f9a-86d2-2eff82bd5ae0",
+          "subjectVersion": 1
+        },
+        "facts": {
+          "terms": {
+            "orderId": "e613aa72-26ac-445c-98ac-241740f08b4d",
+            "customerId": "de8a07d2-0b26-4a17-b59e-d9db34c28fcf",
+            "customer": {
+              "id": "de8a07d2-0b26-4a17-b59e-d9db34c28fcf",
+              "version": 1,
+              "name": "Harbour Kitchen Co"
+            },
+            "before": {
+              "id": "e613aa72-26ac-445c-98ac-241740f08b4d",
+              "version": 2,
+              "reference": "SO-0001",
+              "customerId": "de8a07d2-0b26-4a17-b59e-d9db34c28fcf",
+              "currency": "CAD",
+              "usdRate": "0.75",
+              "rateDate": "2026-10-28",
+              "rateReference": "synthetic-larder-975",
+              "customerReference": "",
+              "promiseDate": "2026-11-05",
+              "billingAddress": "",
+              "shippingAddress": "",
+              "status": "confirmed",
+              "lines": [
+                {
+                  "id": "7cc86d12-530f-44d7-b2b5-0779e808f836",
+                  "itemId": "719a0b3c-dea6-46ac-9bc4-10ffa2477c02",
+                  "quantity": "2.5",
+                  "unitPrice": "29.95",
+                  "quotedUnitCost": "30",
+                  "shipped": "0",
+                  "returned": "0",
+                  "cancelled": "0",
+                  "activeQuantity": "2.5",
+                  "schedules": [
+                    {
+                      "quantity": "2.5",
+                      "date": "2026-11-05"
+                    }
+                  ]
+                }
+              ],
+              "commercialRevision": 1
+            },
+            "after": {
+              "id": "e613aa72-26ac-445c-98ac-241740f08b4d",
+              "version": 3,
+              "reference": "SO-0001",
+              "customerId": "de8a07d2-0b26-4a17-b59e-d9db34c28fcf",
+              "currency": "CAD",
+              "usdRate": "0.75",
+              "rateDate": "2026-10-28",
+              "rateReference": "synthetic-larder-975",
+              "customerReference": "",
+              "promiseDate": "2026-11-12",
+              "billingAddress": "",
+              "shippingAddress": "",
+              "status": "confirmed",
+              "lines": [
+                {
+                  "id": "7cc86d12-530f-44d7-b2b5-0779e808f836",
+                  "itemId": "719a0b3c-dea6-46ac-9bc4-10ffa2477c02",
+                  "quantity": "3.125",
+                  "unitPrice": "31.125",
+                  "quotedUnitCost": "30",
+                  "shipped": "0",
+                  "returned": "0",
+                  "cancelled": "0",
+                  "schedules": [
+                    {
+                      "quantity": "3.125",
+                      "date": "2026-11-12"
+                    }
+                  ],
+                  "activeQuantity": "3.125"
+                }
+              ],
+              "commercialRevision": 2
+            },
+            "beforeValue": "74.875",
+            "afterValue": "97.265625",
+            "currency": "CAD",
+            "valueBasis": "Outstanding dated promises only; issued shipment terms remain unchanged.",
+            "customerApproval": {
+              "name": "synthetic-larder-977",
+              "reference": "synthetic-larder-978",
+              "approvedOn": "2026-10-29",
+              "evidence": null,
+              "recordedBy": "8895424e-1610-417f-b213-03fb9f25bf83",
+              "recordedAt": "2026-10-29T12:00:00.000Z",
+              "basis": "locally recorded customer attestation"
+            },
+            "attestationBasis": "locally recorded customer attestation"
+          },
+          "purchaseCommitment": false,
+          "customerCommitment": true,
+          "paymentPosted": false,
+          "providerCharge": false,
+          "providerAcceptance": false,
+          "externalDelivery": false,
+          "audienceChanged": false
+        }
+      }
+    },
+    {
+      "clause": "SURFACE-003",
+      "point": "stale amendment",
+      "door": "authenticated HTTP commands and state",
+      "input": {
+        "previewId": "edaa1dd5-7a79-46be-8bf9-d03e5b9a49f3",
+        "version": 1
+      },
+      "output": {
+        "code": "STALE",
+        "unchanged": true
+      }
+    },
+    {
+      "clause": "SURFACE-003",
+      "point": "current replay redaction",
+      "door": "authenticated HTTP commands and state",
+      "input": {
+        "previewId": "e47472a8-994e-4f9a-86d2-2eff82bd5ae0",
+        "version": 1
+      },
+      "output": {
+        "version": 1,
+        "classes": [
+          "commitment"
+        ],
+        "actionClasses": [
+          "commitment"
+        ],
+        "effect": "applied",
+        "commandId": "synthetic-larder-probe-amendment",
+        "action": "so.changeApprove",
+        "at": "2026-10-29T12:00:00.000Z",
+        "actor": {
+          "id": "8895424e-1610-417f-b213-03fb9f25bf83",
+          "role": "sales",
+          "source": "person"
+        },
+        "basis": {
+          "stateVersion": 20,
+          "subjectId": "e47472a8-994e-4f9a-86d2-2eff82bd5ae0",
+          "subjectVersion": 1
+        },
+        "facts": {
+          "terms": {
+            "orderId": "e613aa72-26ac-445c-98ac-241740f08b4d",
+            "customerId": "de8a07d2-0b26-4a17-b59e-d9db34c28fcf",
+            "customer": {
+              "id": "de8a07d2-0b26-4a17-b59e-d9db34c28fcf",
+              "version": 1,
+              "name": "Harbour Kitchen Co"
+            },
+            "before": {
+              "id": "e613aa72-26ac-445c-98ac-241740f08b4d",
+              "version": 2,
+              "reference": "SO-0001",
+              "customerId": "de8a07d2-0b26-4a17-b59e-d9db34c28fcf",
+              "currency": "CAD",
+              "usdRate": "restricted",
+              "rateDate": "restricted",
+              "rateReference": "restricted",
+              "customerReference": "",
+              "promiseDate": "2026-11-05",
+              "billingAddress": "",
+              "shippingAddress": "",
+              "status": "confirmed",
+              "lines": [
+                {
+                  "id": "7cc86d12-530f-44d7-b2b5-0779e808f836",
+                  "itemId": "719a0b3c-dea6-46ac-9bc4-10ffa2477c02",
+                  "quantity": "2.5",
+                  "unitPrice": "restricted",
+                  "quotedUnitCost": "restricted",
+                  "shipped": "0",
+                  "returned": "0",
+                  "cancelled": "0",
+                  "activeQuantity": "2.5",
+                  "schedules": [
+                    {
+                      "quantity": "2.5",
+                      "date": "2026-11-05"
+                    }
+                  ]
+                }
+              ],
+              "commercialRevision": 1
+            },
+            "after": {
+              "id": "e613aa72-26ac-445c-98ac-241740f08b4d",
+              "version": 3,
+              "reference": "SO-0001",
+              "customerId": "de8a07d2-0b26-4a17-b59e-d9db34c28fcf",
+              "currency": "CAD",
+              "usdRate": "restricted",
+              "rateDate": "restricted",
+              "rateReference": "restricted",
+              "customerReference": "",
+              "promiseDate": "2026-11-12",
+              "billingAddress": "",
+              "shippingAddress": "",
+              "status": "confirmed",
+              "lines": [
+                {
+                  "id": "7cc86d12-530f-44d7-b2b5-0779e808f836",
+                  "itemId": "719a0b3c-dea6-46ac-9bc4-10ffa2477c02",
+                  "quantity": "3.125",
+                  "unitPrice": "restricted",
+                  "quotedUnitCost": "restricted",
+                  "shipped": "0",
+                  "returned": "0",
+                  "cancelled": "0",
+                  "schedules": [
+                    {
+                      "quantity": "3.125",
+                      "date": "2026-11-12"
+                    }
+                  ],
+                  "activeQuantity": "3.125"
+                }
+              ],
+              "commercialRevision": 2
+            },
+            "beforeValue": "restricted",
+            "afterValue": "restricted",
+            "currency": "CAD",
+            "valueBasis": "restricted",
+            "customerApproval": {
+              "name": "synthetic-larder-977",
+              "reference": "synthetic-larder-978",
+              "approvedOn": "2026-10-29",
+              "evidence": null,
+              "recordedBy": "8895424e-1610-417f-b213-03fb9f25bf83",
+              "recordedAt": "2026-10-29T12:00:00.000Z",
+              "basis": "locally recorded customer attestation"
+            },
+            "attestationBasis": "locally recorded customer attestation"
+          },
+          "purchaseCommitment": false,
+          "customerCommitment": true,
+          "paymentPosted": false,
+          "providerCharge": false,
+          "providerAcceptance": false,
+          "externalDelivery": false,
+          "audienceChanged": false
+        }
+      }
+    },
+    {
+      "clause": "SURFACE-003",
+      "point": "restart and inert restore",
+      "door": "authenticated HTTP commands and state",
+      "input": "business archive restore",
+      "output": {
+        "classificationsRetained": true,
+        "originalActorRetained": "8895424e-1610-417f-b213-03fb9f25bf83",
+        "pendingPreview": true,
+        "outbound": 0
+      }
+    }
+  ]
+}
