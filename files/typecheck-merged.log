@@ -1,0 +1,4 @@
+
+> @manufacturing/larder@0.1.3 typecheck /home/agent/rer-consolidation/work/sx-larder-c-f611/repo
+> tsc --build --incremental
+

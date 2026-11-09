@@ -1,0 +1,93 @@
+TAP version 13
+# ▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+# Subtest: GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets
+ok 1 - GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets
+  ---
+  duration_ms: 6669.690713
+  type: 'test'
+  ...
+# Subtest: GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live
+ok 2 - GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live
+  ---
+  duration_ms: 19231.640046
+  type: 'test'
+  ...
+# Subtest: Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors
+ok 3 - Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors
+  ---
+  duration_ms: 10842.152568
+  type: 'test'
+  ...
+# Subtest: Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore
+ok 4 - Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore
+  ---
+  duration_ms: 14102.793742
+  type: 'test'
+  ...
+# ▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+# Subtest: MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions
+ok 5 - MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions
+  ---
+  duration_ms: 35078.072049
+  type: 'test'
+  ...
+# ▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+# Subtest: LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded
+ok 6 - LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded
+  ---
+  duration_ms: 4781.766458
+  type: 'test'
+  ...
+# larder: unconfirmed outcome Error: D1_ERROR: synthetic_event_failure: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_TRIGGER)
+#     at D1DatabaseSessionAlwaysPrimary._sendOrThrow (cloudflare-internal:d1-api:188:19)
+#     at async cloudflare-internal:d1-api:137:19
+#     ... 3 lines matching cause stack trace ...
+#     at async Object.fetch (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/script-0.mjs:27005:12) {
+#   [cause]: Error: synthetic_event_failure: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_TRIGGER)
+#       at D1DatabaseSessionAlwaysPrimary._sendOrThrow (cloudflare-internal:d1-api:189:24)
+#       at async cloudflare-internal:d1-api:137:19
+#       at async commit (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/script-0.mjs:18254:3)
+#       at async executeCommand (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/script-0.mjs:26839:24)
+#       at async larderResponse (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/script-0.mjs:26887:67)
+#       at async Object.fetch (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/script-0.mjs:27005:12)
+# }
+# Subtest: LARDER-008 partial receipts record supplier lots and quarantine decisions
+ok 7 - LARDER-008 partial receipts record supplier lots and quarantine decisions
+  ---
+  duration_ms: 5452.764677
+  type: 'test'
+  ...
+# Subtest: LARDER-009 released work issues materials and records output and scrap
+ok 8 - LARDER-009 released work issues materials and records output and scrap
+  ---
+  duration_ms: 4724.611778
+  type: 'test'
+  ...
+# Subtest: LARDER-010 pick, pack and partially ship against reservations; the rest stays committed
+ok 9 - LARDER-010 pick, pack and partially ship against reservations; the rest stays committed
+  ---
+  duration_ms: 4306.814297
+  type: 'test'
+  ...
+# Subtest: LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile
+ok 10 - LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile
+  ---
+  duration_ms: 9840.957026
+  type: 'test'
+  ...
+# ▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+# Subtest: TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest
+ok 11 - TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest
+  ---
+  duration_ms: 10352.941143
+  type: 'test'
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 11
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 135347.970355

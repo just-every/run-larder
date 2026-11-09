@@ -1,0 +1,12 @@
+{
+  "head": "c676cb763af64d9cd6a6283bae82904d6a64af09",
+  "candidateCommits": [
+    "c676cb763af64d9cd6a6283bae82904d6a64af09",
+    "ffc339e0b6bebe4a3c1c3d2d3ce8c4a0645e6fce"
+  ],
+  "identityAndTrailers": "all candidate authors and committers are fleet; no trailers and no Codex or OpenAI coauthor",
+  "addedLineEmailMatches": 0,
+  "addedLineCredentialShapeMatches": 0,
+  "fullPublicationScan": "not run in cloud; guarded Mac lander owns the required full-history scan",
+  "notAScanWaiver": true
+}

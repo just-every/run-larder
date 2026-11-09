@@ -1,0 +1,18 @@
+{
+  "at": "2026-11-09T12:52:01.307569+00:00",
+  "head": "c676cb763af64d9cd6a6283bae82904d6a64af09",
+  "proof": "Merged-tree Node 22 test run and checks completed before committing; no relevant file changed after that run.",
+  "files": {
+    "API.md": "eb3e4ae69714b81681145b6c250795173aef9d3431ae3bbb9f298d4646ce4d9d",
+    "management/integration/deployment-spec.json": "107e6bf38c865bf8bf189703bb1370ef3e846007cdd4a4ed1fa30e5def21b715",
+    "migrations/core/0027_change_event_vocabulary.sql": "cf6d1bab4c943af155193a701a91192ba659fcd6bb7518acffece031c690c3cd",
+    "sources.lock.json": "2e0d3754e4950579fdb9f6eaee7075465b48b9f3217cc25906ef327a45592cb4",
+    "src/larder/change-events.ts": "5a654b7633d34b56cbb3ef601593af122d92aed9af7d138a918eca8cd6bdc947",
+    "src/larder/model.ts": "75af628e010b1605b937a20173378c51ac7d49c66b655d56d1edaf240a66bb2a",
+    "tests/api/authority.test.mjs": "73542b2d0b1b33d195cf3fc88108c4506d47e96773fb2c6905c8a10a3c600e8f",
+    "tests/api/backup.test.mjs": "c8b654bade22f613e1cd4eb2fcc3eaeb1de030bf8171af0f0320f8b8909dd14e",
+    "tests/api/flows.test.mjs": "a81bf43a5df4f6156b747f1d484dd48b152bc9234a9f6f1fb1878a1d3f044829",
+    "tests/api/harness.mjs": "9e1a3100c2761063c6dedc105bf2730708dd01b0fbbd67e1b2a32b17ef1be42a",
+    "tests/api/quality.test.mjs": "6bb2cb8080baef7ed2691a83c1e57d7db7b14287a3c83e8b704f83c4a64874fa"
+  }
+}

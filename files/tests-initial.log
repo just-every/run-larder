@@ -1,0 +1,174 @@
+▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+
+
+✔ GOV-001 roles and sessions are checked on every command and read (8430.237941ms)
+✔ LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve (13574.800862ms)
+✔ GOV-001 TRACE-005 quality role inherits TRACE-003/004/006/007 authority with independence and live revocation, and nothing outside quality (3022.591385ms)
+✔ GOV-001 planner role inherits DEMAND-003 forecast/MPS, DEMAND-004 policy and FLOOR-005 split/merge authority with independent approval, and nothing outside planning (3636.179374ms)
+✔ GOV-001 engineer role inherits ENG-007 catalog export, preparation and independent approval and controls ENG-002/004/005 revisions, never change approval or anything outside engineering (3443.783323ms)
+✔ GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007 operations, posts no stock and loses access when revoked (3480.823278ms)
+✔ GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets (4913.266107ms)
+✔ GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human (11115.760644ms)
+✔ GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override (13951.750976ms)
+✔ GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live (22635.296043ms)
+✔ GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live (9414.095195ms)
+✔ a cost-restricted member reads no purchase, service-order or cutover total that a hidden price can be recovered from (2669.274848ms)
+✔ a cost-restricted member cannot download a supplier bill, while its other service evidence stays open (3027.271924ms)
+✔ a deputy holds a delegated approval only while the principal's custom role still includes it (3271.184379ms)
+✔ Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors (13507.745533ms)
+✔ Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore (20023.882213ms)
+▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+
+
+✔ LARDER-020 an installation backup restores into a reset installation (206951.103743ms)
+✖ MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions (13295.748052ms)
+✔ US-001 restore refuses undeclared or non-USD functional money without relabelling amounts or writing records (10313.648445ms)
+✔ US business settings retain Ohio identity, local dates and per-record currencies through restart and restore (12542.107834ms)
+✔ AUD archive migration records exact rates, original money and stock reconciliation through restart and restore (29389.568472ms)
+✔ AUD migration refuses missing consent, guessed rates, incompatible records and non-owner or revoked authority (10609.053473ms)
+▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+
+
+✔ LARDER-001 items, variants, units and parties; ambiguous conversions are refused (5444.883767ms)
+✔ LARDER-002 opening stock by location with date, valuation basis and evidence (3936.903219ms)
+✔ LARDER-003 versioned BOM and routing; released work keeps its revision (4294.108689ms)
+✔ LARDER-004 quote and confirm an order; physical, reserved and expected stock stay separate (2789.723966ms)
+✔ LARDER-005 reservations are atomic: competing orders never consume the same stock (3238.438881ms)
+✔ LARDER-006 shortages are reviewed and drafted into purchase and work orders with dates and reasons (2967.872289ms)
+✔ LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded (5045.744963ms)
+larder: unconfirmed outcome Error: D1_ERROR: synthetic_event_failure: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_TRIGGER)
+    at D1DatabaseSessionAlwaysPrimary._sendOrThrow (cloudflare-internal:d1-api:188:19)
+    at async cloudflare-internal:d1-api:137:19
+    ... 3 lines matching cause stack trace ...
+    at async Object.fetch (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/script-0.mjs:26974:12) {
+  [cause]: Error: synthetic_event_failure: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_TRIGGER)
+      at D1DatabaseSessionAlwaysPrimary._sendOrThrow (cloudflare-internal:d1-api:189:24)
+      at async cloudflare-internal:d1-api:137:19
+      at async commit (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/script-0.mjs:18254:3)
+      at async executeCommand (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/script-0.mjs:26808:24)
+      at async larderResponse (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/script-0.mjs:26856:67)
+      at async Object.fetch (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/script-0.mjs:26974:12)
+}
+✖ LARDER-008 partial receipts record supplier lots and quarantine decisions (3201.845588ms)
+✔ LARDER-009 released work issues materials and records output and scrap (4943.766661ms)
+✔ LARDER-010 pick, pack and partially ship against reservations; the rest stays committed (4655.383802ms)
+✔ LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit (3171.876597ms)
+✔ LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile (19289.792814ms)
+✔ LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation (10371.293445ms)
+✔ BUY-001 supplier constraints, feasible quote and scheduled approval survive supplier revisions and restore (17084.445204ms)
+✔ CAP-001 persisted overnight holiday calendars, breaks, outages, efficiency and parallel named machine intervals survive archive restore (16310.619598ms)
+✔ CAP-002 one qualified person constrains two machines independently, vacation and task limits hold, rates are restricted and revocation blocks replay (8333.864529ms)
+✔ CAP-004 finite multistep plan exposes critical path, load and truthful late/unscheduled drilldowns without overbooking or changing promises (4028.480665ms)
+✔ CAP-005 finite reschedule previews displacement and unchanged promises, requires independent approval and rejects shop-floor stale inputs or capacity conflicts (8513.471202ms)
+✔ Qualified alternate comparison keeps pinned instructions, setup transitions, tools, labor, delivery and USD estimates through approval and restore (11509.642361ms)
+✖ Event recovery persists once after restart, preserves frozen and manual work, exposes displacement and refuses automatic or external authority (22309.60546ms)
+✔ Isolated outage scenarios protect this week and manual locks, atomically book next week and reject an ETA-stale adoption without a partial schedule (55415.392268ms)
+✔ Replenishment revises MOQ and uncertain lead bounds, explains dated coverage and USD cash, approves selected suggestions and retains rejected reasons (15532.122423ms)
+✔ Bounded grants independently authorize one internal reflow, stop at limits or lost authority, and restore inactive without replay (35200.70479ms)
+✔ COST-004 shipment and return margins keep open commitments, channel/customer totals and costs scope (4329.706808ms)
+✔ COST-003 component usage and price variances reconcile two jobs to one order and export their sources (6426.847226ms)
+✔ COST-001 approved time overtime and service costs roll through scrap and downstream work as correcting valuations (5115.03746ms)
+✔ COST-006 COST-008 filtered performance retains denominators and missing clocks, receipt rejects and in-app scheduled snapshots (94413.519813ms)
+✔ COST-001 unvalued production lots keep weighted average until an actual valuation is approved (4355.794161ms)
+✔ CAP-008 three original jobs retain demand and revisions in an inert nesting review with reconciled yield, offcuts and cost shares (10046.634786ms)
+✔ CAP-008 invalid nesting and incompatible or changed jobs leave no partial review or attachment (4599.660114ms)
+✔ CAP-008 nesting preparation obeys live roles, location scope and cost restrictions including replay (5408.078051ms)
+✔ CAP-008 owner-approved nesting consumes once, recovers a traced offcut and attributes each original output cost (9326.783512ms)
+✔ CAP-008 stale or impossible physical nesting approval leaves every job and offcut unposted (4023.099538ms)
+✔ CAP-008 controlled source recovery requires current evidence, quarantines independent offcuts and preserves exact genealogy through reuse, restart and inert restore (42172.708878ms)
+✔ DEMAND-005 reviewed receipt split shows displacement, both promises and estimated margins, then atomically reserves exact totals without stock or promise changes (12034.097071ms)
+✔ DEMAND-005 stale, overallocated, duplicated and picked receipt splits refuse without changing hard reservations (10740.155852ms)
+✔ DEMAND-005 sales, planners, managers and agents cannot take reservation approval authority through the command API (5353.330933ms)
+✔ Cited variance explanations require exact owner consent and capped single sends, retain repeat causes and compare approved future work without rewriting history (12817.351098ms)
+✔ STOCK-004 exact bin-sequenced wave sorts three orders and carries current site scope (10408.160841ms)
+✔ Supplier RMA settles a partial rejected lot with quarantined replacement and reconciled original-bill credit without rewriting stock (40675.396317ms)
+✔ Supplier invoices retain three-way variances, refuse self-resolution and duplicate bills, and expose incremental billing without invented payment state (11219.994903ms)
+✔ Late landed charges allocate exact stock and open WIP corrections by explicit policy, reject stale approval and hand off each correction once (11968.13582ms)
+✔ Late landed charges conserve quantity, value and weight allocations across receipts and direct COGS (58348.929302ms)
+✔ Supplier financial state and original evidence obey live cost restrictions (8882.77328ms)
+✔ Supplier serial replacement keeps one-unit identity, refuses reused and fractional serials, and remains quarantined (5962.75496ms)
+✔ Costed quote preparation reconciles fractional CAD prices, discounts, breaks, USD margin and inert history (13647.786252ms)
+✔ Costed quote dates require shared scarce supply and live qualified joint calendars without booking or displacement (46455.08262ms)
+✔ STOCK-001 transit receipt and ruled putaway conserve lots, refuse unsafe bins and replenish exactly within current site scope (22338.801753ms)
+✔ STOCK-001 customer-owned and consigned custody stays separate from owned availability, honors capacity and live site scope and survives restore (8527.631182ms)
+▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+
+
+✔ TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest (8025.475058ms)
+✔ TRACE-005 quantity-scoped cases retain complaints, CAPA, supplier/rework routing, passing-only independent release and evidenced effectiveness across restart and restore (17920.181094ms)
+✔ TRACE-006 immediate recall containment expands exact genealogy, identifies two customers, protects stock/WIP and exports durable honest evidence (12815.799366ms)
+✔ TRACE-008 quality-role deviations: exact proposals, independent approval and gated atomic execution release only held units under deviation, with trace, shipment pack, restart and archive restore (32837.60035ms)
+ℹ tests 75
+ℹ suites 0
+ℹ pass 72
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1240985.810187
+
+✖ failing tests:
+
+test at tests/api/backup.test.mjs:207:1
+✖ MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions (13295.748052ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   'receipt.recorded',
+  +   'material.usable',
+  +   'work.output-recorded',
+  +   'material.usable',
+  +   'shipment.dispatched',
+      'supplier.date-recorded',
+      'receipt.recorded',
+      'material.usable'
+    ]
+  
+      at TestContext.<anonymous> (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/tests/api/backup.test.mjs:294:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'receipt.recorded', 'material.usable', 'work.output-recorded', 'material.usable', 'shipment.dispatched', 'supplier.date-recorded', 'receipt.recorded', 'material.usable' ],
+    expected: [ 'supplier.date-recorded', 'receipt.recorded', 'material.usable' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/api/flows.test.mjs:238:1
+✖ LARDER-008 partial receipts record supplier lots and quarantine decisions (3201.845588ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  409 !== 500
+  
+      at TestContext.<anonymous> (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/tests/api/flows.test.mjs:258:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 409,
+    expected: 500,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/api/flows.test.mjs:1048:1
+✖ Event recovery persists once after restart, preserves frozen and manual work, exposes displacement and refuses automatic or external authority (22309.60546ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  409 !== 200
+  
+      at TestContext.<anonymous> (file:///home/agent/rer-consolidation/work/sx-larder-c-f611/repo/tests/api/flows.test.mjs:1105:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 409,
+    expected: 200,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

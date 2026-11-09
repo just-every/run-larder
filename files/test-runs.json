@@ -1,0 +1,45 @@
+{
+  "candidateHead": "c676cb763af64d9cd6a6283bae82904d6a64af09",
+  "runs": [
+    {
+      "log": "tests-initial.log",
+      "command": "cloud_run node --test --test-concurrency=1 tests/api/flows.test.mjs tests/api/quality.test.mjs tests/api/authority.test.mjs tests/api/backup.test.mjs",
+      "scope": "initial working tree; integration overlapped this run",
+      "tests": 75,
+      "pass": 72,
+      "fail": 3,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    {
+      "log": "tests-focused.log",
+      "command": "Node 22: cloud_run node --test --test-concurrency=1 --test-name-pattern=^(LARDER-008|MOVE-008|GOV-004|GOV-002 high-value|GOV-014 location) tests/api/flows.test.mjs tests/api/backup.test.mjs tests/api/authority.test.mjs",
+      "scope": "stable focused corrections and authority proof",
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    {
+      "log": "recovery-reproduce.log",
+      "command": "Node 22: cloud_run node --test --test-name-pattern=^Event recovery persists tests/api/flows.test.mjs",
+      "scope": "unchanged recovery reproduction; passed",
+      "tests": 1,
+      "pass": 1,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    {
+      "log": "tests-merged.log",
+      "command": "Node 22: cloud_run node --test --test-concurrency=1 --test-name-pattern=^(LARDER-007|LARDER-008|LARDER-009|LARDER-010|LARDER-012|MOVE-008|GOV-004|Versioned pages|GOV-014 location|Owner-consented integration|TRACE-004) tests/api/flows.test.mjs tests/api/backup.test.mjs tests/api/authority.test.mjs tests/api/quality.test.mjs",
+      "scope": "final merged source; exact file digests in proof-files.json",
+      "tests": 11,
+      "pass": 11,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  ]
+}

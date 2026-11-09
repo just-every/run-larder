@@ -1,0 +1,42 @@
+{
+  "at": "2026-11-09T12:55:40.998773+00:00",
+  "command": "cloud_run pnpm exec wrangler d1 execute foundation --local --persist-to .wrangler/state --config wrangler.jsonc --command SELECT name FROM d1_migrations ORDER BY name --json",
+  "exit": 0,
+  "complete": true,
+  "appliedCount": 28,
+  "migrationNames": [
+    "0001_owner.sql",
+    "0002_outbox.sql",
+    "0003_portability.sql",
+    "0004_first_run.sql",
+    "0005_identity_providers.sql",
+    "0006_provider_control.sql",
+    "0007_dependencies.sql",
+    "0008_owner_claim.sql",
+    "0009_idp_owner.sql",
+    "0010_provider_pins.sql",
+    "0011_dependency_setup.sql",
+    "0011_erasure.sql",
+    "0012_dependency_approval.sql",
+    "0013_larder.sql",
+    "0014_import_kit.sql",
+    "0015_owner_signin.sql",
+    "0016_audit.sql",
+    "0017_audit_erasure.sql",
+    "0018_audit_erasure_scope.sql",
+    "0019_dependency_keys_sealed.sql",
+    "0020_service_keys.sql",
+    "0021_report_sessions.sql",
+    "0022_agent_door.sql",
+    "0023_business_settings.sql",
+    "0024_business_people.sql",
+    "0025_agent_attribution.sql",
+    "0026_change_events.sql",
+    "0027_change_event_vocabulary.sql"
+  ],
+  "newMigrations": [
+    "0026_change_events.sql",
+    "0027_change_event_vocabulary.sql"
+  ],
+  "mode": "Local Wrangler persistence; read-only migration metadata query"
+}

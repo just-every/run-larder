@@ -1,0 +1,233 @@
+[
+  {
+    "at": "2026-11-09T12:42:00.103697+00:00",
+    "label": "setup",
+    "exit": 4,
+    "command": [
+      "cloud_run",
+      "npx",
+      "-y",
+      "@runeditrun/rer",
+      "setup",
+      "--owner-email",
+      "fleet@runeditrun.com",
+      "--answers",
+      "/tmp/sx-larder-answers.json",
+      "--non-interactive"
+    ],
+    "log": "/tmp/sx-setup-path-failure.log"
+  },
+  {
+    "at": "2026-11-09T12:44:34.758379+00:00",
+    "label": "setup",
+    "exit": 0,
+    "command": [
+      "cloud_run",
+      "npx",
+      "-y",
+      "@runeditrun/rer",
+      "setup",
+      "--owner-email",
+      "fleet@runeditrun.com",
+      "--answers",
+      ".cache/sx-larder-answers.json",
+      "--non-interactive"
+    ],
+    "log": "/tmp/sx-setup.log"
+  },
+  {
+    "at": "2026-11-09T12:45:00.964713+00:00",
+    "label": "build",
+    "exit": 0,
+    "command": [
+      "cloud_run",
+      "npx",
+      "-y",
+      "@runeditrun/rer",
+      "build"
+    ],
+    "log": "/tmp/sx-build.log"
+  },
+  {
+    "at": "2026-11-09T12:45:11.341634+00:00",
+    "label": "typecheck",
+    "exit": 0,
+    "command": [
+      "pnpm",
+      "run",
+      "typecheck"
+    ],
+    "log": "/tmp/sx-typecheck.log"
+  },
+  {
+    "at": "2026-11-09T12:45:15.353109+00:00",
+    "label": "first-party",
+    "exit": 0,
+    "command": [
+      "cloud_run",
+      "npx",
+      "-y",
+      "@runeditrun/rer",
+      "check",
+      "--profile",
+      "first-party"
+    ],
+    "log": "/tmp/sx-first-party.log"
+  },
+  {
+    "at": "2026-11-09T12:45:15.619013+00:00",
+    "label": "deployment-spec",
+    "exit": 0,
+    "command": [
+      "node",
+      "scripts/build-deployment-spec.mjs",
+      "--check"
+    ],
+    "log": "/tmp/sx-deployment-spec.log"
+  },
+  {
+    "at": "2026-11-09T12:47:12.240756+00:00",
+    "label": "views-write",
+    "exit": 0,
+    "command": [
+      "node",
+      "src/base/contract-docs.mjs",
+      "write"
+    ],
+    "log": "/tmp/sx-views-write.log"
+  },
+  {
+    "at": "2026-11-09T12:47:12.700602+00:00",
+    "label": "views-check",
+    "exit": 0,
+    "command": [
+      "node",
+      "src/base/contract-docs.mjs",
+      "check"
+    ],
+    "log": "/tmp/sx-views-check.log"
+  },
+  {
+    "at": "2026-11-09T12:47:13.294647+00:00",
+    "label": "lock",
+    "exit": 0,
+    "command": [
+      "node",
+      "scripts/edition-authoring/cli.mjs",
+      "lock"
+    ],
+    "log": "/tmp/sx-lock.log"
+  },
+  {
+    "at": "2026-11-09T12:47:13.876512+00:00",
+    "label": "lock-check",
+    "exit": 0,
+    "command": [
+      "node",
+      "scripts/edition-authoring/cli.mjs",
+      "check"
+    ],
+    "log": "/tmp/sx-lock-check.log"
+  },
+  {
+    "at": "2026-11-09T12:47:27.972481+00:00",
+    "label": "typecheck-merged",
+    "exit": 0,
+    "command": [
+      "pnpm",
+      "run",
+      "typecheck"
+    ],
+    "log": "/tmp/sx-typecheck-merged.log"
+  },
+  {
+    "at": "2026-11-09T12:49:39.872669+00:00",
+    "label": "tests-merged",
+    "exit": 0,
+    "command": [
+      "cloud_run",
+      "node",
+      "--test",
+      "--test-concurrency=1",
+      "--test-name-pattern=^(LARDER-007|LARDER-008|LARDER-009|LARDER-010|LARDER-012|MOVE-008|GOV-004|Versioned pages|GOV-014 location|Owner-consented integration|TRACE-004)",
+      "tests/api/flows.test.mjs",
+      "tests/api/backup.test.mjs",
+      "tests/api/authority.test.mjs",
+      "tests/api/quality.test.mjs"
+    ],
+    "log": "/tmp/sx-tests-merged.log"
+  },
+  {
+    "at": "2026-11-09T12:50:04.351216+00:00",
+    "label": "build-merged",
+    "exit": 0,
+    "command": [
+      "cloud_run",
+      "npx",
+      "-y",
+      "@runeditrun/rer",
+      "build"
+    ],
+    "log": "/tmp/sx-build-merged.log"
+  },
+  {
+    "at": "2026-11-09T12:50:06.906737+00:00",
+    "label": "first-party-merged",
+    "exit": 0,
+    "command": [
+      "cloud_run",
+      "npx",
+      "-y",
+      "@runeditrun/rer",
+      "check",
+      "--profile",
+      "first-party"
+    ],
+    "log": "/tmp/sx-first-party-merged.log"
+  },
+  {
+    "at": "2026-11-09T12:50:07.188119+00:00",
+    "label": "deployment-spec-merged",
+    "exit": 0,
+    "command": [
+      "node",
+      "scripts/build-deployment-spec.mjs",
+      "--check"
+    ],
+    "log": "/tmp/sx-deployment-spec-merged.log"
+  },
+  {
+    "at": "2026-11-09T12:51:20.293491+00:00",
+    "label": "lock-candidate",
+    "exit": 0,
+    "command": [
+      "node",
+      "scripts/edition-authoring/cli.mjs",
+      "check"
+    ],
+    "log": "/tmp/sx-lock-candidate.log"
+  },
+  {
+    "at": "2026-11-09T12:52:53.704381+00:00",
+    "label": "migration-ledger",
+    "exit": 0,
+    "command": [
+      "cloud_run",
+      "pnpm",
+      "exec",
+      "wrangler",
+      "d1",
+      "execute",
+      "foundation",
+      "--local",
+      "--persist-to",
+      ".wrangler/state",
+      "--config",
+      "wrangler.jsonc",
+      "--command",
+      "SELECT name FROM d1_migrations ORDER BY name",
+      "--json"
+    ],
+    "log": "/tmp/sx-migration-ledger.log"
+  }
+]

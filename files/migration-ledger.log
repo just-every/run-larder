@@ -1,0 +1,97 @@
+▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+
+
+[
+  {
+    "results": [
+      {
+        "name": "0001_owner.sql"
+      },
+      {
+        "name": "0002_outbox.sql"
+      },
+      {
+        "name": "0003_portability.sql"
+      },
+      {
+        "name": "0004_first_run.sql"
+      },
+      {
+        "name": "0005_identity_providers.sql"
+      },
+      {
+        "name": "0006_provider_control.sql"
+      },
+      {
+        "name": "0007_dependencies.sql"
+      },
+      {
+        "name": "0008_owner_claim.sql"
+      },
+      {
+        "name": "0009_idp_owner.sql"
+      },
+      {
+        "name": "0010_provider_pins.sql"
+      },
+      {
+        "name": "0011_dependency_setup.sql"
+      },
+      {
+        "name": "0011_erasure.sql"
+      },
+      {
+        "name": "0012_dependency_approval.sql"
+      },
+      {
+        "name": "0013_larder.sql"
+      },
+      {
+        "name": "0014_import_kit.sql"
+      },
+      {
+        "name": "0015_owner_signin.sql"
+      },
+      {
+        "name": "0016_audit.sql"
+      },
+      {
+        "name": "0017_audit_erasure.sql"
+      },
+      {
+        "name": "0018_audit_erasure_scope.sql"
+      },
+      {
+        "name": "0019_dependency_keys_sealed.sql"
+      },
+      {
+        "name": "0020_service_keys.sql"
+      },
+      {
+        "name": "0021_report_sessions.sql"
+      },
+      {
+        "name": "0022_agent_door.sql"
+      },
+      {
+        "name": "0023_business_settings.sql"
+      },
+      {
+        "name": "0024_business_people.sql"
+      },
+      {
+        "name": "0025_agent_attribution.sql"
+      },
+      {
+        "name": "0026_change_events.sql"
+      },
+      {
+        "name": "0027_change_event_vocabulary.sql"
+      }
+    ],
+    "success": true,
+    "meta": {
+      "duration": 1
+    }
+  }
+]
