@@ -48,5 +48,15 @@
       "{status,conclusion,head_sha,html_url}"
     ],
     "exit": 0
+  },
+  {
+    "at": "2026-11-09T13:02:11Z",
+    "args": [
+      "api",
+      "repos/just-every/run-larder/actions/runs/42620476277",
+      "--jq",
+      "{status,conclusion,head_sha,html_url}"
+    ],
+    "exit": 0
   }
 ]

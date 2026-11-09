@@ -18,3 +18,5 @@ Frozen rubric:
 - R6: Bounded native read enforces the existing audit role and scope boundary, protects personal values, and preserves pinned pagination across restart and append.
 - R7: Business archive and installation commands restore original event bytes and cursors without replay, grants, physical or provider effects.
 - R8: Supplier-date and material-usable facts remain truthful local facts; specialist delivery and provider-confirmed ledger reconciliation are UNMET-EXTERNAL under the supplied holds.
+
+Execution update: main landed the base journal during this run, then advanced to e9e99660679665048f0b0f8162ac1884056fcac2 with exact resource allocation work. The candidate preserves both parent histories, the newer two-output fixture, and all source and resource assertions. The bounded native slice is complete; specialist handoffs and provider-confirmed reconciliation remain under the supplied holds. Final candidate: c676cb763af64d9cd6a6283bae82904d6a64af09.

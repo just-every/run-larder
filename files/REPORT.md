@@ -32,7 +32,7 @@ The final receipt journey injects a failing journal insert and proves stock, rec
 
 ## Frozen rubric and acceptance coverage
 
-Every source reference below points at the pushed candidate. The final Verify is push run **42620476277**, status **in_progress**, conclusion **None**, head **c676cb763af64d9cd6a6283bae82904d6a64af09**. Local tests were run on the final merged source before the commit; the exact-SHA push workflow is the full independent CI gate.
+Every source reference below points at the pushed candidate. The final Verify is push run **42620476277**, status **completed**, conclusion **success**, head **c676cb763af64d9cd6a6283bae82904d6a64af09**. Local tests were run on the final merged source before the commit; the exact-SHA push workflow is the full independent CI gate.
 
 | Item | Outcome and actual proof | Result |
 | --- | --- | --- |
@@ -57,7 +57,7 @@ Every source reference below points at the pushed candidate. The final Verify is
 | --- | --- | --- |
 | 1 | PARTIAL for whole clause | Sentence 1 is covered by the receipt, output, quality and dispatch journeys above; sentence 2 retains the named specialist and provider remainder. |
 | 2 | MET native slice | Populated public-door assertions check actual committed quantities and records; unsafe commands, failed batch and revoked authority change nothing. |
-| 3 | IN_PROGRESS | Exact-SHA push Verify 42620476277: None; all named tests are inside its existing API glob. No earlier SHA is offered as candidate CI proof. |
+| 3 | COMPLETED | Exact-SHA push Verify 42620476277: success; all named tests are inside its existing API glob. No earlier SHA is offered as candidate CI proof. |
 | 4 | MET local provenance | Final merged-tree run and proof-files.json match the committed candidate; no relevant byte changed after the last proof. |
 | 5 | MET citation; duty remains partial | CONTRACT.md cites BASE-AGENT-010. Shared MCP qualification remains held and is not counted. |
 | 6 | MET source mechanics | Generator write and check pass; no generated views or judgment cells committed. Counts unchanged. The lander owns any Evidence and Gap judgment update. |
@@ -77,7 +77,7 @@ Every source reference below points at the pushed candidate. The final Verify is
 
 Scan receipt: commit=c676cb763af64d9cd6a6283bae82904d6a64af09; complete=unestablished; historyScanned=unestablished; findings=unestablished. The guarded Mac lander must produce its required COMPLETE full-history scan with zero findings before landing.
 
-Main equality: false at handoff. Integrated main e9e99660679665048f0b0f8162ac1884056fcac2 has green Verify 42619494829 and Run site 42619494706. Candidate push Verify 42620476277 is in_progress, conclusion None, on c676cb763af64d9cd6a6283bae82904d6a64af09. Run site on the candidate is pending landing. No run from another SHA substitutes for candidate proof.
+Main equality: false at handoff. Integrated main e9e99660679665048f0b0f8162ac1884056fcac2 has green Verify 42619494829 and Run site 42619494706. Candidate push Verify 42620476277 is completed, conclusion success, on c676cb763af64d9cd6a6283bae82904d6a64af09. Run site on the candidate is pending landing. No run from another SHA substitutes for candidate proof.
 
 MECHANICAL lock=node scripts/edition-authoring/cli.mjs lock and check exit=0; views=node src/base/contract-docs.mjs write and check exit=0, generated files restored; ledger=local Wrangler D1 read and applied-file equality exit=0.
 
