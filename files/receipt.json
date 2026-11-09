@@ -1,0 +1,295 @@
+{
+  "schema": 1,
+  "repository": "just-every/run-larder",
+  "branch": "cloud/sx-larder-c-f612",
+  "head": "93c04f65b9e55440c80c422728f88920b91bc152",
+  "baseMain": "ce7f7407677ecdd842a51fa4e5bae162f749f558",
+  "countsBefore": {
+    "done": 86,
+    "partial": 39,
+    "missing": 39
+  },
+  "countsAfter": {
+    "done": 86,
+    "partial": 39,
+    "missing": 39
+  },
+  "newTestRegistrations": 0,
+  "apiRegistrations": 139,
+  "browserRegistrations": 60,
+  "contractStatusCellsChanged": false,
+  "generatedViewsCommitted": false,
+  "browserProof": "not applicable: API and journal changes, no screens touched",
+  "publicationScan": {
+    "commit": "da79997e5fdf83a606f2f7fcf691360046155a27",
+    "complete": false,
+    "historyScanned": null,
+    "findings": null,
+    "reason": "Cloud branch handoff; maintained fleet lander runs the publication scan before landing."
+  },
+  "mechanical": [
+    {
+      "command": [
+        "git",
+        "merge",
+        "origin/main",
+        "--no-commit"
+      ],
+      "exit": 0,
+      "log": "mechanical-1.log"
+    },
+    {
+      "command": [
+        "node",
+        "src/base/contract-docs.mjs",
+        "write"
+      ],
+      "exit": 0,
+      "log": "mechanical-2.log"
+    },
+    {
+      "command": [
+        "node",
+        "src/base/contract-docs.mjs",
+        "check"
+      ],
+      "exit": 0,
+      "log": "mechanical-3.log"
+    },
+    {
+      "command": [
+        "git",
+        "checkout",
+        "origin/main",
+        "--",
+        "ACCEPTANCE.md",
+        "docs/CLAIMS.md"
+      ],
+      "exit": 0,
+      "log": "mechanical-4.log"
+    },
+    {
+      "command": [
+        "git",
+        "add",
+        "tests/api/flows.test.mjs",
+        "tests/api/backup.test.mjs"
+      ],
+      "exit": 0,
+      "log": "mechanical-5.log"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/edition-authoring/cli.mjs",
+        "lock"
+      ],
+      "exit": 0,
+      "log": "mechanical-6.log"
+    },
+    {
+      "command": [
+        "git",
+        "add",
+        "sources.lock.json"
+      ],
+      "exit": 0,
+      "log": "mechanical-7.log"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/edition-authoring/cli.mjs",
+        "check"
+      ],
+      "exit": 0,
+      "log": "mechanical-8.log"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/build-deployment-spec.mjs",
+        "--check"
+      ],
+      "exit": 0,
+      "log": "mechanical-9.log"
+    },
+    {
+      "command": [
+        "pnpm",
+        "exec",
+        "rer",
+        "check",
+        "--profile",
+        "first-party"
+      ],
+      "exit": 0,
+      "log": "mechanical-10.log"
+    },
+    {
+      "command": [
+        "pnpm",
+        "run",
+        "typecheck"
+      ],
+      "exit": 0,
+      "log": "mechanical-11.log"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit": 0,
+      "log": "mechanical-12.log"
+    },
+    {
+      "command": [
+        "node",
+        "scripts/edition-authoring/cli.mjs",
+        "verify-base",
+        "--offline"
+      ],
+      "exit": 0,
+      "log": "base-integrity.log"
+    }
+  ],
+  "migrationUpgrade": {
+    "probe": "vocabulary migration preserves event bytes, IDs, sequence high-water mark and append-only fences",
+    "exit": 0,
+    "retainedSequence": 1,
+    "priorHighWater": 73,
+    "newSequence": 74,
+    "command": [
+      "python3",
+      "/home/agent/rer-consolidation/work/sx-larder-c-f612/packet/migration-upgrade.py"
+    ]
+  },
+  "candidateTests": {
+    "status": "9 passed under explicit Node 22; two local transport failures retained. Final merged supplier, business restore and quality subset passed 3 of 3 under the supplied toolchain.",
+    "command": "node --test --test-reporter=tap --test-concurrency=1 --test-name-pattern='^LARDER-00[789] |^LARDER-010 |^LARDER-012 |^TRACE-004 |^GOV-004 |^GOV-002 |^LARDER-020 an installation|^MOVE-008 source history' tests/api/flows.test.mjs tests/api/quality.test.mjs tests/api/authority.test.mjs tests/api/backup.test.mjs"
+  },
+  "changedLineHygiene": {
+    "emailShapedAdditions": 0,
+    "contractStatusDiff": "empty",
+    "generatedViewsDiff": "empty",
+    "workflowDiff": "empty"
+  },
+  "initialRun": {
+    "log": "native-tests.log",
+    "exit": 1,
+    "tests": 24,
+    "passed": 23,
+    "failed": 1,
+    "failure": "MOVE-008 archive expectation had eight events after a two-batch fixture produced ten; corrected in final candidate, with both 1-unit and 3-unit batch assertions retained."
+  },
+  "correctedTargetedRun": {
+    "log": "cursor-restore-corrected.log",
+    "exit": 0,
+    "tests": 2,
+    "passed": 2,
+    "failed": 0
+  },
+  "build": {
+    "command": "npx -y @runeditrun/rer build",
+    "exit": 0,
+    "log": "build.log",
+    "node": "22.20.0"
+  },
+  "localTimeout": {
+    "head": "da79997e5fdf83a606f2f7fcf691360046155a27",
+    "command": "Published rer import during LARDER-020 installation backup under Node 22.20.0",
+    "failure": "120-second child-process timeout while staging installation.rer",
+    "comparison": "same main test on the same runner queued; no product fix guessed",
+    "baseline": {
+      "head": "e9e99660679665048f0b0f8162ac1884056fcac2",
+      "command": "node --test --test-reporter=tap --test-concurrency=1 --test-name-pattern='^LARDER-020 an installation' tests/api/backup.test.mjs",
+      "node": "22.20.0",
+      "exit": 1,
+      "log": "main-backup-test.log",
+      "failure": "Same backup journey fails on main: export refused with native_error: TypeError."
+    }
+  },
+  "priorCandidate": "da79997e5fdf83a606f2f7fcf691360046155a27",
+  "mergedChecks": {
+    "typecheck": 0,
+    "deploymentSpec": 0,
+    "firstParty": 0,
+    "sourceLock": 0,
+    "contractWrite": 0,
+    "contractCheck": 0,
+    "generatedViewsRestoredFromMain": true,
+    "diffCheck": 0
+  },
+  "sourceEquivalence": "No product runtime source differs from merged origin/main; added changes are journal regression assertions and a wording clarification.",
+  "mergedTests": {
+    "head": "93c04f65b9e55440c80c422728f88920b91bc152",
+    "exit": 0,
+    "tests": 3,
+    "passed": 3,
+    "failed": 0,
+    "log": "merged-tests.log",
+    "names": [
+      "MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions",
+      "LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded",
+      "TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest"
+    ]
+  },
+  "productPush": {
+    "branch": "cloud/sx-larder-c-f612",
+    "head": "93c04f65b9e55440c80c422728f88920b91bc152",
+    "status": "pushed",
+    "forced": false
+  },
+  "runtimeTrees": {
+    "HEAD": "4d65e2c3fe90c2c634ff724572b7087ebdb5f642",
+    "origin/main": "4d65e2c3fe90c2c634ff724572b7087ebdb5f642",
+    "da79997e5fdf83a606f2f7fcf691360046155a27": "4d65e2c3fe90c2c634ff724572b7087ebdb5f642"
+  },
+  "runtimeTreesEqual": true,
+  "productRef": "93c04f65b9e55440c80c422728f88920b91bc152\trefs/heads/cloud/sx-larder-c-f612",
+  "worktreeClean": true,
+  "clauseClaim": {
+    "id": "SURFACE-009",
+    "status": "PARTIAL",
+    "points": [
+      1
+    ],
+    "statusChange": "PARTIAL to PARTIAL",
+    "gap": "Acceptance 2: linked specialist handoffs and provider-confirmed ledger reconciliation remain unproved; shared MCP, subscriptions and signed outbound delivery remain held."
+  },
+  "migrationLedgerNote": "No separate seed migration-ledger check command is documented; actual vocabulary-upgrade preservation probe passed, and published backup evidence is retained with the local transport failure comparison.",
+  "ci": {
+    "id": 42629865734,
+    "event": "push",
+    "status": "completed",
+    "conclusion": "success",
+    "head": "93c04f65b9e55440c80c422728f88920b91bc152",
+    "url": "https://github.com/just-every/run-larder/actions/runs/42629865734",
+    "dispatches": 0
+  },
+  "ciObservations": [
+    {
+      "file": "candidate-ci.json",
+      "status": "in_progress"
+    },
+    {
+      "file": "candidate-ci-status-1.json",
+      "status": "in_progress"
+    },
+    {
+      "file": "candidate-ci-status-2.json",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "githubCalls": 6,
+  "terminalCustody": "READY for guarded landing of native partial progress; clause remains PARTIAL",
+  "blockersForProductLanding": [],
+  "clauseHeldRemainder": [
+    "linked receiving-specialist handoffs and shared MCP subscriptions",
+    "provider-confirmed ledger reconciliation and accepted books",
+    "signed outbound delivery under CONN-014"
+  ]
+}

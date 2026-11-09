@@ -1,0 +1,131 @@
+diff --git a/API.md b/API.md
+index db7114f..53f92ee 100644
+--- a/API.md
++++ b/API.md
+@@ -1444,7 +1444,7 @@ links to the existing attributed audit. Personal labels, actor names, file names
+ free text, commercial amounts and document bodies are not copied into events.
+ 
+ Events and business records commit in the same authority- and version-guarded
+-batch. Refusal, pending signatures, projections, generic audit labels and command
++batch. Refusal, pending signatures, planning predictions, generic audit labels and command
+ attempts create no event. Retrying a recorded command returns its original
+ outcome without another event; paired physical movements describe one business
+ transition. There is no journal edit, purge or client event-publication command.
+diff --git a/sources.lock.json b/sources.lock.json
+index 8d1005f..20a8c1c 100644
+--- a/sources.lock.json
++++ b/sources.lock.json
+@@ -197,7 +197,7 @@
+       "executable": false
+     },
+     "API.md": {
+-      "sha256": "b4811add74c21e49a26290fd5423de594e0f2486d798ea1372bddac2ef7261de",
++      "sha256": "234c207c9341cf6f061260c32df2a3feb2cb90c1e7b50b7eade384afffe91947",
+       "executable": false
+     },
+     "base-copies.json": {
+@@ -5141,11 +5141,11 @@
+       "executable": false
+     },
+     "tests/api/authority.test.mjs": {
+-      "sha256": "6ba0ff0779f917fb37713b136b8ec6e9a3094fd79692985b5166a1c13dcca997",
++      "sha256": "3bbd44ed1809136573e649cb90ba5a8c4e4772ca4ad8afb508530626263f72d1",
+       "executable": false
+     },
+     "tests/api/backup.test.mjs": {
+-      "sha256": "c6dfe43236deda9eebbfbac4a89ba949cc40f05b95715245645985cb478d92f5",
++      "sha256": "b6106fc419c14af53189e7d9d54b25bb07a1b5a044e4e23848788b66b4871a8b",
+       "executable": false
+     },
+     "tests/api/bom-bulk.test.mjs": {
+@@ -5185,7 +5185,7 @@
+       "executable": false
+     },
+     "tests/api/flows.test.mjs": {
+-      "sha256": "50ef94261652fb00748274f30b86537849bf54c17c2bf59d8217ed7af093672d",
++      "sha256": "2ffcbcdb953878c6aa6ee9cb932f33690ab2aa5e6e98c0c50edb5c81108c148f",
+       "executable": false
+     },
+     "tests/api/follow-up.test.mjs": {
+diff --git a/tests/api/authority.test.mjs b/tests/api/authority.test.mjs
+index a93b3c3..11c6d0f 100644
+--- a/tests/api/authority.test.mjs
++++ b/tests/api/authority.test.mjs
+@@ -1,5 +1,5 @@
+-import { journal } from './change-event-proof.mjs'
+ import { resourceFixture, resourceRead, assertResourceJourney } from './resource-fixture.mjs'
++import { journal } from './change-event-proof.mjs'
+ // GOV-001 roles are enforced in every handler; LARDER-015 agents prepare and people approve; GOV-001 roles inherit their clauses' doors.
+ import test from 'node:test'
+ import assert from 'node:assert/strict'
+diff --git a/tests/api/backup.test.mjs b/tests/api/backup.test.mjs
+index 6f1c6d0..8898797 100644
+--- a/tests/api/backup.test.mjs
++++ b/tests/api/backup.test.mjs
+@@ -280,6 +280,7 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
+   await h.command('receipt.create', eventPayload, { commandId: eventId })
+   const eventJournal = await journal(h)
+   assert.deepEqual(eventJournal.events.map(e => e.type), ['receipt.recorded', 'material.usable', 'work.output-recorded', 'material.usable', 'work.output-recorded', 'material.usable', 'shipment.dispatched', 'supplier.date-recorded', 'receipt.recorded', 'material.usable'])
++  assert.deepEqual(eventJournal.events.filter(e => e.type === 'work.output-recorded').map(e => e.details.good), ['1', '3'], 'Both committed output batches retain their own event quantities')
+   assert.equal(eventJournal.events.length, priorEvents.length + 2)
+   assert.deepEqual(eventJournal.events.slice(0, priorEvents.length), priorEvents)
+   const receiptEvents = eventJournal.events.filter(event => event.commandId === eventId)
+@@ -414,6 +415,27 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
+   await h.command('history.preview', { file: { name: 'bad.json', content: JSON.stringify(invalid) }, attachments: [originalFile] }, { error: 'INPUT' })
+   assert.equal((await h.state()).sourceHistory.length, 5)
+   assert.equal(w.loc.name, 'Workshop')
++  // Saved cursors remain usable after restoration; the next actual receipt
++  // appends once instead of replaying the retained producer history.
++  const receiptBeforeAppend = await target.state(), providerBeforeAppend = target.outboundCount()
++  const nextReceiptId = 'synthetic-larder-event-after-restore'
++  const nextReceiptPayload = { ...eventPayload, supplierReference: nextReceiptId,
++    lines: eventPayload.lines.map(l => ({ ...l, lot: nextReceiptId })) }
++  const nextReceipt = await target.command('receipt.create', nextReceiptPayload, { commandId: nextReceiptId })
++  const appendedEvents = await journal(target, '?after=' + eventJournal.until)
++  assert.deepEqual(appendedEvents.events.map(e => e.type), ['receipt.recorded', 'material.usable'])
++  assert.equal(appendedEvents.events[0].source.id, nextReceipt.id)
++  assert.ok(appendedEvents.events.every(e => e.seq > eventJournal.until && e.commandId === nextReceiptId))
++  assert.equal(appendedEvents.events[1].details.transitionId, appendedEvents.events[0].id)
++  const oldPage = await journal(target, '?until=' + eventJournal.until)
++  assert.deepEqual(oldPage, eventJournal, 'A restored snapshot remains byte-for-byte stable after a new business transition')
++  const afterReceipt = await target.invariant()
++  assert.equal(afterReceipt.movements.length, receiptBeforeAppend.movements.length + 1)
++  await target.restart()
++  assert.deepEqual(await target.command('receipt.create', nextReceiptPayload, { commandId: nextReceiptId }), nextReceipt)
++  assert.deepEqual(await journal(target, '?after=' + eventJournal.until), appendedEvents)
++  assert.deepEqual((await target.invariant()).movements, afterReceipt.movements)
++  assert.equal(target.outboundCount(), providerBeforeAppend)
+ })
+ 
+ 
+diff --git a/tests/api/flows.test.mjs b/tests/api/flows.test.mjs
+index a2bb5d8..2e5c387 100644
+--- a/tests/api/flows.test.mjs
++++ b/tests/api/flows.test.mjs
+@@ -233,6 +233,26 @@ test('LARDER-007 purchase approval, supplier confirmation and revised delivery a
+   const remainderEvent = (await journal(h, '?commandId=synthetic-larder-date-remainder')).events[0]
+   assert.deepEqual(remainderEvent.details.lines, [{ lineId: po.lines[0].id, itemId: w.timber.id, quantity: '15', unit: 'each', before: '2026-10-29', after: '2026-10-30', confirmedDate: '2026-10-22' }])
+   await followEvent(h, remainderEvent)
++  // A filtered traversal crosses the receipt and usability sequences without
++  // skipping a supplier fact or including a later append after its snapshot.
++  const dates = await journal(h, '?type=supplier.date-recorded')
++  assert.deepEqual(dates.events.map(e => e.id), [confirmedEvent.id, revisedEvent.id, remainderEvent.id])
++  const firstDate = await journal(h, '?type=supplier.date-recorded&limit=1')
++  const latest = (await h.state()).purchaseOrders.find(p => p.id === po.id)
++  const later = await h.command('po.revise', { ...revisePayload, version: latest.version, expectedDate: '2026-11-02' }, { commandId: 'synthetic-larder-date-after-cursor' })
++  await h.restart()
++  const traversed = [...firstDate.events]
++  let after = firstDate.next
++  while (after !== null) {
++    const page = await journal(h, '?type=supplier.date-recorded&limit=1&until=' + firstDate.until + '&after=' + after)
++    assert.equal(page.until, firstDate.until)
++    traversed.push(...page.events); after = page.next
++  }
++  assert.deepEqual(traversed, dates.events)
++  const appended = await journal(h, '?type=supplier.date-recorded&after=' + firstDate.until)
++  assert.equal(appended.events.length, 1)
++  assert.deepEqual(appended.events[0].source, { kind: 'purchaseOrders', id: po.id, version: later.version })
++  assert.deepEqual(appended.events[0].movements, [])
+ })
+ 
+ test('LARDER-008 partial receipts record supplier lots and quarantine decisions', async t => {

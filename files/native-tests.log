@@ -1,0 +1,89 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets (11789.329492ms)
+✔ GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human (19885.316504ms)
+✔ GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override (13111.64021ms)
+✔ Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore (21317.233892ms)
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ LARDER-020 an installation backup restores into a reset installation (245896.351169ms)
+✖ MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions (11826.317646ms)
+✔ US-001 restore refuses undeclared or non-USD functional money without relabelling amounts or writing records (24646.435017ms)
+✔ US business settings retain Ohio identity, local dates and per-record currencies through restart and restore (44069.955862ms)
+✔ AUD archive migration records exact rates, original money and stock reconciliation through restart and restore (23729.995208ms)
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded (23698.335837ms)
+larder: unconfirmed outcome Error: D1_ERROR: synthetic_event_failure: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_TRIGGER)
+    at D1DatabaseSessionAlwaysPrimary._sendOrThrow (cloudflare-internal:d1-api:188:19)
+    at async cloudflare-internal:d1-api:137:19
+    ... 3 lines matching cause stack trace ...
+    at async Object.fetch (file:///workspace/run-larder/script-0.mjs:27005:12) {
+  [cause]: Error: synthetic_event_failure: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_TRIGGER)
+      at D1DatabaseSessionAlwaysPrimary._sendOrThrow (cloudflare-internal:d1-api:189:24)
+      at async cloudflare-internal:d1-api:137:19
+      at async commit (file:///workspace/run-larder/script-0.mjs:18254:3)
+      at async executeCommand (file:///workspace/run-larder/script-0.mjs:26839:24)
+      at async larderResponse (file:///workspace/run-larder/script-0.mjs:26887:67)
+      at async Object.fetch (file:///workspace/run-larder/script-0.mjs:27005:12)
+}
+✔ LARDER-008 partial receipts record supplier lots and quarantine decisions (21059.661105ms)
+✔ LARDER-009 released work issues materials and records output and scrap (14276.761967ms)
+✔ LARDER-010 pick, pack and partially ship against reservations; the rest stays committed (17541.468547ms)
+✔ LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile (23577.482045ms)
+✔ LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation (7346.851329ms)
+✔ BUY-001 supplier constraints, feasible quote and scheduled approval survive supplier revisions and restore (8754.260336ms)
+✔ CAP-001 persisted overnight holiday calendars, breaks, outages, efficiency and parallel named machine intervals survive archive restore (12075.667416ms)
+✔ Qualified alternate comparison keeps pinned instructions, setup transitions, tools, labor, delivery and USD estimates through approval and restore (36536.099142ms)
+✔ Bounded grants independently authorize one internal reflow, stop at limits or lost authority, and restore inactive without replay (59194.171251ms)
+✔ CAP-008 controlled source recovery requires current evidence, quarantines independent offcuts and preserves exact genealogy through reuse, restart and inert restore (74637.599748ms)
+✔ STOCK-001 customer-owned and consigned custody stays separate from owned availability, honors capacity and live site scope and survives restore (30021.876232ms)
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest (41868.177772ms)
+✔ TRACE-005 quantity-scoped cases retain complaints, CAPA, supplier/rework routing, passing-only independent release and evidenced effectiveness across restart and restore (16549.888691ms)
+✔ TRACE-008 quality-role deviations: exact proposals, independent approval and gated atomic execution release only held units under deviation, with trace, shipment pack, restart and archive restore (52606.527368ms)
+ℹ tests 24
+ℹ suites 0
+ℹ pass 23
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 884518.825949
+
+✖ failing tests:
+
+test at tests/api/backup.test.mjs:207:1
+✖ MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions (11826.317646ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+      'receipt.recorded',
+      'material.usable',
+      'work.output-recorded',
+      'material.usable',
+  +   'work.output-recorded',
+  +   'material.usable',
+      'shipment.dispatched',
+      'supplier.date-recorded',
+      'receipt.recorded',
+      'material.usable'
+    ]
+  
+      at TestContext.<anonymous> (file:///workspace/run-larder/tests/api/backup.test.mjs:294:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ 'receipt.recorded', 'material.usable', 'work.output-recorded', 'material.usable', 'work.output-recorded', 'material.usable', 'shipment.dispatched', 'supplier.date-recorded', 'receipt.recorded', 'material.usable' ],
+    expected: [ 'receipt.recorded', 'material.usable', 'work.output-recorded', 'material.usable', 'shipment.dispatched', 'supplier.date-recorded', 'receipt.recorded', 'material.usable' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

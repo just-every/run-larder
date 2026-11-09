@@ -1,0 +1,1 @@
+{"probe": "vocabulary migration preserves event bytes, IDs, sequence high-water mark and append-only fences", "exit": 0, "retainedSequence": 1, "priorHighWater": 73, "newSequence": 74}

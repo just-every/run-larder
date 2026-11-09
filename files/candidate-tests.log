@@ -1,0 +1,142 @@
+TAP version 13
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets
+ok 1 - GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets
+  ---
+  duration_ms: 26377.63745
+  type: 'test'
+  ...
+# Subtest: GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human
+ok 2 - GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human
+  ---
+  duration_ms: 24462.821616
+  type: 'test'
+  ...
+# Subtest: GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override
+ok 3 - GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override
+  ---
+  duration_ms: 17325.379695
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: LARDER-020 an installation backup restores into a reset installation
+not ok 4 - LARDER-020 an installation backup restores into a reset installation
+  ---
+  duration_ms: 371576.408639
+  type: 'test'
+  location: '/workspace/run-larder/tests/api/backup.test.mjs:24:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Command failed: pnpm exec rer import --input exports/installation.rer --yes
+    Heavy job admitted: Larder import:workflow [8b7776d829cf]
+    Checking pinned pnpm
+    10.12.4
+    Local import
+    Checking migration history for local installation data
+    ▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+    
+    
+    Applying local data migrations
+    ▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+    
+    
+    Restoring local installation data
+    Restoring a 579 KB archive. This takes under a minute.
+    Checking the whole archive before anything is restored.
+    ▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+    
+    
+    Checking the whole archive before anything is restored.
+    Staging the restore: 1 of 11 parts (509 B).
+    Staging the restore: 4 of 11 parts (308 KB), under a minute left.
+    Staging the restore: 6 of 11 parts (313 KB), under a minute left.
+    
+  code: 'ERR_TEST_FAILURE'
+  stack: |-
+    genericNodeError (node:internal/errors:983:15)
+    wrappedFn (node:internal/errors:537:14)
+    ChildProcess.exithandler (node:child_process:417:12)
+    ChildProcess.emit (node:events:519:28)
+    ChildProcess.emit (node:domain:489:12)
+    maybeClose (node:internal/child_process:1101:16)
+    ChildProcess._handle.onexit (node:internal/child_process:304:5)
+  ...
+# Subtest: MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions
+ok 5 - MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions
+  ---
+  duration_ms: 66529.973816
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded
+ok 6 - LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded
+  ---
+  duration_ms: 8462.144277
+  type: 'test'
+  ...
+# larder: unconfirmed outcome Error: D1_ERROR: synthetic_event_failure: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_TRIGGER)
+#     at D1DatabaseSessionAlwaysPrimary._sendOrThrow (cloudflare-internal:d1-api:188:19)
+#     at async cloudflare-internal:d1-api:137:19
+#     ... 3 lines matching cause stack trace ...
+#     at async Object.fetch (file:///workspace/run-larder/script-0.mjs:27005:12) {
+#   [cause]: Error: synthetic_event_failure: SQLITE_CONSTRAINT (extended: SQLITE_CONSTRAINT_TRIGGER)
+#       at D1DatabaseSessionAlwaysPrimary._sendOrThrow (cloudflare-internal:d1-api:189:24)
+#       at async cloudflare-internal:d1-api:137:19
+#       at async commit (file:///workspace/run-larder/script-0.mjs:18254:3)
+#       at async executeCommand (file:///workspace/run-larder/script-0.mjs:26839:24)
+#       at async larderResponse (file:///workspace/run-larder/script-0.mjs:26887:67)
+#       at async Object.fetch (file:///workspace/run-larder/script-0.mjs:27005:12)
+# }
+# Subtest: LARDER-008 partial receipts record supplier lots and quarantine decisions
+ok 7 - LARDER-008 partial receipts record supplier lots and quarantine decisions
+  ---
+  duration_ms: 6579.517183
+  type: 'test'
+  ...
+# Subtest: LARDER-009 released work issues materials and records output and scrap
+ok 8 - LARDER-009 released work issues materials and records output and scrap
+  ---
+  duration_ms: 7375.787125
+  type: 'test'
+  ...
+# Subtest: LARDER-010 pick, pack and partially ship against reservations; the rest stays committed
+ok 9 - LARDER-010 pick, pack and partially ship against reservations; the rest stays committed
+  ---
+  duration_ms: 5066.061348
+  type: 'test'
+  ...
+# Subtest: LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile
+ok 10 - LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile
+  ---
+  duration_ms: 15019.150441
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest
+not ok 11 - TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest
+  ---
+  duration_ms: 33069.814879
+  type: 'test'
+  location: '/workspace/run-larder/tests/api/quality.test.mjs:8:1'
+  failureType: 'testCodeFailure'
+  error: 'fetch failed'
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    Object.processResponse (/workspace/run-larder/node_modules/.pnpm/undici@7.29.1/node_modules/undici/lib/web/fetch/index.js:237:16)
+    /workspace/run-larder/node_modules/.pnpm/undici@7.29.1/node_modules/undici/lib/web/fetch/index.js:1081:19
+    node:internal/process/task_queues:151:7
+    AsyncResource.runInAsyncScope (node:async_hooks:214:14)
+    AsyncResource.runMicrotask (node:internal/process/task_queues:148:8)
+    /workspace/run-larder/node_modules/.pnpm/undici@7.29.1/node_modules/undici/index.js:157:7
+    async MessagePort.<anonymous> ([worker eval]:32:22)
+  ...
+1..11
+# tests 11
+# suites 0
+# pass 9
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 594863.591952
