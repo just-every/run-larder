@@ -215,6 +215,8 @@ export async function executeCommand(env: Bindings, actor: Actor, body: any, aut
       c.scopeTarget = target!
     }
     if (erasure) c.erasure = erasure
+    if (type.startsWith('engineering.') && payload.changeId && scopeOf(actor).locations !== null)
+      refuseHidden(payload.changeId, visibleState(s, scopeOf(actor)).hidden)
     enforcePayload(c, payload)
     if (type === 'import.undo') enforceRetention(before, s, payload.importId)
     let result: Row | undefined = roleCommand(c, type, payload)
