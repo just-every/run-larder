@@ -75,6 +75,20 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
   const eventJournal = await journal(h)
   assert.deepEqual(eventJournal.events.map(e => e.type), ['shipment.dispatched', 'supplier.date-recorded', 'receipt.recorded'])
   const outboundBeforeBackup = h.outboundCount()
+  const nativePo = await agent.run('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-11-04', reason: 'Retained native purchase', lines: [{ itemId: w.timber.id, quantity: '20', unitPrice: '9.5' }] })
+  const nativePayload = { poId: nativePo.id, version: nativePo.version }
+  const nativeFirst = await h.command('po.approve', nativePayload)
+  assert.equal(nativeFirst.classification.effect, 'pending')
+  const nativeApproved = await buyer.run('po.approve', nativePayload)
+  assert.deepEqual(nativeApproved.classification.classes, ['money', 'commitment'])
+  assert.equal(nativeApproved.classification.actor.id, buyer.id)
+  const awaitingPo = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-11-05', reason: 'Pending native purchase', lines: [{ itemId: w.timber.id, quantity: '30', unitPrice: '9.5' }] })
+  const awaitingSignature = await buyer.run('po.approve', { poId: awaitingPo.id, version: awaitingPo.version })
+  const shippedOrder = (await h.state()).salesOrders.find(o => o.id === order.id)
+  const amendment = await h.command('so.changePreview', { orderId: order.id, version: shippedOrder.version, reason: 'Retained customer amendment', customerApproval: { name: 'synthetic-larder-966', reference: 'synthetic-larder-967', approvedOn: '2026-10-29' },
+    lines: shippedOrder.lines.map(l => ({ lineId: l.id, itemId: l.itemId, quantity: '3', unitPrice: '99', schedules: [{ quantity: '1', date: '2026-11-05' }] })) })
+  const amendmentPayload = { previewId: amendment.id, version: amendment.version }, amendmentCommand = 'synthetic-larder-retained-commercial'
+  const amendedOrder = await h.command('so.changeApprove', amendmentPayload, { commandId: amendmentCommand })
   const before = await h.invariant(), archive = await businessArchive(h)
   assert.deepEqual(archive.changeEvents, eventJournal.events)
   assert.ok(before.positions.some(p => p.locationId === w.store.id && p.status === 'quarantine' && p.quantity === '1'))
@@ -151,6 +165,16 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
   assert.equal(restoredBuy.decision.by, buyer.id, 'Restore keeps the genuine buyer, never attributes their decision to the restoring owner')
   assert.equal(after.proposals.find(p => p.id === pending.id).status, 'awaiting approval')
   assert.equal(after.proposals.find(p => p.id === pending.id).decision, undefined)
+  assert.deepEqual(after.purchaseOrders.find(p => p.id === nativePo.id).classification, nativeApproved.classification)
+  assert.equal(after.purchaseOrders.find(p => p.id === awaitingPo.id).status, 'draft', 'Restoring one signature never approves a purchase')
+  assert.deepEqual(after.approvalSignatures.find(s => s.id === awaitingSignature.id).classification, awaitingSignature.classification)
+  assert.deepEqual(after.salesOrders.find(o => o.id === order.id).classification, amendedOrder.classification)
+  assert.deepEqual(after.orderChanges.find(p => p.id === amendment.id).classification, amendment.classification)
+  assert.deepEqual(after.orderChanges.find(p => p.id === amendment.id).decisionClassification, amendedOrder.classification)
+  const commercialOutbound = h.outboundCount()
+  assert.deepEqual(await h.command('so.changeApprove', amendmentPayload, { commandId: amendmentCommand }), amendedOrder)
+  assert.deepEqual(await h.invariant(), after, 'Restored commercial facts execute nothing on replay')
+  assert.equal(h.outboundCount(), commercialOutbound)
   assert.equal(after.salesOrders.length, before.salesOrders.length, 'Pending preparation creates no order on restore')
   const replay = retainedProposals[0], outbound = h.outboundCount()
   assert.deepEqual(await h.command(replay.type, replay.payload, { commandId: replay.commandId }), replay.outcome)
@@ -252,9 +276,14 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   eventPo = await h.command('po.confirm', { poId: eventPo.id, version: eventPo.version, supplierReference: 'synthetic-larder-date-archive', source: 'portal', confirmedDate: '2026-11-02' })
   const eventPayload = { poId: eventPo.id, supplierReference: 'synthetic-larder-event-archive', documents: [{ ...originalFile, name: 'synthetic-larder-delivery.txt' }], lines: [{ lineId: eventPo.lines[0].id, quantity: '1', locationId: w.loc.id, lot: 'synthetic-larder-event-archive' }] }
   const eventId = 'synthetic-larder-event-archive'
+  const priorEvents = (await journal(h)).events
   await h.command('receipt.create', eventPayload, { commandId: eventId })
   const eventJournal = await journal(h)
   assert.deepEqual(eventJournal.events.map(e => e.type), ['receipt.recorded', 'material.usable', 'work.output-recorded', 'material.usable', 'shipment.dispatched', 'supplier.date-recorded', 'receipt.recorded', 'material.usable'])
+  assert.equal(eventJournal.events.length, priorEvents.length + 2)
+  assert.deepEqual(eventJournal.events.slice(0, priorEvents.length), priorEvents)
+  const receiptEvents = eventJournal.events.filter(event => event.commandId === eventId)
+  assert.equal(receiptEvents.length, 2)
   const engineer = await h.person(['synthetic-larder-971', 'example.test'].join('@'), 'engineer')
   const engineeringItem = await h.command('item.save', { sku: 'synthetic-larder-972', name: 'Archived engineering item', kind: 'make', baseUnit: 'each' })
   await h.command('bom.revise', { itemId: engineeringItem.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Review', minutes: 1, instructions: 'Follow the retained drawing', drawings: [evidence('Engineering source drawing')] }] })
@@ -296,7 +325,7 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   assert.equal((await target.request('/api/larder/audit/events', { as: reviewer.cookie })).status, 401)
   await target.command('receipt.create', eventPayload, { commandId: eventId, error: 'IDEMPOTENCY' })
   assert.deepEqual(await journal(target), eventJournal)
-  const eventEvidence = eventJournal.events.find(e => e.type === 'receipt.recorded' && e.commandId === eventId).evidence[0]
+  const eventEvidence = receiptEvents.find(e => e.type === 'receipt.recorded').evidence[0]
   assert.equal(digest(Buffer.from(await (await target.request(eventEvidence.href)).arrayBuffer())), eventEvidence.sha256)
   assert.deepEqual(again.unmappedRoles, archive.records.roles)
   assert.deepEqual(again.unmappedRoles.find(r => r.id === viewer.id).scopeClassification, laterScope.scopeClassification)

@@ -1446,3 +1446,37 @@ handoffs. Supplier dates and usability facts remain local journal entries;
 passing inspection alone, date extensions, other stock doors and additional
 vocabulary are not delivered as usability events by this bounded slice. A local handoff acknowledgment never
 establishes accepted books.
+### Native commercial decision facts
+
+The existing `po.draft`, `po.selectQuote`, `po.amend`, `po.approve`,
+`so.changePreview` and `so.changeApprove` doors return server-computed
+`classification`. Its `classes` describe the recorded outcome: preparation
+and a pending purchase signature are `standard`; an applied purchase approval
+is `money` and `commitment`; an applied customer amendment is `commitment`.
+`actionClasses` separately describes the action awaiting approval. `effect`
+distinguishes `prepared`, `pending` and `applied`.
+
+`facts.terms` retains the normalized purchase lines, stored amount, currency
+and supplier snapshot, or the exact customer, order versions, commercial
+revisions and dated promises before and after an amendment. Amendment values
+cover only the outstanding dated promises; issued shipment terms stay unchanged. Spend
+signatures bind those purchase terms. Amendment approval recomputes the
+reviewed facts from current records before applying the change. Classification
+and attribution fields supplied by a caller are refused; the existing roles,
+independence, thresholds and atomic authority checks still decide permission.
+A retained amendment preview without these facts requires fresh preparation.
+
+The applied purchase and linked approval retain the same facts. An amendment
+keeps its preparation facts on the preview and its applied classification on
+the order, change history and preview's `decisionClassification`. Each outcome
+retains the actual actor, role, command and input version. A pending signature
+remains a historical pending outcome even after a later person completes the
+approval. Retries return the original outcome once, subject to current session
+and scope restrictions. Cost restrictions cover nested prices and values;
+location restrictions cover the linked snapshots. Archives preserve these
+facts as inert history.
+
+Local approvals and recorded customer attestations establish no provider
+charge, payment, provider acceptance, outbound delivery or audience change.
+These native facts do not qualify other commercial doors, external recipient
+counts or consequential agent execution under company policy.

@@ -707,7 +707,8 @@ test('GOV-004 a changed BOM is followed through scheduling, operator correction,
 
 // GOV-002: thresholds, dual signatures with a deputy, input-change invalidation and a named owner override.
 test('GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal\'s seat, changed inputs invalidate, agents are denied and an owner override names its accountable human', async t => {
-  const h = await installation(); t.after(() => h.close())
+  let interleave = async () => {}
+  const h = await installation({ beforeCommit: facts => interleave(facts) }); t.after(() => h.close())
   const w = await workshop(h)
   const mgrA = await h.person('gov2-a@example.test', 'manager'), mgrB = await h.person('gov2-b@example.test', 'manager'), buyer = await h.person('gov2-buyer@example.test', 'buyer')
   const sales = await h.person('gov2-sales@example.test', 'sales'), agent = await h.person('gov2-agent@example.test', 'agent'), warehouse = await h.person('gov2-wh@example.test', 'warehouse')
@@ -753,16 +754,37 @@ test('GOV-002 high-value PO and stock write-off need two signatures, a deputy si
   assert.deepEqual(journey, [['190', 'draft', 0, 0, 0], ['190', 'draft', 1, 1, 0], ['190', 'approved', 2, 2, 1], ['90', 'approved', 0, 0, 1]])
   // Above it: the preparer and agents cannot sign, one person cannot sign twice, and one signature approves nothing.
   let po = await draft()
+  const unchangedCommercial = async action => {
+    const baseline = await h.invariant(), outbound = h.outboundCount()
+    const auditBefore = await (await h.request('/api/larder/audit')).json()
+    await action()
+    const after = await h.invariant()
+    for (const key of ['purchaseOrders', 'approvals', 'approvalSignatures', 'movements', 'positions', 'reservations', 'commands']) assert.deepEqual(after[key], baseline[key], key)
+    assert.deepEqual(await (await h.request('/api/larder/audit')).json(), auditBefore)
+    assert.equal(h.outboundCount(), outbound)
+  }
+  for (const forged of [{ classes: ['standard'] }, { classification: po.classification }, { override: { classes: ['standard'] } }, { actor: { id: mgrB.id } }])
+    await unchangedCommercial(() => mgrA.run('po.approve', { poId: po.id, version: po.version, ...forged }, { error: 'INPUT' }))
   await buyer.run('po.approve', { poId: po.id, version: po.version }, { error: 'FORBIDDEN' })
-  await agent.run('po.approve', { poId: po.id, version: po.version }, { error: 'FORBIDDEN' })
+  await unchangedCommercial(() => agent.run('po.approve', { poId: po.id, version: po.version }, { error: 'FORBIDDEN' }))
   await sales.run('po.approve', { poId: po.id, version: po.version }, { error: 'FORBIDDEN' })
-  const first = await mgrA.run('po.approve', { poId: po.id, version: po.version })
+  const firstPayload = { poId: po.id, version: po.version }, pendingId = 'synthetic-larder-commercial-pending'
+  const first = await mgrA.run('po.approve', firstPayload, { commandId: pendingId })
   assert.deepEqual([first.remainingAtSigning, first.inputsDigest.length], [1, 64])
+  assert.deepEqual(first.classification.classes, ['standard'])
+  assert.deepEqual(first.classification.actionClasses, ['money', 'commitment'])
+  assert.deepEqual([first.classification.effect, first.classification.facts.terms.amount, first.classification.facts.terms.currency, first.classification.facts.terms.supplierId], ['pending', '475', 'USD', w.supplier.id])
+  assert.equal(first.classification.facts.purchaseCommitment, false)
+  assert.equal(first.classification.actor.id, mgrA.id)
+  await unchangedCommercial(async () => assert.deepEqual(await mgrA.run('po.approve', firstPayload, { commandId: pendingId }), first))
   assert.equal((await h.state()).purchaseOrders.find(x => x.id === po.id).status, 'draft')
   await mgrA.run('po.approve', { poId: po.id, version: po.version }, { error: 'DUPLICATE_SIGNATURE' })
   // Changing the input after one signature invalidates it; the state shows why.
   po = await buyer.run('po.amend', { poId: po.id, version: po.version, lines: [{ lineId: po.lines[0].id, quantity: '60' }], reason: 'Bigger run' })
   assert.deepEqual([po.exposure, (await signatures(po.id))[0].status], ['570', 'invalidated'])
+  assert.equal(po.classification.facts.terms.amount, '570')
+  assert.equal(po.classification.effect, 'prepared')
+  await unchangedCommercial(() => mgrB.run('po.approve', firstPayload, { error: 'STALE' }))
   // A deputy signs the principal's seat inside a dated delegation; the principal cannot also sign.
   await sales.run('po.approve', { poId: po.id, version: po.version }, { error: 'FORBIDDEN' })
   await sales.run('approval.deputize', { deputyId: mgrB.id, validUntil: new Date(Date.now() + 3600000).toISOString(), reason: 'x' }, { error: 'FORBIDDEN' })
@@ -776,11 +798,15 @@ test('GOV-002 high-value PO and stock write-off need two signatures, a deputy si
   await mgrB.run('approval.revokeDeputy', { delegationId: stand.id, reason: 'Sales covers instead' })
   const viaDeputy = await sales.run('po.approve', { poId: po.id, version: po.version })
   assert.deepEqual([viaDeputy.signerId, viaDeputy.onBehalfOf, viaDeputy.remainingAtSigning], [sales.id, mgrB.id, 1])
+  assert.equal(viaDeputy.classification.actor.id, sales.id, 'A delegated signature retains the real person')
   await sales.run('po.approve', { poId: po.id, version: po.version }, { error: 'DUPLICATE_SIGNATURE' })
   await mgrB.run('po.approve', { poId: po.id, version: po.version }, { error: 'DUPLICATE_SIGNATURE' })
   assert.deepEqual((await signatures(po.id)).map(x => x.status), ['invalidated', 'valid'])
   await mgrA.run('po.approve', { poId: po.id, version: po.version })
   const s = await h.state(), approved = s.purchaseOrders.find(x => x.id === po.id), record = s.approvals.find(a => a.id === approved.approvalId)
+  assert.deepEqual(approved.classification.classes, ['money', 'commitment'])
+  assert.deepEqual([approved.classification.facts.terms.amount, approved.classification.actor.id], ['570', mgrA.id])
+  assert.deepEqual(record.classification, approved.classification)
   assert.deepEqual([approved.status, record.signatureIds.length, record.override ?? null, (await signatures(po.id)).map(x => x.status)], ['approved', 2, null, ['invalidated', 'used', 'used']])
   // Delegations end: revoked, expired, or when the principal loses authority.
   const next = async () => draft('40')
@@ -831,6 +857,39 @@ test('GOV-002 high-value PO and stock write-off need two signatures, a deputy si
   const po5 = await draft('30')
   assert.equal((await mgrA.run('po.approve', { poId: po5.id, version: po5.version })).status, 'approved')
   await policy('spend', '100', 2)
+  // A competing business write forces fresh facts inside the existing batch.
+  const raced = await draft('1'), racedId = 'synthetic-larder-commercial-race'
+  const attempts = []
+  let afterCompeting
+  interleave = async facts => {
+    if (facts.commandId !== racedId) return
+    attempts.push(facts.stateVersion)
+    if (attempts.length === 1) {
+      await h.command('location.save', { name: 'synthetic-larder-commercial-bin' })
+      afterCompeting = await h.invariant()
+    }
+  }
+  const racedOutcome = await mgrA.run('po.approve', { poId: raced.id, version: raced.version }, { commandId: racedId })
+  interleave = async () => {}
+  assert.equal(attempts.length, 2)
+  assert.equal(racedOutcome.classification.basis.stateVersion, afterCompeting.version)
+  assert.equal(racedOutcome.classification.facts.terms.amount, '9.5')
+  assert.deepEqual(racedOutcome.classification.classes, ['money', 'commitment'])
+  assert.equal((await h.state()).approvals.filter(a => a.subjectId === raced.id).length, 1)
+  // Editing those reviewed terms instead causes a stale refusal, not a
+  // signature or an approval computed from the abandoned first attempt.
+  const edited = await draft('1'), editedId = 'synthetic-larder-commercial-edit-race'
+  let editAttempts = 0, editedBaseline
+  interleave = async facts => {
+    if (facts.commandId !== editedId || editAttempts++) return
+    await buyer.run('po.amend', { poId: edited.id, version: edited.version, lines: [{ lineId: edited.lines[0].id, quantity: '2' }], reason: 'synthetic-larder-commercial-new-terms' })
+    editedBaseline = await h.invariant()
+  }
+  await mgrA.run('po.approve', { poId: edited.id, version: edited.version }, { commandId: editedId, error: 'STALE' })
+  interleave = async () => {}
+  const editedAfter = await h.invariant()
+  for (const key of ['purchaseOrders', 'approvals', 'approvalSignatures', 'movements', 'positions', 'reservations', 'commands']) assert.deepEqual(editedAfter[key], editedBaseline[key], key)
+  assert.equal((await (await h.request('/api/larder/audit?commandId=' + editedId)).json()).entries.length, 0)
   // Every threshold, deputy and override change is in the audit with its actor, reason and exact before and after.
   const trail = async type => (await (await h.request(`/api/larder/audit?type=${type}&limit=200`)).json()).entries
   const policies = (await trail('approval.policy')).filter(e => e.subjectKind === 'approvalPolicies' && e.after.threshold)
@@ -1193,6 +1252,9 @@ test('GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted membe
   assert.deepEqual(found(JSON.stringify(state)), [])
   assert.equal(state.items.find(i => i.id === gauge.id).standardCost, 'restricted')
   assert.equal(state.laborRates[0].hourlyRate, 'restricted')
+  assert.equal(state.purchaseOrders.find(p => p.id === po.id).classification.facts.terms.amount, 'restricted')
+  assert.equal((await h.state(accounts.cookie)).purchaseOrders.find(p => p.id === po.id).classification.facts.terms.amount, '32.9292')
+  assert.equal(state.approvals.find(a => a.subjectId === po.id).classification.facts.terms.lines[0].unitPrice, 'restricted')
   for (const path of ['/catalog.csv', '/boms.csv', `/lots/${lot.id}/trace`, `/lots/${lot.id}/trace.csv`, `/purchasing/quotes?itemId=${gauge.id}&quantity=1&requiredBy=${day(9)}`, '/planning/materials', '/planning/supply-changes', '/scheduling/finite?asOf=2026-11-25T00:00:00Z&days=7', '/history'])
     assert.deepEqual(found(await read(boss.cookie, path)), [], path)
   assert.deepEqual(found(JSON.stringify(await h.state(clerk.cookie))), [])

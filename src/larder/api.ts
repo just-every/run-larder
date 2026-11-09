@@ -1,6 +1,7 @@
 import { changeEventQuery } from './change-events'
 import { larderBusinessPresentation } from '../agent-door/business-settings.server'
 import { business } from './business'
+import { refuseCommercialFacts } from './commercial-classification'
 import { warehouseLogistics } from './warehouse-logistics'
 import { serviceActor, serviceKeys } from './service-keys'
 import { attachmentAllowed } from './attachments'
@@ -155,6 +156,7 @@ export async function executeCommand(env: Bindings, actor: Actor, body: any, aut
   if (type === 'business.save' && actor.role !== 'owner') forbidden('Only the owner configures the business identity.')
   if (type === 'so.invoice' && !['owner', 'manager', 'accounts'].includes(actor.role)) forbidden('Only accounts or managers may record a local invoice.')
   gateCommand(actor, type, payload)
+  refuseCommercialFacts(type, payload)
   if (['so.review', 'so.reviewClear', 'so.invoice'].includes(type) && isScoped(actor)) forbidden('Costed quote preparation requires unrestricted commercial and location access.')
   if ((type.startsWith('costing.') || type.startsWith('reports.')) && !costingReaders.includes(actor.role)) forbidden('Only accounts or managers may use costing.')
   if (blindSessions(await load(env.DB), actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
