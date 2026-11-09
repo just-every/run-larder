@@ -1,3 +1,4 @@
+import { resourceFixture } from '../api/resource-fixture.mjs'
 import { test, expect, type Page } from '@playwright/test'
 import { mkdir, readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -110,7 +111,7 @@ test('HTTP-001 MRP-001 public Lobby, health and docs stay separate from private 
   } finally { await anonymous.close() }
 })
 
-test('owner runs an order from Odoo move-in to accountant handoff at 1440px', async ({ page }) => {
+test('owner runs an order from Odoo move-in to accountant handoff at 1440px', async ({ page, browser }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await enter(page)
   await page.goto(`${origin}/app#today`)
@@ -197,6 +198,55 @@ test('owner runs an order from Odoo move-in to accountant handoff at 1440px', as
     await expect(page.locator('main h1')).toBeVisible()
     await shot(page, name)
   }
+  // Compare the new read projections with the existing native screens, using
+  // real test identities and their current authority at each HTTP read.
+  const command = async (type: string, payload: object) => {
+    const r = await page.request.post(origin + '/api/larder/commands', { headers: { Origin: origin }, data: { commandId: crypto.randomUUID(), type, payload } })
+    const body = await r.json(); expect(body.ok, JSON.stringify(body.error)).toBe(true); return body.result
+  }
+  const f = await resourceFixture({ command, state: () => state(page) })
+  for (const role of ['accounts', 'operator']) {
+    const email = [`synthetic-larder-resource-${role}`, 'example.test'].join('@')
+    expect((await page.request.post(origin + '/auth/invite', { headers: { Origin: origin }, data: { email, displayName: 'Resource ' + role, role: 'member' } })).status()).toBe(202)
+    const context = await browser.newContext({ storageState: await page.context().storageState() })
+    try {
+      const member = await context.newPage()
+      await member.goto(origin + '/auth/dev/enter?as=' + encodeURIComponent(email)); await member.waitForURL(u => u.pathname === '/app')
+      const person = (await (await member.request.get(origin + '/auth/session')).json()).operator.id
+      await command('role.set', { operatorId: person, role })
+      if (role === 'operator') await command('member.scope', { operatorId: person, locations: [f.loc.id], costsRestricted: true })
+      await member.setViewportSize({ width: 1440, height: 1000 })
+      const native = await state(member)
+      const read = async (kind: string, id: string) => {
+        const r = await member.request.get(origin + `/api/larder/v1/resources/${kind}/${id}`)
+        expect(r.status()).toBe(200); return r.json()
+      }
+      const receipt = await read('receipts', f.receipt.id), output = await read('outputs', f.batch.id), shipment = await read('shipments', f.shipment.id)
+      expect(receipt.data).toEqual(native.receipts.find((r: any) => r.id === f.receipt.id))
+      expect(output.data).toEqual({ ...native.workOrders.find((r: any) => r.id === f.work.id).outputs[0], workOrderId: f.work.id, version: f.work.version })
+      expect(shipment.data).toEqual(native.shipments.find((r: any) => r.id === f.shipment.id))
+      for (const projection of [receipt, output, shipment]) for (const link of projection.links) expect((await member.request.get(origin + link.href)).status()).toBe(200)
+      expect(receipt.data.lines[0].quantity).toBe('6'); expect(output.data.good).toBe('4'); expect(shipment.data.lines[0].quantity).toBe('2')
+      const screens = [
+        ['receipt', `make/po/${f.purchase.id}`, f.receipt.supplierReference],
+        ['output', `make/wo/${f.work.id}`, 'Materials used'],
+        ['shipment', `orders/${f.order.id}`, 'Part shipped'],
+        ['lots', 'stock', 'synthetic-larder-resource-output-lot'],
+      ]
+      for (const [name, hash, text] of screens) {
+        await member.goto(origin + '/app#' + hash); await member.reload()
+        await expect(member.locator('main')).toHaveAttribute('aria-busy', 'false')
+        await expect(member.locator('main')).toContainText(text)
+        if (name === 'output') await expect(member.locator('main')).toContainText(role === 'operator' ? 'restricted' : '$29.00')
+        if (role === 'operator') await expect(member.locator('main')).not.toContainText('$7.25')
+        await shot(member, 'SURFACE-007-' + role + '-' + name)
+        await member.setViewportSize({ width: 390, height: 1000 })
+        await shot(member, 'SURFACE-007-' + role + '-' + name)
+        await member.setViewportSize({ width: 1440, height: 1000 })
+      }
+    } finally { await context.close() }
+  }
+
 })
 
 test('owner quotes, confirms and ships an order at 390px', async ({ page }) => {

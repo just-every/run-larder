@@ -1,3 +1,4 @@
+import { resourceFixture, assertResourceJourney } from './resource-fixture.mjs'
 // The installation backup: what `rer export` writes restores with `rer import`
 // after `rer reset --yes`, with import applying the committed migrations
 // through the seed adapter and preserving every Larder record.
@@ -22,6 +23,8 @@ const digest = bytes => createHash('sha256').update(bytes).digest('hex')
 test('LARDER-020 an installation backup restores into a reset installation', async t => {
   const h = await installation({ publicCommands: true, now: '2026-10-29T12:00:00.000Z' }); t.after(() => h.close())
   const w = await workshop(h)
+  const resources = await resourceFixture(h)
+  await assertResourceJourney(h, resources)
   await h.command('transfer.create', { itemId: w.timber.id, fromLocationId: w.loc.id, toLocationId: w.store.id, quantity: '2', reason: 'Dispatch stock' })
   const q = await h.command('so.quote', { customerId: w.customer.id, promiseDate: '2026-10-28', lines: [{ itemId: w.board.id, quantity: '2', unitPrice: '89' }] })
   const order = await h.command('so.confirm', { orderId: q.id, version: q.version })
@@ -121,6 +124,10 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
   assert.equal((await h.request('/api/larder/state')).status, 401, 'Old sessions are not restored')
   await h.signInOwner()
   const after = await h.invariant(), restored = await businessArchive(h)
+  const resourceOutbound = h.outboundCount()
+  await assertResourceJourney(h, resources)
+  assert.deepEqual(await h.invariant(), after, 'Restored resource links are inert reads of retained physical and source evidence')
+  assert.equal(h.outboundCount(), resourceOutbound)
   assert.deepEqual(restored, archive, 'All persisted collections, commands, links and attachment digests round trip')
   const { actor: oldActor, ...beforeBusiness } = before, { actor: newActor, ...afterBusiness } = after
   const { sessionId: oldSession, ...oldIdentity } = oldActor, { sessionId: newSession, ...newIdentity } = newActor

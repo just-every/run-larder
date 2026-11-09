@@ -941,6 +941,52 @@ not attempted; consent sends no outbound request. Eligible document, message and
 context erasure and complete controlled-copy deletion remain unimplemented. GOV-005
 remains partial under the approved indefinite-document policy.
 
+## Native manufacturing detail resources (SURFACE-007, partial)
+
+`GET /api/larder/v1/resources/<kind>/<id>` reads one current visible record.
+Supported kinds are `receipts`, `outputs`, `shipments`, `lots`, `movements`,
+`purchases`, `orders` and `work`. These are native-session reads, with the same
+live role, site, location, cost and wage restrictions as the manufacturing
+screen. Existing service credentials grant no access to these detail routes.
+Blind counting refuses them; revoked sessions and anonymous requests are refused.
+Hidden and unknown records both return the same `404 NOT_FOUND`, without the
+requested ID. An order summary whose received or shipped total includes hidden
+records has no detail or link, even if its native summary remains visible.
+
+The reply has `apiVersion: "1"`, the current state `version`, `resource`, `data`,
+`links`, `physical`, `planning` and `files`. Each resource link has `kind`, `id`,
+`version` and `href`. `data` is the exact native filtered record. Outputs are
+nested immutable reports, returned with their containing `workOrderId` and job
+`version`; movements use their immutable ledger `sequence` as link `version`
+and keep their original formatted ledger fields. Other links return the exact
+record version. A later read resolves current authority and current versions;
+a retained link is neither a grant nor a historical snapshot.
+
+A partial receipt links its exact purchase, recorded lots and movements. An
+output links its exact job, lot, output movement and explicit component-lot
+allocations. A partial shipment links its order, actual shipment movements and
+lots; the source finished output follows only recorded batch allocations to
+component receipts and their retained evidence. Unlotted records and legacy
+job-level ancestry acquire no guessed lot or per-output allocation. Physical
+movement quantities and unit costs retain their native decimal representation
+and redaction. Linked jobs retain their native recorded costs.
+
+`physical` is recorded genealogy, with no recomputed allocation presented as a
+physical fact. `planning` is the current indicative shared-pool pegging projection,
+with its input version and as-of date, scope and limitations. Receipt, output and
+shipment selections use their receipt, job and sales-order inputs respectively.
+If its full and visible projections disagree, the whole planning result is
+marked restricted: no hidden edges, counts or misleading partial totals escape.
+These reads never reserve stock, approve supply, book capacity or change promises.
+
+`files` carries retained original metadata, digests and existing attachment-door
+links. The resource and download use the same evidence permission check; a
+financial file never becomes available through a resource link. File content is
+served only by the existing download door under authority at download time.
+Restored resource and file links are inert history reads, with no reinstated
+session, credential or command authority. Broader resource coverage, MCP resource
+templates and shared resource-family qualification remain outside this slice.
+
 ## Versioned integration reads (CONN-014, partial)
 
 Native-session `GET /api/larder/v1/catalog`, `/api/larder/v1/orders`,
