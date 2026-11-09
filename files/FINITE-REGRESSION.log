@@ -1,0 +1,17 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ CAP-001 persisted overnight holiday calendars, breaks, outages, efficiency and parallel named machine intervals survive archive restore (16573.990074ms)
+✔ CAP-002 one qualified person constrains two machines independently, vacation and task limits hold, rates are restricted and revocation blocks replay (9669.341488ms)
+✔ CAP-004 finite multistep plan exposes critical path, load and truthful late/unscheduled drilldowns without overbooking or changing promises (10097.32678ms)
+✔ CAP-005 finite reschedule previews displacement and unchanged promises, requires independent approval and rejects shop-floor stale inputs or capacity conflicts (12990.226331ms)
+✔ Qualified alternate comparison keeps pinned instructions, setup transitions, tools, labor, delivery and USD estimates through approval and restore (32705.023424ms)
+✔ Isolated outage scenarios protect this week and manual locks, atomically book next week and reject an ETA-stale adoption without a partial schedule (37436.113882ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 126720.599545

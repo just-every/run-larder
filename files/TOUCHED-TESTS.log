@@ -1,0 +1,194 @@
+TAP version 13
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: GOV-001 roles and sessions are checked on every command and read
+ok 1 - GOV-001 roles and sessions are checked on every command and read
+  ---
+  duration_ms: 6521.492909
+  type: 'test'
+  ...
+# Subtest: LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve
+ok 2 - LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve
+  ---
+  duration_ms: 14972.980216
+  type: 'test'
+  ...
+# Subtest: GOV-001 TRACE-005 quality role inherits TRACE-003/004/006/007 authority with independence and live revocation, and nothing outside quality
+ok 3 - GOV-001 TRACE-005 quality role inherits TRACE-003/004/006/007 authority with independence and live revocation, and nothing outside quality
+  ---
+  duration_ms: 3665.154236
+  type: 'test'
+  ...
+# Subtest: GOV-001 planner role inherits DEMAND-003 forecast/MPS, DEMAND-004 policy and FLOOR-005 split/merge authority with independent approval, and nothing outside planning
+ok 4 - GOV-001 planner role inherits DEMAND-003 forecast/MPS, DEMAND-004 policy and FLOOR-005 split/merge authority with independent approval, and nothing outside planning
+  ---
+  duration_ms: 4743.554537
+  type: 'test'
+  ...
+# Subtest: GOV-001 engineer role inherits ENG-007 catalog export, preparation and independent approval and controls ENG-002/004/005 revisions, never change approval or anything outside engineering
+ok 5 - GOV-001 engineer role inherits ENG-007 catalog export, preparation and independent approval and controls ENG-002/004/005 revisions, never change approval or anything outside engineering
+  ---
+  duration_ms: 8708.872423
+  type: 'test'
+  ...
+# Subtest: GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007 operations, posts no stock and loses access when revoked
+ok 6 - GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007 operations, posts no stock and loses access when revoked
+  ---
+  duration_ms: 5853.758685
+  type: 'test'
+  ...
+# Subtest: GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets
+ok 7 - GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets
+  ---
+  duration_ms: 6895.964856
+  type: 'test'
+  ...
+# Subtest: GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human
+ok 8 - GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human
+  ---
+  duration_ms: 20675.130224
+  type: 'test'
+  ...
+# Subtest: GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override
+ok 9 - GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override
+  ---
+  duration_ms: 6395.374009
+  type: 'test'
+  ...
+# Subtest: GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live
+ok 10 - GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live
+  ---
+  duration_ms: 23187.213794
+  type: 'test'
+  ...
+# Subtest: GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live
+ok 11 - GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live
+  ---
+  duration_ms: 12763.937932
+  type: 'test'
+  ...
+# Subtest: a cost-restricted member reads no purchase, service-order or cutover total that a hidden price can be recovered from
+ok 12 - a cost-restricted member reads no purchase, service-order or cutover total that a hidden price can be recovered from
+  ---
+  duration_ms: 3389.166969
+  type: 'test'
+  ...
+# Subtest: a cost-restricted member cannot download a supplier bill, while its other service evidence stays open
+ok 13 - a cost-restricted member cannot download a supplier bill, while its other service evidence stays open
+  ---
+  duration_ms: 4054.537967
+  type: 'test'
+  ...
+# Subtest: a deputy holds a delegated approval only while the principal's custom role still includes it
+ok 14 - a deputy holds a delegated approval only while the principal's custom role still includes it
+  ---
+  duration_ms: 5148.885535
+  type: 'test'
+  ...
+# Subtest: Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors
+ok 15 - Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors
+  ---
+  duration_ms: 15347.711282
+  type: 'test'
+  ...
+# Subtest: Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore
+ok 16 - Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore
+  ---
+  duration_ms: 53742.192444
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: MRP-001 released work nets demand on its completion day only while every pinned input is covered, explodes only the remainder and recovers when a PO lands before its inputs are needed
+ok 17 - MRP-001 released work nets demand on its completion day only while every pinned input is covered, explodes only the remainder and recovers when a PO lands before its inputs are needed
+  ---
+  duration_ms: 18247.953016
+  type: 'test'
+  ...
+# Subtest: MRP-001 proven work chains through multilevel jobs and is followed to the demand it supplies
+ok 18 - MRP-001 proven work chains through multilevel jobs and is followed to the demand it supplies
+  ---
+  duration_ms: 14289.410394
+  type: 'test'
+  ...
+# Subtest: MRP-001 bought suggestions follow the supplier calendar, lead working days, MOQ and pack, and restore an uncovered floor from dated supply
+ok 19 - MRP-001 bought suggestions follow the supplier calendar, lead working days, MOQ and pack, and restore an uncovered floor from dated supply
+  ---
+  duration_ms: 4450.917242
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: ENG-001 three-level shared netting, stocked subassembly, phantom/yield/make-buy choices, effective cycles and immutable released recipes
+ok 20 - ENG-001 three-level shared netting, stocked subassembly, phantom/yield/make-buy choices, effective cycles and immutable released recipes
+  ---
+  duration_ms: 7881.6505
+  type: 'test'
+  ...
+# Subtest: MRP-001 dated physical and PO pools never cover earlier demand with late, held, expired, overdue or draft supply
+ok 21 - MRP-001 dated physical and PO pools never cover earlier demand with late, held, expired, overdue or draft supply
+  ---
+  duration_ms: 3915.552901
+  type: 'test'
+  ...
+# Subtest: MRP-001 protects each reservation bin on its demand date, pins released inputs and restores the read-only projection without treating unproven WIP as feasible supply
+ok 22 - MRP-001 protects each reservation bin on its demand date, pins released inputs and restores the read-only projection without treating unproven WIP as feasible supply
+  ---
+  duration_ms: 14911.899212
+  type: 'test'
+  ...
+# Subtest: MRP-001 current safety floors share bins once, follow catalog edits, protect hard commitments and never treat expected or held stock as physical cover
+ok 23 - MRP-001 current safety floors share bins once, follow catalog edits, protect hard commitments and never treat expected or held stock as physical cover
+  ---
+  duration_ms: 11248.420928
+  type: 'test'
+  ...
+# Subtest: MRP-001 dated multilevel pegs share stock and ETA pools, honor make/buy/phantom and aggregate yields, and disclose unresolved work without duplicate explosion
+ok 24 - MRP-001 dated multilevel pegs share stock and ETA pools, honor make/buy/phantom and aggregate yields, and disclose unresolved work without duplicate explosion
+  ---
+  duration_ms: 9815.326665
+  type: 'test'
+  ...
+# Subtest: MRP-001 manufacturing offsets reject completion-day material, follow multilevel full-batch routing and keep released timing pinned across edits and restore
+ok 25 - MRP-001 manufacturing offsets reject completion-day material, follow multilevel full-batch routing and keep released timing pinned across edits and restore
+  ---
+  duration_ms: 14615.336397
+  type: 'test'
+  ...
+# Subtest: MRP-002 follows shared dated supply to customer demand and back through PO lines and received lots without changing commitments
+ok 26 - MRP-002 follows shared dated supply to customer demand and back through PO lines and received lots without changing commitments
+  ---
+  duration_ms: 22509.746244
+  type: 'test'
+  ...
+# Subtest: MRP-006 dated drafts preserve reviewed quantities, release dates and source paths with stale, duplicate, policy and live-authority guards across restart and restore
+ok 27 - MRP-006 dated drafts preserve reviewed quantities, release dates and source paths with stale, duplicate, policy and live-authority guards across restart and restore
+  ---
+  duration_ms: 10521.963717
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: GOV-009 a two-signature schedule threshold gates an above-threshold plan adoption and a grant with a deputy, invalidates on changed inputs, caps every grant, denies agents and takes the named owner override
+ok 28 - GOV-009 a two-signature schedule threshold gates an above-threshold plan adoption and a grant with a deputy, invalidates on changed inputs, caps every grant, denies agents and takes the named owner override
+  ---
+  duration_ms: 16301.220901
+  type: 'test'
+  ...
+# Subtest: GOV-009 a reschedule proposal delaying a job past the schedule threshold needs two signatures, a deputy and an unchanged finite preview
+ok 29 - GOV-009 a reschedule proposal delaying a job past the schedule threshold needs two signatures, a deputy and an unchanged finite preview
+  ---
+  duration_ms: 34450.863449
+  type: 'test'
+  ...
+# Subtest: AGENT-001 supplier slip and breakdown continuously compute two material-feasible alternate plans, bind human selection, preserve the ship date and restore inert evidence
+ok 30 - AGENT-001 supplier slip and breakdown continuously compute two material-feasible alternate plans, bind human selection, preserve the ship date and restore inert evidence
+  ---
+  duration_ms: 17780.799308
+  type: 'test'
+  ...
+1..30
+# tests 30
+# suites 0
+# pass 30
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 411829.526962

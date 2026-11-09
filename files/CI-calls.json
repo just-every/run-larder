@@ -1,0 +1,40 @@
+{
+  "calls": 3,
+  "last_candidate_read": 1794217864.839244,
+  "history": [
+    {
+      "call": 1,
+      "purpose": "Discover exact-main runs"
+    },
+    {
+      "call": 2,
+      "purpose": "Discover exact-candidate runs",
+      "result": {
+        "runs": [
+          {
+            "conclusion": null,
+            "event": "push",
+            "head_sha": "c698f0cc8069904979683253bb111925f46f5d68",
+            "html_url": "https://github.com/just-every/run-larder/actions/runs/42595861179",
+            "id": 42595861179,
+            "name": "Verify",
+            "status": "in_progress"
+          }
+        ]
+      }
+    },
+    {
+      "call": 3,
+      "purpose": "Poll exact-candidate run",
+      "result": {
+        "conclusion": null,
+        "head_sha": "c698f0cc8069904979683253bb111925f46f5d68",
+        "html_url": "https://github.com/just-every/run-larder/actions/runs/42595861179",
+        "status": "in_progress",
+        "id": 42595861179,
+        "name": "Verify",
+        "event": "push"
+      }
+    }
+  ]
+}

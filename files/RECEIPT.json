@@ -1,0 +1,109 @@
+{
+  "tag": "sx-larder-c-f607",
+  "repository": "just-every/run-larder",
+  "branch": "cloud/sx-larder-c-f607",
+  "head": "c698f0cc8069904979683253bb111925f46f5d68",
+  "main": "171f7266ef82b5973a5d5036a37e60e5f6c6ea43",
+  "product_push": "success",
+  "pr": null,
+  "claim": {
+    "clause": "SURFACE-006",
+    "status": "PARTIAL",
+    "points": [
+      1
+    ],
+    "heldPoints": [
+      2
+    ]
+  },
+  "countsBefore": {
+    "done": 86,
+    "partial": 39,
+    "missing": 39,
+    "total": 164
+  },
+  "countsAfter": {
+    "done": 86,
+    "partial": 39,
+    "missing": 39,
+    "total": 164
+  },
+  "tests": [
+    {
+      "command": "node --test --test-concurrency=1 tests/api/multilevel.test.mjs tests/api/mrp-feasibility.test.mjs tests/api/schedule-approval.test.mjs tests/api/authority.test.mjs",
+      "node": "22.20.0",
+      "exit": 0,
+      "tests": 30,
+      "passCount": 30,
+      "failCount": 0,
+      "skipped": 0,
+      "log": "TOUCHED-TESTS.log"
+    },
+    {
+      "command": "node --test --test-name-pattern='CAP-00[1245]|Qualified alternate comparison|Isolated outage scenarios' tests/api/flows.test.mjs",
+      "node": "24.19.0",
+      "exit": 0,
+      "tests": 6,
+      "passCount": 6,
+      "failCount": 0,
+      "log": "FINITE-REGRESSION.log",
+      "relevantSourceBytesUnchanged": true
+    }
+  ],
+  "build": {
+    "command": "npx -y @runeditrun/rer build",
+    "projectNode": "22.20.0",
+    "exit": 0,
+    "log": "BUILD.log"
+  },
+  "mechanical": "MECHANICAL.json",
+  "scope": "native GET planning provenance only",
+  "sourceAndTestHashes": "SOURCE-HASHES.txt",
+  "identityAndTrailers": "all candidate commits checked, fleet identity, no co-author trailers",
+  "publicationScan": {
+    "status": "not-run-in-cloud",
+    "complete": false,
+    "historyScanned": null,
+    "findings": null,
+    "owner": "guarded Mac lander"
+  },
+  "landing": {
+    "status": "pending",
+    "mainEqualsCandidate": false,
+    "runSite": null
+  },
+  "initialFailure": {
+    "kind": "new test fixture timezone",
+    "test": "GOV-009 a reschedule proposal delaying a job past the schedule threshold needs two signatures, a deputy and an unchanged finite preview",
+    "failure": "short.operations.length: expected 0, actual 2",
+    "resolution": "Declare the closed calendar in UTC; retain the zero-capacity assertion",
+    "resolved": true,
+    "log": "INITIAL-TESTS.log"
+  },
+  "changedPaths": [
+    "M\tAPI.md",
+    "M\tsources.lock.json",
+    "M\tsrc/larder/api.ts",
+    "M\tsrc/larder/material-dates.ts",
+    "M\tsrc/larder/material-pegging.ts",
+    "M\tsrc/larder/scheduling/booking.ts",
+    "M\tsrc/larder/scheduling/finite.ts",
+    "M\tsrc/larder/scope-view.ts",
+    "M\ttests/api/authority.test.mjs",
+    "M\ttests/api/mrp-feasibility.test.mjs",
+    "M\ttests/api/multilevel.test.mjs",
+    "M\ttests/api/schedule-approval.test.mjs"
+  ],
+  "cloneFullHistory": true,
+  "ci": {
+    "conclusion": null,
+    "head_sha": "c698f0cc8069904979683253bb111925f46f5d68",
+    "html_url": "https://github.com/just-every/run-larder/actions/runs/42595861179",
+    "status": "in_progress",
+    "id": 42595861179,
+    "name": "Verify",
+    "event": "push"
+  },
+  "githubApiCalls": 3,
+  "disposition": "PUSHED; Verify in progress"
+}

@@ -1,0 +1,32 @@
+{
+  "head": "c698f0cc8069904979683253bb111925f46f5d68",
+  "sourceLock": {
+    "write": "node scripts/edition-authoring/cli.mjs lock",
+    "check": "node scripts/edition-authoring/cli.mjs check",
+    "exit": 0
+  },
+  "views": {
+    "write": "node src/base/contract-docs.mjs write",
+    "check": "node src/base/contract-docs.mjs check",
+    "exit": 0,
+    "restored": [
+      "ACCEPTANCE.md",
+      "docs/CLAIMS.md"
+    ]
+  },
+  "migrationLedger": {
+    "command": null,
+    "exit": 0
+  },
+  "typecheck": {
+    "command": "pnpm run typecheck",
+    "node": "22.20.0",
+    "exit": 0
+  },
+  "composition": {
+    "command": "pnpm exec rer check --profile first-party",
+    "exit": 0
+  },
+  "contractChanged": false,
+  "newTestRegistrations": 0
+}

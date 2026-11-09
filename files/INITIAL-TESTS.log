@@ -1,0 +1,70 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ GOV-001 roles and sessions are checked on every command and read (6447.533975ms)
+✔ LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve (14207.958884ms)
+✔ GOV-001 TRACE-005 quality role inherits TRACE-003/004/006/007 authority with independence and live revocation, and nothing outside quality (5533.347378ms)
+✔ GOV-001 planner role inherits DEMAND-003 forecast/MPS, DEMAND-004 policy and FLOOR-005 split/merge authority with independent approval, and nothing outside planning (7031.036546ms)
+✔ GOV-001 engineer role inherits ENG-007 catalog export, preparation and independent approval and controls ENG-002/004/005 revisions, never change approval or anything outside engineering (5580.831669ms)
+✔ GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007 operations, posts no stock and loses access when revoked (5179.484021ms)
+✔ GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets (4329.654061ms)
+✔ GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human (7945.628291ms)
+✔ GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override (3494.543814ms)
+✔ GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live (9428.857404ms)
+✔ GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live (13886.853361ms)
+✔ a cost-restricted member reads no purchase, service-order or cutover total that a hidden price can be recovered from (3295.589264ms)
+✔ a cost-restricted member cannot download a supplier bill, while its other service evidence stays open (3262.055055ms)
+✔ a deputy holds a delegated approval only while the principal's custom role still includes it (3120.946403ms)
+✔ Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors (3309.76123ms)
+✔ Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore (22007.35101ms)
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ MRP-001 released work nets demand on its completion day only while every pinned input is covered, explodes only the remainder and recovers when a PO lands before its inputs are needed (41842.440463ms)
+✔ MRP-001 proven work chains through multilevel jobs and is followed to the demand it supplies (12889.144138ms)
+✔ MRP-001 bought suggestions follow the supplier calendar, lead working days, MOQ and pack, and restore an uncovered floor from dated supply (35581.414224ms)
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ ENG-001 three-level shared netting, stocked subassembly, phantom/yield/make-buy choices, effective cycles and immutable released recipes (6559.473046ms)
+✔ MRP-001 dated physical and PO pools never cover earlier demand with late, held, expired, overdue or draft supply (4723.013538ms)
+✔ MRP-001 protects each reservation bin on its demand date, pins released inputs and restores the read-only projection without treating unproven WIP as feasible supply (9054.194473ms)
+✔ MRP-001 current safety floors share bins once, follow catalog edits, protect hard commitments and never treat expected or held stock as physical cover (7434.821133ms)
+✔ MRP-001 dated multilevel pegs share stock and ETA pools, honor make/buy/phantom and aggregate yields, and disclose unresolved work without duplicate explosion (7762.750011ms)
+✔ MRP-001 manufacturing offsets reject completion-day material, follow multilevel full-batch routing and keep released timing pinned across edits and restore (7440.612934ms)
+✔ MRP-002 follows shared dated supply to customer demand and back through PO lines and received lots without changing commitments (16263.339525ms)
+✔ MRP-006 dated drafts preserve reviewed quantities, release dates and source paths with stale, duplicate, policy and live-authority guards across restart and restore (11583.551753ms)
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ GOV-009 a two-signature schedule threshold gates an above-threshold plan adoption and a grant with a deputy, invalidates on changed inputs, caps every grant, denies agents and takes the named owner override (20660.801072ms)
+✖ GOV-009 a reschedule proposal delaying a job past the schedule threshold needs two signatures, a deputy and an unchanged finite preview (3799.416076ms)
+✔ AGENT-001 supplier slip and breakdown continuously compute two material-feasible alternate plans, bind human selection, preserve the ship date and restore inert evidence (26640.153029ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 29
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 360046.077062
+
+✖ failing tests:
+
+test at tests/api/schedule-approval.test.mjs:136:1
+✖ GOV-009 a reschedule proposal delaying a job past the schedule threshold needs two signatures, a deputy and an unchanged finite preview (3799.416076ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  2 !== 0
+  
+      at TestContext.<anonymous> (file:///workspace/larder-sx-f607/tests/api/schedule-approval.test.mjs:165:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
