@@ -93,7 +93,7 @@ export function auditEntries(c: Context, before: State, type: string, payload: a
     // Native scope facts repeat exact location IDs in their restrictions and
     // deltas. Keep those decision facts even when they exceed text size limits;
     // credential and document scrubbing still applies to every field.
-    const retainStructure = kind === 'roles' && type === 'member.scope'
+    const retainStructure = (kind === 'roles' && type === 'member.scope') || (['engineeringChanges', 'boms'].includes(kind) && type.startsWith('engineering.'))
     out.push({
       id: `${c.commandId}:${out.length}`, at: c.now, actorId: c.actor.id, actorName: c.actor.agentDoor ? `${c.actor.agentDoor.name} for ${c.actor.name}` : c.actor.name, actorRole: c.actor.role, source, commandId: c.commandId, commandType: type,
       domain: source === 'agent' && type === 'proposal.prepare' ? 'agent' : domainOf(c, kind, type, payload), subjectKind: kind, subjectId, subjectVersion, op,

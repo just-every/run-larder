@@ -1,3 +1,4 @@
+import { resourceScreens } from './resource-proof'
 import { test, expect, type Page } from '@playwright/test'
 import { mkdir, readdir, readFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
@@ -110,7 +111,7 @@ test('HTTP-001 MRP-001 public Lobby, health and docs stay separate from private 
   } finally { await anonymous.close() }
 })
 
-test('owner runs an order from Odoo move-in to accountant handoff at 1440px', async ({ page }) => {
+test('owner runs an order from Odoo move-in to accountant handoff at 1440px', async ({ page, browser }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await enter(page)
   await page.goto(`${origin}/app#today`)
@@ -197,6 +198,7 @@ test('owner runs an order from Odoo move-in to accountant handoff at 1440px', as
     await expect(page.locator('main h1')).toBeVisible()
     await shot(page, name)
   }
+  await resourceScreens(page, browser)
 })
 
 test('owner quotes, confirms and ships an order at 390px', async ({ page }) => {

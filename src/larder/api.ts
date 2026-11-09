@@ -3,7 +3,8 @@ import { larderBusinessPresentation } from '../agent-door/business-settings.serv
 import { business } from './business'
 import { warehouseLogistics } from './warehouse-logistics'
 import { serviceActor, serviceKeys } from './service-keys'
-import { publicPage } from './public-api'
+import { attachmentAllowed } from './attachments'
+import { publicPage, publicDetail } from './public-api'
 import { enforceRetention, retention, retentionPreview, operatorRetentionPreview } from './retention'
 import { wavePicking } from './wave-picking'
 import { recoveryInputsChanged } from './scheduling/recovery-options'
@@ -19,7 +20,7 @@ import { replenishment } from './replenishment'
 import { recovery, observeRecovery } from './scheduling/recovery'
 import { laborCosts } from './scheduling/labor-costs'
 import { calendars, rateReaders } from './scheduling/calendars'
-import { finitePlan } from './scheduling/finite'
+import { finiteReadback } from './scheduling/finite'
 import { supplierQuotes } from './supplier-terms'
 // Larder's public door: /api/larder/*. Every request resolves the current
 // native session and Larder role; every command re-checks both inside the
@@ -216,6 +217,8 @@ export async function executeCommand(env: Bindings, actor: Actor, body: any, aut
       c.scopeTarget = target!
     }
     if (erasure) c.erasure = erasure
+    if (type.startsWith('engineering.') && payload.changeId && scopeOf(actor).locations !== null)
+      refuseHidden(payload.changeId, visibleState(s, scopeOf(actor)).hidden)
     enforcePayload(c, payload)
     if (type === 'import.undo') enforceRetention(before, s, payload.importId)
     let result: Row | undefined = roleCommand(c, type, payload)
@@ -303,6 +306,8 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const versionedResource = /^\/v1\/(catalog|orders|operations|trace)$/.exec(path)
     if (versionedResource) return json(publicPage(await load(env.DB), actor, versionedResource[1], url.searchParams))
     if (path === '/audit/events') return json(await changeEventQuery(env.DB, actor, url.searchParams))
+    const detailResource = /^\/v1\/resources\/([^/]+)\/([^/]+)$/.exec(path)
+    if (detailResource) return json(publicDetail(await load(env.DB), actor, detailResource[1], detailResource[2]))
     if (path === '/retention/operator') return json(await operatorRetentionPreview(env.DB, await load(env.DB), actor, url.searchParams.get('operatorId')))
     if (path === '/retention/contact') return json(retentionPreview(await load(env.DB), actor, url.searchParams.get('partyId'), commandTime()))
     if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, { ...await people(env, actor), businessName: await larderBusinessPresentation(env).resolve('display_name','') })) }
@@ -329,7 +334,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     }
     if (path === '/scheduling/finite') {
       const named = await people(env, actor)
-      return json(await read(s => finitePlan(s, named.people as any, url.searchParams.get('asOf') ?? new Date().toISOString(), Number(url.searchParams.get('days') ?? 14))))
+      return json(await read(s => finiteReadback(s, named.people as any, url.searchParams.get('asOf') ?? commandTime(), Number(url.searchParams.get('days') ?? 14))))
     }
     if (path === '/purchasing/quotes') return json(await read(s => supplierQuotes(s, url.searchParams.get('itemId') ?? '', url.searchParams.get('quantity') ?? '', url.searchParams.get('requiredBy') ?? '', new Date().toISOString().slice(0, 10))))
     if (path === '/configurations/resolve') return json(await read(s => resolveFor(s, url.searchParams.get('itemId') ?? '', JSON.parse(url.searchParams.get('selection') ?? '{}'))))
@@ -392,13 +397,8 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const file = /^\/attachments\/([-0-9a-f]{36})$/.exec(path)
     if (file) {
       const financialState = await load(env.DB)
-      const financialFile = names([...financialState.marginCharges, ...financialState.jobCharges, ...financialState.costValuations, ...financialState.purchaseOrders.flatMap(o => [o.bills, o.landedCharges, ...(o.supplierClaims ?? []).map((r: any) => r.credits)])], new Set([file[1]]))
-      if (financialFile && (!costingReaders.includes(actor.role) || scope.costs)) forbidden('This evidence requires unrestricted costing authority.')
-      // A supplier's bill is a cost document: a member restricted from costs never opens it.
-      if (scope.costs && names(financialState.subcontractOrders.map(o => [o.bill, o.bills]), new Set([file[1]]))) forbidden('This evidence requires unrestricted costing authority.')
       const a = await env.DB.prepare('SELECT name,content_type,bytes FROM larder_attachments WHERE id=?').bind(file[1]).first<any>()
-      // A scoped member opens only evidence a record they can see names.
-      if (a && scoped && !names(visibleState(financialState, scope).state, new Set([file[1]]))) forbidden('This evidence belongs to records outside your scope.')
+      if (a && !attachmentAllowed(financialState, actor, file[1])) forbidden('This evidence is unavailable under your current authority.')
       if (!a) throw new Problem('NOT_FOUND', 'No such attachment.', null, 404)
       return new Response(new Uint8Array(a.bytes), { headers: { ...headers, 'content-type': a.content_type, 'content-disposition': `attachment; filename="${String(a.name).replace(/[^\w.\- ]/g, '_')}"` } })
     }
