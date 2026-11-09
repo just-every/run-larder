@@ -197,7 +197,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "64f43756817cd8838ceeff78427872743780bae7b43790050203dfc5c411e0a3",
+      "sha256": "b4811add74c21e49a26290fd5423de594e0f2486d798ea1372bddac2ef7261de",
       "executable": false
     },
     "base-copies.json": {
@@ -2189,7 +2189,7 @@
       "executable": false
     },
     "src/larder/public-api.ts": {
-      "sha256": "f27f22cd2bf0adaede20e6eaa12de30784677a5114a620905368ff4a09d5b00e",
+      "sha256": "098fed10cef9220be330b8ebb9f26f31652c5c3c7bf74cb5cb198ea6f0dd44d0",
       "executable": false
     },
     "src/larder/purchasing.ts": {
@@ -5141,11 +5141,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "34d81eec716f64e1850cd9be433c23939e0e65862c3545c90c0e812974879105",
+      "sha256": "6ba0ff0779f917fb37713b136b8ec6e9a3094fd79692985b5166a1c13dcca997",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "4b56fb5e62f61402ee7acb3df96b52f1fe690e8a17e9b0d259f91ea35a7d323f",
+      "sha256": "c6dfe43236deda9eebbfbac4a89ba949cc40f05b95715245645985cb478d92f5",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
@@ -5249,11 +5249,11 @@
       "executable": false
     },
     "tests/api/resource-fixture.mjs": {
-      "sha256": "3c3b089171138a0d8a986255f8afe468c5a4fd5cd26681ca2b7d30ca9d59df5f",
+      "sha256": "796d02c3bfb7d8843bcb541965b3a11e857094e41b0272dbf2be49223f2850ca",
       "executable": false
     },
     "tests/api/rework.test.mjs": {
-      "sha256": "317c2cf4e96668188d63ad3406b499864020ae5167d64a46257be8ea5c5903e5",
+      "sha256": "836789baf2a88613f48ede5ec47cf18d3a0bd0c7bc3d96ead4a89eb84e0279d6",
       "executable": false
     },
     "tests/api/routing.test.mjs": {
@@ -5389,7 +5389,7 @@
       "executable": false
     },
     "tests/browser/resource-proof.ts": {
-      "sha256": "c19404a9aa52b1a08f805549ac0292f43c47ecc1a2dfcc76471119d0e42ef058",
+      "sha256": "bc7de67fdbeb2425647452c07b9dca97706dedc211b570306d54ea4acf39fb8f",
       "executable": false
     },
     "tests/browser/rework.spec.ts": {
