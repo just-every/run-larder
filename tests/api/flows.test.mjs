@@ -1,4 +1,4 @@
-import { resourceFixture, assertResourceJourney } from './resource-fixture.mjs'
+import { resourceFixture, resourceRead, assertResourceJourney } from './resource-fixture.mjs'
 import { foreignCurrencyJourney } from './foreign-currency-journey.mjs'
 import { varianceFixture } from './variance-fixture.mjs'
 // One test per first-release clause (ACCEPTANCE.md LARDER-001 to LARDER-013), through the public
@@ -232,7 +232,7 @@ test('LARDER-008 partial receipts record supplier lots and quarantine decisions'
 })
 
 test('LARDER-009 released work issues materials and records output and scrap', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now: '2026-11-01T12:00:00.000Z' }); t.after(() => h.close())
   const w = await workshop(h)
   const wo = await h.command('wo.draft', { itemId: w.board.id, quantity: '5', requiredBy: '2026-11-01', reason: 'Market stock' })
   const released = await h.command('wo.release', { workOrderId: wo.id, version: wo.version })
@@ -260,6 +260,10 @@ test('LARDER-010 pick, pack and partially ship against reservations; the rest st
   const lineId = order.lines[0].id
   await h.command('shipment.pick', { orderId: order.id, lines: [{ lineId, locationId: w.loc.id, quantity: '5' }] }, { error: 'NOT_RESERVED' })
   const picked = await h.command('shipment.pick', { orderId: order.id, lines: [{ lineId, locationId: w.loc.id, quantity: '3' }] })
+  const pickProjection = await resourceRead(h, 'shipments', picked.id)
+  assert.equal(pickProjection.data.status, 'picked')
+  assert.deepEqual(pickProjection.physical.movements, [])
+  assert.deepEqual(pickProjection.physical.lots, [], 'A picked allocation is not yet a physical shipment')
   await h.command('shipment.ship', { shipmentId: picked.id, version: picked.version, carrier: 'StarTrack' }, { error: 'STATE' })
   const packed = await h.command('shipment.pack', { shipmentId: picked.id, version: picked.version, packages: 1, weightKg: '4.2' })
   await h.advanceClock('2026-10-28T10:05:00.000Z')
@@ -274,6 +278,10 @@ test('LARDER-010 pick, pack and partially ship against reservations; the rest st
   assert.equal(dispatch.shippedAt, '2026-10-28T10:05:00.000Z')
   assert.equal(dispatch.carrier, 'StarTrack')
   assert.equal(dispatch.tracking, 'ST123')
+  const dispatchedProjection = await resourceRead(h, 'shipments', shipped.id)
+  assert.equal(dispatchedProjection.resource.version, shipped.version)
+  assert.deepEqual(dispatchedProjection.physical.movements.map(l => l.id), s.movements.filter(m => m.documentKind === 'shipments' && m.documentId === shipped.id).map(m => m.id))
+  assert.equal((await resourceRead(h, 'movements', dispatchedProjection.physical.movements[0].id)).data.quantity, '-3')
   assert.equal(so.status, 'part shipped'); assert.equal(line(so, w.board.id).shipped, '3')
   assert.equal(s.reservations.reduce((n, r) => n + parse(r.quantity), 0n), parse('1'))
   assert.equal(s.shortages.find(x => x.itemId === w.board.id).shortage, '2')
