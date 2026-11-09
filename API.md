@@ -971,6 +971,14 @@ job-level ancestry acquire no guessed lot or per-output allocation. Physical
 movement quantities and unit costs retain their native decimal representation
 and redaction. Linked jobs retain their native recorded costs.
 
+`physical.allocations` follows each retained output allocation with its exact
+`output`, source `movement` and optional source `lot` resource links and recorded
+`quantity`. A three-unit output can consume three units of a four-unit issue;
+the linked immutable issue still reports all four units. Another output's
+one-unit allocation is separate. Legacy reports without explicit allocations
+have no invented allocation edges. Shipment ancestry follows the selected
+finished lot's outputs, rather than the job's other finished lots.
+
 `physical` is recorded genealogy, with no recomputed allocation presented as a
 physical fact. `planning` is the current indicative shared-pool pegging projection,
 with its input version and as-of date, scope and limitations. Its `href` opens
@@ -980,6 +988,15 @@ shipment selections use their receipt, job and sales-order inputs respectively.
 If its full and visible projections disagree, the whole planning result is
 marked restricted: no hidden edges, counts or misleading partial totals escape.
 These reads never reserve stock, approve supply, book capacity or change promises.
+`planning.links` follows supported demand and supply references to their current
+visible record versions. It is separate from `physical.allocations`; a planned
+source is never evidence of consumption. References without an authorized exact
+resource are omitted, including mixed-site parent totals. The pegging `href`
+returns the same projection fields, without these additional navigation links.
+If a planning requirement or source depends on a mixed-site purchase, order or
+job, the detail withholds the whole plan even when the full and visible
+computations agree: the parent can already carry hidden received or shipped
+quantities. No navigation link or residual quantity is exposed from that plan.
 
 `files` carries retained original metadata, digests and existing attachment-door
 links. The resource and download use the same evidence permission check; a

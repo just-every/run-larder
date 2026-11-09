@@ -45,15 +45,24 @@ export async function resourceScreens(page: Page, browser: Browser) {
       }
       const receipt = await read('receipts', f.receipt.id), output = await read('outputs', f.batch.id), shipment = await read('shipments', f.shipment.id)
       expect(receipt.data).toEqual(native.receipts.find((r: any) => r.id === f.receipt.id))
-      expect(output.data).toEqual({ ...native.workOrders.find((r: any) => r.id === f.work.id).outputs[0], workOrderId: f.work.id, version: f.work.version })
+      expect(output.data).toEqual({ ...native.workOrders.find((r: any) => r.id === f.work.id).outputs.find((o: any) => o.id === f.batch.id), workOrderId: f.work.id, version: f.work.version })
       expect(shipment.data).toEqual(native.shipments.find((r: any) => r.id === f.shipment.id))
-      for (const projection of [receipt, output, shipment]) for (const link of projection.links) expect((await member.request.get(origin + link.href)).status()).toBe(200)
+      for (const projection of [receipt, output, shipment]) for (const link of [...projection.links, ...projection.planning.links]) {
+        const linked = await member.request.get(origin + link.href)
+        expect(linked.status()).toBe(200); expect((await linked.json()).resource).toEqual(link)
+      }
       for (const projection of [receipt, output, shipment]) {
-        const { href, ...pegs } = projection.planning
+        const { href, links, ...pegs } = projection.planning
         const current = await member.request.get(origin + href)
         expect(current.status()).toBe(200); expect(await current.json()).toEqual(pegs)
       }
-      expect(receipt.data.lines[0].quantity).toBe('6'); expect(output.data.good).toBe('4'); expect(shipment.data.lines[0].quantity).toBe('2')
+      expect(receipt.data.lines[0].quantity).toBe('6'); expect(output.data.good).toBe('3'); expect(shipment.data.lines[0].quantity).toBe('2')
+      for (const projection of [output, shipment]) {
+        const [allocation] = projection.physical.allocations
+        expect([allocation.output.id, allocation.lot.id, allocation.quantity]).toEqual([f.batch.id, f.receipt.lines[0].lotId, '3'])
+        const movement = await member.request.get(origin + allocation.movement.href)
+        expect((await movement.json()).data.quantity).toBe('-4')
+      }
       const screens = [
         ['receipt', `make/po/${f.purchase.id}`, f.receipt.supplierReference],
         ['output', `make/wo/${f.work.id}`, 'Materials used'],

@@ -197,7 +197,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "db8a8507065c10a1b3e35001061b9e4835bdc4595d8cf93ee25059fec46bacbf",
+      "sha256": "7bf2eacc1362ee3912e68f11754545783058738ea20f71635214d0124b83aeea",
       "executable": false
     },
     "base-copies.json": {
@@ -2173,7 +2173,7 @@
       "executable": false
     },
     "src/larder/public-api.ts": {
-      "sha256": "f27f22cd2bf0adaede20e6eaa12de30784677a5114a620905368ff4a09d5b00e",
+      "sha256": "098fed10cef9220be330b8ebb9f26f31652c5c3c7bf74cb5cb198ea6f0dd44d0",
       "executable": false
     },
     "src/larder/purchasing.ts": {
@@ -5125,7 +5125,7 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "ca22e2309be0ae05d714bd9056be8279d7c45093bfc6991f49c7493e73931756",
+      "sha256": "a131c775856a98ba07b7d31fb6b12b90c3f025e88c20e5c5c5cfad548f42f736",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
@@ -5229,11 +5229,11 @@
       "executable": false
     },
     "tests/api/resource-fixture.mjs": {
-      "sha256": "3c3b089171138a0d8a986255f8afe468c5a4fd5cd26681ca2b7d30ca9d59df5f",
+      "sha256": "796d02c3bfb7d8843bcb541965b3a11e857094e41b0272dbf2be49223f2850ca",
       "executable": false
     },
     "tests/api/rework.test.mjs": {
-      "sha256": "317c2cf4e96668188d63ad3406b499864020ae5167d64a46257be8ea5c5903e5",
+      "sha256": "836789baf2a88613f48ede5ec47cf18d3a0bd0c7bc3d96ead4a89eb84e0279d6",
       "executable": false
     },
     "tests/api/routing.test.mjs": {
@@ -5369,7 +5369,7 @@
       "executable": false
     },
     "tests/browser/resource-proof.ts": {
-      "sha256": "c19404a9aa52b1a08f805549ac0292f43c47ecc1a2dfcc76471119d0e42ef058",
+      "sha256": "171006991d0c5ebbab8c54f995ba4bcc55c71e7ca0cb1ee755252b4083603787",
       "executable": false
     },
     "tests/browser/rework.spec.ts": {
