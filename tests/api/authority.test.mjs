@@ -1,5 +1,5 @@
-import { journal } from './change-event-proof.mjs'
 import { resourceFixture, resourceRead, assertResourceJourney } from './resource-fixture.mjs'
+import { journal } from './change-event-proof.mjs'
 // GOV-001 roles are enforced in every handler; LARDER-015 agents prepare and people approve; GOV-001 roles inherit their clauses' doors.
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -559,7 +559,7 @@ test('GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007
 
 // GOV-004: one thread through revision, scheduling, operator correction, quality release and a stock adjustment, then query, export, refused deletion and planted secrets.
 test('GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now: '2026-10-20T12:00:00.000Z' }); t.after(() => h.close())
   const w = await workshop(h), file = text => ({ name: 'qa.txt', contentType: 'text/plain', base64: Buffer.from(text).toString('base64') })
   const manager = await h.person('audit-manager@example.test', 'manager'), operator = await h.person('audit-operator@example.test', 'operator')
   const q1 = await h.person('audit-q1@example.test', 'quality'), q2 = await h.person('audit-q2@example.test', 'quality')
@@ -579,6 +579,7 @@ test('GOV-004 a changed BOM is followed through scheduling, operator correction,
   // Quality release of a received walnut lot and a stock adjustment by a compensating movement.
   let po = await manager.run('po.draft', { supplierId: w.supplier.id, expectedDate: day(1), reason: 'Walnut for the revised BOM', lines: [{ itemId: w.timber.id, quantity: '6', unitPrice: '9.5' }] })
   po = await manager.run('po.approve', { poId: po.id, version: po.version })
+  po = await manager.run('po.confirm', { poId: po.id, version: po.version, supplierReference: 'AUD-1', source: 'phone', confirmedDate: day(1) })
   await h.command('receipt.create', { poId: po.id, supplierReference: 'AUD-1', lines: [{ lineId: po.lines[0].id, quantity: '6', locationId: w.loc.id, lot: 'AUD-WAL' }] })
   const lotId = (await h.state()).lots.find(l => l.code === 'AUD-WAL').id
   let plan = await q1.run('quality.plan.save', { itemId: w.timber.id, stage: 'receipt', name: 'Moisture', sampleSize: 1, measurements: [{ name: 'Moisture', unit: '%', target: '8', lower: '6', upper: '10' }] })
@@ -642,14 +643,14 @@ test('GOV-004 a changed BOM is followed through scheduling, operator correction,
   assert.ok(!stored.includes('Wet timber') && !stored.includes('base64'), 'attachment bodies are not logged')
   // SURFACE-009 follows only applied transitions at the existing audit boundary.
   const retainedEvents = await journal(h)
-  assert.deepEqual(retainedEvents.events.map(e => e.type), ['receipt.recorded', 'quality.held', 'quality.released'])
+  assert.deepEqual(retainedEvents.events.map(e => e.type), ['supplier.date-recorded', 'receipt.recorded', 'material.usable', 'quality.held', 'quality.released', 'material.usable'])
   assert.deepEqual(await journal(h, '', manager.cookie), retainedEvents)
   const textEvents = JSON.stringify(retainedEvents)
   for (const personal of [manager.id, q1.id, q2.id, 'audit-manager', 'Retest passed', 'qa.txt', 'synthetic-larder-1', 'synthetic-larder-2', 'synthetic-larder-3', 'synthetic-larder-4', 'synthetic-larder-5']) assert.ok(!textEvents.includes(personal), 'The journal copies no personal labels, free text or planted credential values')
-  const event = retainedEvents.events[0]
+  const event = retainedEvents.events[1]
   const linkedAudit = await audit('?commandId=' + event.commandId)
   assert.ok(linkedAudit.entries.some(e => e.subjectKind === event.source.kind && e.subjectId === event.source.id && e.subjectVersion === event.source.version))
-  assert.deepEqual((await journal(h, '?commandId=' + event.commandId)).events, [event])
+  assert.deepEqual((await journal(h, '?commandId=' + event.commandId)).events, retainedEvents.events.slice(1, 3))
   for (const who of [sales, agent, operator, q1]) {
     const denied = await h.request('/api/larder/audit/events?commandId=' + event.commandId, { as: who.cookie })
     assert.equal(denied.status, 403)
@@ -677,9 +678,11 @@ test('GOV-004 a changed BOM is followed through scheduling, operator correction,
   assert.equal(afterAppend.events.length, pages.length + 1)
   assert.equal(afterAppend.events.at(-1).source.id, extra.id)
   assert.deepEqual(afterAppend.events.slice(0, -1), pages)
+  assert.equal(afterAppend.events.at(-1).type, 'receipt.recorded', 'A receipt with a missing required inspection does not establish usable material')
   await assert.rejects(h.db.prepare('DELETE FROM larder_change_events').run(), /append_only_change_events/)
   await assert.rejects(h.db.prepare("UPDATE larder_change_events SET type='quality.held' WHERE seq=1").run(), /append_only_change_events/)
-  for (const restriction of [{ locations: [w.loc.id], costsRestricted: false }, { locations: null, costsRestricted: true }]) {
+  const site = await h.command('site.save', { name: 'synthetic-larder-event-site' })
+  for (const restriction of [{ locations: [w.loc.id], costsRestricted: false }, { locations: null, costsRestricted: true }, { sites: [site.id], locations: null, costsRestricted: false }]) {
     await h.command('member.scope', { operatorId: manager.id, ...restriction })
     const denied = await h.request('/api/larder/audit/events?after=0', { as: manager.cookie })
     assert.equal(denied.status, 403)
@@ -688,6 +691,11 @@ test('GOV-004 a changed BOM is followed through scheduling, operator correction,
   }
   await h.command('member.scope', { operatorId: manager.id, locations: null, costsRestricted: false })
   assert.deepEqual(await journal(h, '', manager.cookie), afterAppend)
+  await h.command('role.set', { operatorId: manager.id, role: 'warehouse' })
+  await h.command('count.schedule', { locationId: w.store.id, counterId: manager.id, itemId: w.board.id, scheduledOn: '2026-10-20', basis: 'bin' })
+  await h.command('role.set', { operatorId: manager.id, role: 'manager' })
+  assert.equal((await h.state(manager.cookie)).blindCounting, true)
+  assert.equal((await h.request('/api/larder/audit/events', { as: manager.cookie })).status, 403, 'An assigned blind count still hides journal facts after promotion')
   await h.command('role.set', { operatorId: manager.id, role: 'viewer' })
   assert.equal((await h.request('/api/larder/audit/events', { as: manager.cookie })).status, 403)
   await deactivate(h, manager)

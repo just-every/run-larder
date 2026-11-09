@@ -1,5 +1,5 @@
-import { journal } from './change-event-proof.mjs'
 import { resourceFixture, assertResourceJourney } from './resource-fixture.mjs'
+import { journal } from './change-event-proof.mjs'
 // The installation backup: what `rer export` writes restores with `rer import`
 // after `rer reset --yes`, with import applying the committed migrations
 // through the seed adapter and preserving every Larder record.
@@ -31,7 +31,8 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
   const packed = await h.command('shipment.pack', { shipmentId: sh.id, version: sh.version, packages: 1 })
   await h.command('shipment.ship', { shipmentId: sh.id, version: packed.version, carrier: 'Courier', tracking: 'synthetic-larder-920' })
   const po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-10-28', reason: 'Late supply', lines: [{ itemId: w.timber.id, quantity: '5', unitPrice: '9.5' }] })
-  await h.command('po.approve', { poId: po.id, version: po.version })
+  const approvedPo = await h.command('po.approve', { poId: po.id, version: po.version })
+  await h.command('po.confirm', { poId: po.id, version: approvedPo.version, supplierReference: 'synthetic-larder-921', source: 'phone', confirmedDate: '2026-10-28' })
   await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-921', lines: [{ lineId: po.lines[0].id, quantity: '1', locationId: w.store.id, lot: 'synthetic-larder-922', inspection: 'quarantine' }] })
   const late = (await h.state()).exceptions.find(x => x.key === `po-late:${po.id}`)
   assert.ok(late, 'Seed an ongoing late-supply exception')
@@ -71,9 +72,6 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
     retainedProposals.push({ prepared, outcome, commandId, type, payload })
   }
   const pending = await agent.run('proposal.prepare', { kind: plans[0][0], plan: plans[0][1], summary: 'Retained awaiting review', evidence: ['synthetic-larder-965'] })
-  const eventJournal = await journal(h)
-  assert.deepEqual(eventJournal.events.map(e => e.type), ['shipment.dispatched', 'receipt.recorded'])
-  const outboundBeforeBackup = h.outboundCount()
   const nativePo = await agent.run('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-11-04', reason: 'Retained native purchase', lines: [{ itemId: w.timber.id, quantity: '20', unitPrice: '9.5' }] })
   const nativePayload = { poId: nativePo.id, version: nativePo.version }
   const nativeFirst = await h.command('po.approve', nativePayload)
@@ -88,6 +86,9 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
     lines: shippedOrder.lines.map(l => ({ lineId: l.id, itemId: l.itemId, quantity: '3', unitPrice: '99', schedules: [{ quantity: '1', date: '2026-11-05' }] })) })
   const amendmentPayload = { previewId: amendment.id, version: amendment.version }, amendmentCommand = 'synthetic-larder-retained-commercial'
   const amendedOrder = await h.command('so.changeApprove', amendmentPayload, { commandId: amendmentCommand })
+  const eventJournal = await journal(h)
+  assert.deepEqual(eventJournal.events.map(e => e.type), ['shipment.dispatched', 'supplier.date-recorded', 'receipt.recorded'])
+  const outboundBeforeBackup = h.outboundCount()
   const before = await h.invariant(), archive = await businessArchive(h)
   assert.deepEqual(archive.changeEvents, eventJournal.events)
   assert.ok(before.positions.some(p => p.locationId === w.store.id && p.status === 'quarantine' && p.quantity === '1'))
@@ -270,17 +271,6 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   assert.equal(recoveryDecision.personDecision.actorId, reviewer.id)
   assert.deepEqual(recoveryDecision.decisionClassification.classes, ['standard'])
   assert.equal(recoveryDecision.decisionClassification.optionDigest, chosen.classification.optionDigest)
-  let eventPo = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-11-01', reason: 'Archived physical receipt', lines: [{ itemId: w.timber.id, quantity: '2', unitPrice: '9.5' }] })
-  eventPo = await h.command('po.approve', { poId: eventPo.id, version: eventPo.version })
-  const eventPayload = { poId: eventPo.id, supplierReference: 'synthetic-larder-event-archive', documents: [{ ...originalFile, name: 'synthetic-larder-delivery.txt' }], lines: [{ lineId: eventPo.lines[0].id, quantity: '1', locationId: w.loc.id, lot: 'synthetic-larder-event-archive' }] }
-  const eventId = 'synthetic-larder-event-archive'
-  const priorEvents = (await journal(h)).events
-  await h.command('receipt.create', eventPayload, { commandId: eventId })
-  const eventJournal = await journal(h)
-  assert.equal(eventJournal.events.length, priorEvents.length + 1)
-  assert.deepEqual(eventJournal.events.slice(0, priorEvents.length), priorEvents)
-  const receiptEvents = eventJournal.events.filter(event => event.commandId === eventId)
-  assert.equal(receiptEvents.length, 1)
   const engineer = await h.person(['synthetic-larder-971', 'example.test'].join('@'), 'engineer')
   const engineeringItem = await h.command('item.save', { sku: 'synthetic-larder-972', name: 'Archived engineering item', kind: 'make', baseUnit: 'each' })
   await h.command('bom.revise', { itemId: engineeringItem.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Review', minutes: 1, instructions: 'Follow the retained drawing', drawings: [evidence('Engineering source drawing')] }] })
@@ -294,6 +284,14 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   const engineeringInput = { changeId: engineeringPrepared.id, version: engineeringPrepared.version }, engineeringCommand = 'synthetic-larder-engineering-backup'
   const engineeringApproved = await h.command('engineering.approve', engineeringInput, { commandId: engineeringCommand })
   const engineeringPending = await engineer.run('engineering.propose', await engineeringPayload('Unapproved engineering evidence'))
+  let eventPo = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-11-01', reason: 'Archived physical receipt', lines: [{ itemId: w.timber.id, quantity: '2', unitPrice: '9.5' }] })
+  eventPo = await h.command('po.approve', { poId: eventPo.id, version: eventPo.version })
+  eventPo = await h.command('po.confirm', { poId: eventPo.id, version: eventPo.version, supplierReference: 'synthetic-larder-date-archive', source: 'portal', confirmedDate: '2026-11-02' })
+  const eventPayload = { poId: eventPo.id, supplierReference: 'synthetic-larder-event-archive', documents: [{ ...originalFile, name: 'synthetic-larder-delivery.txt' }], lines: [{ lineId: eventPo.lines[0].id, quantity: '1', locationId: w.loc.id, lot: 'synthetic-larder-event-archive' }] }
+  const eventId = 'synthetic-larder-event-archive'
+  await h.command('receipt.create', eventPayload, { commandId: eventId })
+  const eventJournal = await journal(h)
+  assert.deepEqual(eventJournal.events.map(e => e.type), ['receipt.recorded', 'material.usable', 'work.output-recorded', 'material.usable', 'shipment.dispatched', 'supplier.date-recorded', 'receipt.recorded', 'material.usable'])
   const archive = await (await h.request('/api/larder/archive')).json()
   assert.deepEqual(archive.changeEvents, eventJournal.events)
   const csv = await (await h.request('/api/larder/archive.csv')).text()
@@ -322,7 +320,7 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   assert.equal((await target.request('/api/larder/audit/events', { as: reviewer.cookie })).status, 401)
   await target.command('receipt.create', eventPayload, { commandId: eventId, error: 'IDEMPOTENCY' })
   assert.deepEqual(await journal(target), eventJournal)
-  const eventEvidence = receiptEvents[0].evidence[0]
+  const eventEvidence = eventJournal.events.find(e => e.commandId === eventId && e.type === 'receipt.recorded').evidence[0]
   assert.equal(digest(Buffer.from(await (await target.request(eventEvidence.href)).arrayBuffer())), eventEvidence.sha256)
   assert.deepEqual(again.unmappedRoles, archive.records.roles)
   assert.deepEqual(again.unmappedRoles.find(r => r.id === viewer.id).scopeClassification, laterScope.scopeClassification)
