@@ -223,6 +223,12 @@
       "sha256": "9ad4558a66c85f58b28e80e22199a87e1fb73dbc3139452a336a0a8e7e587775"
     },
     {
+      "blob": "bed7c1e7dbfde07ddfe533f777dcf057a248db6a",
+      "bytes": 6305,
+      "path": "packet-review.json",
+      "sha256": "2e8f1b6439bfa3d022c81a28c382116eae1218500f6228c3a08ded6d51bc6f44"
+    },
+    {
       "blob": "de85e337291f5f71547e57ef6aef890bd5ed01aa",
       "bytes": 75,
       "path": "product-ref.txt",
