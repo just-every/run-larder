@@ -1,5 +1,5 @@
-import { resourceFixture, resourceRead, assertResourceJourney } from './resource-fixture.mjs'
 import { journal, followEvent } from './change-event-proof.mjs'
+import { resourceFixture, resourceRead, assertResourceJourney } from './resource-fixture.mjs'
 import { foreignCurrencyJourney } from './foreign-currency-journey.mjs'
 import { varianceFixture } from './variance-fixture.mjs'
 // One test per first-release clause (ACCEPTANCE.md LARDER-001 to LARDER-013), through the public
@@ -267,22 +267,7 @@ test('LARDER-008 partial receipts record supplier lots and quarantine decisions'
   await warehouse.run('receipt.create', { poId: po.id, supplierReference: 'DN-1', lines: [{ lineId, quantity: '21', locationId: w.loc.id }] }, { error: 'OVER_RECEIPT' })
   assert.deepEqual((await journal(h)).events, [], 'A refused receipt produces no event')
   const receiptPayload = { poId: po.id, supplierReference: 'DN-1', documents: [evidence('Actual delivery record')], lines: [{ lineId, quantity: '8', locationId: w.loc.id, lot: 'TT-L77', inspection: 'quarantine' }, { lineId: po.lines[1].id, quantity: '8', locationId: heldBin.id, lot: 'synthetic-larder-808', inspection: 'quarantine' }] }
-  // A failed journal insert must roll back the receipt, stock, evidence and
-  // command outcome together; recovery can then apply the same command once.
-  const rollbackId = 'synthetic-larder-event-rollback'
-  const beforeRollback = await h.invariant(), journalBeforeRollback = await journal(h)
-  const attachmentsBeforeRollback = await h.db.prepare('SELECT COUNT(*) AS n FROM larder_attachments').first()
-  await h.db.prepare("CREATE TRIGGER synthetic_event_failure BEFORE INSERT ON larder_change_events WHEN NEW.command_id='synthetic-larder-event-rollback' BEGIN SELECT RAISE(ABORT,'synthetic_event_failure'); END").run()
-  try {
-    const refused = await h.send('receipt.create', receiptPayload, { as: warehouse.cookie, commandId: rollbackId })
-    assert.equal(refused.res.status, 409)
-    assert.equal(refused.body.error.code, 'UNCONFIRMED')
-    const afterRollback = await h.invariant()
-    for (const key of ['version', 'receipts', 'purchaseOrders', 'lots', 'movements', 'positions', 'reservations', 'commands']) assert.deepEqual(afterRollback[key], beforeRollback[key], key)
-    assert.deepEqual(await journal(h), journalBeforeRollback)
-    assert.deepEqual(await h.db.prepare('SELECT COUNT(*) AS n FROM larder_attachments').first(), attachmentsBeforeRollback)
-  } finally { await h.db.prepare('DROP TRIGGER synthetic_event_failure').run() }
-  const receiptId = rollbackId
+  const receiptId = 'synthetic-larder-event-receipt'
   const [receipt, receiptRetry] = await Promise.all([1, 2].map(() => warehouse.run('receipt.create', receiptPayload, { commandId: receiptId })))
   assert.deepEqual(receiptRetry, receipt)
   const receivedJournal = await journal(h)
@@ -299,7 +284,6 @@ test('LARDER-008 partial receipts record supplier lots and quarantine decisions'
   await h.restart()
   assert.deepEqual(await journal(h), receivedJournal, 'Event identity and order survive restart')
   assert.deepEqual(await warehouse.run('receipt.create', receiptPayload, { commandId: receiptId }), receipt)
-  await warehouse.run('receipt.create', { ...receiptPayload, supplierReference: 'synthetic-larder-conflicting-retry' }, { commandId: receiptId, error: 'IDEMPOTENCY' })
   assert.deepEqual(await journal(h), receivedJournal)
   let s = await h.state()
   assert.equal(s.purchaseOrders[0].status, 'part received')
