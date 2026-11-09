@@ -42,7 +42,12 @@ export function visibleState(s: State, scope: Scope): Visible {
     if (!grew) break
   }
   const out = { ...s } as State
-  for (const k of collections) (out as any)[k] = base.has(k) ? s[k].filter(r => !hidden.has(r.id)).map(r => scrub(r, hidden)) : s[k].filter(r => !hidden.has(r.id))
+  for (const k of collections) (out as any)[k] = base.has(k) ? s[k].filter(r => !hidden.has(r.id)).map(r => {
+    // A global revision stays visible, but its engineering decision may name
+    // stock or work outside this member's current reach. Withhold it whole.
+    const { engineeringDecision, ...record } = r
+    return scrub(engineeringDecision && names(engineeringDecision, hidden) ? record : r, hidden)
+  }) : s[k].filter(r => !hidden.has(r.id))
   out.locations = s.locations.filter(l => scope.locations!.includes(l.id))
   out.movements = s.movements.filter(m => !hidden.has(m.id) && keep(m))
   out.reservations = s.reservations.filter(r => !hidden.has(r.id) && keep(r))

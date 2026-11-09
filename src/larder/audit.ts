@@ -90,10 +90,11 @@ export function auditEntries(c: Context, before: State, type: string, payload: a
   const out: AuditEntry[] = []
   const add = (kind: string, subjectId: string, subjectVersion: number, op: AuditEntry['op'], was: unknown, now: unknown, full: unknown = now) => {
     if (kind === 'varianceAnalyses') { was = digest(was); now = digest(now); full = { subjectId } }
-    // Keep exact scope deltas and reviewed commercial terms, including nested
-    // dated promises, rather than replacing decision facts with size digests.
+    // Keep exact scope deltas, engineering decisions and reviewed commercial
+    // terms, including nested dated promises, instead of size digests.
     // Credential and document scrubbing still applies to every field.
     const retainStructure = (kind === 'roles' && type === 'member.scope') ||
+      (['engineeringChanges', 'boms'].includes(kind) && type.startsWith('engineering.')) ||
       (['purchaseOrders', 'approvals', 'approvalSignatures', 'salesOrders', 'orderChanges'].includes(kind) && ['po.draft', 'po.selectQuote', 'po.amend', 'po.approve', 'so.changePreview', 'so.changeApprove'].includes(type))
     out.push({
       id: `${c.commandId}:${out.length}`, at: c.now, actorId: c.actor.id, actorName: c.actor.agentDoor ? `${c.actor.agentDoor.name} for ${c.actor.name}` : c.actor.name, actorRole: c.actor.role, source, commandId: c.commandId, commandType: type,
