@@ -12,7 +12,7 @@ export const restrictedRecord = 'restricted record'
 // Base records follow the role alone (rule 3); their per-location entries are scrubbed instead of hiding the record.
 // A lot is judged by its stock: it stays while any of its movements is visible, minus references to hidden records.
 const base = new Set(['items', 'parties', 'partyItems', 'boms', 'roles', 'customRoles', 'lots'])
-const idKeys = ['id', 'itemId', 'workOrderId', 'orderId', 'lotId', 'key', 'poId', 'customerId', 'supplierId', 'partyId']
+const idKeys = ['id', 'itemId', 'workOrderId', 'orderId', 'lotId', 'key', 'poId', 'customerId', 'supplierId', 'partyId', 'bookingId', 'planId']
 
 function scrub(value: any, hidden: Set<string>): any {
   if (Array.isArray(value)) return value.filter(v => !names(v, hidden)).map(v => scrub(v, hidden))

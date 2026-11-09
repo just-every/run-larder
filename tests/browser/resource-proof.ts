@@ -81,6 +81,27 @@ export async function resourceScreens(page: Page, browser: Browser) {
         await member.goto(origin + '/app#' + hash); await member.reload()
         await expect(member.locator('main')).toHaveAttribute('aria-busy', 'false')
         await expect(member.locator('main')).toContainText(text)
+        if (name === 'receipt') {
+          const purchase = member.locator('section.card').filter({ has: member.getByRole('heading', { name: new RegExp(f.purchase.reference) }) })
+          const line = purchase.getByRole('row').filter({ hasText: f.input.name })
+          await expect(line.getByRole('cell').nth(1)).toHaveText('10 each')
+          await expect(line.getByRole('cell').nth(2)).toHaveText(receipt.data.lines[0].quantity)
+        }
+        if (name === 'output') {
+          const job = native.workOrders.find((w: any) => w.id === f.work.id)
+          expect(job.outputs.map((o: any) => o.good)).toEqual(['1', '3'])
+          await expect(member.locator('main')).toContainText('Output 4 · scrap 0')
+        }
+        if (name === 'shipment') {
+          const parcel = member.locator('article.shipment').filter({ hasText: f.shipment.reference })
+          await expect(parcel.getByRole('listitem')).toContainText(`2 ${f.output.name} from ${f.loc.name}`)
+          await expect(parcel.getByRole('listitem')).toContainText('lot ' + native.lots.find((l: any) => l.id === f.batch.lotId).code)
+        }
+        if (name === 'lots') {
+          const positions = member.locator('section.card').filter({ has: member.getByRole('heading', { name: 'By location', exact: true }) })
+          const lot = native.lots.find((l: any) => l.id === f.batch.lotId)
+          await expect(positions.getByRole('row').filter({ hasText: lot.code }).getByRole('cell').nth(4)).toHaveText('1')
+        }
         if (name === 'output') await expect(member.locator('main')).toContainText(role === 'operator' ? 'restricted' : '$29.00')
         if (role === 'operator') await expect(member.locator('main')).not.toContainText('$7.25')
         await shot(member, 'SURFACE-007-' + role + '-' + name)

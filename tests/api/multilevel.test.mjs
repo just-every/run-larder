@@ -2,9 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { installation, evidence, parse } from './harness.mjs'
 
-const date = days => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10)
+const now = '2026-11-09T12:00:00.000Z'
+const date = days => new Date(Date.parse(now) + days * 86400000).toISOString().slice(0, 10)
 test('ENG-001 three-level shared netting, stocked subassembly, phantom/yield/make-buy choices, effective cycles and immutable released recipes', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const item = async (sku, kind = 'make') => h.command('item.save', { sku, name: sku, kind, baseUnit: 'each', standardCost: '2' })
   const raw = await item('ALLOY', 'buy'), left = await item('LEFT'), right = await item('RIGHT'), kit = await item('FASTENER-KIT'), product = await item('FRAME')
   const location = await h.command('location.save', { name: 'Ohio production stores' })
@@ -78,7 +79,7 @@ test('ENG-001 three-level shared netting, stocked subassembly, phantom/yield/mak
 // MRP-001 remains partial: these journeys prove dated physical/purchase
 // coverage and current physical floors, not multilevel WIP feasibility or approval of a dated plan.
 test('MRP-001 dated physical and PO pools never cover earlier demand with late, held, expired, overdue or draft supply', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const location = await h.command('location.save', { name: 'MRP dated stores' })
   const raw = await h.command('item.save', { sku: 'MRP-RAW', name: 'Dated raw material', kind: 'buy', baseUnit: 'each' })
   const supplier = await h.command('party.save', { name: 'Dated Components', kind: 'supplier' })
@@ -108,6 +109,7 @@ test('MRP-001 dated physical and PO pools never cover earlier demand with late, 
   const snapshot = await h.state(), outbound = h.outboundCount()
   const plan = await read(), row = id => plan.requirements.find(r => r.documentId === id)
   assert.equal(plan.version, snapshot.version)
+  assert.deepEqual([plan.provenance.kind, plan.provenance.inputVersion, plan.provenance.asOf, plan.provenance.adopted, plan.provenance.finiteFeasibility], ['informational-material-allocation', snapshot.version, date(0), false, 'not-evaluated'])
   assert.deepEqual([boundary, before, on, after].map(o => [row(o.id).covered, row(o.id).shortage]), [['3', '0'], ['1', '5'], ['7', '0'], ['3', '2']])
   assert.deepEqual(row(boundary.id).sources.map(s => [s.reference, s.quantity]).sort(), [['EXPIRES-BOUNDARY', '2'], ['RETEST-BOUNDARY', '1']])
   assert.deepEqual(row(before.id).sources.map(s => [s.reference, s.quantity]), [['LONG-LIFE', '1']])
@@ -153,7 +155,7 @@ test('MRP-001 dated physical and PO pools never cover earlier demand with late, 
 })
 
 test('MRP-001 protects each reservation bin on its demand date, pins released inputs and restores the read-only projection without treating unproven WIP as feasible supply', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const a = await h.command('location.save', { name: 'Reserved bin A' }), b = await h.command('location.save', { name: 'Free bin B' })
   const item = async (sku, kind = 'buy') => h.command('item.save', { sku, name: sku, kind, baseUnit: 'each' })
   const expiring = await item('MRP-RES-EXP'), long = await item('MRP-RES-LONG'), product = await item('MRP-PRODUCT', 'make')
@@ -194,7 +196,7 @@ test('MRP-001 protects each reservation bin on its demand date, pins released in
   // MOVE-008 inheritance: this computed view is reproducible from the complete
   // business archive. Reading it creates no new command, file or remote effect.
   const archive = await (await h.request('/api/larder/archive')).json()
-  const target = await installation(); t.after(() => target.close())
+  const target = await installation({ now }); t.after(() => target.close())
   const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })
   assert.equal(restored.status, 200, await restored.text())
   const copy = await read(target)
@@ -210,7 +212,7 @@ test('MRP-001 protects each reservation bin on its demand date, pins released in
 })
 
 test('MRP-001 current safety floors share bins once, follow catalog edits, protect hard commitments and never treat expected or held stock as physical cover', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const a = await h.command('location.save', { name: 'Floor bin A' }), b = await h.command('location.save', { name: 'Floor bin B' })
   const alias = await h.command('location.save', { name: 'Catalog alias for A' })
   const customer = await h.command('party.save', { name: 'Safety floor customer', kind: 'customer' })
@@ -268,7 +270,7 @@ test('MRP-001 current safety floors share bins once, follow catalog edits, prote
   assert.match(plan.limitations.join(' '), /automatic adoption is not applied; open supply restores an uncovered floor/)
   assert.deepEqual(await read(h), plan); assert.deepEqual(await h.state(), before); assert.equal(h.outboundCount(), outbound)
   await h.restart(); assert.deepEqual(await read(h), plan)
-  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation({ now }); t.after(() => target.close())
   const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restored.status, 200, await restored.text())
   const copy = await read(target)
   for (const key of ['requirements', 'unverifiedReservations', 'provisionalSupply', 'excludedStock', 'scope', 'limitations']) assert.deepEqual(copy[key], plan[key], key)
@@ -287,7 +289,7 @@ test('MRP-001 current safety floors share bins once, follow catalog edits, prote
 })
 
 test('MRP-001 dated multilevel pegs share stock and ETA pools, honor make/buy/phantom and aggregate yields, and disclose unresolved work without duplicate explosion', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const item = async (sku, kind = 'make') => h.command('item.save', { sku, name: sku, kind, baseUnit: 'each' })
   const raw = await item('DATED-ALLOY', 'buy'), deep = await item('DATED-INNER'), left = await item('DATED-LEFT')
   const right = await item('DATED-RIGHT'), kit = await item('DATED-KIT'), product = await item('DATED-FRAME')
@@ -362,7 +364,7 @@ test('MRP-001 dated multilevel pegs share stock and ETA pools, honor make/buy/ph
   assert.ok(blocked.provisionalSupply.some(r => r.documentId === released.id && r.quantity === '1'))
   const before = await h.state(); assert.deepEqual(await read(h), blocked); assert.deepEqual(await h.state(), before)
   await h.restart(); assert.deepEqual(await read(h), blocked)
-  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation({ now }); t.after(() => target.close())
   const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restored.status, 200, await restored.text())
   const copy = await read(target)
   for (const key of ['requirements', 'blockedExplosions', 'unverifiedReservations', 'provisionalSupply', 'excludedStock', 'scope', 'limitations']) assert.deepEqual(copy[key], blocked[key], key)
@@ -371,7 +373,7 @@ test('MRP-001 dated multilevel pegs share stock and ETA pools, honor make/buy/ph
 
 
 test('MRP-001 manufacturing offsets reject completion-day material, follow multilevel full-batch routing and keep released timing pinned across edits and restore', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const item = async (sku, kind = 'make') => h.command('item.save', { sku, name: sku, kind, baseUnit: 'each' })
   const raw = await item('OFFSET-RAW', 'buy'), sub = await item('OFFSET-SUB'), kit = await item('OFFSET-PHANTOM'), top = await item('OFFSET-FINISHED')
   const bin = await h.command('location.save', { name: 'Offset materials' })
@@ -464,7 +466,7 @@ test('MRP-001 manufacturing offsets reject completion-day material, follow multi
   const stable = state => ({ ...state, dispatch: state.dispatch.map(({ asOf, ...facts }) => facts) })
   const finalState = stable(await h.state()); assert.deepEqual(await read(h), exact); assert.deepEqual(stable(await h.state()), finalState)
   await h.restart(); assert.deepEqual(await read(h), exact)
-  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation({ now }); t.after(() => target.close())
   const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restored.status, 200, await restored.text())
   const copy = await read(target)
   for (const key of ['requirements', 'blockedExplosions', 'unverifiedReservations', 'provisionalSupply', 'excludedStock', 'scope', 'limitations']) assert.deepEqual(copy[key], exact[key], key)
@@ -472,7 +474,7 @@ test('MRP-001 manufacturing offsets reject completion-day material, follow multi
 })
 
 test('MRP-002 follows shared dated supply to customer demand and back through PO lines and received lots without changing commitments', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const item = async (sku, kind = 'buy') => h.command('item.save', { sku, name: sku, kind, baseUnit: 'each' })
   const raw = await item('PEG-RAW'), left = await item('PEG-LEFT', 'make'), right = await item('PEG-RIGHT', 'make'), product = await item('PEG-PRODUCT', 'make')
   const location = await h.command('location.save', { name: 'Pegging stores' })
@@ -505,6 +507,8 @@ test('MRP-002 follows shared dated supply to customer demand and back through PO
   const total = pegs => pegs.reduce((n, p) => n + parse(p.source.quantity), 0n)
   const snapshot = await h.state(), outbound = h.outboundCount()
   const component = await read('item', raw.id), forward = await read('sales', made.id)
+  assert.deepEqual(component.provenance, { kind: 'informational-material-allocation', inputVersion: snapshot.version, asOf: date(0), timeBasis: 'UTC calendar day', adopted: false, finiteFeasibility: 'not-evaluated' })
+  assert.deepEqual(forward.provenance, component.provenance)
   assert.equal(total(component.pegs), parse('5.5'))
   assert.equal(total(forward.pegs), parse('2'))
   assert.ok(forward.pegs.every(p => p.demand.itemId === raw.id && p.demand.path.length === 2 && p.demand.path[0].bomId === bom.id))
@@ -568,20 +572,20 @@ test('MRP-002 follows shared dated supply to customer demand and back through PO
   const beforeRead = await h.state(), beforeOutbound = h.outboundCount(), saved = await read('item', raw.id)
   await h.restart(); assert.deepEqual(await read('item', raw.id), saved)
   assert.deepEqual(await h.state(), beforeRead); assert.equal(h.outboundCount(), beforeOutbound)
-  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation({ now }); t.after(() => target.close())
   const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restored.status, 200, await restored.text())
   for (const [kind, id] of [['item', raw.id], ['purchase', po.id], ['receipt', receipt.id], ['work', work.id]]) {
     const original = await read(kind, id), copy = await read(kind, id, undefined, target)
-    for (const field of ['requirements', 'pegs', 'lateCandidates', 'allocatedSalesOrders', 'untrackedReceiptLines', 'blockedExplosions']) assert.deepEqual(copy[field], original[field])
+    for (const field of ['provenance', 'requirements', 'pegs', 'lateCandidates', 'allocatedSalesOrders', 'untrackedReceiptLines', 'blockedExplosions']) assert.deepEqual(copy[field], original[field])
   }
-  assert.equal((await h.request(url('item', raw.id), { as: '' })).status, 401)
+  for (const path of [url('item', raw.id), '/api/larder/planning/materials', '/api/larder/scheduling/finite?asOf=' + date(0) + 'T12:00:00Z']) assert.equal((await h.request(path, { as: '' })).status, 401)
   const reader = await h.person('pegging-planner@example.test', 'planner')
   assert.equal((await h.request(url('item', raw.id), { as: reader.cookie })).status, 200)
   assert.equal((await h.request('/auth/operator/status', { method: 'POST', body: { operatorId: reader.id, status: 'inactive' } })).status, 200)
   assert.equal((await h.request(url('item', raw.id), { as: reader.cookie })).status, 401)
   const counter = await h.person('pegging-counter@example.test', 'warehouse')
   await h.command('count.schedule', { locationId: location.id, scheduledOn: date(0), basis: 'bin', counterId: counter.id, recountTolerance: '0' })
-  assert.equal((await h.request(url('item', raw.id), { as: counter.cookie })).status, 403)
+  for (const path of [url('item', raw.id), '/api/larder/planning/materials', '/api/larder/scheduling/finite?asOf=' + date(0) + 'T12:00:00Z']) assert.equal((await h.request(path, { as: counter.cookie })).status, 403)
   assert.equal((await (await h.request(url('item', raw.id, 'not-an-item-option'))).json()).error.code, 'INPUT')
   assert.equal((await (await h.request(url('purchase', po.id, direct.lines[0].id))).json()).error.code, 'NOT_FOUND')
   await h.invariant()
@@ -589,7 +593,7 @@ test('MRP-002 follows shared dated supply to customer demand and back through PO
 
 
 test('MRP-006 dated drafts preserve reviewed quantities, release dates and source paths with stale, duplicate, policy and live-authority guards across restart and restore', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const raw = await h.command('item.save', { sku: 'DATED-DRAFT-RAW', name: 'Dated draft raw', kind: 'buy', baseUnit: 'kg' })
   const made = await h.command('item.save', { sku: 'DATED-DRAFT-MADE', name: 'Dated draft product', kind: 'make', baseUnit: 'each' })
   const unknown = await h.command('item.save', { sku: 'DATED-DRAFT-UNKNOWN', name: 'Unrecorded routing', kind: 'make', baseUnit: 'each' })
@@ -687,7 +691,7 @@ test('MRP-006 dated drafts preserve reviewed quantities, release dates and sourc
   for (const original of beforeRace.salesOrders) assert.deepEqual(after.salesOrders.find(o => o.id === original.id), original)
   assert.equal(h.outboundCount(), outbound)
   const savedPlan = await read(); await h.restart(); assert.deepEqual(await read(), savedPlan)
-  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation({ now }); t.after(() => target.close())
   const csv = await (await h.request('/api/larder/archive.csv')).text()
   const decoded = { records: {} }
   for (const match of csv.matchAll(/^"((?:[^"]|"")*)","((?:[^"]|"")*)","((?:[^"]|"")*)"\r?$/gm)) {
