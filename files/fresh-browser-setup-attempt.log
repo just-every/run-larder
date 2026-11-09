@@ -1,0 +1,70 @@
+──────────────────────────┼────────┤
+│ 0016_audit.sql                  │ ✅     │
+├─────────────────────────────────┼────────┤
+│ 0017_audit_erasure.sql          │ ✅     │
+├─────────────────────────────────┼────────┤
+│ 0018_audit_erasure_scope.sql    │ ✅     │
+├─────────────────────────────────┼────────┤
+│ 0019_dependency_keys_sealed.sql │ ✅     │
+├─────────────────────────────────┼────────┤
+│ 0020_service_keys.sql           │ ✅     │
+├─────────────────────────────────┼────────┤
+│ 0021_report_sessions.sql        │ ✅     │
+├─────────────────────────────────┼────────┤
+│ 0022_agent_door.sql             │ ✅     │
+├─────────────────────────────────┼────────┤
+│ 0023_business_settings.sql      │ ✅     │
+├─────────────────────────────────┼────────┤
+│ 0024_business_people.sql        │ ✅     │
+├─────────────────────────────────┼────────┤
+│ 0025_agent_attribution.sql      │ ✅     │
+└─────────────────────────────────┴────────┘
+Applied local migrations: 0001_owner.sql, 0002_outbox.sql, 0003_portability.sql, 0004_first_run.sql, 0005_identity_providers.sql, 0006_provider_control.sql, 0007_dependencies.sql, 0008_owner_claim.sql, 0009_idp_owner.sql, 0010_provider_pins.sql, 0011_dependency_setup.sql, 0011_erasure.sql, 0012_dependency_approval.sql, 0013_larder.sql, 0014_import_kit.sql, 0015_owner_signin.sql, 0016_audit.sql, 0017_audit_erasure.sql, 0018_audit_erasure_scope.sql, 0019_dependency_keys_sealed.sql, 0020_service_keys.sql, 0021_report_sessions.sql, 0022_agent_door.sql, 0023_business_settings.sql, 0024_business_people.sql, 0025_agent_attribution.sql
+Starting your application on this computer
+▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+
+
+Using secrets defined in .dev.vars
+9:29:28 AM [vite] (ssr) [optimizer] scanning dependencies...
+Starting your application on this computer (waiting for the bound internal listener): Still starting (30 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (31 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (32 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (33 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (34 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (35 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (37 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (38 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (39 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (40 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (41 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (42 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (44 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (45 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (46 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (47 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (48 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (49 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (50 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (51 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (52 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (53 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (54 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (55 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (56 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (57 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (58 s)
+Starting your application on this computer (waiting for the bound internal listener): Still starting (59 s)
+Application listened on port 33873, 37781, 43349; readiness failed for GET [REDACTED]/health through expected internal port 61378. Check application health and the runtime target's port binding.
+Starting your application on this computer (waiting for the bound internal listener): readiness deadline exceeded (exit none, signal none). Last health: Waiting for the application listener handshake.
+Installation stopped while starting the application. Ask your agent to check the edition's operating command for that step, correct the cause, then select Start again. Your setup answers are saved; you may need to supply credentials again.
+Command: /home/agent/.rer/node/node-v22.20.0-linux-x64/bin/node
+Last output (up to 40 lines):
+▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+
+
+Using secrets defined in .dev.vars
+9:29:28 AM [vite] (ssr) [optimizer] scanning dependencies...
+Log: [REDACTED]/.seed/installer/install.log
+Application listened on port 33873, 37781, 43349; readiness failed for GET [REDACTED]/health through expected internal port 61378. Check application health and the runtime target's port binding.
+setup: failed (exit 1)
+

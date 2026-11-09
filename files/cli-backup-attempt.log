@@ -1,0 +1,52 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✖ LARDER-020 an installation backup restores into a reset installation (200781.592818ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 204617.058062
+
+✖ failing tests:
+
+test at tests/api/backup.test.mjs:23:1
+✖ LARDER-020 an installation backup restores into a reset installation (200781.592818ms)
+  Error: Command failed: pnpm exec rer export --output exports/installation.rer
+  Heavy job admitted: Larder export:workflow [307afe31a5c7]
+  Checking pinned pnpm
+  10.12.4
+  Local export
+  ▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+  
+  
+  Checking migration history for local installation data
+  ▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+  
+  
+  Exporting local installation data
+  Exporting about 5.7 MB of local data. This takes under a minute.
+  ▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+  
+  
+  Building the archive: 1 part so far (1.3 KB of about 5.7 MB).
+  Building the archive: 4 parts so far (297 KB of about 5.7 MB), about 1 min left.
+  Building the archive: 6 parts so far (403 KB of about 5.7 MB), about 1 min left.
+  
+      at genericNodeError (node:internal/errors:985:15)
+      at wrappedFn (node:internal/errors:539:14)
+      at ChildProcess.exithandler (node:child_process:417:12)
+      at ChildProcess.emit (node:events:509:28)
+      at ChildProcess.emit (node:domain:489:12)
+      at maybeClose (node:internal/child_process:1141:16)
+      at ChildProcess._handle.onexit (node:internal/child_process:306:5) {
+    code: null,
+    killed: true,
+    signal: 'SIGTERM',
+    cmd: 'pnpm exec rer export --output exports/installation.rer',
+    stdout: 'Using project Node 22.20.0 (current Node 24.19.0).\n',
+    stderr: "Heavy job admitted: Larder export:workflow [307afe31a5c7]\nChecking pinned pnpm\n10.12.4\nLocal export\n▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.\n\n\nChecking migration history for local installation data\n▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.\n\n\nExporting local installation data\nExporting about 5.7 MB of local data. This takes under a minute.\n▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.\n\n\nBuilding the archive: 1 part so far (1.3 KB of about 5.7 MB).\nBuilding the archive: 4 parts so far (297 KB of about 5.7 MB), about 1 min left.\nBuilding the archive: 6 parts so far (403 KB of about 5.7 MB), about 1 min left.\n"
+  }

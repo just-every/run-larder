@@ -1,0 +1,25 @@
+{
+  "head": "d17ca2243fc2798b7dadbe8e946b8a061f95bf2e",
+  "remote_product_ref": "d17ca2243fc2798b7dadbe8e946b8a061f95bf2e",
+  "main": "171f7266ef82b5973a5d5036a37e60e5f6c6ea43",
+  "main_is_ancestor": true,
+  "main_equals_candidate": false,
+  "worktree_clean": true,
+  "generated_views_in_product_diff": false,
+  "contract_cells_changed": false,
+  "workflow_or_pin_changed": false,
+  "product_files": [
+    "API.md",
+    "sources.lock.json",
+    "src/larder/api.ts",
+    "src/larder/attachments.ts",
+    "src/larder/count-visibility.ts",
+    "src/larder/public-api.ts",
+    "tests/api/authority.test.mjs",
+    "tests/api/backup.test.mjs",
+    "tests/api/flows.test.mjs",
+    "tests/api/resource-fixture.mjs",
+    "tests/browser/journey.spec.ts",
+    "tests/browser/resource-proof.ts"
+  ]
+}

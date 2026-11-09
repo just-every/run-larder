@@ -1,0 +1,26 @@
+{
+  "tag": "sx-larder-c-f606",
+  "fresh_browser_setup": {
+    "result": "failed before Playwright",
+    "failure": "Native internal listener readiness deadline exceeded; expected health port was not ready within launcher deadline."
+  },
+  "initialized_rer_dev": {
+    "result": "intermittent",
+    "failure": "One launch served the app; another exceeded the internal listener deadline."
+  },
+  "cold_browser": {
+    "result": "failed before target resource checks",
+    "failure": "Existing What needs attention assertion reached Loading your records after the default five-second wait."
+  },
+  "cli_backup_attempt": {
+    "result": "subprocess timeout",
+    "command": "pnpm exec rer export --output exports/installation.rer",
+    "failure": "The two-minute harness limit expired while building a 5.7 MB archive after adding the new fixture. The new resource proof was moved to the existing HTTP archive journey; baseline CLI assertions are unchanged."
+  },
+  "native_proof_route": "Initialized native Vite Worker with existing D1 and documented local dev sign-in; external expectation wait bounded at 30 seconds; no production pin or launcher change.",
+  "credentials_or_environment_dump_included": false,
+  "browser_scope_comparison": {
+    "observed": "The browser state fetch consumed a preload issued before role and scope changes; direct detail GETs correctly returned restricted costs.",
+    "resolution": "Reload the native page after changing test membership; assert its current role and scope before comparing the projections. No product authority rule was weakened."
+  }
+}

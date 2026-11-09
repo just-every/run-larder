@@ -1,0 +1,7 @@
+{
+  "changed_registration_lines": [
+    "-test('owner runs an order from Odoo move-in to accountant handoff at 1440px', async ({ page }) => {",
+    "+test('owner runs an order from Odoo move-in to accountant handoff at 1440px', async ({ page, browser }) => {"
+  ],
+  "result": "Existing owner journey receives a browser fixture parameter; no registration is added or removed."
+}

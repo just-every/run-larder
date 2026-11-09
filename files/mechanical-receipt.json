@@ -1,0 +1,93 @@
+{
+  "head": "d17ca2243fc2798b7dadbe8e946b8a061f95bf2e",
+  "branch": "cloud/sx-larder-c-f606",
+  "contract_status_diff": "",
+  "checks": [
+    {
+      "command": "npx -y @runeditrun/rer build",
+      "exit": 0,
+      "log": "build.log"
+    },
+    {
+      "command": "pnpm run typecheck",
+      "exit": 0,
+      "log": "typecheck.log"
+    },
+    {
+      "command": "npx -y @runeditrun/rer check --profile first-party",
+      "exit": 0,
+      "log": "first-party.log"
+    },
+    {
+      "command": "node src/base/contract-docs.mjs write",
+      "exit": 0,
+      "log": "views-write.log"
+    },
+    {
+      "command": "node src/base/contract-docs.mjs check",
+      "exit": 0,
+      "log": "views-check.log"
+    },
+    {
+      "command": "node scripts/edition-authoring/cli.mjs lock",
+      "exit": 0,
+      "log_sha256": "b87908a24dfe357c25a197d7389703b91f67ccc58fe05a43175a8d559570d2db"
+    },
+    {
+      "command": "node scripts/edition-authoring/cli.mjs check",
+      "exit": 0,
+      "log_sha256": "a5d5d4e6f2168b6a86afe67f64927a004da46101d0e2a3e25a543789ad36f2ae"
+    }
+  ],
+  "generated_views_committed": false,
+  "migration_ledger": {
+    "command": "none",
+    "reason": "No migration changed"
+  },
+  "permanent_test_registrations_added": 0,
+  "browser": {
+    "head_source_bytes": "d17ca2243fc2798b7dadbe8e946b8a061f95bf2e",
+    "helper": "tests/browser/resource-proof.ts",
+    "result": "passed",
+    "assert_width": 1440,
+    "capture_widths": [
+      1440,
+      390
+    ],
+    "captures": 16,
+    "proof_command": "node /tmp/larder-browser-native.mjs",
+    "runtime": "native Vite Worker with initialized D1; standard checkout dev identity",
+    "expectation_timeout_seconds": 30,
+    "hard_timeout_seconds": 1200
+  },
+  "publication_scan": {
+    "commit": "d17ca2243fc2798b7dadbe8e946b8a061f95bf2e",
+    "complete": false,
+    "historyScanned": false,
+    "findings": null,
+    "owner": "Mac lander"
+  },
+  "api": {
+    "head": "d17ca2243fc2798b7dadbe8e946b8a061f95bf2e",
+    "exit": 0,
+    "named_journeys": 8,
+    "empty_filtered_file_cases": 1,
+    "log": "api.log",
+    "command": "node --test --test-concurrency=1 --test-name-pattern='LARDER-009|LARDER-010|Versioned pages|Owner-consented integration|MOVE-008 source history|GOV-014 location scope|GOV-015 GOV-016|cost-restricted member cannot download|STOCK-003' tests/api/flows.test.mjs tests/api/authority.test.mjs tests/api/backup.test.mjs tests/api/counts.test.mjs"
+  },
+  "counts_regression": {
+    "exit": 0,
+    "named_journeys": 1,
+    "log": "counts.log",
+    "command": "node --test tests/api/counts.test.mjs"
+  },
+  "probes": {
+    "exit": 0,
+    "head": "d17ca2243fc2798b7dadbe8e946b8a061f95bf2e",
+    "points": [
+      1,
+      2
+    ],
+    "file": "probes.jsonl"
+  }
+}
