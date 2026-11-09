@@ -1,3 +1,4 @@
+import { journal } from './change-event-proof.mjs'
 // The installation backup: what `rer export` writes restores with `rer import`
 // after `rer reset --yes`, with import applying the committed migrations
 // through the seed adapter and preserving every Larder record.
@@ -69,7 +70,11 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
     retainedProposals.push({ prepared, outcome, commandId, type, payload })
   }
   const pending = await agent.run('proposal.prepare', { kind: plans[0][0], plan: plans[0][1], summary: 'Retained awaiting review', evidence: ['synthetic-larder-965'] })
+  const eventJournal = await journal(h)
+  assert.deepEqual(eventJournal.events.map(e => e.type), ['shipment.dispatched', 'receipt.recorded'])
+  const outboundBeforeBackup = h.outboundCount()
   const before = await h.invariant(), archive = await businessArchive(h)
+  assert.deepEqual(archive.changeEvents, eventJournal.events)
   assert.ok(before.positions.some(p => p.locationId === w.store.id && p.status === 'quarantine' && p.quantity === '1'))
   assert.ok(before.positions.some(p => p.locationId === w.store.id && p.status === 'available' && p.quantity === '2'))
   assert.equal(before.handoffs[0].reference, 'HO-0001'); assert.equal(before.shipments[0].status, 'shipped')
@@ -122,6 +127,8 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
   await h.signInOwner()
   const after = await h.invariant(), restored = await businessArchive(h)
   assert.deepEqual(restored, archive, 'All persisted collections, commands, links and attachment digests round trip')
+  assert.deepEqual(await journal(h), eventJournal, 'Public installation backup preserves journal identities and cursors without re-emission')
+  assert.equal(h.outboundCount(), outboundBeforeBackup + 1, 'Only the explicit fresh sign-in requested mail; restore has no provider effect')
   const { actor: oldActor, ...beforeBusiness } = before, { actor: newActor, ...afterBusiness } = after
   const { sessionId: oldSession, ...oldIdentity } = oldActor, { sessionId: newSession, ...newIdentity } = newActor
   assert.notEqual(newSession, oldSession, 'Restored owner signs in with fresh authority')
@@ -236,7 +243,15 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   assert.equal(recoveryDecision.personDecision.actorId, reviewer.id)
   assert.deepEqual(recoveryDecision.decisionClassification.classes, ['standard'])
   assert.equal(recoveryDecision.decisionClassification.optionDigest, chosen.classification.optionDigest)
+  let eventPo = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-11-01', reason: 'Archived physical receipt', lines: [{ itemId: w.timber.id, quantity: '2', unitPrice: '9.5' }] })
+  eventPo = await h.command('po.approve', { poId: eventPo.id, version: eventPo.version })
+  const eventPayload = { poId: eventPo.id, supplierReference: 'synthetic-larder-event-archive', documents: [{ ...originalFile, name: 'synthetic-larder-delivery.txt' }], lines: [{ lineId: eventPo.lines[0].id, quantity: '1', locationId: w.loc.id, lot: 'synthetic-larder-event-archive' }] }
+  const eventId = 'synthetic-larder-event-archive'
+  await h.command('receipt.create', eventPayload, { commandId: eventId })
+  const eventJournal = await journal(h)
+  assert.equal(eventJournal.events.length, 1)
   const archive = await (await h.request('/api/larder/archive')).json()
+  assert.deepEqual(archive.changeEvents, eventJournal.events)
   const csv = await (await h.request('/api/larder/archive.csv')).text()
   const decoded = { records: {} }
   const unquote = v => v.replaceAll('""', '"')
@@ -258,6 +273,13 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   const restored = await (await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })).json()
   assert.equal(restored.ok, true, JSON.stringify(restored))
   const again = await (await target.request('/api/larder/archive')).json()
+  assert.deepEqual(await journal(target), eventJournal, 'Business restore retains the original event and cursor, rather than emitting another receipt')
+  assert.deepEqual(again.changeEvents, archive.changeEvents)
+  assert.equal((await target.request('/api/larder/audit/events', { as: reviewer.cookie })).status, 401)
+  await target.command('receipt.create', eventPayload, { commandId: eventId, error: 'IDEMPOTENCY' })
+  assert.deepEqual(await journal(target), eventJournal)
+  const eventEvidence = eventJournal.events[0].evidence[0]
+  assert.equal(digest(Buffer.from(await (await target.request(eventEvidence.href)).arrayBuffer())), eventEvidence.sha256)
   assert.deepEqual(again.unmappedRoles, archive.records.roles)
   assert.deepEqual(again.unmappedRoles.find(r => r.id === viewer.id).scopeClassification, laterScope.scopeClassification)
   const savedScope = again.commands.find(c => c.id === scopeId)
@@ -273,6 +295,8 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   assert.deepEqual(await target.state(), beforeScopeReplay)
   await target.restart()
   const afterRestart = await (await target.request('/api/larder/archive')).json()
+  assert.deepEqual(await journal(target), eventJournal)
+  assert.deepEqual(afterRestart.changeEvents, archive.changeEvents)
   assert.deepEqual(afterRestart.commands.find(c => c.id === scopeId), savedScope)
   assert.deepEqual(afterRestart.commands.find(c => c.id === laterScopeId), savedLaterScope)
   assert.deepEqual(afterRestart.unmappedRoles.find(r => r.id === viewer.id).scopeClassification, laterScope.scopeClassification)

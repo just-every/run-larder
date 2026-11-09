@@ -69,3 +69,23 @@ export function nextReference(rows: Row[], prefix: string) {
 }
 
 export const today = (c: Context) => c.now.slice(0, 10)
+
+// Retained native transition facts. Record versions describe the exact commit,
+// rather than suggesting that today's resource still has that revision.
+export type ChangeEventType = 'receipt.recorded' | 'work.output-recorded' | 'quality.held' | 'quality.released' | 'shipment.dispatched'
+export type ChangeRecord = { kind: Collection; id: string; version: number }
+export type ChangeQuantity = { itemId: string; lotId: string; locationId: string; quantity: string; unit: string }
+export type ChangeEventDetails = {
+  'receipt.recorded': { partial: boolean; lines: (ChangeQuantity & { lineId: string; inspection: string; movementId: string })[] }
+  'work.output-recorded': { batchId: string; itemId: string; lotId: string; movementId: string; good: string; scrap: string; unit: string; allocations: { itemId: string; lotId: string; quantity: string; movementId: string }[] }
+  'quality.held': { itemId: string; inspectionId: string; status: string; quantities: ChangeQuantity[] }
+  'quality.released': { itemId: string; inspectionId?: string; status: string; quantities: ChangeQuantity[] }
+  'shipment.dispatched': { partial: boolean; lines: { lineId: string; itemId: string; locationId: string; quantity: string; unit: string; movementIds: string[] }[]; remaining: { lineId: string; itemId: string; quantity: string }[] }
+}
+export type ChangeEvent<T extends ChangeEventType = ChangeEventType> = {
+  id: string; type: T; commandId: string; commandType: string; at: string; stateVersion: number
+  source: ChangeRecord; records: ChangeRecord[]
+  details: ChangeEventDetails[T]
+  evidence: { id: string; sha256: string; href: string }[]
+  movements: { id: string; sequence: number; itemId: string; locationId: string; lotId: string; status: string; quantity: string }[]
+}

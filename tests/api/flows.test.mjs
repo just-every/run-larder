@@ -1,3 +1,4 @@
+import { journal, followEvent } from './change-event-proof.mjs'
 import { foreignCurrencyJourney } from './foreign-currency-journey.mjs'
 import { varianceFixture } from './variance-fixture.mjs'
 // One test per first-release clause (ACCEPTANCE.md LARDER-001 to LARDER-013), through the public
@@ -172,7 +173,26 @@ test('LARDER-008 partial receipts record supplier lots and quarantine decisions'
   await h.command('po.approve', { poId: po.id, version: po.version })
   const lineId = po.lines[0].id
   await warehouse.run('receipt.create', { poId: po.id, supplierReference: 'DN-1', lines: [{ lineId, quantity: '21', locationId: w.loc.id }] }, { error: 'OVER_RECEIPT' })
-  const receipt = await warehouse.run('receipt.create', { poId: po.id, supplierReference: 'DN-1', lines: [{ lineId, quantity: '8', locationId: w.loc.id, lot: 'TT-L77', inspection: 'quarantine' }, { lineId: po.lines[1].id, quantity: '8', locationId: heldBin.id, lot: 'synthetic-larder-808', inspection: 'quarantine' }] })
+  assert.deepEqual((await journal(h)).events, [], 'A refused receipt produces no event')
+  const receiptPayload = { poId: po.id, supplierReference: 'DN-1', documents: [evidence('Actual delivery record')], lines: [{ lineId, quantity: '8', locationId: w.loc.id, lot: 'TT-L77', inspection: 'quarantine' }, { lineId: po.lines[1].id, quantity: '8', locationId: heldBin.id, lot: 'synthetic-larder-808', inspection: 'quarantine' }] }
+  const receiptId = 'synthetic-larder-event-receipt'
+  const [receipt, receiptRetry] = await Promise.all([1, 2].map(() => warehouse.run('receipt.create', receiptPayload, { commandId: receiptId })))
+  assert.deepEqual(receiptRetry, receipt)
+  const receivedJournal = await journal(h)
+  assert.equal(receivedJournal.events.length, 1, 'One business receipt, despite multiple lines and competing retries')
+  const receivedEvent = receivedJournal.events[0]
+  assert.equal(receivedEvent.id, receiptId + ':receipt.recorded:0')
+  assert.equal(receivedEvent.commandId, receiptId)
+  assert.equal(receivedEvent.type, 'receipt.recorded')
+  assert.deepEqual(receivedEvent.source, { kind: 'receipts', id: receipt.id, version: receipt.version })
+  assert.equal(receivedEvent.details.partial, true)
+  assert.deepEqual(receivedEvent.details.lines.map(l => [l.lineId, l.itemId, l.lotId, l.locationId, l.quantity, l.inspection, l.movementId]), receipt.lines.map(l => [l.lineId, l.itemId, l.lotId, l.locationId, l.quantity, l.inspection, l.movementId]))
+  assert.equal(receivedEvent.evidence[0].id, receipt.documents[0].id)
+  await followEvent(h, receivedEvent)
+  await h.restart()
+  assert.deepEqual(await journal(h), receivedJournal, 'Event identity and order survive restart')
+  assert.deepEqual(await warehouse.run('receipt.create', receiptPayload, { commandId: receiptId }), receipt)
+  assert.deepEqual(await journal(h), receivedJournal)
   let s = await h.state()
   assert.equal(s.purchaseOrders[0].status, 'part received')
   assert.deepEqual([avail(s, w.timber.id).quarantine, avail(s, w.timber.id).expectedPurchase], ['8', '12'])
@@ -220,7 +240,16 @@ test('LARDER-008 partial receipts record supplier lots and quarantine decisions'
   assert.deepEqual(held.movements, beforeHeld.movements)
   assert.deepEqual(held.positions, beforeHeld.positions)
   assert.deepEqual(held.shipments, beforeHeld.shipments)
-  await warehouse.run('quarantine.decide', { itemId: w.timber.id, locationId: w.loc.id, lotId: lot.id, quantity: '6', decision: 'release', reason: 'Moisture 9%' })
+  const beforeReleaseEvents = await journal(h)
+  const releasedApproval = await warehouse.run('quarantine.decide', { itemId: w.timber.id, locationId: w.loc.id, lotId: lot.id, quantity: '6', decision: 'release', reason: 'Moisture 9%' })
+  const releasedEvents = (await journal(h)).events
+  assert.equal(releasedEvents.length, beforeReleaseEvents.events.length + 1)
+  const releaseEvent = releasedEvents.at(-1)
+  assert.equal(releaseEvent.type, 'quality.released')
+  assert.deepEqual(releaseEvent.source, { kind: 'approvals', id: releasedApproval.id, version: releasedApproval.version })
+  assert.deepEqual(releaseEvent.details.quantities.map(x => x.quantity), ['6'])
+  assert.deepEqual(releaseEvent.movements.map(x => x.quantity), ['-6', '6'], 'Paired physical movements make one release event')
+  await followEvent(h, releaseEvent)
   await warehouse.run('quarantine.decide', { itemId: w.timber.id, locationId: w.loc.id, lotId: lot.id, quantity: '2', decision: 'reject', reason: 'Split ends' })
   s = await h.invariant()
   assert.equal(s.lots.find(l => l.id === lot.id).status, 'rejected')
@@ -240,9 +269,21 @@ test('LARDER-009 released work issues materials and records output and scrap', a
   await h.command('wo.issue', { workOrderId: wo.id, lines: [{ itemId: w.timber.id, locationId: w.loc.id, quantity: '6' }, { itemId: w.oil.id, locationId: w.loc.id, quantity: '300', unit: 'ml' }] })
   let s = await h.state()
   const current = s.workOrders.find(x => x.id === wo.id)
-  const out = await h.command('wo.output', { workOrderId: wo.id, version: current.version, locationId: w.loc.id, quantity: '4', scrap: '1', scrapReason: 'Checked during planing', lot: 'B-1014' })
+  const outputPayload = { workOrderId: wo.id, version: current.version, locationId: w.loc.id, quantity: '4', scrap: '1', scrapReason: 'Checked during planing', lot: 'B-1014' }
+  const outputId = 'synthetic-larder-event-output'
+  const out = await h.command('wo.output', outputPayload, { commandId: outputId })
+  const outputJournal = await journal(h)
+  assert.equal(outputJournal.events.length, 1)
+  const outputEvent = outputJournal.events[0]
+  assert.equal(outputEvent.type, 'work.output-recorded')
+  assert.deepEqual(outputEvent.source, { kind: 'workOrders', id: out.id, version: out.version })
+  assert.deepEqual([outputEvent.details.batchId, outputEvent.details.good, outputEvent.details.scrap, outputEvent.details.lotId, outputEvent.details.movementId, outputEvent.details.allocations], [out.outputs[0].id, '4', '1', out.outputs[0].lotId, out.outputs[0].movementId, out.outputs[0].allocations])
+  await followEvent(h, outputEvent)
+  assert.deepEqual(await h.command('wo.output', outputPayload, { commandId: outputId }), out)
+  assert.deepEqual(await journal(h), outputJournal)
   assert.deepEqual([out.output, out.scrap], ['4', '1'])
   await h.command('wo.output', { workOrderId: wo.id, version: out.version, locationId: w.loc.id, quantity: '1' }, { error: 'OVER_OUTPUT' })
+  assert.deepEqual(await journal(h), outputJournal, 'Refused over-output changes no journal facts')
   const closed = await h.command('wo.close', { workOrderId: wo.id, version: out.version })
   assert.equal(closed.status, 'closed'); assert.equal(closed.cost.materials, '62.4')
   s = await h.invariant()
@@ -260,7 +301,21 @@ test('LARDER-010 pick, pack and partially ship against reservations; the rest st
   await h.command('shipment.ship', { shipmentId: picked.id, version: picked.version, carrier: 'StarTrack' }, { error: 'STATE' })
   const packed = await h.command('shipment.pack', { shipmentId: picked.id, version: picked.version, packages: 1, weightKg: '4.2' })
   await h.advanceClock('2026-10-28T10:05:00.000Z')
-  const shipped = await h.command('shipment.ship', { shipmentId: picked.id, version: packed.version, carrier: 'StarTrack', tracking: 'ST123' })
+  assert.deepEqual((await journal(h)).events, [], 'Pick, pack and refused dispatch are not dispatched events')
+  const shipPayload = { shipmentId: picked.id, version: packed.version, carrier: 'StarTrack', tracking: 'ST123' }
+  const shipId = 'synthetic-larder-event-ship'
+  const shipped = await h.command('shipment.ship', shipPayload, { commandId: shipId })
+  const shippedJournal = await journal(h)
+  assert.equal(shippedJournal.events.length, 1)
+  const shipEvent = shippedJournal.events[0]
+  assert.equal(shipEvent.type, 'shipment.dispatched')
+  assert.deepEqual(shipEvent.source, { kind: 'shipments', id: shipped.id, version: shipped.version })
+  assert.equal(shipEvent.details.partial, true)
+  assert.deepEqual(shipEvent.details.lines.map(l => [l.lineId, l.itemId, l.locationId, l.quantity, l.movementIds]), shipped.lines.map(l => [l.lineId, l.itemId, l.locationId, l.quantity, l.movementIds]))
+  assert.deepEqual(shipEvent.details.remaining, [{ lineId, itemId: w.board.id, quantity: '3' }])
+  await followEvent(h, shipEvent)
+  assert.deepEqual(await h.command('shipment.ship', shipPayload, { commandId: shipId }), shipped)
+  assert.deepEqual(await journal(h), shippedJournal)
   assert.equal(shipped.status, 'shipped')
   const s = await h.invariant()
   const so = s.salesOrders[0]

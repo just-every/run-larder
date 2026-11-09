@@ -1,3 +1,4 @@
+import { changeEvents, changeEventInsert, changeEventParams } from './change-events'
 import { agentCustodyEmptySql } from './agent-attribution'
 import { serviceKeyStatements } from './service-keys'
 import { bookingGuards } from './scheduling/booking-guards'
@@ -127,6 +128,7 @@ export async function commit(db: D1Database, c: Context, before: State, type: st
     ...(type === 'reports.cancel' ? [db.prepare('DELETE FROM larder_report_sessions WHERE schedule_id=?').bind((result as any).id)] : []),
     ...serviceKeyStatements(db, c, type, result),
     ...audit.map(e => db.prepare(auditInsertSql).bind(...auditParams(e))),
+    ...changeEvents(c, before, type).map(e => db.prepare(changeEventInsert).bind(...changeEventParams(e))),
     // GOV-013: the erasure door records its request, then replaces the subject's personal values, in this same batch.
     ...(erasure ? erasureStatements(db, c, erasure) : []),
     db.prepare('UPDATE larder_meta SET version=version+1 WHERE id=1'),

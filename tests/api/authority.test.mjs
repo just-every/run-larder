@@ -1,3 +1,4 @@
+import { journal } from './change-event-proof.mjs'
 // GOV-001 roles are enforced in every handler; LARDER-015 agents prepare and people approve; GOV-001 roles inherit their clauses' doors.
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -596,7 +597,6 @@ test('GOV-004 a changed BOM is followed through scheduling, operator correction,
   await assert.rejects(h.db.prepare("UPDATE larder_audit SET reason='x' WHERE seq=1").run(), /append_only_audit/)
   // Reads are for the owner and managers only.
   for (const who of [sales, agent, operator]) assert.equal((await h.request('/api/larder/audit', { as: who.cookie })).status, 403)
-  assert.equal((await h.request('/api/larder/audit.csv', { as: '' })).status, 401)
   assert.equal((await audit('', manager.cookie)).total, json.total)
   // Planted secrets are absent from the query, both exports and the stored rows; their labels and ordinary text remain.
   const stored = JSON.stringify((await h.db.prepare('SELECT * FROM larder_audit').all()).results)
@@ -605,6 +605,61 @@ test('GOV-004 a changed BOM is followed through scheduling, operator correction,
     assert.match(body, /Second blank per board/); assert.match(body, /Colour/)
   }
   assert.ok(!stored.includes('Wet timber') && !stored.includes('base64'), 'attachment bodies are not logged')
+  // SURFACE-009 follows only applied transitions at the existing audit boundary.
+  const retainedEvents = await journal(h)
+  assert.deepEqual(retainedEvents.events.map(e => e.type), ['receipt.recorded', 'quality.held', 'quality.released'])
+  assert.deepEqual(await journal(h, '', manager.cookie), retainedEvents)
+  const textEvents = JSON.stringify(retainedEvents)
+  for (const personal of [manager.id, q1.id, q2.id, 'audit-manager', 'Retest passed', 'qa.txt', 'synthetic-larder-1', 'synthetic-larder-2', 'synthetic-larder-3', 'synthetic-larder-4', 'synthetic-larder-5']) assert.ok(!textEvents.includes(personal), 'The journal copies no personal labels, free text or planted credential values')
+  const event = retainedEvents.events[0]
+  const linkedAudit = await audit('?commandId=' + event.commandId)
+  assert.ok(linkedAudit.entries.some(e => e.subjectKind === event.source.kind && e.subjectId === event.source.id && e.subjectVersion === event.source.version))
+  assert.deepEqual((await journal(h, '?commandId=' + event.commandId)).events, [event])
+  for (const who of [sales, agent, operator, q1]) {
+    const denied = await h.request('/api/larder/audit/events?commandId=' + event.commandId, { as: who.cookie })
+    assert.equal(denied.status, 403)
+    assert.ok(!(await denied.text()).includes(event.source.id))
+  }
+  assert.equal((await h.request('/api/larder/audit/events', { as: '' })).status, 401)
+  for (const query of ['?after=-1', '?after=invalid', '?after=1.5', '?until=999999999', '?limit=0', '?limit=1.5', '?type=attempted']) assert.equal((await h.request('/api/larder/audit/events' + query)).status, 400)
+  const first = await journal(h, '?limit=1')
+  assert.equal(first.events.length, 1); assert.equal(first.next, first.events[0].seq)
+  assert.equal(first.until, retainedEvents.events.at(-1).seq)
+  await h.restart()
+  assert.deepEqual(await journal(h, '?limit=1'), first)
+  let extraPo = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: day(1), reason: 'Journal continuation', lines: [{ itemId: w.timber.id, quantity: '2', unitPrice: '9.5' }] })
+  extraPo = await h.command('po.approve', { poId: extraPo.id, version: extraPo.version })
+  const extra = await h.command('receipt.create', { poId: extraPo.id, supplierReference: 'synthetic-larder-events-extra', lines: [{ lineId: extraPo.lines[0].id, quantity: '1', locationId: w.loc.id, lot: 'synthetic-larder-events-extra' }] })
+  const pages = [...first.events]
+  let cursor = first.next
+  while (cursor !== null) {
+    const page = await journal(h, '?limit=1&until=' + first.until + '&after=' + cursor)
+    pages.push(...page.events); cursor = page.next
+  }
+  assert.deepEqual(pages, retainedEvents.events, 'A pinned traversal survives restart and concurrent appended history')
+  assert.equal(new Set(pages.map(e => e.id)).size, pages.length)
+  const afterAppend = await journal(h)
+  assert.equal(afterAppend.events.length, pages.length + 1)
+  assert.equal(afterAppend.events.at(-1).source.id, extra.id)
+  assert.deepEqual(afterAppend.events.slice(0, -1), pages)
+  await assert.rejects(h.db.prepare('DELETE FROM larder_change_events').run(), /append_only_change_events/)
+  await assert.rejects(h.db.prepare("UPDATE larder_change_events SET type='quality.held' WHERE seq=1").run(), /append_only_change_events/)
+  for (const restriction of [{ locations: [w.loc.id], costsRestricted: false }, { locations: null, costsRestricted: true }]) {
+    await h.command('member.scope', { operatorId: manager.id, ...restriction })
+    const denied = await h.request('/api/larder/audit/events?after=0', { as: manager.cookie })
+    assert.equal(denied.status, 403)
+    assert.ok(!(await denied.text()).includes(event.source.id))
+    assert.deepEqual(await journal(h), afterAppend)
+  }
+  await h.command('member.scope', { operatorId: manager.id, locations: null, costsRestricted: false })
+  assert.deepEqual(await journal(h, '', manager.cookie), afterAppend)
+  await h.command('role.set', { operatorId: manager.id, role: 'viewer' })
+  assert.equal((await h.request('/api/larder/audit/events', { as: manager.cookie })).status, 403)
+  await deactivate(h, manager)
+  assert.equal((await h.request('/api/larder/audit/events', { as: manager.cookie })).status, 401)
+  assert.deepEqual(await journal(h), afterAppend)
+
+  assert.equal((await h.request('/api/larder/audit.csv', { as: '' })).status, 401)
 })
 
 // GOV-002: thresholds, dual signatures with a deputy, input-change invalidation and a named owner override.
@@ -926,7 +981,7 @@ test('GOV-014 location scope: a scoped member sees, changes and downloads nothin
   const tim1 = { poId: own.id, supplierReference: 'TIM-1', lines: [{ lineId: own.lines[0].id, quantity: '2', locationId: w.loc.id }] }, tim1Id = 'synthetic-larder-scope-1'
   await lead.run('receipt.create', tim1, { commandId: tim1Id })
   // Downloads: archive, audit, handoff and import doors need an unscoped person; trace and catalog redact.
-  for (const path of ['/archive', '/archive.csv', '/audit', '/audit.json', '/audit.csv', '/handoffs/00000000-0000-0000-0000-000000000000.csv', '/imports/00000000-0000-0000-0000-000000000000.json', `/lots/${hiddenLot.id}/trace`, `/lots/${hiddenLot.id}/trace.csv`, `/recalls/${recall.id}.json`])
+  for (const path of ['/archive', '/archive.csv', '/audit/events', '/audit', '/audit.json', '/audit.csv', '/handoffs/00000000-0000-0000-0000-000000000000.csv', '/imports/00000000-0000-0000-0000-000000000000.json', `/lots/${hiddenLot.id}/trace`, `/lots/${hiddenLot.id}/trace.csv`, `/recalls/${recall.id}.json`])
     assert.equal((await h.request('/api/larder' + path, { as: lead.cookie })).status, 403, path)
   assert.equal((await h.request('/api/larder/archive')).status, 200)
   const shared = await (await h.request(`/api/larder/lots/${sharedLot.id}/trace`, { as: lead.cookie })).text(), full = await (await h.request(`/api/larder/lots/${sharedLot.id}/trace`)).text()
@@ -1305,7 +1360,7 @@ test('Owner-consented integration read credentials are resource-scoped, cost-red
   const response = await use(grant.serviceCredential)
   assert.equal(response.status, 200)
   assert.equal((await response.json()).data.find(r => r.id === w.timber.id).standardCost, 'restricted')
-  for (const [path, method] of [['/api/larder/v1/orders', 'GET'], ['/api/larder/state', 'GET'], ['/api/larder/archive', 'GET'], ['/api/larder/commands', 'POST'], ['/api/larder/v1/catalog', 'POST']]) assert.equal((await use(grant.serviceCredential, path, method)).status, 403)
+  for (const [path, method] of [['/api/larder/audit/events', 'GET'], ['/api/larder/v1/orders', 'GET'], ['/api/larder/state', 'GET'], ['/api/larder/archive', 'GET'], ['/api/larder/commands', 'POST'], ['/api/larder/v1/catalog', 'POST']]) assert.equal((await use(grant.serviceCredential, path, method)).status, 403)
   const exported = await (await h.request('/api/larder/archive')).json()
   assert.equal(JSON.stringify(exported).includes(grant.serviceCredential), false)
   assert.equal(JSON.stringify(exported).includes(storedKey.digest), false)

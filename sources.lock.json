@@ -197,7 +197,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "c1f6f6bcccc6bc62bddc63a15787432f2ad0246790b46957b11fdda4d6622ded",
+      "sha256": "65e78a8e41766b69148a0bcb0c599ebe6f6a77ebc7c5a2c49e4940445a32fac8",
       "executable": false
     },
     "base-copies.json": {
@@ -458,6 +458,10 @@
     },
     "migrations/core/0025_agent_attribution.sql": {
       "sha256": "c398ab332211e3b1d48b6d38ef5717988cc02bb4a5275d898d297f3006a52344",
+      "executable": false
+    },
+    "migrations/core/0026_change_events.sql": {
+      "sha256": "577475ca5fc23f6adc986f9b2aa4f38d998aa4d9fd6a4038ac65416263331211",
       "executable": false
     },
     "MOVE-IN.md": {
@@ -1769,7 +1773,7 @@
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "cc06f50e4d4285506b1bcbcebc56544c51a191ec38a2952f8384f3bbf3d9f2e7",
+      "sha256": "3dab178ec3e82d44900dc1c7d3fa742474d00b173fd9c30e44a5d610452ae68f",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -1781,7 +1785,7 @@
       "executable": false
     },
     "src/larder/archive.ts": {
-      "sha256": "72937c4216a94cde682829276d7ad2110dbba7d7fbe1431c5c7e8359da646015",
+      "sha256": "0fd17327817b045be7d410a58e1497fff3f7ac9b5a4f0aaa2f682589c4334a28",
       "executable": false
     },
     "src/larder/attachments.ts": {
@@ -1793,7 +1797,7 @@
       "executable": false
     },
     "src/larder/audit-read.ts": {
-      "sha256": "184de2a11fe2de1caa1f244cfc5b85b3e9d720a4744e7d582272500c162d7489",
+      "sha256": "1a4620178cb2caa1e769c9a6fe2b894b9eed366fd08f9428c8152fcd58d6e1c6",
       "executable": false
     },
     "src/larder/audit.ts": {
@@ -1854,6 +1858,10 @@
     },
     "src/larder/certificates.ts": {
       "sha256": "a2abfb11edfec55e3894900e4f1e8ccde3a3c60cb6939626704e95b65cb1278e",
+      "executable": false
+    },
+    "src/larder/change-events.ts": {
+      "sha256": "5b04d5f62f93adf89c4251ca9c8c208bb8f4ef1a65c298a23127ea196e1b5413",
       "executable": false
     },
     "src/larder/clock.ts": {
@@ -2069,7 +2077,7 @@
       "executable": false
     },
     "src/larder/model.ts": {
-      "sha256": "29da79225cc0a6f17374efd8b972c35822ed855cb9646fe9aca2540aad454515",
+      "sha256": "2b38d88471f7c0e963b33fefb8e833e0dcf314627092458fe9b72720c50b1f5e",
       "executable": false
     },
     "src/larder/mrp.ts": {
@@ -2345,7 +2353,7 @@
       "executable": false
     },
     "src/larder/storage.ts": {
-      "sha256": "f51a8664f5de474638a0154f8766ac1993424db1166755dce4a13b1b61716f18",
+      "sha256": "815cad5af85c61abef62c354c86c2919508f6b6ca3e9cfb156f334549f0fa323",
       "executable": false
     },
     "src/larder/subcontract-custody.ts": {
@@ -5125,11 +5133,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "bce27cefc09a1cee992ee8cf4e5f109c04d213451cf389d0301af36d414bbc0b",
+      "sha256": "6dbc82ef4fe664fa91640cfbc0bef831a142ad83489331632338d2814385647c",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "6e0ead82f928c8cb54c95851d5b69a6276b73b98ae8aaebc4b723b2f1799e2e7",
+      "sha256": "30074c47e8299e2b9dc4df997c98b9dd56754828e88d9a1361e6a157b7705d04",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
@@ -5142,6 +5150,10 @@
     },
     "tests/api/certificates.test.mjs": {
       "sha256": "d4ab97c1eac262da9f8597e9bfbfe29c651caa38de68abbc04ee1565a6304c90",
+      "executable": false
+    },
+    "tests/api/change-event-proof.mjs": {
+      "sha256": "40a6820a6ea953b16996367d400d393f4a731357302a6d0c65c77d9fb7ace6f9",
       "executable": false
     },
     "tests/api/counts.test.mjs": {
@@ -5165,7 +5177,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "407c5524c0ac83eb20c61ab2aa68c43b21561b36e111219485fa84e6f6a204fb",
+      "sha256": "91bdab86244f0bba0d9d3e46d62d842cd63114ab10454d461634e4786028b4c6",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -5217,7 +5229,7 @@
       "executable": false
     },
     "tests/api/quality.test.mjs": {
-      "sha256": "0cb5182838f3ef2aa02b7cd39cee0a68d85c869ed884f4d4048b84fc4128334a",
+      "sha256": "204a9f8f560128c7150261339e8c8e607ac9dee6d0079b9663e78fc4d5c8b423",
       "executable": false
     },
     "tests/api/receiving.test.mjs": {

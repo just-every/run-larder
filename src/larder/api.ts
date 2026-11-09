@@ -1,3 +1,4 @@
+import { changeEventQuery } from './change-events'
 import { larderBusinessPresentation } from '../agent-door/business-settings.server'
 import { business } from './business'
 import { warehouseLogistics } from './warehouse-logistics'
@@ -301,6 +302,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     if (ok?.ok !== 1) throw new Problem('AUTH', 'Your session or role changed. Sign in again.', null, 401)
     const versionedResource = /^\/v1\/(catalog|orders|operations|trace)$/.exec(path)
     if (versionedResource) return json(publicPage(await load(env.DB), actor, versionedResource[1], url.searchParams))
+    if (path === '/audit/events') return json(await changeEventQuery(env.DB, actor, url.searchParams))
     if (path === '/retention/operator') return json(await operatorRetentionPreview(env.DB, await load(env.DB), actor, url.searchParams.get('operatorId')))
     if (path === '/retention/contact') return json(retentionPreview(await load(env.DB), actor, url.searchParams.get('partyId'), commandTime()))
     if (path === '/state') { const s = await load(env.DB); return json(stateView(s, actor, { ...await people(env, actor), businessName: await larderBusinessPresentation(env).resolve('display_name','') })) }
