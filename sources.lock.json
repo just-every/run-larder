@@ -353,7 +353,7 @@
       "executable": false
     },
     "management/integration/deployment-spec.json": {
-      "sha256": "8615078a686b2ce67b57f6fd0a4e35bf30e85ffa5c67f4749e50b35cc21e8dfe",
+      "sha256": "eb7ca80f9041942dc588e5bf8f58df28e2572da90c8ccadd068706b366968c50",
       "executable": false
     },
     "migrations/core/0001_owner.sql": {
@@ -1861,7 +1861,7 @@
       "executable": false
     },
     "src/larder/change-events.ts": {
-      "sha256": "5b04d5f62f93adf89c4251ca9c8c208bb8f4ef1a65c298a23127ea196e1b5413",
+      "sha256": "97bf3205e19bb21dccb83e64bc977f0b1eebf275f07f320792aa78945cfd3d38",
       "executable": false
     },
     "src/larder/clock.ts": {
@@ -2077,7 +2077,7 @@
       "executable": false
     },
     "src/larder/model.ts": {
-      "sha256": "2b38d88471f7c0e963b33fefb8e833e0dcf314627092458fe9b72720c50b1f5e",
+      "sha256": "057024058e5684e83fc65b43189cf055e89ffa25cd87f83d3591e79a00360e72",
       "executable": false
     },
     "src/larder/mrp.ts": {
@@ -5229,7 +5229,7 @@
       "executable": false
     },
     "tests/api/quality.test.mjs": {
-      "sha256": "204a9f8f560128c7150261339e8c8e607ac9dee6d0079b9663e78fc4d5c8b423",
+      "sha256": "f629cf25eae194e34f5594d410fbf08fa13f226558e07c43b4bf162e4135a4f7",
       "executable": false
     },
     "tests/api/receiving.test.mjs": {

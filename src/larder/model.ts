@@ -78,8 +78,8 @@ export type ChangeQuantity = { itemId: string; lotId: string; locationId: string
 export type ChangeEventDetails = {
   'receipt.recorded': { partial: boolean; lines: (ChangeQuantity & { lineId: string; inspection: string; movementId: string })[] }
   'work.output-recorded': { batchId: string; itemId: string; lotId: string; movementId: string; good: string; scrap: string; unit: string; allocations: { itemId: string; lotId: string; quantity: string; movementId: string }[] }
-  'quality.held': { itemId: string; inspectionId: string; status: string; quantities: ChangeQuantity[] }
-  'quality.released': { itemId: string; inspectionId?: string; status: string; quantities: ChangeQuantity[] }
+  'quality.held': { itemId: string; inspectionId: string; plan: { id: string; version: number }; status: string; quantities: ChangeQuantity[] }
+  'quality.released': { itemId: string; inspectionId?: string; plan?: { id: string; version: number }; status: string; quantities: ChangeQuantity[] }
   'shipment.dispatched': { partial: boolean; lines: { lineId: string; itemId: string; locationId: string; quantity: string; unit: string; movementIds: string[] }[]; remaining: { lineId: string; itemId: string; quantity: string }[] }
 }
 export type ChangeEvent<T extends ChangeEventType = ChangeEventType> = {

@@ -48,7 +48,7 @@ export function changeEvents(c: Context, before: State, commandType: string): Ch
         batchId: b.id, itemId: w.itemId, lotId: b.lotId, movementId: b.movementId,
         good: b.good, scrap: b.scrap, unit: c.s.items.find(i => i.id === w.itemId)!.baseUnit,
         allocations: (b.allocations ?? []).map((a: any) => ({ itemId: a.itemId, lotId: a.lotId, quantity: a.quantity, movementId: a.movementId })),
-      }, [['lots', b.lotId], ...(b.allocations ?? []).map((a: any): [Collection, string] => ['lots', a.lotId])], [b])
+      }, [['lots', b.lotId], ...(b.allocations ?? []).map((a: any): [Collection, string] => ['lots', a.lotId])], [w.routing, b])
     }
   }
   if (commandType === 'quality.inspect' || commandType === 'quality.release') for (const h of c.s.qualityHolds) {
@@ -58,7 +58,7 @@ export function changeEvents(c: Context, before: State, commandType: string): Ch
     const inspectionId = released ? h.release.retestId : h.inspectionId
     const inspection = c.s.inspections.find(i => i.id === inspectionId)!
     make(held ? 'quality.held' : 'quality.released', 'qualityHolds', h, {
-      itemId: h.itemId, inspectionId, status: h.status,
+      itemId: h.itemId, inspectionId, plan: { id: inspection.planId, version: inspection.planVersion }, status: h.status,
       quantities: (held ? h.held : h.release.released).map((l: any) => ({ itemId: h.itemId, lotId: l.lotId, locationId: l.locationId, quantity: l.quantity, unit: c.s.items.find(i => i.id === h.itemId)!.baseUnit })),
     }, [[h.subjectKind, h.subjectId], ['inspections', inspectionId], ['inspectionPlans', h.planId], ...h.lots.map((l: any): [Collection, string] => ['lots', l.lotId])], [inspection.evidence, h.release?.evidence])
   }

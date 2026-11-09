@@ -162,6 +162,12 @@
       "name": "0025_agent_attribution.sql",
       "sha256": "c398ab332211e3b1d48b6d38ef5717988cc02bb4a5275d898d297f3006a52344",
       "sql": "CREATE TABLE larder_command_agents (\n  command_id TEXT PRIMARY KEY REFERENCES larder_commands(id),\n  agent_id TEXT NOT NULL,\n  agent_name TEXT NOT NULL,\n  sponsor_id TEXT NOT NULL,\n  sponsor_name TEXT NOT NULL,\n  operation_id TEXT NOT NULL,\n  approvers TEXT NOT NULL\n);\n"
+    },
+    {
+      "binding": "DB",
+      "name": "0026_change_events.sql",
+      "sha256": "577475ca5fc23f6adc986f9b2aa4f38d998aa4d9fd6a4038ac65416263331211",
+      "sql": "-- Native manufacturing transitions, committed with their source records.\n-- Only identifiers, revisions, quantities and evidence digests enter this journal.\nCREATE TABLE larder_change_events (\n seq INTEGER PRIMARY KEY AUTOINCREMENT,\n id TEXT NOT NULL UNIQUE,\n command_id TEXT NOT NULL,\n type TEXT NOT NULL CHECK(type IN ('receipt.recorded','work.output-recorded','quality.held','quality.released','shipment.dispatched')),\n data TEXT NOT NULL CHECK(json_valid(data))\n);\nCREATE INDEX larder_change_events_command ON larder_change_events(command_id,seq);\nCREATE INDEX larder_change_events_type ON larder_change_events(type,seq);\nCREATE TRIGGER larder_change_events_immutable BEFORE UPDATE ON larder_change_events BEGIN SELECT RAISE(ABORT,'append_only_change_events'); END;\nCREATE TRIGGER larder_change_events_no_delete BEFORE DELETE ON larder_change_events BEGIN SELECT RAISE(ABORT,'append_only_change_events'); END;\n"
     }
   ],
   "compatibilityDate": "2026-09-08",
