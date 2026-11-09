@@ -1,0 +1,1 @@
+{"appendOnly": "enforced", "exit": 0, "migrationSha256": "cf6d1bab4c943af155193a701a91192ba659fcd6bb7518acffece031c690c3cd", "nextSequences": [32, 33], "oldHighWater": 31, "probe": "journal schema upgrade", "retainedRows": 2, "unknownVocabulary": "refused"}

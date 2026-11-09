@@ -1,0 +1,10 @@
+# sx-larder-c-f609 plan
+
+Scope: just-every/run-larder, product branch cloud/sx-larder-c-f609. Continue the supplied ce2e72da79743df947b5903ff03382e849c1f9c0 implementation while preserving all main judgments and prior writers.
+
+1. Inspect SURFACE-009, existing native journal, purchasing, quality, stock eligibility, archive and authority journeys. Point 1 is implemented in the supplied continuation. Point 2 has no supplier-date or explicit material-usable event. Actual provider ledger confirmation, specialist handoffs, MCP and outbound delivery remain held.
+2. Extend the bounded local journal with committed supplier confirmation and date revision facts, and material becoming usable through supported receipt and release transitions. Bind each event to exact source versions, applied commands and existing evidence. Never label expected supply as arrival or a local acknowledgment as ledger reconciliation.
+3. Extend existing authenticated HTTP journeys for exact data, refusals, once-only retries, pinned traversal, restart, minimized personal data, live authority restrictions and inert business and installation restore. Add no permanent registration unless an existing journey cannot cover the behavior.
+4. Run touched API files and typecheck; run contract generator write and check, restore generated views, update deployment migration delivery, regenerate the edition lock last and check it. Keep the Base and rer pins, homepage and workflow unchanged.
+5. Commit with fleet hooks and identity, inspect every candidate commit and trailer, push only the named product branch through the cloud guard. Before the final candidate merge fresh main if a save is already published. Discover exact-SHA Verify by REST within the ten-call budget, poll at most once per 300 seconds and report status honestly.
+6. Keep full non-secret reports and actual receipts here. Publish explicit packet files through the separate evidence branch. Claim PARTIAL until the held ledger and specialist outcomes are established; do not edit contract Status, Gap or Evidence cells. Hand off the exact pushed SHA to the fleet lander.

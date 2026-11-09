@@ -1,0 +1,39 @@
+{
+  "head": "a99abda4998359ab358158aa0f7c86f24a685005",
+  "branch": "cloud/sx-larder-c-f609",
+  "repository": "just-every/run-larder",
+  "pushExit": 0,
+  "attempts": 1,
+  "remoteRefs": {
+    "refs/heads/cloud/sx-larder-c-f609": "a99abda4998359ab358158aa0f7c86f24a685005",
+    "refs/heads/main": "171f7266ef82b5973a5d5036a37e60e5f6c6ea43"
+  },
+  "mainEqualsCandidate": false,
+  "candidateHistory": [
+    {
+      "head": "a99abda4998359ab358158aa0f7c86f24a685005",
+      "author": "fleet",
+      "committer": "fleet",
+      "trailers": "absent"
+    },
+    {
+      "head": "06c833f5b54c5e8f7d132dc164fe1b3d3f8f4fb3",
+      "author": "fleet",
+      "committer": "fleet",
+      "trailers": "absent"
+    },
+    {
+      "head": "ce2e72da79743df947b5903ff03382e849c1f9c0",
+      "author": "fleet",
+      "committer": "fleet",
+      "trailers": "absent"
+    },
+    {
+      "head": "996f4b9def04f825a3d0d20bc9b473743e61182a",
+      "author": "fleet",
+      "committer": "fleet",
+      "trailers": "absent"
+    }
+  ],
+  "observedAt": "2026-11-09T10:12:59.134338+00:00"
+}

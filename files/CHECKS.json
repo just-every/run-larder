@@ -1,0 +1,86 @@
+{
+  "head": "a99abda4998359ab358158aa0f7c86f24a685005",
+  "branch": "cloud/sx-larder-c-f609",
+  "checks": [
+    {
+      "name": "touched-api",
+      "command": [
+        "node",
+        "--test",
+        "--test-concurrency=1",
+        "tests/api/flows.test.mjs",
+        "tests/api/quality.test.mjs",
+        "tests/api/authority.test.mjs",
+        "tests/api/backup.test.mjs"
+      ],
+      "exit": 0,
+      "started": "2026-11-09T10:08:35.531786+00:00",
+      "finished": "2026-11-09T10:14:22.814084+00:00",
+      "log": "touched-api.log"
+    },
+    {
+      "name": "typecheck",
+      "command": [
+        "pnpm",
+        "run",
+        "typecheck"
+      ],
+      "exit": 0,
+      "started": "2026-11-09T10:14:22.814778+00:00",
+      "finished": "2026-11-09T10:14:25.498244+00:00",
+      "log": "typecheck.log"
+    },
+    {
+      "name": "first-party",
+      "command": [
+        "pnpm",
+        "exec",
+        "rer",
+        "check",
+        "--profile",
+        "first-party"
+      ],
+      "exit": 0,
+      "started": "2026-11-09T10:14:25.498588+00:00",
+      "finished": "2026-11-09T10:14:26.314742+00:00",
+      "log": "first-party.log"
+    },
+    {
+      "name": "build",
+      "command": [
+        "npx",
+        "-y",
+        "@runeditrun/rer",
+        "build"
+      ],
+      "exit": 0,
+      "started": "2026-11-09T10:14:26.315071+00:00",
+      "finished": "2026-11-09T10:14:32.505268+00:00",
+      "log": "build.log"
+    },
+    {
+      "name": "deployment-migrations",
+      "command": [
+        "node",
+        "scripts/build-deployment-spec.mjs",
+        "--check"
+      ],
+      "exit": 0,
+      "started": "2026-11-09T10:14:32.506432+00:00",
+      "finished": "2026-11-09T10:14:32.622240+00:00",
+      "log": "deployment-migrations.log"
+    },
+    {
+      "name": "source-lock",
+      "command": [
+        "node",
+        "scripts/edition-authoring/cli.mjs",
+        "check"
+      ],
+      "exit": 0,
+      "started": "2026-11-09T10:14:32.622588+00:00",
+      "finished": "2026-11-09T10:14:32.887422+00:00",
+      "log": "source-lock.log"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "head": "a99abda4998359ab358158aa0f7c86f24a685005",
+  "main": "171f7266ef82b5973a5d5036a37e60e5f6c6ea43",
+  "contractStatusDiff": "",
+  "generatedViewsDiff": "",
+  "views": {
+    "write": {
+      "command": "node src/base/contract-docs.mjs write",
+      "exit": 0
+    },
+    "check": {
+      "command": "node src/base/contract-docs.mjs check",
+      "exit": 0
+    }
+  },
+  "lock": {
+    "write": {
+      "command": "node scripts/edition-authoring/cli.mjs lock",
+      "exit": 0
+    },
+    "check": {
+      "command": "node scripts/edition-authoring/cli.mjs check",
+      "exit": 0
+    }
+  },
+  "migration": {
+    "deliveryCheck": {
+      "command": "node scripts/build-deployment-spec.mjs --check",
+      "exit": 0
+    },
+    "upgradeProbe": "migration-upgrade.json",
+    "standaloneMigrationLedgerCheck": "none declared by seed"
+  },
+  "diffHygiene": {
+    "newEmailShapedStrings": 0,
+    "bareProseRepositoryTokens": 0,
+    "fullPublicationScan": "not run in cloud; guarded lander owns it"
+  },
+  "countsBefore": {
+    "done": 86,
+    "partial": 39,
+    "missing": 39,
+    "total": 164
+  },
+  "countsAfter": {
+    "done": 86,
+    "partial": 39,
+    "missing": 39,
+    "total": 164
+  },
+  "mainCI": {
+    "verify": 41252605263,
+    "site": 41252604855,
+    "verifyConclusion": "success",
+    "siteConclusion": "success"
+  },
+  "githubCallsUsed": 4
+}

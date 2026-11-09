@@ -1,0 +1,95 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ GOV-001 roles and sessions are checked on every command and read (1935.602156ms)
+✔ LARDER-015 agents prepare intake, replenishment, merges, reschedules and reconciliations; people approve (7027.994859ms)
+✔ GOV-001 TRACE-005 quality role inherits TRACE-003/004/006/007 authority with independence and live revocation, and nothing outside quality (2029.429242ms)
+✔ GOV-001 planner role inherits DEMAND-003 forecast/MPS, DEMAND-004 policy and FLOOR-005 split/merge authority with independent approval, and nothing outside planning (2246.030161ms)
+✔ GOV-001 engineer role inherits ENG-007 catalog export, preparation and independent approval and controls ENG-002/004/005 revisions, never change approval or anything outside engineering (2067.133786ms)
+✔ GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007 operations, posts no stock and loses access when revoked (2114.722365ms)
+✔ GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets (3333.275266ms)
+✔ GOV-002 high-value PO and stock write-off need two signatures, a deputy signs a principal's seat, changed inputs invalidate, agents are denied and an owner override names its accountable human (4631.67845ms)
+✔ GOV-002 orders below the margin floor and high-value quarantine releases need the policy signatures on exact terms; a sub-floor amendment needs the owner override (2233.180127ms)
+✔ GOV-014 location scope: a scoped member sees, changes and downloads nothing outside their locations, and narrowing, approvals and revocation take effect live (5589.722346ms)
+✔ GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live (4114.795592ms)
+✔ a cost-restricted member reads no purchase, service-order or cutover total that a hidden price can be recovered from (1661.945979ms)
+✔ a cost-restricted member cannot download a supplier bill, while its other service evidence stays open (1698.491065ms)
+✔ a deputy holds a delegated approval only while the principal's custom role still includes it (1808.971889ms)
+✔ Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors (1846.083195ms)
+✔ Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore (7311.162149ms)
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ LARDER-020 an installation backup restores into a reset installation (74927.805829ms)
+✔ MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions (8178.959742ms)
+✔ US-001 restore refuses undeclared or non-USD functional money without relabelling amounts or writing records (3209.777157ms)
+✔ US business settings retain Ohio identity, local dates and per-record currencies through restart and restore (3626.789363ms)
+✔ AUD archive migration records exact rates, original money and stock reconciliation through restart and restore (5161.822076ms)
+✔ AUD migration refuses missing consent, guessed rates, incompatible records and non-owner or revoked authority (1529.309804ms)
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ LARDER-001 items, variants, units and parties; ambiguous conversions are refused (1711.807028ms)
+✔ LARDER-002 opening stock by location with date, valuation basis and evidence (1277.529006ms)
+✔ LARDER-003 versioned BOM and routing; released work keeps its revision (1461.383855ms)
+✔ LARDER-004 quote and confirm an order; physical, reserved and expected stock stay separate (1483.356435ms)
+✔ LARDER-005 reservations are atomic: competing orders never consume the same stock (1668.998801ms)
+✔ LARDER-006 shortages are reviewed and drafted into purchase and work orders with dates and reasons (1565.567097ms)
+✔ LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded (2038.149713ms)
+✔ LARDER-008 partial receipts record supplier lots and quarantine decisions (2375.661865ms)
+✔ LARDER-009 released work issues materials and records output and scrap (1362.894399ms)
+✔ LARDER-010 pick, pack and partially ship against reservations; the rest stays committed (1903.471232ms)
+✔ LARDER-011 LARDER-017 LARDER-018 LARDER-019 returns, transfers and approved counts; corrections reverse, never edit (1587.068412ms)
+✔ LARDER-012 handoff exports costs and invoice preparation; acknowledgements and corrections reconcile (4953.568179ms)
+✔ LARDER-013 LARDER-020 and AUTO-001 notes retain ongoing exceptions and the complete archive restores into an empty installation (3008.360692ms)
+✔ BUY-001 supplier constraints, feasible quote and scheduled approval survive supplier revisions and restore (3419.623121ms)
+✔ CAP-001 persisted overnight holiday calendars, breaks, outages, efficiency and parallel named machine intervals survive archive restore (3479.082686ms)
+✔ CAP-002 one qualified person constrains two machines independently, vacation and task limits hold, rates are restricted and revocation blocks replay (3425.394688ms)
+✔ CAP-004 finite multistep plan exposes critical path, load and truthful late/unscheduled drilldowns without overbooking or changing promises (1890.71574ms)
+✔ CAP-005 finite reschedule previews displacement and unchanged promises, requires independent approval and rejects shop-floor stale inputs or capacity conflicts (4013.961639ms)
+✔ Qualified alternate comparison keeps pinned instructions, setup transitions, tools, labor, delivery and USD estimates through approval and restore (5033.980264ms)
+✔ Event recovery persists once after restart, preserves frozen and manual work, exposes displacement and refuses automatic or external authority (6679.079148ms)
+✔ Isolated outage scenarios protect this week and manual locks, atomically book next week and reject an ETA-stale adoption without a partial schedule (11480.420399ms)
+✔ Replenishment revises MOQ and uncertain lead bounds, explains dated coverage and USD cash, approves selected suggestions and retains rejected reasons (3106.155185ms)
+✔ Bounded grants independently authorize one internal reflow, stop at limits or lost authority, and restore inactive without replay (8549.464964ms)
+✔ COST-004 shipment and return margins keep open commitments, channel/customer totals and costs scope (2037.402424ms)
+✔ COST-003 component usage and price variances reconcile two jobs to one order and export their sources (2922.053823ms)
+✔ COST-001 approved time overtime and service costs roll through scrap and downstream work as correcting valuations (2560.926468ms)
+✔ COST-006 COST-008 filtered performance retains denominators and missing clocks, receipt rejects and in-app scheduled snapshots (21113.667289ms)
+✔ COST-001 unvalued production lots keep weighted average until an actual valuation is approved (1619.956686ms)
+✔ CAP-008 three original jobs retain demand and revisions in an inert nesting review with reconciled yield, offcuts and cost shares (3756.276612ms)
+✔ CAP-008 invalid nesting and incompatible or changed jobs leave no partial review or attachment (1825.535881ms)
+✔ CAP-008 nesting preparation obeys live roles, location scope and cost restrictions including replay (1855.389707ms)
+✔ CAP-008 owner-approved nesting consumes once, recovers a traced offcut and attributes each original output cost (3376.791521ms)
+✔ CAP-008 stale or impossible physical nesting approval leaves every job and offcut unposted (1650.0369ms)
+✔ CAP-008 controlled source recovery requires current evidence, quarantines independent offcuts and preserves exact genealogy through reuse, restart and inert restore (10622.959019ms)
+✔ DEMAND-005 reviewed receipt split shows displacement, both promises and estimated margins, then atomically reserves exact totals without stock or promise changes (2892.201219ms)
+✔ DEMAND-005 stale, overallocated, duplicated and picked receipt splits refuse without changing hard reservations (1392.366968ms)
+✔ DEMAND-005 sales, planners, managers and agents cannot take reservation approval authority through the command API (1513.76865ms)
+✔ Cited variance explanations require exact owner consent and capped single sends, retain repeat causes and compare approved future work without rewriting history (4267.715889ms)
+✔ STOCK-004 exact bin-sequenced wave sorts three orders and carries current site scope (2978.971652ms)
+✔ Supplier RMA settles a partial rejected lot with quarantined replacement and reconciled original-bill credit without rewriting stock (3474.604781ms)
+✔ Supplier invoices retain three-way variances, refuse self-resolution and duplicate bills, and expose incremental billing without invented payment state (1711.054629ms)
+✔ Late landed charges allocate exact stock and open WIP corrections by explicit policy, reject stale approval and hand off each correction once (1787.319979ms)
+✔ Late landed charges conserve quantity, value and weight allocations across receipts and direct COGS (4489.232264ms)
+✔ Supplier financial state and original evidence obey live cost restrictions (1359.763594ms)
+✔ Supplier serial replacement keeps one-unit identity, refuses reused and fractional serials, and remains quarantined (1480.104443ms)
+✔ Costed quote preparation reconciles fractional CAD prices, discounts, breaks, USD margin and inert history (3406.018413ms)
+✔ Costed quote dates require shared scarce supply and live qualified joint calendars without booking or displacement (10813.516707ms)
+✔ STOCK-001 transit receipt and ruled putaway conserve lots, refuse unsafe bins and replenish exactly within current site scope (3615.547544ms)
+✔ STOCK-001 customer-owned and consigned custody stays separate from owned availability, honors capacity and live site scope and survives restore (2914.475199ms)
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+✔ TRACE-004 approved inspection plans hold failed work and lots from start, output, pick and ship until an authorized release after a passing retest (2745.476016ms)
+✔ TRACE-005 quantity-scoped cases retain complaints, CAPA, supplier/rework routing, passing-only independent release and evidenced effectiveness across restart and restore (4094.538102ms)
+✔ TRACE-006 immediate recall containment expands exact genealogy, identifies two customers, protects stock/WIP and exports durable honest evidence (4274.384571ms)
+✔ TRACE-008 quality-role deviations: exact proposals, independent approval and gated atomic execution release only held units under deviation, with trace, shipment pack, restart and archive restore (5282.157839ms)
+ℹ tests 75
+ℹ suites 0
+ℹ pass 75
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 347216.637291
