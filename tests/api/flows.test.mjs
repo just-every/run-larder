@@ -146,25 +146,70 @@ test('LARDER-006 shortages are reviewed and drafted into purchase and work order
 })
 
 test('LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now: '2026-10-20T12:00:00.000Z' }); t.after(() => h.close())
   const w = await workshop(h)
-  const po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-10-20', reason: 'Restock', lines: [{ itemId: w.timber.id, quantity: '2', unit: 'bundle', unitPrice: '9.5' }] })
-  assert.equal(po.exposure, '190')
-  await h.command('po.confirm', { poId: po.id, version: po.version, supplierReference: 'TT-889', source: 'phone', confirmedDate: '2026-10-22' }, { error: 'STATE' })
+  const warehouse = await h.person(['synthetic-larder-event-buyer', 'example.test'].join('@'), 'warehouse')
+  const po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-10-20', reason: 'Restock', lines: [{ itemId: w.timber.id, quantity: '2', unit: 'bundle', unitPrice: '9.5' }, { itemId: w.oil.id, quantity: '2', unitPrice: '3' }] })
+  assert.equal(po.exposure, '196')
+  const confirmPayload = { poId: po.id, version: po.version, supplierReference: 'TT-889', source: 'email', confirmedDate: '2026-10-22', evidence: evidence('Order acknowledgement TT-889') }
+  await h.command('po.confirm', confirmPayload, { error: 'STATE' })
   const approved = await h.command('po.approve', { poId: po.id, version: po.version })
   assert.equal(approved.status, 'approved')
-  const confirmed = await h.command('po.confirm', { poId: po.id, version: approved.version, supplierReference: 'TT-889', source: 'email', confirmedDate: '2026-10-22', evidence: evidence('Order acknowledgement TT-889') })
+  assert.deepEqual((await journal(h)).events, [], 'Drafts, approvals and refused confirmations cannot establish supplier dates or arrival')
+  const confirmedPayload = { ...confirmPayload, version: approved.version }
+  const confirmed = await h.command('po.confirm', confirmedPayload, { commandId: 'synthetic-larder-event-confirm' })
   assert.equal(confirmed.expectedDate, '2026-10-22')
-  const revised = await h.command('po.revise', { poId: po.id, version: confirmed.version, expectedDate: '2026-10-29', note: 'Kiln delay' })
+  const confirmedJournal = await journal(h)
+  assert.equal(confirmedJournal.events.length, 1)
+  const confirmedEvent = confirmedJournal.events[0]
+  assert.equal(confirmedEvent.type, 'supplier.date-recorded')
+  assert.deepEqual(confirmedEvent.source, { kind: 'purchaseOrders', id: po.id, version: confirmed.version })
+  assert.equal(confirmedEvent.details.basis, 'supplier-confirmed')
+  assert.equal(confirmedEvent.details.supplierId, w.supplier.id)
+  assert.deepEqual(confirmedEvent.details.lines, [
+    { lineId: po.lines[0].id, itemId: w.timber.id, quantity: '20', unit: 'each', before: '2026-10-20', after: '2026-10-22', confirmedDate: '2026-10-22' },
+    { lineId: po.lines[1].id, itemId: w.oil.id, quantity: '2', unit: 'l', before: '2026-10-20', after: '2026-10-22', confirmedDate: '2026-10-22' },
+  ])
+  assert.deepEqual(confirmedEvent.movements, [], 'Supplier dates are expected supply, never physical arrival')
+  assert.deepEqual(confirmedEvent.evidence.map(f => f.id), [confirmed.history[0].evidence.id])
+  const beforeRevision = await followEvent(h, confirmedEvent)
+  assert.deepEqual(await h.command('po.confirm', confirmedPayload, { commandId: confirmedEvent.commandId }), confirmed)
+  assert.deepEqual(await journal(h), confirmedJournal)
+  const revisePayload = { poId: po.id, version: confirmed.version, lineId: po.lines[0].id, expectedDate: '2026-10-29', note: 'Kiln delay' }
+  await warehouse.run('po.revise', revisePayload, { error: 'FORBIDDEN' })
+  await h.command('po.revise', { ...revisePayload, version: approved.version }, { error: 'STALE' })
+  assert.deepEqual(await journal(h), confirmedJournal)
+  const revised = await h.command('po.revise', revisePayload, { commandId: 'synthetic-larder-event-revise' })
   assert.deepEqual(revised.history.map(x => [x.change, x.from, x.to]), [['supplier confirmed', '2026-10-20', '2026-10-22'], ['delivery revised', '2026-10-22', '2026-10-29']])
-  const s = await h.state()
+  const revisedJournal = await journal(h)
+  assert.equal(revisedJournal.events.length, 2)
+  assert.deepEqual(revisedJournal.events[0], confirmedEvent, 'Later revisions preserve the original supplier-confirmed fact')
+  const revisedEvent = revisedJournal.events[1]
+  assert.deepEqual(revisedEvent.source, { kind: 'purchaseOrders', id: po.id, version: revised.version })
+  assert.deepEqual(revisedEvent.details, { supplierId: w.supplier.id, basis: 'buyer-revised', lines: [{ lineId: po.lines[0].id, itemId: w.timber.id, quantity: '20', unit: 'each', before: '2026-10-22', after: '2026-10-29', confirmedDate: '2026-10-22' }] })
+  assert.deepEqual(revisedEvent.evidence, [], 'An internal revision does not borrow the earlier supplier acknowledgment')
+  assert.equal(revised.lines[1].expectedDate, '2026-10-22')
+  const s = await followEvent(h, revisedEvent)
+  for (const key of ['movements', 'positions', 'reservations', 'receipts', 'workOrders', 'shipments']) assert.deepEqual(s[key], beforeRevision[key], key)
   const approval = s.approvals.find(a => a.subjectId === po.id)
-  assert.equal(approval.decision, 'approved'); assert.equal(approval.terms.exposure, '190')
+  assert.equal(approval.decision, 'approved'); assert.equal(approval.terms.exposure, '196')
   assert.equal(avail(s, w.timber.id).expectedPurchase, '20')
+  assert.deepEqual(await h.command('po.revise', revisePayload, { commandId: revisedEvent.commandId }), revised)
+  await h.restart()
+  assert.deepEqual(await journal(h), revisedJournal)
+  // A successful same-date edit has no newly changed date to announce.
+  await h.command('po.revise', { ...revisePayload, version: revised.version })
+  assert.deepEqual(await journal(h), revisedJournal)
+  await h.command('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-date-remainder', lines: [{ lineId: po.lines[0].id, quantity: '5', locationId: w.loc.id, lot: 'synthetic-larder-date-remainder' }] })
+  const partReceived = (await h.state()).purchaseOrders.find(p => p.id === po.id)
+  await h.command('po.revise', { ...revisePayload, version: partReceived.version, expectedDate: '2026-10-30' }, { commandId: 'synthetic-larder-date-remainder' })
+  const remainderEvent = (await journal(h, '?commandId=synthetic-larder-date-remainder')).events[0]
+  assert.deepEqual(remainderEvent.details.lines, [{ lineId: po.lines[0].id, itemId: w.timber.id, quantity: '15', unit: 'each', before: '2026-10-29', after: '2026-10-30', confirmedDate: '2026-10-22' }])
+  await followEvent(h, remainderEvent)
 })
 
 test('LARDER-008 partial receipts record supplier lots and quarantine decisions', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now: '2026-10-20T12:00:00.000Z' }); t.after(() => h.close())
   const w = await workshop(h)
   const warehouse = await h.person(['synthetic-larder-808', 'example.test'].join('@'), 'warehouse')
   const heldItem = await h.command('item.save', { sku: 'synthetic-larder-808', name: 'Inspection-only blank', kind: 'buy', baseUnit: 'each' })
@@ -243,20 +288,42 @@ test('LARDER-008 partial receipts record supplier lots and quarantine decisions'
   const beforeReleaseEvents = await journal(h)
   const releasedApproval = await warehouse.run('quarantine.decide', { itemId: w.timber.id, locationId: w.loc.id, lotId: lot.id, quantity: '6', decision: 'release', reason: 'Moisture 9%' })
   const releasedEvents = (await journal(h)).events
-  assert.equal(releasedEvents.length, beforeReleaseEvents.events.length + 1)
-  const releaseEvent = releasedEvents.at(-1)
+  assert.equal(releasedEvents.length, beforeReleaseEvents.events.length + 2)
+  const releaseEvent = releasedEvents.at(-2)
   assert.equal(releaseEvent.type, 'quality.released')
   assert.deepEqual(releaseEvent.source, { kind: 'approvals', id: releasedApproval.id, version: releasedApproval.version })
   assert.deepEqual(releaseEvent.details.quantities.map(x => x.quantity), ['6'])
   assert.deepEqual(releaseEvent.movements.map(x => x.quantity), ['-6', '6'], 'Paired physical movements make one release event')
   await followEvent(h, releaseEvent)
+  const usable = releasedEvents.at(-1)
+  assert.equal(usable.type, 'material.usable')
+  assert.equal(usable.details.transitionId, releaseEvent.id)
+  assert.deepEqual(usable.details.quantities.map(q => [q.lotId, q.quantity, q.movementId]), [[lot.id, '6', releaseEvent.movements[1].id]])
+  await followEvent(h, usable)
   await warehouse.run('quarantine.decide', { itemId: w.timber.id, locationId: w.loc.id, lotId: lot.id, quantity: '2', decision: 'reject', reason: 'Split ends' })
   s = await h.invariant()
   assert.equal(s.lots.find(l => l.id === lot.id).status, 'rejected')
   assert.equal(avail(s, w.timber.id).onHand, '12')
-  assert.deepEqual(s.approvals.filter(a => a.subjectKind === 'lots').map(a => a.decision), ['released', 'rejected'])
-  assert.deepEqual(s.approvals.filter(a => a.subjectKind === 'lots').map(a => [a.quantity, a.note, a.createdBy]), [['6', 'Moisture 9%', warehouse.id], ['2', 'Split ends', warehouse.id]])
+  assert.deepEqual(s.approvals.filter(a => a.subjectKind === 'lots').sort((a, b) => Number(b.quantity) - Number(a.quantity)).map(a => a.decision), ['released', 'rejected'])
+  assert.deepEqual(s.approvals.filter(a => a.subjectKind === 'lots').sort((a, b) => Number(b.quantity) - Number(a.quantity)).map(a => [a.quantity, a.note, a.createdBy]), [['6', 'Moisture 9%', warehouse.id], ['2', 'Split ends', warehouse.id]])
   assert.equal(s.positions.find(p => p.itemId === w.timber.id && p.lotId === lot.id && p.status === 'available').quantity, '6')
+  // A mixed physical receipt retains every disposition but announces only
+  // material usable on this fixed day, never held or expired quantities.
+  const mixed = await warehouse.run('receipt.create', { poId: po.id, supplierReference: 'synthetic-larder-mixed', documents: [evidence('Mixed delivery record')], lines: [
+    { lineId, quantity: '2', locationId: w.loc.id, lot: 'synthetic-larder-usable' },
+    { lineId, quantity: '1', locationId: w.loc.id, lot: 'synthetic-larder-expired', dates: { expiresOn: '2026-10-19' } },
+    { lineId, quantity: '1', locationId: w.loc.id, lot: 'synthetic-larder-held-expired', inspection: 'quarantine', dates: { expiresOn: '2026-10-19' } },
+  ] }, { commandId: 'synthetic-larder-mixed-receipt' })
+  const mixedEvents = (await journal(h, '?commandId=synthetic-larder-mixed-receipt')).events
+  assert.deepEqual(mixedEvents.map(e => e.type), ['receipt.recorded', 'material.usable'])
+  assert.equal(mixedEvents[0].details.lines.length, 3)
+  assert.deepEqual(mixedEvents[1].details, { transitionId: mixedEvents[0].id, on: '2026-10-20', quantities: [{ itemId: w.timber.id, lotId: mixed.lines[0].lotId, locationId: w.loc.id, quantity: '2', unit: 'each', movementId: mixed.lines[0].movementId }] })
+  assert.deepEqual(mixedEvents[1].evidence, mixedEvents[0].evidence)
+  await followEvent(h, mixedEvents[0]); await followEvent(h, mixedEvents[1])
+  const beforeExpiredRelease = await journal(h, '?type=material.usable')
+  await warehouse.run('quarantine.decide', { itemId: w.timber.id, locationId: w.loc.id, lotId: mixed.lines[2].lotId, quantity: '1', decision: 'release', reason: 'Inspection release does not extend expiry' }, { commandId: 'synthetic-larder-expired-release' })
+  assert.deepEqual((await journal(h, '?commandId=synthetic-larder-expired-release')).events.map(e => e.type), ['quality.released'])
+  assert.deepEqual((await journal(h, '?type=material.usable')).events, beforeExpiredRelease.events, 'A physical status release cannot establish that expired material is usable')
 })
 
 test('LARDER-009 released work issues materials and records output and scrap', async t => {
@@ -273,12 +340,17 @@ test('LARDER-009 released work issues materials and records output and scrap', a
   const outputId = 'synthetic-larder-event-output'
   const out = await h.command('wo.output', outputPayload, { commandId: outputId })
   const outputJournal = await journal(h)
-  assert.equal(outputJournal.events.length, 1)
+  assert.equal(outputJournal.events.length, 2)
   const outputEvent = outputJournal.events[0]
   assert.equal(outputEvent.type, 'work.output-recorded')
   assert.deepEqual(outputEvent.source, { kind: 'workOrders', id: out.id, version: out.version })
   assert.deepEqual([outputEvent.details.batchId, outputEvent.details.good, outputEvent.details.scrap, outputEvent.details.lotId, outputEvent.details.movementId, outputEvent.details.allocations], [out.outputs[0].id, '4', '1', out.outputs[0].lotId, out.outputs[0].movementId, out.outputs[0].allocations])
   await followEvent(h, outputEvent)
+  const outputUsable = outputJournal.events[1]
+  assert.equal(outputUsable.type, 'material.usable')
+  assert.equal(outputUsable.details.transitionId, outputEvent.id)
+  assert.deepEqual(outputUsable.details.quantities, [{ itemId: w.board.id, lotId: out.outputs[0].lotId, locationId: w.loc.id, quantity: '4', unit: 'each', movementId: out.outputs[0].movementId }])
+  await followEvent(h, outputUsable)
   assert.deepEqual(await h.command('wo.output', outputPayload, { commandId: outputId }), out)
   assert.deepEqual(await journal(h), outputJournal)
   assert.deepEqual([out.output, out.scrap], ['4', '1'])
@@ -391,6 +463,8 @@ test('LARDER-012 handoff exports costs and invoice preparation; acknowledgements
   const packed = await h.command('shipment.pack', { shipmentId: sh.id, version: sh.version, packages: 1 })
   await h.command('shipment.ship', { shipmentId: sh.id, version: packed.version, carrier: 'Courier' })
   const accounts = await h.person('ana@example.test', 'accounts')
+  const beforeHandoffEvents = await journal(h)
+  const beforeHandoffOutbound = h.outboundCount()
   const batch = await accounts.run('handoff.prepare', { note: 'October' })
   const invoice = batch.lines.find(l => l.type.startsWith('Customer shipment'))
   assert.equal(invoice.amountCents, '178.00'); assert.equal(invoice.partyReference, 'HK-221')
@@ -402,6 +476,8 @@ test('LARDER-012 handoff exports costs and invoice preparation; acknowledgements
   assert.ok((await h.state()).exceptions.some(x => x.kind === 'mismatch'))
   const fixed = await accounts.run('handoff.acknowledge', { handoffId: batch.id, version: acked.version, entries: [{ lineId: invoice.id, ledgerId: 'XERO-INV-1043', amount: '178.00', note: 'Typo corrected' }] })
   assert.equal(fixed.status, 'acknowledged')
+  assert.deepEqual(await journal(h), beforeHandoffEvents, 'Local ledger IDs and corrected acknowledgments cannot manufacture provider-reconciled events')
+  assert.equal(h.outboundCount(), beforeHandoffOutbound, 'Local acknowledgments perform no provider readback')
   // A later reversal of a handed-off shipment arrives as a correction line pointing back.
   await h.command('movement.reverse', { documentKind: 'shipments', documentId: sh.id, reason: 'Parcel never left' })
   const next = await accounts.run('handoff.prepare', {})

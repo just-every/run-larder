@@ -4,9 +4,13 @@
 import { format, decimal } from './decimal'
 import { auditReader } from './audit-read'
 import { Problem } from './problem'
+import { lotBlock } from './lot-dates'
+import { approvedCertificates } from './certificate-policy'
+import { lotRecalls } from './recall-policy'
+import { plansFor } from './quality-holds'
 import type { Actor, ChangeEvent, ChangeEventDetails, ChangeEventType, Collection, Context, Row, State } from './model'
 
-export const changeEventTypes: readonly ChangeEventType[] = ['receipt.recorded', 'work.output-recorded', 'quality.held', 'quality.released', 'shipment.dispatched']
+export const changeEventTypes: readonly ChangeEventType[] = ['receipt.recorded', 'work.output-recorded', 'quality.held', 'quality.released', 'shipment.dispatched', 'supplier.date-recorded', 'material.usable']
 const newRows = (c: Context, before: State, kind: Collection) => c.s[kind].filter(r => !before[kind].some(b => b.id === r.id))
 
 export function changeEvents(c: Context, before: State, commandType: string): ChangeEvent[] {
@@ -33,6 +37,22 @@ export function changeEvents(c: Context, before: State, commandType: string): Ch
       records, details, evidence: [...evidence.values()],
       movements: movements.map(m => ({ id: m.id, sequence: m.sequence, itemId: m.itemId, locationId: m.locationId, lotId: m.lotId, status: m.status, quantity: format(m.quantity) })),
     })
+  }
+  if (commandType === 'po.confirm' || commandType === 'po.revise') for (const po of c.s.purchaseOrders) {
+    const old = before.purchaseOrders.find(b => b.id === po.id)
+    if (!old || po.version === old.version) continue
+    const entry = po.history.at(-1)
+    if (po.history.length !== old.history.length + 1 || !['supplier confirmed', 'delivery revised'].includes(entry?.change)) continue
+    // A first supplier confirmation is meaningful even when its date matches
+    // the buyer's estimate. Repeating an unchanged date is not a new date fact.
+    const lines = po.lines.flatMap((l: any) => {
+      const was = old.lines.find((b: any) => b.id === l.id)
+      if (!was || (was.expectedDate === l.expectedDate && (commandType !== 'po.confirm' || was.confirmedDate === l.confirmedDate))) return []
+      return [{ lineId: l.id, itemId: l.itemId, quantity: format(decimal(l.quantity) - decimal(l.received)), unit: c.s.items.find(i => i.id === l.itemId)!.baseUnit, before: was.expectedDate, after: l.expectedDate, confirmedDate: l.confirmedDate || null }]
+    })
+    if (lines.length) make('supplier.date-recorded', 'purchaseOrders', po, {
+      supplierId: po.supplierId, basis: commandType === 'po.confirm' ? 'supplier-confirmed' : 'buyer-revised', lines,
+    }, [['parties', po.supplierId], ...lines.map((l: any): [Collection, string] => ['items', l.itemId])], [entry.evidence])
   }
   if (commandType === 'receipt.create') for (const r of newRows(c, before, 'receipts')) {
     const po = c.s.purchaseOrders.find(p => p.id === r.poId)!
@@ -78,7 +98,42 @@ export function changeEvents(c: Context, before: State, commandType: string): Ch
       remaining: order.lines.map((l: any) => ({ lineId: l.id, itemId: l.itemId, quantity: format(decimal(l.quantity) - decimal(l.shipped) - decimal(l.cancelled ?? '0')) })),
     }, [['salesOrders', order.id], ...posted.filter(m => m.documentId === s.id).map((m): [Collection, string] => ['lots', m.lotId])])
   }
+  // An availability fact is a linked projection of one applied physical
+  // transition, never a second receipt, a prediction or a free-stock promise.
+  // Preserve the original event identities by appending these after producers.
+  for (const transition of [...out]) {
+    if (!['receipt.recorded', 'work.output-recorded', 'quality.released'].includes(transition.type)) continue
+    const on = c.now.slice(0, 10)
+    const quantities = transition.movements.filter(m => m.status === 'available' && decimal(m.quantity, 'quantity', { signed: true }) > 0n && materialUsable(c.s, m.itemId, m.lotId, on)).map(m => ({
+      itemId: m.itemId, lotId: m.lotId, locationId: m.locationId, quantity: m.quantity,
+      unit: c.s.items.find(i => i.id === m.itemId)!.baseUnit, movementId: m.id,
+    }))
+    if (!quantities.length) continue
+    const source = c.s[transition.source.kind].find(r => r.id === transition.source.id)!
+    make('material.usable', transition.source.kind, source, { transitionId: transition.id, on, quantities }, transition.records.map(r => [r.kind, r.id]), transition.evidence)
+  }
   return out
+}
+
+// The journal cannot turn an available-status movement into a blanket quality
+// approval. Inspect the committed lot's date, holds, certificates and current
+// required inspections; missing proof simply omits the usability projection.
+function materialUsable(s: State, itemId: string, lotId: string, on: string): boolean {
+  const lot = s.lots.find(l => l.id === lotId)
+  if (lotBlock(lot, on) || lotRecalls(s, lotId).length || s.qualityHolds.some(h => h.status === 'open' && h.lots.some((l: any) => l.lotId === lotId))) return false
+  let subjectKind = 'lots', subjectId = lotId, plans = plansFor(s, 'receipt', itemId, null)
+  if (lot?.source === 'production') {
+    const work = s.workOrders.find(w => w.id === lot.documentId)!
+    subjectKind = 'workOrders'; subjectId = work.id
+    plans = ['in-process', 'final'].flatMap(stage => plansFor(s, stage, itemId, work.bomRevision))
+  }
+  if (plans.filter(p => p.required).some(p => {
+    const latest = s.inspections.filter(i => i.planId === p.id && i.subjectKind === subjectKind && i.subjectId === subjectId).at(-1)
+    return !latest?.passed || latest.planVersion !== p.version
+  })) return false
+  try { approvedCertificates(s, itemId, lotId, on) }
+  catch (error) { if (error instanceof Problem) return false; throw error }
+  return true
 }
 
 export const changeEventInsert = 'INSERT INTO larder_change_events(id,command_id,type,data) VALUES(?,?,?,?)'

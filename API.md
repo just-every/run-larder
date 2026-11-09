@@ -1290,6 +1290,26 @@ Malformed or out-of-history cursors are refused.
 
 The bounded vocabulary currently contains:
 
+- `supplier.date-recorded`: one applied supplier confirmation or buyer delivery
+  revision, with the exact purchase revision, supplier identity, changed line
+  IDs, outstanding base-unit quantities and before and after dates.
+  `basis` distinguishes `supplier-confirmed` from `buyer-revised`; a buyer's
+  revised estimate never overwrites the retained `confirmedDate`. First
+  confirmation can establish a date matching an estimate; an unchanged date
+  edit emits nothing. Only the confirmation's own evidence is linked. No
+  quantity in a supplier-date event establishes physical arrival.
+- `material.usable`: one local usability projection linked by `transitionId`
+  to a committed receipt, ordinary work output or physical quality release.
+  Its `quantities` include only positive available-status movements passing
+  current lot dates, open quality and recall holds, general certificate rules
+  and required receipt or production inspections, on the captured UTC day.
+  Multiple lines and paired status movements yield one projection per source
+  transition. Missing checks, quarantine, expired lots, pending signatures and
+  releases with no physical quantity produce no usability event. The original
+  transition retains all its physical movements; only the projection's typed
+  quantities establish this bounded usability fact. This is historical physical
+  usability, not free stock, a reservation, customer-specific shelf-life or
+  certificate approval, or a promise that a later read remains eligible.
 - `receipt.recorded`: one committed goods receipt, with exact lines, base-unit
   quantities, lot and movement IDs, inspection dispositions and partial status.
 - `work.output-recorded`: one recorded output batch on its exact work revision,
@@ -1330,6 +1350,8 @@ reviving sessions or calling a provider. Older business archives without a
 journal restore with an empty one.
 
 This is a local native read. It does not deliver MCP events or subscriptions,
-outbound delivery or retries, supplier-date events, provider-confirmed
-reconciliation or specialist handoffs. A local handoff acknowledgment never
+outbound delivery or retries, provider-confirmed reconciliation or specialist
+handoffs. Supplier dates and usability facts remain local journal entries;
+passing inspection alone, date extensions, other stock doors and additional
+vocabulary are not delivered as usability events by this bounded slice. A local handoff acknowledgment never
 establishes accepted books.
