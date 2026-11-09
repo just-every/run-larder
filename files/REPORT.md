@@ -44,7 +44,7 @@ This is a PARTIAL claim. No row below asserts that an external or landing duty h
 | --- | --- | --- |
 | 1 | PARTIAL overall | A1–A4 cover point 1. A5 names every omitted point-2 outcome; no specialist or accepted-books claim is made. |
 | 2 | PASS for native slice | Nonempty seeded records are followed to state and file doors; stale, unauthorized, missing-evidence and pending-signature paths are refused or produce no applied transition. |
-| 3 | Candidate CI recorded separately | Existing push API glob runs all four changed API files. See CI.json for exact SHA, event and conclusion; no env-gated browser proof is relevant because no screen changed. |
+| 3 | PASS | Push Verify 42599138928 completed success on a99abda4998359ab358158aa0f7c86f24a685005. Its existing API glob runs all four changed API files. No screen changed. |
 | 4 | PASS local proof binding | CHECKS.json records exact candidate HEAD; no relevant source or test bytes changed afterward. |
 | 5 | PASS placement | SURFACE-009 already cites BASE-AGENT-010. No acceptance or inheritance rewrite was needed. |
 | 6 | PASS mechanical; judgment deferred | Generator write and check pass with zero errors. Generated views are restored from main and uncommitted. No builder status, gap, evidence or count edits. |
@@ -56,7 +56,7 @@ This is a PARTIAL claim. No row below asserts that an external or landing duty h
 
 ## Pre-ready review
 
-1. Named native behaviors have integration assertions on seeded data through the ordinary command and read doors. The final exact-SHA Verify outcome is reported in CI.json. The unproved remainder keeps the clause PARTIAL.
+1. Named native behaviors have integration assertions on seeded data through the ordinary command and read doors. Push Verify 42599138928 completed success on the exact candidate; CI.json retains its event, status, conclusion and URL. The unproved remainder keeps the clause PARTIAL.
 2. No test registration, existing user-visible assertion or guard was removed, skipped, narrowed or moved behind a width or branch condition. The existing purchase journey now has two lines and still asserts its exact exposure. The fixed-clock receipt journey sorts approval rows before checking the same complete decisions, quantities, reasons and actor IDs because persistence does not order equal timestamps. Zero registrations were added.
 3. Current scope, role, credential and session fences remain active for journal reads and retries. Events copy no actor names, labels, free text, file names, contact names or addresses. Existing former-operator erasure and replay journeys remain in the touched authority file. Restore preserves history but cannot revive live authority or execute producers.
 4. No UI or screen was touched; browser screenshots, visual design and tooltip work are not applicable.
@@ -84,4 +84,8 @@ GAP SURFACE-009: Point 2's linked specialist handoffs and provider-confirmed led
 
 Final local results: 75 of 75 touched API tests passed on a99abda4998359ab358158aa0f7c86f24a685005, with zero failures and zero skipped tests. Typecheck, first-party composition, production build, deployment migration delivery and source-lock freshness all exit 0 on that exact SHA.
 
-CI observation: push Verify 42599138928 was in progress on the exact candidate at 2026-11-09T10:17:09Z. No conclusion is asserted until the bounded observer records it in CI.json.
+
+
+Final CI: push Verify 42599138928 completed success on a99abda4998359ab358158aa0f7c86f24a685005, observed by REST at 2026-11-09T10:27:12Z. Six of the ten permitted GitHub calls were used. No workflow dispatch, rerun or PR was created. Candidate Run site, main equality and full-history publication scanning remain guarded landing obligations.
+
+Product custody: remote refs/heads/cloud/sx-larder-c-f609 was verified at a99abda4998359ab358158aa0f7c86f24a685005. The separately published report packet was fetched back and all 17 selected file hashes verified before its final CI update. The final evidence publication contains that update; its exact ref and head are returned in the terminal EVIDENCE line.
