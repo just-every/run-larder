@@ -72,10 +72,12 @@ export const today = (c: Context) => c.now.slice(0, 10)
 
 // Retained native transition facts. Record versions describe the exact commit,
 // rather than suggesting that today's resource still has that revision.
-export type ChangeEventType = 'receipt.recorded' | 'work.output-recorded' | 'quality.held' | 'quality.released' | 'shipment.dispatched'
+export type ChangeEventType = 'receipt.recorded' | 'work.output-recorded' | 'quality.held' | 'quality.released' | 'shipment.dispatched' | 'supplier.date-recorded' | 'material.usable'
 export type ChangeRecord = { kind: Collection; id: string; version: number }
 export type ChangeQuantity = { itemId: string; lotId: string; locationId: string; quantity: string; unit: string }
 export type ChangeEventDetails = {
+  'supplier.date-recorded': { supplierId: string; basis: 'supplier-confirmed' | 'buyer-revised'; lines: { lineId: string; itemId: string; quantity: string; unit: string; before: string; after: string; confirmedDate: string | null }[] }
+  'material.usable': { transitionId: string; on: string; quantities: (ChangeQuantity & { movementId: string })[] }
   'receipt.recorded': { partial: boolean; lines: (ChangeQuantity & { lineId: string; inspection: string; movementId: string })[] }
   'work.output-recorded': { batchId: string; itemId: string; lotId: string; movementId: string; good: string; scrap: string; unit: string; allocations: { itemId: string; lotId: string; quantity: string; movementId: string }[] }
   'quality.held': { itemId: string; inspectionId: string; plan: { id: string; version: number }; status: string; quantities: ChangeQuantity[] }

@@ -197,7 +197,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "bb82b93dadffa3ab192f7caadf35ad05b2045f03349b0ad5c304564530ebb84b",
+      "sha256": "94ded8bb9299b99e35206030f9bd227f2a8024fda4b803eb717e04bc86a6d622",
       "executable": false
     },
     "base-copies.json": {
@@ -353,7 +353,7 @@
       "executable": false
     },
     "management/integration/deployment-spec.json": {
-      "sha256": "eb7ca80f9041942dc588e5bf8f58df28e2572da90c8ccadd068706b366968c50",
+      "sha256": "107e6bf38c865bf8bf189703bb1370ef3e846007cdd4a4ed1fa30e5def21b715",
       "executable": false
     },
     "migrations/core/0001_owner.sql": {
@@ -462,6 +462,10 @@
     },
     "migrations/core/0026_change_events.sql": {
       "sha256": "577475ca5fc23f6adc986f9b2aa4f38d998aa4d9fd6a4038ac65416263331211",
+      "executable": false
+    },
+    "migrations/core/0027_change_event_vocabulary.sql": {
+      "sha256": "cf6d1bab4c943af155193a701a91192ba659fcd6bb7518acffece031c690c3cd",
       "executable": false
     },
     "MOVE-IN.md": {
@@ -1773,7 +1777,7 @@
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "2ca8b5575ff51c77031c4bf100bca50ad7e6e3502e8e939b99d310909d5730fb",
+      "sha256": "a3554169fb934389731aacb184a422feea4bc6b7018d1cc9bdfa145f53878b43",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -1861,7 +1865,7 @@
       "executable": false
     },
     "src/larder/change-events.ts": {
-      "sha256": "97bf3205e19bb21dccb83e64bc977f0b1eebf275f07f320792aa78945cfd3d38",
+      "sha256": "5a654b7633d34b56cbb3ef601593af122d92aed9af7d138a918eca8cd6bdc947",
       "executable": false
     },
     "src/larder/clock.ts": {
@@ -2081,7 +2085,7 @@
       "executable": false
     },
     "src/larder/model.ts": {
-      "sha256": "057024058e5684e83fc65b43189cf055e89ffa25cd87f83d3591e79a00360e72",
+      "sha256": "75af628e010b1605b937a20173378c51ac7d49c66b655d56d1edaf240a66bb2a",
       "executable": false
     },
     "src/larder/mrp.ts": {
@@ -5137,11 +5141,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "794187a8765ece4af845cfd86cd8fd2d2597577ad94e4e9c7860d146ac41aa70",
+      "sha256": "244eec002ed7a875238d54b709a877dc5d3aabbd176d1327a0bfe47f323b9de4",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "271632130d9c09fab80efc34798d360c6eaa10b96800679de651a50729c55854",
+      "sha256": "7439d6d20f5ef953a4f2a840656d548bb2430f04ab45120541716b1441a266da",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
@@ -5181,7 +5185,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "cd86fac845a5128600d54a77a11bee9500f395daba9b4d23fd1e8ae413ea5f39",
+      "sha256": "a81bf43a5df4f6156b747f1d484dd48b152bc9234a9f6f1fb1878a1d3f044829",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -5233,7 +5237,7 @@
       "executable": false
     },
     "tests/api/quality.test.mjs": {
-      "sha256": "f629cf25eae194e34f5594d410fbf08fa13f226558e07c43b4bf162e4135a4f7",
+      "sha256": "6bb2cb8080baef7ed2691a83c1e57d7db7b14287a3c83e8b704f83c4a64874fa",
       "executable": false
     },
     "tests/api/receiving.test.mjs": {
