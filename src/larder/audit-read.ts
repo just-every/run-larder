@@ -3,8 +3,12 @@
 import { Problem, forbidden } from './problem'
 import { auditDomains } from './audit'
 import type { Actor } from './model'
+import { isScoped } from './scope'
 
 export const auditReaders = ['owner', 'manager']
+export function auditReader(actor: Actor) {
+  if (!auditReaders.includes(actor.role) || isScoped(actor) || actor.agentDoor) forbidden('Only an unscoped native owner or manager reads the audit.')
+}
 const columns = 'seq,id,at,actor_id AS actorId,actor_name AS actorName,actor_role AS actorRole,source,command_id AS commandId,command_type AS commandType,domain,subject_kind AS subjectKind,subject_id AS subjectId,subject_version AS subjectVersion,op,before,after,reason,evidence,refs,erasure_id AS erasureId'
 const parse = (r: any) => ({ ...r, before: JSON.parse(r.before), after: JSON.parse(r.after), evidence: JSON.parse(r.evidence), refs: r.refs ? String(r.refs).split(' ') : [] })
 
@@ -19,7 +23,7 @@ export const auditRetention = {
 }
 
 export async function auditQuery(db: D1Database, actor: Actor, params: URLSearchParams, defaultLimit = 100, maxLimit = 500) {
-  if (!auditReaders.includes(actor.role)) forbidden('Only the owner or a manager reads the audit.')
+  auditReader(actor)
   const where: string[] = [], bind: unknown[] = []
   const domain = params.get('domain')
   if (domain) {

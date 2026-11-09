@@ -1,4 +1,5 @@
 import { supplierTerms, quotedLines, validateQuoteLines, purchaseDate, purchaseNextDate } from './supplier-terms'
+import { commercialClassification, purchaseTerms } from './commercial-classification'
 import { plansFor, receiptInspections } from './quality-holds'
 // Purchase orders: draft, approve, supplier confirmation, revised delivery,
 // partial receipt with supplier lots, and quarantine decisions.
@@ -42,15 +43,19 @@ export const confirmationSources = ['phone', 'email', 'portal', 'in person', 'ot
 export const status = (po: Row) => po.lines.every((l: any) => decimal(l.quantity) === 0n) ? 'cancelled' : po.lines.every((l: any) => decimal(l.received) >= decimal(l.quantity)) ? 'received' : po.lines.some((l: any) => decimal(l.received) > 0n) ? 'part received' : po.supplierReference ? 'confirmed' : 'approved'
 
 export function purchasing(c: Context, type: string, p: any): Row | undefined {
+  const prepared = (po: Row) => {
+    po.classification = commercialClassification(c, po, 'prepared', ['money', 'commitment'], purchaseTerms(po))
+    return po
+  }
   if (/^po\.(bill|claim|landed)\./.test(type)) return purchaseAccounting(c, type, p)
   switch (type) {
     case 'supplier.terms': return supplierTerms(c, p)
     case 'po.selectQuote':
       allow(c, ['manager', 'buyer', 'agent'])
-      return draftPurchase(c, quotedLines(c, p))
+      return prepared(draftPurchase(c, quotedLines(c, p)))
     case 'po.draft':
       allow(c, ['manager', 'buyer', 'agent'])
-      return draftPurchase(c, p)
+      return prepared(draftPurchase(c, p))
     case 'po.approve': {
       authorize(c, ['manager', 'buyer'], 'spend')
       const po = get(c.s, 'purchaseOrders', p.poId, 'purchase order'); fresh(po, p.version)
@@ -59,11 +64,19 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
         const ref = get(c.s, 'partyItems', l.supplierQuote.partyItemId, 'supplier terms')
         if (ref.version !== l.supplierQuote.version) fail('STALE', 'Supplier terms changed. Select the quote again before approval.')
       }
+      const terms = purchaseTerms(po)
+      // The existing digest already binds the subject version and normalized
+      // terms. Keep its format so in-flight signatures retain their policy.
       const signed = gate(c, { category: 'spend', subjectKind: 'purchaseOrders', subject: po, measure: () => decimal(po.exposure), permitted: ['manager', 'buyer'], preparedBy: po.preparedBy, p })
-      if (signed && 'pending' in signed) return signed.pending
+      if (signed && 'pending' in signed) {
+        signed.pending.classification = commercialClassification(c, po, 'pending', ['money', 'commitment'], terms)
+        return signed.pending
+      }
+      const classification = commercialClassification(c, po, 'applied', ['money', 'commitment'], terms)
       const approval = row(c, 'approvals', { subjectKind: 'purchaseOrders', subjectId: po.id, subjectVersion: po.version, decision: 'approved', role: c.actor.role, note: optionalText(p.note, 'note', 400), terms: structuredClone({ supplierId: po.supplierId, lines: po.lines, expectedDate: po.expectedDate, exposure: po.exposure, currency: po.currency, supplier: po.supplierSnapshot }), ...(signed ? { signatureIds: signed.signatureIds, override: signed.override } : {}) })
+      approval.classification = classification
       signed?.consume(approval.id)
-      return bump(po, { status: 'approved', approvalId: approval.id, approvedBy: c.actor.id })
+      return bump(po, { status: 'approved', approvalId: approval.id, approvedBy: c.actor.id, classification })
     }
     case 'po.amend': {
       allow(c, ['manager', 'buyer', 'agent'])
@@ -77,7 +90,7 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
         if (x.unitPrice !== undefined) line.unitPrice = format(decimal(x.unitPrice, 'unit price'))
       }
       po.history.push({ at: c.now, by: c.actor.id, change: 'draft amended', note })
-      return bump(po, { exposure: format(po.lines.reduce((n: bigint, l: any) => n + times(decimal(l.quantity), decimal(l.unitPrice)), 0n)) })
+      return prepared(bump(po, { exposure: format(po.lines.reduce((n: bigint, l: any) => n + times(decimal(l.quantity), decimal(l.unitPrice)), 0n)) }))
     }
     case 'po.confirm': {
       allow(c, ['manager', 'buyer'])

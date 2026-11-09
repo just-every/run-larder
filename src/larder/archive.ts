@@ -1,3 +1,4 @@
+import { retainedChangeEvents, changeEventRestoreInsert, changeEventParams } from './change-events'
 // The complete business archive and its restore into an empty installation.
 // Restore is one atomic write that also proves every stock position equals the
 // archived reconciliation; a mismatch writes nothing.
@@ -46,6 +47,7 @@ export async function archive(env: Bindings, actor: Actor) {
     ...(currencyMigration.results.length ? { currencyMigration: JSON.parse(currencyMigration.results[0].data) } : {}),
     movements: s.movements.map(m => ({ ...m, quantity: m.quantity.toString(), unitCost: m.unitCost.toString() })),
     reservations: s.reservations.map(r => ({ ...r, quantity: r.quantity.toString() })),
+    changeEvents: await retainedChangeEvents(env.DB),
     commandAgents: commandAgents.results,
     commands: commands.results, people: [...new Map([...historicalPeople.results.flatMap((r: any) => JSON.parse(r.data)), ...people.results].map((p: any) => [p.id, p])).values()].map((p: any) => s.contactErasures.some(e => e.subjectKind === 'operator' && e.subjectId === p.id) ? { ...p, name: '[erased]' } : p),
     unmappedRoles: historicalRoles.results.flatMap((r: any) => JSON.parse(r.data)),
@@ -64,10 +66,10 @@ export async function restore(env: Bindings, actor: Actor, request: Request) {
   checkFunctionalMoney(content.records ?? {})
   if (content.currencyDeclarations !== undefined && canonicalJson(content.currencyDeclarations) !== canonicalJson(currencyDeclarations(content.records ?? {}))) fail('CURRENCY_MIGRATION', 'Per-record currency declarations conflict with the archived records.')
   if (content.currencyMigration !== undefined) checkMigration(content.currencyMigration, content)
-  const empty = await env.DB.prepare('SELECT (SELECT version FROM larder_meta WHERE id=1)=0 AND NOT EXISTS(SELECT 1 FROM larder_records) AND NOT EXISTS(SELECT 1 FROM larder_movements) AND NOT EXISTS(SELECT 1 FROM larder_commands) AS empty').first<{ empty: number }>()
+  const empty = await env.DB.prepare('SELECT (SELECT version FROM larder_meta WHERE id=1)=0 AND NOT EXISTS(SELECT 1 FROM larder_records) AND NOT EXISTS(SELECT 1 FROM larder_movements) AND NOT EXISTS(SELECT 1 FROM larder_commands) AND NOT EXISTS(SELECT 1 FROM larder_change_events) AS empty').first<{ empty: number }>()
   if (empty?.empty !== 1) fail('NOT_EMPTY', 'Restore only into an empty installation. This one already has records.')
   const db = env.DB, guard = authority(actor)
-  const statements: D1PreparedStatement[] = [db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${guard.sql}) AND (SELECT version FROM larder_meta WHERE id=1)=0 AND NOT EXISTS(SELECT 1 FROM larder_records) AND NOT EXISTS(SELECT 1 FROM larder_movements) AND NOT EXISTS(SELECT 1 FROM larder_commands) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...guard.params)]
+  const statements: D1PreparedStatement[] = [db.prepare(`INSERT INTO larder_guard(id,ok) VALUES(?,CASE WHEN (${guard.sql}) AND (SELECT version FROM larder_meta WHERE id=1)=0 AND NOT EXISTS(SELECT 1 FROM larder_records) AND NOT EXISTS(SELECT 1 FROM larder_movements) AND NOT EXISTS(SELECT 1 FROM larder_commands) AND NOT EXISTS(SELECT 1 FROM larder_change_events) THEN 1 ELSE 0 END)`).bind(crypto.randomUUID(), ...guard.params)]
   const operators = new Set((await db.prepare('SELECT id FROM oa_operators').all<{ id: string }>()).results.map(r => r.id))
   let skippedRoles = 0
   const unmappedRoles = [...(content.unmappedRoles ?? [])]
@@ -78,6 +80,12 @@ export async function restore(env: Bindings, actor: Actor, request: Request) {
   }
   for (const m of content.movements) statements.push(db.prepare('INSERT INTO larder_movements VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(m.id, m.sequence, m.itemId, m.locationId, m.status, m.lotId, Number(m.quantity), Number(m.unitCost), m.kind, m.documentKind, m.documentId, m.reversesId, m.actorId, m.commandId, m.importId, m.reason, m.createdAt))
   for (const r of content.reservations) statements.push(db.prepare('INSERT INTO larder_reservations VALUES(?,?,?,?,?,?,?)').bind(r.id, r.demandKind, r.demandId, r.lineId, r.itemId, r.locationId, Number(r.quantity)))
+  // Import retained facts directly, preserving cursors; never invoke an event
+  // producer or execute the commands that originally produced them.
+  for (const e of content.changeEvents ?? []) {
+    const { seq, ...event } = e
+    statements.push(db.prepare(changeEventRestoreInsert).bind(seq, ...changeEventParams(event)))
+  }
   for (const c of content.commands) statements.push(db.prepare('INSERT INTO larder_commands VALUES(?,?,?,?,?,?)').bind(c.id, c.actor_id, c.type, c.digest, c.result, c.created_at))
   for (const a of content.commandAgents ?? []) statements.push(db.prepare('INSERT INTO larder_command_agents VALUES(?,?,?,?,?,?,?)').bind(a.command_id,a.agent_id,a.agent_name,a.sponsor_id,a.sponsor_name,a.operation_id,a.approvers))
   for (const f of content.attachments) {

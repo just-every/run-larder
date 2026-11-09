@@ -1377,3 +1377,99 @@ and restricted members cannot read the audit or business archive. Business
 archives retain recorded classification outcomes and unmapped role history as
 inert evidence; restoring history executes no scope command or remote action.
 This door does not qualify agent execution or provider classifications.
+
+## Native manufacturing change journal
+
+An unscoped native owner or manager reads
+`GET /api/larder/audit/events?limit=100&after=0`. Current sessions, blind
+counts, roles, location and site scope, custom-role limits, and cost restrictions
+use the audit boundary. Other native roles, scoped managers and service
+credentials cannot read this journal. Responses are private and uncached.
+
+The response is `{ events, until, next }`. Events appear in ascending retained
+`seq` order. Pages default to 100 events and are capped at 200; a positive
+integer `limit` is required. Copy `until` and the last page's `next` into
+`after` for subsequent pages. The pinned upper sequence excludes later
+appends, survives restart and restore, and returns `next: null` at the end.
+Optional exact `type` and `commandId` filters keep the same cursor semantics.
+Malformed or out-of-history cursors are refused.
+
+The bounded vocabulary currently contains:
+
+- `receipt.recorded`: one committed goods receipt, with exact lines, base-unit
+  quantities, lot and movement IDs, inspection dispositions and partial status.
+- `work.output-recorded`: one recorded output batch on its exact work revision,
+  with good and scrap quantities, output lot and movement, and actual component
+  issue allocations.
+- `quality.held`: one newly applied inspection hold, its inspection and plan
+  revisions, and quantities actually moved into quarantine.
+- `quality.released`: one applied inspection-hold release or quarantine
+  disposition approval, with exact released quantities and existing evidence.
+  A released hold can have no physical release; an empty quantity list does not
+  establish usable material.
+- `shipment.dispatched`: one actually dispatched shipment, its source order
+  revision, quantities and physical movements, partial status and remaining
+  order-line quantities. Picking or packing alone emits no dispatch event.
+
+Each event retains a stable command-bound `id`, the originating `commandId`
+and `commandType`, commit time, `stateVersion`, exact `source` record
+identity and version, related `records` with their committed versions, typed
+`details`, physical `movements`, and existing evidence IDs, digests and
+download links. Follow record identities through the authenticated state door
+and files through their existing download authority. The captured revision is
+historical: a current state read may show a later revision. The command ID also
+links to the existing attributed audit. Personal labels, actor names, file names,
+free text, commercial amounts and document bodies are not copied into events.
+
+Events and business records commit in the same authority- and version-guarded
+batch. Refusal, pending signatures, projections, generic audit labels and command
+attempts create no event. Retrying a recorded command returns its original
+outcome without another event; paired physical movements describe one business
+transition. There is no journal edit, purge or client event-publication command.
+The journal begins at installation of this feature; old audit entries are not
+reinterpreted as typed events.
+
+Both business archive formats and the installation backup retain event history,
+including IDs and sequences. Empty-destination restore inserts those retained
+facts directly, without running their producers, replaying physical movements,
+reviving sessions or calling a provider. Older business archives without a
+journal restore with an empty one.
+
+This is a local native read. It does not deliver MCP events or subscriptions,
+outbound delivery or retries, supplier-date events, provider-confirmed
+reconciliation or specialist handoffs. A local handoff acknowledgment never
+establishes accepted books.
+### Native commercial decision facts
+
+The existing `po.draft`, `po.selectQuote`, `po.amend`, `po.approve`,
+`so.changePreview` and `so.changeApprove` doors return server-computed
+`classification`. Its `classes` describe the recorded outcome: preparation
+and a pending purchase signature are `standard`; an applied purchase approval
+is `money` and `commitment`; an applied customer amendment is `commitment`.
+`actionClasses` separately describes the action awaiting approval. `effect`
+distinguishes `prepared`, `pending` and `applied`.
+
+`facts.terms` retains the normalized purchase lines, stored amount, currency
+and supplier snapshot, or the exact customer, order versions, commercial
+revisions and dated promises before and after an amendment. Amendment values
+cover only the outstanding dated promises; issued shipment terms stay unchanged. Spend
+signatures bind those purchase terms. Amendment approval recomputes the
+reviewed facts from current records before applying the change. Classification
+and attribution fields supplied by a caller are refused; the existing roles,
+independence, thresholds and atomic authority checks still decide permission.
+A retained amendment preview without these facts requires fresh preparation.
+
+The applied purchase and linked approval retain the same facts. An amendment
+keeps its preparation facts on the preview and its applied classification on
+the order, change history and preview's `decisionClassification`. Each outcome
+retains the actual actor, role, command and input version. A pending signature
+remains a historical pending outcome even after a later person completes the
+approval. Retries return the original outcome once, subject to current session
+and scope restrictions. Cost restrictions cover nested prices and values;
+location restrictions cover the linked snapshots. Archives preserve these
+facts as inert history.
+
+Local approvals and recorded customer attestations establish no provider
+charge, payment, provider acceptance, outbound delivery or audience change.
+These native facts do not qualify other commercial doors, external recipient
+counts or consequential agent execution under company policy.

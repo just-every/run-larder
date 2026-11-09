@@ -1,3 +1,4 @@
+import { journal, followEvent } from './change-event-proof.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { installation, evidence } from './harness.mjs'
@@ -54,6 +55,16 @@ test('TRACE-004 approved inspection plans hold failed work and lots from start, 
   await agent.run('quality.inspect', { planId: borePlan.id, planVersion: borePlan.version, workOrderId: work.id, samples: samples(['10', '10', '10', '10', '10']) }, { error: 'FORBIDDEN' })
   await operator.run('quality.inspect', { planId: borePlan.id, planVersion: borePlan.version, workOrderId: work.id, samples: samples(['10', '10.01', '10']) }, { error: 'SAMPLE_SIZE' })
   const failed = await operator.run('quality.inspect', { planId: borePlan.id, planVersion: borePlan.version, workOrderId: work.id, samples: samples(['10.00', '10.01', '10.03', '9.99', '10.00']), evidence: [evidence('CMM report: bore 10.03 mm on part 3')] })
+  const holdEvents = (await journal(h, '?type=quality.held')).events
+  assert.equal(holdEvents.length, 1, 'The failed inspection produces one hold, not one per paired movement')
+  const heldEvent = holdEvents[0]
+  assert.deepEqual(heldEvent.source, { kind: 'qualityHolds', id: failed.holdId, version: 1 })
+  assert.deepEqual(heldEvent.details.quantities, [{ itemId: bracket.id, lotId: lotA.id, locationId: shop.id, quantity: '4', unit: 'each' }])
+  assert.equal(heldEvent.details.inspectionId, failed.id)
+  assert.deepEqual(heldEvent.details.plan, { id: borePlan.id, version: failed.planVersion })
+  assert.deepEqual(heldEvent.movements.map(m => m.quantity), ['-4', '4'])
+  assert.equal(heldEvent.evidence[0].id, failed.evidence[0].id)
+  await followEvent(h, heldEvent)
   assert.equal(failed.passed, false)
   assert.deepEqual(failed.measurements.map(m => [m.count, m.mean, m.outside, m.passed, m.samples]), [[5, '10.006', 1, false, ['10', '10.01', '10.03', '9.99', '10']]])
   assert.equal(failed.evidence[0].name, 'count-sheet.txt'); assert.ok(failed.holdId)
@@ -81,7 +92,34 @@ test('TRACE-004 approved inspection plans hold failed work and lots from start, 
   await operator.run('quality.release', { holdId: hold.id, version: hold.version, reason: 'Retest passed', evidence: [evidence('Retest')] }, { error: 'FORBIDDEN' })
   await agent.run('quality.release', { holdId: hold.id, version: hold.version, reason: 'Retest passed', evidence: [evidence('Retest')] }, { error: 'FORBIDDEN' })
   await manager.run('quality.release', { holdId: hold.id, version: hold.version, reason: 'Retest passed' }, { error: 'EVIDENCE' })
-  const released = await manager.run('quality.release', { holdId: hold.id, version: hold.version, reason: 'Retest passed after rework', evidence: [evidence('Signed retest record')] })
+  assert.deepEqual((await journal(h, '?type=quality.released')).events, [], 'Missing retest, unsafe actor and absent evidence emit no release')
+  assert.deepEqual((await journal(h, '?type=quality.held')).events, holdEvents, 'A passing retest is not another hold')
+  const releasePayload = { holdId: hold.id, version: hold.version, reason: 'Retest passed after rework', evidence: [evidence('Signed retest record')] }
+  const releaseId = 'synthetic-larder-event-release'
+  await h.command('approval.policy', { category: 'quality', thresholdUsd: '1', signatures: 2, expiryMinutes: 60, reason: 'Two people review this release' })
+  const beforePending = await h.state()
+  const pending = await h.command('quality.release', releasePayload, { commandId: 'synthetic-larder-event-release-pending' })
+  assert.equal(pending.remainingAtSigning, 1)
+  const afterPending = await h.state()
+  for (const key of ['qualityHolds', 'lots', 'movements', 'positions']) assert.deepEqual(afterPending[key], beforePending[key], key)
+  assert.deepEqual((await journal(h, '?type=quality.released')).events, [], 'A successfully recorded pending signature is not a business release')
+
+  const released = await manager.run('quality.release', releasePayload, { commandId: releaseId })
+  const releaseJournal = await journal(h, '?type=quality.released')
+  assert.equal(releaseJournal.events.length, 1)
+  const releaseEvent = releaseJournal.events[0]
+  assert.deepEqual(releaseEvent.source, { kind: 'qualityHolds', id: hold.id, version: released.version })
+  assert.deepEqual(releaseEvent.details.quantities, [{ itemId: bracket.id, lotId: lotA.id, locationId: shop.id, quantity: '4', unit: 'each' }])
+  assert.equal(releaseEvent.details.inspectionId, retest.id)
+  assert.deepEqual(releaseEvent.details.plan, { id: borePlan.id, version: retest.planVersion })
+  assert.equal(released.release.signatureIds.length, 2)
+  assert.deepEqual(releaseEvent.movements.map(m => m.quantity), ['-4', '4'])
+  assert.deepEqual(releaseEvent.evidence.map(e => e.id).sort(), [retest.evidence[0].id, released.release.evidence[0].id].sort())
+  await followEvent(h, releaseEvent)
+  assert.deepEqual(await manager.run('quality.release', releasePayload, { commandId: releaseId }), released)
+  assert.deepEqual(await journal(h, '?type=quality.released'), releaseJournal)
+  await manager.run('quality.release', { ...releasePayload, version: hold.version }, { error: 'STALE' })
+  assert.deepEqual(await journal(h, '?type=quality.released'), releaseJournal)
   assert.equal(released.status, 'released'); assert.equal(released.release.retestId, retest.id); assert.deepEqual(released.release.released, [{ lotId: lotA.id, locationId: shop.id, quantity: '4' }])
   s = await h.invariant()
   assert.deepEqual(s.positions.filter(p => p.lotId === lotA.id).map(p => [p.status, p.quantity]), [['available', '4']])
