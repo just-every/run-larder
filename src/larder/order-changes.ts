@@ -1,5 +1,6 @@
 // Human-reviewed amendments preserve issued documents and production spend.
 import { attach } from './attachments'
+import { amendmentTerms, commercialClassification, reviewedAmendment } from './commercial-classification'
 import { open } from './availability'
 import { decimal, format, max, min } from './decimal'
 import { changeImpact } from './order-change-impact'
@@ -76,8 +77,10 @@ export function orderChanges(c: Context, type: string, p: any): Row | undefined 
     if (!['confirmed', 'part shipped', 'shipped', 'cancelled'].includes(order.status)) fail('STATE', 'Confirm the order before preparing an amendment.')
     const after = changedOrder(c, order, p), customerApproval = customerAttestation(c, p.customerApproval)
     for (const previous of c.s.orderChanges.filter(change => change.orderId === order.id && change.status === 'preview')) bump(previous, { status: 'superseded', supersededAt: c.now, supersededBy: c.actor.id })
-    return row(c, 'orderChanges', { orderId: order.id, reason: text(p.reason, 'change reason', 1000), customerApproval,
+    const preview = row(c, 'orderChanges', { orderId: order.id, reason: text(p.reason, 'change reason', 1000), customerApproval,
       before: commercialSnapshot(order), after: commercialSnapshot(after), impact: changeImpact(c.s, order, after), status: 'preview', stateVersion: c.s.version + 1 })
+    preview.classification = commercialClassification(c, preview, 'prepared', ['commitment'], amendmentTerms(c, order, preview.after, customerApproval))
+    return preview
   }
   if (type !== 'so.changeApprove') return
   const preview = get(c.s, 'orderChanges', p.previewId, 'order change preview')
@@ -85,6 +88,8 @@ export function orderChanges(c: Context, type: string, p: any): Row | undefined 
   if (preview.status !== 'preview') fail('STATE', 'This amendment has already been decided.')
   if (preview.stateVersion !== c.s.version) fail('STALE', 'Business records changed after this preview. Prepare and review the amendment again.')
   const order = get(c.s, 'salesOrders', preview.orderId, 'order'); fresh(order, preview.before.version)
+  const terms = reviewedAmendment(c, order, preview)
+  const classification = commercialClassification(c, preview, 'applied', ['commitment'], terms)
   const before = commercialSnapshot(order)
   const lines = preview.after.lines.map(({ activeQuantity, ...line }: any) => line)
   // GOV-002 margin floor. A preview binds the exact records, so it cannot wait for a second
@@ -97,9 +102,10 @@ export function orderChanges(c: Context, type: string, p: any): Row | undefined 
     promiseDate: preview.after.promiseDate, status: preview.after.status, commercialRevision: (order.commercialRevision ?? 1) + 1 })
   trimOrderReservations(c, order)
   const history = { changeId: preview.id, kind: 'approved amendment', reason: preview.reason, customerApproval: preview.customerApproval,
-    before, after: commercialSnapshot(order), approvedBy: c.actor.id, approvedAt: c.now }
+    before, after: commercialSnapshot(order), approvedBy: c.actor.id, approvedAt: c.now, classification }
+  order.classification = classification
   order.changeHistory = [...(order.changeHistory ?? []), history]
   if (signed && !('pending' in signed)) { Object.assign(history, { marginSignatureIds: signed.signatureIds, override: signed.override }); signed.consume(preview.id) }
-  bump(preview, { status: 'approved', approvedBy: c.actor.id, approvedAt: c.now, appliedOrderVersion: order.version })
+  bump(preview, { status: 'approved', approvedBy: c.actor.id, approvedAt: c.now, appliedOrderVersion: order.version, decisionClassification: classification })
   return order
 }

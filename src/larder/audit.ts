@@ -31,7 +31,7 @@ export function scrub(value: unknown, depth = 0, retainStructure = false): unkno
   if (value === null || value === undefined || typeof value === 'boolean' || typeof value === 'number') return value ?? null
   if (typeof value === 'bigint') return format(value)
   if (typeof value === 'string') { const t = scrubText(value); return t.length > 240 ? digest(t) : t }
-  if (depth > 6) return digest(value)
+  if (depth > (retainStructure ? 14 : 6)) return digest(value)
   if (Array.isArray(value)) {
     const items = value.map(v => scrub(v, depth + 1, retainStructure))
     return !retainStructure && JSON.stringify(items).length > 4000 ? { ...digest(value), count: value.length } : items
@@ -93,7 +93,8 @@ export function auditEntries(c: Context, before: State, type: string, payload: a
     // Native scope facts repeat exact location IDs in their restrictions and
     // deltas. Keep those decision facts even when they exceed text size limits;
     // credential and document scrubbing still applies to every field.
-    const retainStructure = kind === 'roles' && type === 'member.scope'
+    const retainStructure = (kind === 'roles' && type === 'member.scope') ||
+      (['purchaseOrders', 'approvals', 'approvalSignatures', 'salesOrders', 'orderChanges'].includes(kind) && ['po.draft', 'po.selectQuote', 'po.amend', 'po.approve', 'so.changePreview', 'so.changeApprove'].includes(type))
     out.push({
       id: `${c.commandId}:${out.length}`, at: c.now, actorId: c.actor.id, actorName: c.actor.agentDoor ? `${c.actor.agentDoor.name} for ${c.actor.name}` : c.actor.name, actorRole: c.actor.role, source, commandId: c.commandId, commandType: type,
       domain: source === 'agent' && type === 'proposal.prepare' ? 'agent' : domainOf(c, kind, type, payload), subjectKind: kind, subjectId, subjectVersion, op,

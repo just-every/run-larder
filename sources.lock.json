@@ -1769,7 +1769,7 @@
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "cc06f50e4d4285506b1bcbcebc56544c51a191ec38a2952f8384f3bbf3d9f2e7",
+      "sha256": "529d279b99fc63fdc707b6d43873ed0ddcdfc317dfca9bacb64ba34b6902e8cc",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -1797,7 +1797,7 @@
       "executable": false
     },
     "src/larder/audit.ts": {
-      "sha256": "8e7cf3a3bacf30b52e9c60071f4fa33eb07b89e813c480b6511d200d7f63c10a",
+      "sha256": "d370343785e16f387788d46870b1d1f89447a5775fe9a4b5166c990d16ba243d",
       "executable": false
     },
     "src/larder/availability.ts": {
@@ -1862,6 +1862,10 @@
     },
     "src/larder/co-products.ts": {
       "sha256": "18f7f3d4334a00afa3a71386c4f46a10fd2b990c34aa1f28c15432aec1cdb551",
+      "executable": false
+    },
+    "src/larder/commercial-classification.ts": {
+      "sha256": "8e25a7f98f40f280a95e82629710bf13267cbf2c38b587fb3435eb2fc73be8aa",
       "executable": false
     },
     "src/larder/config-expr.ts": {
@@ -2133,7 +2137,7 @@
       "executable": false
     },
     "src/larder/order-changes.ts": {
-      "sha256": "0ece87270ec2b1c4c89e2673cf12d1353e89b6ab974560a83f9690738e2b1273",
+      "sha256": "5872c2b4714ab6a5211a17761f73e1e01f4e34949f56ce9c14ff2cdc8d6d6883",
       "executable": false
     },
     "src/larder/order-ranking.ts": {
@@ -2177,7 +2181,7 @@
       "executable": false
     },
     "src/larder/purchasing.ts": {
-      "sha256": "c36b4fc210723ca8413fa7359a749773d069bb4ad1d1a865416d34454389289a",
+      "sha256": "75af18b8afc1ea0e7c8a2288a76eda372d6f35c77de2b2f930e87df73de75c56",
       "executable": false
     },
     "src/larder/quality-holds.ts": {
@@ -5125,11 +5129,11 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "bce27cefc09a1cee992ee8cf4e5f109c04d213451cf389d0301af36d414bbc0b",
+      "sha256": "fb134352127122073f5e17b2ebcdcd223e08692b6f729657c68c3b2ec91edd0d",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "6e0ead82f928c8cb54c95851d5b69a6276b73b98ae8aaebc4b723b2f1799e2e7",
+      "sha256": "312fc8248094574210251aa8e20172894e29909348b8dedddcae13621352dbe9",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
@@ -5165,7 +5169,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "407c5524c0ac83eb20c61ab2aa68c43b21561b36e111219485fa84e6f6a204fb",
+      "sha256": "0dbc9c329b88e607ba0a4d07d4b7f24d96983a4db1f654ebed4975bc92771254",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {
@@ -5205,7 +5209,7 @@
       "executable": false
     },
     "tests/api/order-amendments.test.mjs": {
-      "sha256": "edca0f1d6b1f0737df0c494275b16992f86a63af124cc375a1fa79c75e8a3e8c",
+      "sha256": "1b179c7c956bd74d33fc53b639e68d0a356a015d0a11fa890526a724ebf55ff1",
       "executable": false
     },
     "tests/api/order-status.test.mjs": {

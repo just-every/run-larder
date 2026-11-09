@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { installation, workshop, evidence } from './harness.mjs'
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => '2026-10-29'
 const approval = () => ({ name: 'Casey Customer', reference: 'Customer amendment email', approvedOn: today(), evidence: evidence('Please amend our order as discussed.') })
 const currentOrder = async (h, id) => (await h.state()).salesOrders.find(order => order.id === id)
 const change = (order, quantity, schedules, overrides = {}) => ({ orderId: order.id, version: order.version, reason: 'Customer approved revised requirement', customerApproval: approval(),
@@ -17,7 +17,7 @@ async function ship(h, order, locationId, quantity) {
 }
 
 test('DEMAND-002 approved amendments split promises, preserve issued terms and production costs, cancel only unconsumed commitments, and reject stale or unsafe changes', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now: '2026-10-29T12:00:00.000Z' }); t.after(() => h.close())
   const w = await workshop(h)
   const sales = await h.person('sam-sales@example.test', 'sales')
   const manager = await h.person('morgan-manager@example.test', 'manager')
@@ -36,8 +36,26 @@ test('DEMAND-002 approved amendments split promises, preserve issued terms and p
   order = await currentOrder(h, order.id)
   const before = await h.state()
   const proposed = change(order, '12', [{ quantity: '3', date: '2026-11-18' }, { quantity: '7', date: '2026-12-02' }])
+  const unchanged = async action => {
+    const before = await (await h.request('/api/larder/archive')).json(), outbound = h.outboundCount()
+    delete before.exportedAt
+    await action()
+    const after = await (await h.request('/api/larder/archive')).json(); delete after.exportedAt
+    assert.deepEqual(after, before, 'Refusal has no records, signatures, audit or stock effects')
+    assert.equal(h.outboundCount(), outbound)
+  }
+  await unchanged(() => sales.run('so.changePreview', { ...proposed, classification: { classes: ['standard'] } }, { error: 'INPUT' }))
   await agent.run('so.changePreview', proposed, { error: 'FORBIDDEN' })
   const preview = await sales.run('so.changePreview', proposed)
+  assert.deepEqual(preview.classification.classes, ['standard'])
+  assert.equal(preview.classification.effect, 'prepared')
+  assert.equal(preview.classification.actor.id, sales.id)
+  const terms = preview.classification.facts.terms
+  assert.deepEqual([terms.customerId, terms.customer.name, terms.beforeValue, terms.afterValue, terms.currency], [w.customer.id, w.customer.name, '712', '1188', 'USD'])
+  assert.deepEqual([terms.before.commercialRevision, terms.after.commercialRevision], [1, 2])
+  assert.deepEqual(terms.before.lines[0].schedules, [{ quantity: '6', date: '2026-11-15' }])
+  assert.deepEqual(terms.after.lines[0].schedules, proposed.lines[0].schedules)
+  assert.equal(preview.classification.facts.customerCommitment, false)
   assert.equal(preview.impact.changedPromiseCount, 1)
   assert.deepEqual(preview.impact.promiseChanges[0].before, [{ quantity: '6', date: '2026-11-15' }])
   assert.deepEqual(preview.impact.promiseChanges[0].after, proposed.lines[0].schedules)
@@ -50,8 +68,21 @@ test('DEMAND-002 approved amendments split promises, preserve issued terms and p
   assert.ok(preview.impact.procurement.some(row => row.id === po.id && row.outstandingExposure === '38'))
   assert.ok(preview.impact.shipments.some(row => row.id === shipment.id && row.commercialTerms.shippingAddress === 'Original receiving'))
   assert.deepEqual((await h.state()).salesOrders.find(row => row.id === order.id), before.salesOrders.find(row => row.id === order.id))
-  await agent.run('so.changeApprove', { previewId: preview.id, version: preview.version }, { error: 'FORBIDDEN' })
+  await unchanged(() => agent.run('so.changeApprove', { previewId: preview.id, version: preview.version }, { error: 'FORBIDDEN' }))
+  await unchanged(() => sales.run('so.changeApprove', { previewId: preview.id, version: preview.version, facts: terms }, { error: 'INPUT' }))
   order = await sales.run('so.changeApprove', { previewId: preview.id, version: preview.version }, { commandId: 'demand-002-approved-increase' })
+  assert.deepEqual(order.classification.classes, ['commitment'])
+  assert.equal(order.classification.effect, 'applied')
+  assert.deepEqual(order.classification.facts.terms, terms)
+  assert.equal(order.classification.actor.id, sales.id)
+  assert.equal(order.classification.actor.source, 'person')
+  assert.equal(order.classification.basis.subjectVersion, preview.version)
+  assert.equal(order.classification.facts.customerCommitment, true)
+  for (const flag of ['purchaseCommitment', 'paymentPosted', 'providerCharge', 'providerAcceptance', 'externalDelivery', 'audienceChanged']) assert.equal(order.classification.facts[flag], false)
+  assert.deepEqual(order.changeHistory[0].classification, order.classification)
+  assert.deepEqual((await h.state()).orderChanges.find(x => x.id === preview.id).decisionClassification, order.classification)
+  const audit = (await (await h.request('/api/larder/audit?commandId=demand-002-approved-increase')).json()).entries
+  assert.deepEqual(audit.find(e => e.subjectKind === 'salesOrders').after.classification, order.classification)
   assert.equal(order.lines[0].id, preview.before.lines[0].id)
   assert.equal(order.lines[0].quantity, '12'); assert.equal(order.lines[0].unitPrice, '99')
   assert.equal(order.changeHistory[0].before.shippingAddress, 'Original receiving')
@@ -113,7 +144,7 @@ test('DEMAND-002 approved amendments split promises, preserve issued terms and p
   assert.equal(order.status, 'shipped'); assert.deepEqual(order.lines[0].schedules, [])
   const stale = await sales.run('so.changePreview', change(order, '4', [{ quantity: '1', date: '2026-12-12' }]))
   await h.command('location.save', { name: 'Intervening business change' })
-  await manager.run('so.changeApprove', { previewId: stale.id, version: stale.version }, { error: 'STALE' })
+  await unchanged(() => manager.run('so.changeApprove', { previewId: stale.id, version: stale.version }, { error: 'STALE' }))
   assert.deepEqual(await currentOrder(h, order.id), order)
   await sales.run('so.changePreview', change(order, '4', [{ quantity: '2', date: '2026-12-12' }]), { error: 'SCHEDULE_QUANTITY' })
   await h.command('movement.reverse', { documentKind: 'shipments', documentId: shipment.id, reason: 'Original parcel never left' })
