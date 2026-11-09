@@ -1,0 +1,53 @@
+Using project Node 22.20.0 (current Node 24.19.0).
+Heavy job admitted: Larder build:workflow [d357fa9e4c3c]
+Checking pinned pnpm
+10.12.4
+Building your application
+build:app
+▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+
+
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 472 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/client/.assetsignore               0.02 kB
+dist/client/assets/app-BzrrEnQq.css    38.00 kB │ gzip:   8.33 kB
+dist/client/assets/esm-Cg82g9Sp.js     26.81 kB │ gzip:   6.96 kB
+dist/client/assets/index-Sw-TrssD.js  314.08 kB │ gzip: 101.86 kB
+dist/client/assets/esm-BnSeZfLt.js    412.05 kB │ gzip: 109.98 kB
+dist/client/assets/app-BYDVGWLb.js    493.32 kB │ gzip: 129.23 kB
+
+✓ built in 2.42s
+vite v8.2.2 building ssr environment for production...
+transforming...
+✓ 1066 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/server/wrangler.json                                      1.62 kB │ gzip:   0.81 kB
+dist/server/.vite/manifest.json                                3.83 kB │ gzip:   0.74 kB
+dist/server/assets/app-BzrrEnQq.css                           38.00 kB │ gzip:   8.33 kB
+dist/server/assets/empty-plugin-adapters-D_0twvAa.js           0.28 kB │ gzip:   0.18 kB
+dist/server/assets/start-D8qDT34V.js                           0.28 kB │ gzip:   0.21 kB
+dist/server/assets/_tanstack-start-manifest_v-BRsV4mUr.js      0.61 kB │ gzip:   0.34 kB
+dist/server/assets/jsx-runtime-zPeYIBpK.js                    18.51 kB │ gzip:   4.98 kB
+dist/server/assets/router-BE0a0Ykc.js                         41.52 kB │ gzip:  11.04 kB
+dist/server/assets/gs1-D3O_mZW7.js                            42.77 kB │ gzip:  13.41 kB
+dist/server/assets/esm-BihVzSUf.js                            62.27 kB │ gzip:  12.47 kB
+dist/server/assets/font-head-C3_8DZUt.js                     145.41 kB │ gzip:  36.61 kB
+dist/server/assets/app-BGEVH8pf.js                           858.34 kB │ gzip: 167.55 kB
+dist/server/assets/esm-DLSuPPxW.js                           959.49 kB │ gzip: 194.43 kB
+dist/server/index.js                                       2,677.05 kB │ gzip: 656.73 kB
+
+[INEFFECTIVE_DYNAMIC_IMPORT] src/modules/import-kit/src/d1/undo-snapshot.ts is dynamically imported by src/modules/import-kit/src/d1/apply.ts but also statically imported by src/modules/import-kit/src/d1/preserved-preview.ts, src/modules/import-kit/src/d1/preserved-reverse.ts, dynamic import will not move module into another chunk.
+
+✓ built in 6.16s
+[PLUGIN_TIMINGS] Plugin hooks ran for 4.3s of this 6.1s build (70%).
+2 hooks are listed without a time. Their calls overlapped, so the time inside one call includes work from other calls. To find their cost, profile the build with `node --cpu-prof`:
+  - tanstack-start-core:import-protection resolveId (4201 calls)
+  - tanstack-start-core::server-fn:ssr transform (15 calls)
+See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+
+Your application is built
+build: complete (exit 0)

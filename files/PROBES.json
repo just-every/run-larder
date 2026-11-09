@@ -1,0 +1,6 @@
+{
+  "head": "551dcb45e91fbb320b8b96786e45446174aba822",
+  "exit": 0,
+  "command": "timeout 600 node --test --test-reporter=tap --test-concurrency=1 --test-name-pattern='ENG-005|GOV-001 engineer role|MOVE-008 source history' tests/api/engineering.test.mjs tests/api/authority.test.mjs tests/api/backup.test.mjs",
+  "log": "final-probes.log"
+}

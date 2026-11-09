@@ -1,0 +1,116 @@
+[
+  {
+    "label": "views-write",
+    "command": [
+      "node",
+      "src/base/contract-docs.mjs",
+      "write"
+    ],
+    "exit": 0,
+    "started": "2026-11-09T09:43:33.456779+00:00",
+    "finished": "2026-11-09T09:43:33.982220+00:00",
+    "log": "views-write.log"
+  },
+  {
+    "label": "views-check",
+    "command": [
+      "node",
+      "src/base/contract-docs.mjs",
+      "check"
+    ],
+    "exit": 0,
+    "started": "2026-11-09T09:43:33.986199+00:00",
+    "finished": "2026-11-09T09:43:34.752142+00:00",
+    "log": "views-check.log"
+  },
+  {
+    "label": "views-restore",
+    "command": [
+      "git",
+      "checkout",
+      "origin/main",
+      "--",
+      "ACCEPTANCE.md",
+      "docs/CLAIMS.md"
+    ],
+    "exit": 0,
+    "started": "2026-11-09T09:43:34.753497+00:00",
+    "finished": "2026-11-09T09:43:34.767605+00:00",
+    "log": "views-restore.log"
+  },
+  {
+    "label": "stage",
+    "command": [
+      "git",
+      "add",
+      "tests/api/engineering.test.mjs"
+    ],
+    "exit": 0,
+    "started": "2026-11-09T09:43:34.770480+00:00",
+    "finished": "2026-11-09T09:43:34.789365+00:00",
+    "log": "stage.log"
+  },
+  {
+    "label": "lock-write",
+    "command": [
+      "node",
+      "scripts/edition-authoring/cli.mjs",
+      "lock"
+    ],
+    "exit": 0,
+    "started": "2026-11-09T09:43:34.789870+00:00",
+    "finished": "2026-11-09T09:43:37.074344+00:00",
+    "log": "lock-write.log"
+  },
+  {
+    "label": "lock-stage",
+    "command": [
+      "git",
+      "add",
+      "sources.lock.json"
+    ],
+    "exit": 0,
+    "started": "2026-11-09T09:43:37.075297+00:00",
+    "finished": "2026-11-09T09:43:37.607613+00:00",
+    "log": "lock-stage.log"
+  },
+  {
+    "label": "lock-check",
+    "command": [
+      "node",
+      "scripts/edition-authoring/cli.mjs",
+      "check"
+    ],
+    "exit": 0,
+    "started": "2026-11-09T09:43:37.625885+00:00",
+    "finished": "2026-11-09T09:43:43.044757+00:00",
+    "log": "lock-check.log"
+  },
+  {
+    "label": "diff-check",
+    "command": [
+      "git",
+      "diff",
+      "--cached",
+      "--check"
+    ],
+    "exit": 0,
+    "started": "2026-11-09T09:43:43.053621+00:00",
+    "finished": "2026-11-09T09:43:43.065954+00:00",
+    "log": "diff-check.log"
+  },
+  {
+    "label": "contract-diff",
+    "command": [
+      "git",
+      "diff",
+      "--cached",
+      "--",
+      "CONTRACT.md"
+    ],
+    "exit": 0,
+    "started": "2026-11-09T09:43:43.066408+00:00",
+    "finished": "2026-11-09T09:43:43.103166+00:00",
+    "log": "contract-diff.log"
+  }
+]

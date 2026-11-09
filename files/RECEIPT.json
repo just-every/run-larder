@@ -1,0 +1,45 @@
+{
+  "head": "551dcb45e91fbb320b8b96786e45446174aba822",
+  "branch": "cloud/sx-larder-c-f605",
+  "repository": "just-every/run-larder",
+  "starting_main": "171f7266ef82b5973a5d5036a37e60e5f6c6ea43",
+  "commit_identities": "COMMIT-IDENTITIES.txt",
+  "refs": "remote-refs.txt",
+  "product_push": "candidate-push.log",
+  "counts_before": {
+    "done": 86,
+    "partial": 39,
+    "missing": 39
+  },
+  "counts_after": {
+    "done": 86,
+    "partial": 39,
+    "missing": 39
+  },
+  "pr": null,
+  "publication_scan": {
+    "performed_in_cloud": false,
+    "required_by_lander": true
+  },
+  "migration_ledger": "not applicable; no migration changed",
+  "ci_run_id": 42596212662,
+  "ci_latest": {
+    "conclusion": null,
+    "head_sha": "551dcb45e91fbb320b8b96786e45446174aba822",
+    "html_url": "https://github.com/just-every/run-larder/actions/runs/42596212662",
+    "status": "in_progress"
+  },
+  "product_custody": "pushed",
+  "local_candidate_probes": {
+    "head": "551dcb45e91fbb320b8b96786e45446174aba822",
+    "exit": 0,
+    "command": "timeout 600 node --test --test-reporter=tap --test-concurrency=1 --test-name-pattern='ENG-005|GOV-001 engineer role|MOVE-008 source history' tests/api/engineering.test.mjs tests/api/authority.test.mjs tests/api/backup.test.mjs",
+    "log": "final-probes.log"
+  },
+  "first_party": {
+    "head": "551dcb45e91fbb320b8b96786e45446174aba822",
+    "command": "npx -y @runeditrun/rer check --profile first-party",
+    "exit": 0
+  },
+  "direct_github_api_calls": 4
+}

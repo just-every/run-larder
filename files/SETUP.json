@@ -1,0 +1,6 @@
+{
+  "command": "npx -y @runeditrun/rer setup --owner-email [fleet identity] --non-interactive --answers [local development choices]",
+  "exit": 1,
+  "raw_log": "Not selected for public evidence because setup output may carry local credentials.",
+  "diagnostic": "Readiness deadline exceeded while waiting for the bound internal listener handshake; observed local listeners did not match the expected internal port."
+}

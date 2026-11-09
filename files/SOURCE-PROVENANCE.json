@@ -1,0 +1,38 @@
+{
+  "src/larder/engineering.ts": {
+    "sha256": "533afbdb6762d738bb61ae1560ca1638902d65e6f251d602f030d3e150fbe8b0",
+    "git_blob": "e8b2f7944a69f31fff1ebf591c367c56666d5022"
+  },
+  "src/larder/bom.ts": {
+    "sha256": "07e610072d3b3516698cff2742499b6eaa507500bcd74d01c6f4da0d5675180a",
+    "git_blob": "207b6b0d44f080b9c4e4d0f966f46cbf8211b0b3"
+  },
+  "src/larder/api.ts": {
+    "sha256": "a8f8701af7c0fb6b47e4fd8eed423fe34a0f62c33854455f98b23eeb3ef5bd5e",
+    "git_blob": "fce3a9f5ed2183d3841bd27abc8e620f1aac1a39"
+  },
+  "src/larder/audit.ts": {
+    "sha256": "990a4f42e5c484a7f247d433e0fe75a885a3cc7def00c26e834453e1754f5b2e",
+    "git_blob": "62f71e994abc12650c3261273137ad690c6f229f"
+  },
+  "src/larder/scope-view.ts": {
+    "sha256": "e1dcfb063f9f711cfd4431f9d0b8466557e4704fa0057143ecd1f642577533cb",
+    "git_blob": "fa337fdc96820e882c9a7730e713ba61fc4809bd"
+  },
+  "src/larder/scope-cost.ts": {
+    "sha256": "5f9705f63718c255a777c7dfdb2d40e68f30ffda27ef97d360cab007234b3664",
+    "git_blob": "d88cf5cde555d4f9f3c2930f11b7821a4ae7a598"
+  },
+  "tests/api/engineering.test.mjs": {
+    "sha256": "86134b59d7a219ff2c0812931eddf28d808fe121066c807372a7f32038fc6434",
+    "git_blob": "3124676769e5cd474a7ed6935f2b033d9091702f"
+  },
+  "tests/api/authority.test.mjs": {
+    "sha256": "12989650fff15c0ec72a83d09eed5882edeb527b7f9f1fe8956f34dbf9bfe768",
+    "git_blob": "4c81c3386f7a55e03e3666b3bc5a68fbd0a878df"
+  },
+  "tests/api/backup.test.mjs": {
+    "sha256": "9fd00bbe6cdfe02fe7e697b4a5f9eba9a57881df3b6922c0a9c47872f56bd6d2",
+    "git_blob": "638071a3586492c6c99db3f56f2c68b279dc45db"
+  }
+}

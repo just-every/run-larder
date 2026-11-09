@@ -1,0 +1,17 @@
+TAP version 13
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions
+ok 1 - MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions
+  ---
+  duration_ms: 41631.794408
+  type: 'test'
+  ...
+1..1
+# tests 1
+# suites 0
+# pass 1
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 44611.939591
