@@ -33,7 +33,7 @@ Final touched checks: 30 of 30 passed on Node 22.20.0; exit 0, no skipped or can
 
 MECHANICAL lock=node scripts/edition-authoring/cli.mjs lock and check exit=0; views=node src/base/contract-docs.mjs write and check exit=0, then main copies restored; ledger=none exit=0.
 
-Full runtime probe statements are in PROBES.md, with actual passing transcripts in TOUCHED-TESTS.log and FINITE-REGRESSION.log. The existing push Verify invokes these files through `pnpm run test:larder`; no workflow or test entry point was added. The inspected main has successful Verify push run 41252605263 and Run site run 41252604855 on 171f7266ef82b5973a5d5036a37e60e5f6c6ea43; its newer scheduled Verify 42557495067 also succeeded. Those baseline results are not candidate proof. Final CI status: Verify run 42595861179, event push, exact head c698f0cc8069904979683253bb111925f46f5d68, status in_progress, conclusion None; not yet green.
+Full runtime probe statements are in PROBES.md, with actual passing transcripts in TOUCHED-TESTS.log and FINITE-REGRESSION.log. The existing push Verify invokes these files through `pnpm run test:larder`; no workflow or test entry point was added. The inspected main has successful Verify push run 41252605263 and Run site run 41252604855 on 171f7266ef82b5973a5d5036a37e60e5f6c6ea43; its newer scheduled Verify 42557495067 also succeeded. Those baseline results are not candidate proof. Final CI status: Verify run 42595861179, event push, exact head c698f0cc8069904979683253bb111925f46f5d68, completed with success.
 
 ## Acceptance, inherited duties and DONE riders
 
@@ -45,7 +45,7 @@ Full runtime probe statements are in PROBES.md, with actual passing transcripts 
 | BASE-AGENT-007 citation — company-policy chokepoint | Still named by the clause and held; point 2 is not claimed. Existing native authorization fences remain enforced. |
 | Rider 1 | Native GET outcomes PASS through R1–R6. Full-clause point 2 is HELD, so no DONE claim. |
 | Rider 2 | PASS: nonempty seeded data, independent permitted adoption and unsafe refusal, exact business-archive and outbound comparisons. |
-| Rider 3 | Verify run 42595861179, event push, exact head c698f0cc8069904979683253bb111925f46f5d68, status in_progress, conclusion None; not yet green. The four touched files are included by the existing authenticated API Verify job. No UI screen changed; no width-gated or outside-Verify journey was introduced. |
+| Rider 3 | Verify run 42595861179, event push, exact head c698f0cc8069904979683253bb111925f46f5d68, completed with success. The four touched files are included by the existing authenticated API Verify job. No UI screen changed; no width-gated or outside-Verify journey was introduced. |
 | Rider 4 | PASS for local proof: final source and test hashes remain unchanged on c698f0cc8069904979683253bb111925f46f5d68. Final CI is bound to that same full SHA. |
 | Rider 5 | PASS: the unchanged SURFACE-006 meta line cites BASE-AGENT-006 and BASE-AGENT-007. Their unimplemented company-policy portions remain explicitly held. |
 | Rider 6 | PASS for builder mechanics: generated contract write and check passed; main's view files were restored; Status, Gap, Evidence and counts were untouched. No new judged-status provenance is claimed. |
@@ -60,3 +60,7 @@ Pre-ready checks: every changed native behavior has seeded HTTP proof; no existi
 GAP SURFACE-006: Company-policy execution, equivalent actions under held and all-autonomous policies, autonomous consequential execution and complete shared MCP and agent-tool qualification remain held. This campaign adds no preparation or adoption authority, overtime execution, changed customer commitments or purchasing execution. All other planner-recorded holds remain unchanged.
 
 Product blocker: none for this native readback candidate. Landing and accepted counts remain the fleet's responsibility. Evidence publication is report transport only and carries no product READY or acceptance signal.
+
+CLAIM SURFACE-006 PARTIAL points=1 tests=tests/api/multilevel.test.mjs#MRP-002 follows shared dated supply to customer demand and back through PO lines and received lots without changing commitments; tests/api/mrp-feasibility.test.mjs#MRP-001 released work nets demand on its completion day only while every pinned input is covered, explodes only the remainder and recovers when a PO lands before its inputs are needed; tests/api/schedule-approval.test.mjs#GOV-009 a reschedule proposal delaying a job past the schedule threshold needs two signatures, a deputy and an unchanged finite preview; tests/api/schedule-approval.test.mjs#AGENT-001 supplier slip and breakdown continuously compute two material-feasible alternate plans, bind human selection, preserve the ship date and restore inert evidence; tests/api/authority.test.mjs#GOV-015 GOV-016 costs-and-wages scope and custom roles: a restricted member never recovers a cost or wage, a custom role only narrows its base, and changes bind live
+
+READY branch=cloud/sx-larder-c-f607 head=c698f0cc8069904979683253bb111925f46f5d68

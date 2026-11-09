@@ -1,10 +1,10 @@
 {
   "runs": [
     {
-      "conclusion": null,
+      "conclusion": "success",
       "head_sha": "c698f0cc8069904979683253bb111925f46f5d68",
       "html_url": "https://github.com/just-every/run-larder/actions/runs/42595861179",
-      "status": "in_progress",
+      "status": "completed",
       "id": 42595861179,
       "name": "Verify",
       "event": "push"

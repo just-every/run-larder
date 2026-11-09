@@ -1,6 +1,6 @@
 {
-  "calls": 3,
-  "last_candidate_read": 1794217864.839244,
+  "calls": 5,
+  "last_candidate_read": 1794218468.0129669,
   "history": [
     {
       "call": 1,
@@ -31,6 +31,32 @@
         "head_sha": "c698f0cc8069904979683253bb111925f46f5d68",
         "html_url": "https://github.com/just-every/run-larder/actions/runs/42595861179",
         "status": "in_progress",
+        "id": 42595861179,
+        "name": "Verify",
+        "event": "push"
+      }
+    },
+    {
+      "call": 4,
+      "purpose": "Poll exact-candidate run",
+      "result": {
+        "conclusion": null,
+        "head_sha": "c698f0cc8069904979683253bb111925f46f5d68",
+        "html_url": "https://github.com/just-every/run-larder/actions/runs/42595861179",
+        "status": "in_progress",
+        "id": 42595861179,
+        "name": "Verify",
+        "event": "push"
+      }
+    },
+    {
+      "call": 5,
+      "purpose": "Poll exact-candidate run",
+      "result": {
+        "conclusion": "success",
+        "head_sha": "c698f0cc8069904979683253bb111925f46f5d68",
+        "html_url": "https://github.com/just-every/run-larder/actions/runs/42595861179",
+        "status": "completed",
         "id": 42595861179,
         "name": "Verify",
         "event": "push"
