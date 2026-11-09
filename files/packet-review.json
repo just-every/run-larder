@@ -13,8 +13,8 @@
     },
     {
       "file": "REPORT.md",
-      "bytes": 10430,
-      "sha256": "1eea1043d9ff519cba13a840558369e736e2ac7b53e36caedacfd48d753eb003"
+      "bytes": 11636,
+      "sha256": "79a94288de28af77d2e50ed6199d2f745c6a1d39e78257b62114a09b31a3fdd2"
     },
     {
       "file": "api.log",
@@ -33,8 +33,8 @@
     },
     {
       "file": "candidate-ci.json",
-      "bytes": 3,
-      "sha256": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570"
+      "bytes": 226,
+      "sha256": "686a8b06930935646cbd168f2642cee37267921904b513e5df96556ef3d6a983"
     },
     {
       "file": "candidate-identities.log",
@@ -44,7 +44,7 @@
     {
       "file": "ci-last-read.json",
       "bytes": 67,
-      "sha256": "3de9a0f36f7f817f3ec556cb92b756fc580768f857f936a89cd012a50d9867a9"
+      "sha256": "1616dbd8906ed0d70813996f598e3c2f0160effedc51f66463b9596860ea683f"
     },
     {
       "file": "cli-backup-attempt.log",
@@ -55,6 +55,16 @@
       "file": "counts.log",
       "bytes": 598,
       "sha256": "a8e89a9942edf108caf54fcdfda49931d200e50789ca233c3efd55d22a9705d2"
+    },
+    {
+      "file": "evidence-first-fetch.json",
+      "bytes": 8342,
+      "sha256": "06d51ccdb1222944ace78aba7bc227fe975ca94425b52019c5d487ead3871245"
+    },
+    {
+      "file": "evidence-first-transfer.log",
+      "bytes": 8148,
+      "sha256": "c93627a5df91e1503670f02a35ce8fb090f68d9183e8656e5be0a85e60603215"
     },
     {
       "file": "first-party.log",
@@ -78,8 +88,8 @@
     },
     {
       "file": "mechanical-receipt.json",
-      "bytes": 2750,
-      "sha256": "160802f8771e32061880a477c39f7f4866c2c46642fd022ff660672d0bbc49ed"
+      "bytes": 3192,
+      "sha256": "ddfcd3c9691d8e2dce34ea68cb125b075194f777cba55e2b3a03f2bbd73a3e79"
     },
     {
       "file": "probes.jsonl",

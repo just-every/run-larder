@@ -58,3 +58,11 @@ PROBE SURFACE-007 2: same resources as accounts and restricted operator, then na
 CLAIM SURFACE-007 PARTIAL points=1,2 tests=tests/api/flows.test.mjs#LARDER-009 released work issues materials and records output and scrap; tests/api/flows.test.mjs#LARDER-010 pick, pack and partially ship against reservations; the rest stays committed; tests/api/authority.test.mjs#Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors; tests/api/backup.test.mjs#MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions; tests/browser/journey.spec.ts#owner runs an order from Odoo move-in to accountant handoff at 1440px
 
 GAP SURFACE-007: MCP resource templates, complete resource coverage and shared resource-family qualification remain omitted; native detail reads grant no company-policy or autonomous consequential execution.
+
+## Terminal product custody and CI
+
+Product push succeeded and remote refs confirmed: cloud/sx-larder-c-f606 = d17ca2243fc2798b7dadbe8e946b8a061f95bf2e; main = 171f7266ef82b5973a5d5036a37e60e5f6c6ea43. The candidate contains main and three fleet-authored commits, with no author or trailer finding. The checkout was clean. No PR was created.
+
+Exact candidate Verify: push run 42597367236, status in_progress, conclusion null, https://github.com/just-every/run-larder/actions/runs/42597367236. This is not a green claim. Three GitHub API calls were used; candidate discovery was separated by more than 300 seconds. No workflow was dispatched or rerun. The cloud handoff marks the locally proven branch ready for the maintained Mac guard; landing, complete publication scanning and candidate CI success remain that guard's conditions.
+
+The first report-only evidence publication and exact-head return were successful. The fetched manifest and all 42 selected file hashes matched; see evidence-first-transfer.log and evidence-first-fetch.json. The final packet adds this terminal CI receipt and retains the actual earlier transfer receipts. All browsers and native servers started by this task have stopped.
