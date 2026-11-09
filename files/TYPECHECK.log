@@ -1,0 +1,4 @@
+
+> @manufacturing/larder@0.1.3 typecheck /workspace/run-larder
+> tsc --build --incremental
+

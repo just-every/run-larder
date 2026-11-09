@@ -1,0 +1,74 @@
+Failed page (journey-owner-runs-an-orde-3a541-ccountant-handoff-at-1440px):
+- banner:
+  - link "Larder Dev":
+    - /url: "#"
+  - paragraph:
+    - strong: Today
+  - status: Loading…
+- navigation "Larder":
+  - list:
+    - listitem:
+      - link "Today":
+        - /url: "#today"
+    - listitem:
+      - link "Orders":
+        - /url: "#orders"
+    - listitem:
+      - link "Schedule":
+        - /url: "#schedule"
+    - listitem:
+      - link "Stock":
+        - /url: "#stock"
+    - listitem:
+      - link "Make & buy":
+        - /url: "#make"
+    - listitem:
+      - link "Handoff":
+        - /url: "#handoff"
+    - listitem:
+      - link "Settings":
+        - /url: "#settings"
+- main:
+  - status: Loading your records…
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+
+Running 1 test using 1 worker
+
+(node:4428) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+
+
+  ✘  1 tests/browser/journey.spec.ts:114:1 › owner runs an order from Odoo move-in to accountant handoff at 1440px (22.7s)
+
+
+  1) tests/browser/journey.spec.ts:114:1 › owner runs an order from Odoo move-in to accountant handoff at 1440px 
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: 'What needs attention' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" getByRole('heading', { name: 'What needs attention' }) with timeout 5000ms
+      - waiting for getByRole('heading', { name: 'What needs attention' })
+
+
+      116 |   await enter(page)
+      117 |   await page.goto(`${origin}/app#today`)
+    > 118 |   await expect(page.getByRole('heading', { name: 'What needs attention' })).toBeVisible()
+          |                                                                             ^
+      119 |   // Move in from Odoo: preview with rejected rows, then commit.
+      120 |   await page.goto(`${origin}/app#more/move-in`)
+      121 |   const preview = card(page, 'Preview an Odoo export')
+        at /workspace/run-larder/tests/browser/journey.spec.ts:118:77
+
+    Error Context: ../../home/agent/rer-consolidation/work/sx-larder-c-f610/browser-results/journey-owner-runs-an-orde-3a541-ccountant-handoff-at-1440px/error-context.md
+
+  1 failed
+    tests/browser/journey.spec.ts:114:1 › owner runs an order from Odoo move-in to accountant handoff at 1440px 
+

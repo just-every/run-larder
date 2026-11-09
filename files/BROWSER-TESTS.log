@@ -1,0 +1,17 @@
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+
+
+
+Running 2 tests using 1 worker
+
+(node:6830) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+▲ [WARNING] Proxy environment variables detected. We'll use your proxy for fetch requests.
+
+
+  ✓  1 tests/browser/journey.spec.ts:41:1 › HTTP-001 MRP-001 public Lobby, health and docs stay separate from private app and exports (17.9s)
+  ✓  2 tests/browser/journey.spec.ts:114:1 › owner runs an order from Odoo move-in to accountant handoff at 1440px (50.6s)
+
+  2 passed (1.4m)
+
+Real setup/dev and desktop/mobile UI journeys passed. Screenshots: /home/agent/rer-consolidation/work/sx-larder-c-f610/packet/screenshots

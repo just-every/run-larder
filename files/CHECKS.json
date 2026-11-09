@@ -1,0 +1,196 @@
+{
+  "tag": "sx-larder-c-f610",
+  "repository": "just-every/run-larder",
+  "branch": "cloud/sx-larder-c-f610",
+  "head": "17488203f4a85e31d12caceede2fd7804d5edaf6",
+  "tree": "5409769673e0d82774e19f5cfcb7f8ea6c63aa23",
+  "upstream_main": "994221ab4976c1ead53e2fb931ced4bd21a07ccf",
+  "start": "d17ca2243fc2798b7dadbe8e946b8a061f95bf2e",
+  "checks": {
+    "api": {
+      "command": "node --test --test-concurrency=1 --test-name-pattern='Versioned pages|LARDER-009|LARDER-010|MOVE-008 source history|a person without wage authority' tests/api/authority.test.mjs tests/api/flows.test.mjs tests/api/backup.test.mjs tests/api/rework.test.mjs",
+      "exit": 0,
+      "passed": 5,
+      "failed": 0,
+      "log": "API-TESTS.log",
+      "head": "17488203f4a85e31d12caceede2fd7804d5edaf6"
+    },
+    "typecheck": {
+      "command": "pnpm run typecheck",
+      "exit": 0,
+      "log": "TYPECHECK.log",
+      "head": "17488203f4a85e31d12caceede2fd7804d5edaf6"
+    },
+    "composition": {
+      "command": "pnpm exec rer check --profile first-party",
+      "exit": 0,
+      "log": "COMPOSITION.log",
+      "head": "17488203f4a85e31d12caceede2fd7804d5edaf6"
+    },
+    "contract_write": {
+      "command": "node src/base/contract-docs.mjs write",
+      "exit": 0,
+      "result": "Wrote 0 contract documents.",
+      "head": "17488203f4a85e31d12caceede2fd7804d5edaf6"
+    },
+    "contract_check": {
+      "command": "node src/base/contract-docs.mjs check",
+      "exit": 0,
+      "result": "Contract prose: 0 errors, 0 warnings.\nContract documents are current.",
+      "head": "17488203f4a85e31d12caceede2fd7804d5edaf6"
+    },
+    "source_lock": {
+      "write_command": "node scripts/edition-authoring/cli.mjs lock",
+      "write_exit": 0,
+      "check_command": "node scripts/edition-authoring/cli.mjs check",
+      "check_exit": 0,
+      "sha256": "9432bbc269bdcac617486b5cca9d76e44d60245207ffe92db335f24a0acc86f4",
+      "head": "17488203f4a85e31d12caceede2fd7804d5edaf6"
+    },
+    "migration_ledger": {
+      "command": null,
+      "exit": 0,
+      "reason": "No migration edited or added."
+    },
+    "browser": {
+      "command": "LARDER_CHROMIUM_PATH=/usr/bin/chromium perl -e 'alarm 1800; exec @ARGV' -- node tests/browser/run.mjs journey.spec.ts --grep 'HTTP-001|owner runs an order'",
+      "status": "passed",
+      "log": "BROWSER-TESTS.log",
+      "head": "17488203f4a85e31d12caceede2fd7804d5edaf6",
+      "exit": 0,
+      "passed": 2,
+      "failed": 0,
+      "widths": [
+        1440,
+        390
+      ],
+      "actors": [
+        "accounts",
+        "operator"
+      ]
+    },
+    "browser_initial": {
+      "command": "node tests/browser/run.mjs journey.spec.ts --grep 'owner runs an order'",
+      "exit": 1,
+      "log": "BROWSER-INITIAL.log",
+      "failure": "At journey.spec.ts:118: heading What needs attention absent after 5000 ms; main showed Loading your records; target resource proof had not started.",
+      "head": "2c9a9422a759ec8b236134c3a1e6bf27d97f9aa7"
+    },
+    "pre_merge_proof": {
+      "head": "2c9a9422a759ec8b236134c3a1e6bf27d97f9aa7",
+      "api_exit": 0,
+      "browser_exit": 0,
+      "api_log": "API-BEFORE-FINAL-MERGE.log",
+      "browser_log": "BROWSER-BEFORE-FINAL-MERGE.log"
+    },
+    "additional_authority": {
+      "head": "17488203f4a85e31d12caceede2fd7804d5edaf6",
+      "command": "node --test --test-concurrency=1 --test-name-pattern='Owner-consented integration read credentials|a cost-restricted member cannot download a supplier bill' tests/api/authority.test.mjs",
+      "exit": 0,
+      "passed": 2,
+      "failed": 0,
+      "log": "API-AUTH-EXTRA.log"
+    }
+  },
+  "test_registration_delta": 0,
+  "contract_judgment_changed": false,
+  "generated_views_committed": false,
+  "node": "22.20.0",
+  "pr": null,
+  "publication_scan": {
+    "commit": "17488203f4a85e31d12caceede2fd7804d5edaf6",
+    "complete": false,
+    "historyScanned": false,
+    "findings": null,
+    "reason": "Full-history publication scan belongs to the maintained Mac lander and is not run in this cloud task."
+  },
+  "candidate_commits": [
+    "17488203f4a85e31d12caceede2fd7804d5edaf6",
+    "2c9a9422a759ec8b236134c3a1e6bf27d97f9aa7",
+    "5c609a6c351d9df3eb178a127919281ff793dd62",
+    "d17ca2243fc2798b7dadbe8e946b8a061f95bf2e",
+    "751517f3990ba2c926e7ef76d9fd44eb7dd02dba",
+    "9f3b9c04878cf6f80fa0830c68da9e02f6982e97"
+  ],
+  "product_push": {
+    "head": "17488203f4a85e31d12caceede2fd7804d5edaf6",
+    "branch": "cloud/sx-larder-c-f610",
+    "success": true,
+    "attempt": 1,
+    "log": "PUSH.log"
+  },
+  "browser_screenshots": [
+    {
+      "path": "screenshots/1440-SURFACE-007-accounts-lots.png",
+      "sha256": "d29d5e7497e0521fa5841bb350b02cb0dc529f6fef662264c2836cb389209550"
+    },
+    {
+      "path": "screenshots/1440-SURFACE-007-accounts-output.png",
+      "sha256": "053c796e76282436590cc5671a2682f6f753c632265939f56290029fc20b006f"
+    },
+    {
+      "path": "screenshots/1440-SURFACE-007-accounts-receipt.png",
+      "sha256": "842c0399ef50f53b5e7bdaa9397556a6d04c425b4eb894a7be94be09cdb692ca"
+    },
+    {
+      "path": "screenshots/1440-SURFACE-007-accounts-shipment.png",
+      "sha256": "1cf98974e6ff739efd39a647e62e6b9d167ae023c26e491c3516495ffbab212c"
+    },
+    {
+      "path": "screenshots/1440-SURFACE-007-operator-lots.png",
+      "sha256": "438b008b89ee30ca06bac93a242c7ab0c273770ee7ab70bcbcd492afbb1db5ae"
+    },
+    {
+      "path": "screenshots/1440-SURFACE-007-operator-output.png",
+      "sha256": "ec56594c075d99cd2a588bd1eb672da994323314ffd78c9a666368e20f70cd45"
+    },
+    {
+      "path": "screenshots/1440-SURFACE-007-operator-receipt.png",
+      "sha256": "f07e9d22e686f65ff217e9ff572fc6a52684b32bd60ecc46081a0ed62e967cd4"
+    },
+    {
+      "path": "screenshots/1440-SURFACE-007-operator-shipment.png",
+      "sha256": "7400b15cd18f2f440e13e47b0a933520554cb13396b0bb11f599e9cb3ba7b8a3"
+    },
+    {
+      "path": "screenshots/390-SURFACE-007-accounts-lots.png",
+      "sha256": "44f70f8da79a976bf509b3d84087822288fbad35f67800e251ea90eecc0b2f59"
+    },
+    {
+      "path": "screenshots/390-SURFACE-007-accounts-output.png",
+      "sha256": "23886629bb2b45baa41d26cc4400d1b925871674e4cd580a2f15891314714ed2"
+    },
+    {
+      "path": "screenshots/390-SURFACE-007-accounts-receipt.png",
+      "sha256": "481c6044daf31375ea87686c0b4bcba49bc485a91dcaf045e476fb6be901355e"
+    },
+    {
+      "path": "screenshots/390-SURFACE-007-accounts-shipment.png",
+      "sha256": "7aeae9fba33f14462fd0d4c411e998acd1e23b2c3c1e39511bb5f581a406160c"
+    },
+    {
+      "path": "screenshots/390-SURFACE-007-operator-lots.png",
+      "sha256": "87551b62bc022755a1ed410ea369d158174d7e616ddb6d6852abc94a30ac480b"
+    },
+    {
+      "path": "screenshots/390-SURFACE-007-operator-output.png",
+      "sha256": "27dde8af56b6803ea49bcb1c809dd308de40f5de20de309a5527168925baeb50"
+    },
+    {
+      "path": "screenshots/390-SURFACE-007-operator-receipt.png",
+      "sha256": "e5a388c199d2566b64eae2fe20731cf48441afa75c17de5a21d86e73ecdb0beb"
+    },
+    {
+      "path": "screenshots/390-SURFACE-007-operator-shipment.png",
+      "sha256": "f51733b85e5416dbd0051f03d135147b64349322b5c760be3d9126cb79ae7bee"
+    }
+  ],
+  "ci": {
+    "run_id": 42605469280,
+    "event": "push",
+    "head": "17488203f4a85e31d12caceede2fd7804d5edaf6",
+    "status": "in_progress",
+    "conclusion": null,
+    "observed_at": "2026-11-09T11:01:28.528655+00:00"
+  }
+}

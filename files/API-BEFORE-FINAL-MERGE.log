@@ -1,0 +1,44 @@
+TAP version 13
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors
+ok 1 - Versioned pages retain native authentication, current cost restrictions and stable bounded traversal, refusing stale or malformed cursors
+  ---
+  duration_ms: 30831.639501
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions
+ok 2 - MOVE-008 source history searches original IDs and files, exports every record and restores without credentials or remote actions
+  ---
+  duration_ms: 48628.643918
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: LARDER-009 released work issues materials and records output and scrap
+ok 3 - LARDER-009 released work issues materials and records output and scrap
+  ---
+  duration_ms: 10039.921528
+  type: 'test'
+  ...
+# Subtest: LARDER-010 pick, pack and partially ship against reservations; the rest stays committed
+ok 4 - LARDER-010 pick, pack and partially ship against reservations; the rest stays committed
+  ---
+  duration_ms: 5705.05466
+  type: 'test'
+  ...
+# [33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mProxy environment variables detected. We'll use your proxy for fetch requests.[0m
+# Subtest: a person without wage authority reads no rework labor cost, total, output value or valued movement that the hourly rate follows from
+ok 5 - a person without wage authority reads no rework labor cost, total, output value or valued movement that the hourly rate follows from
+  ---
+  duration_ms: 9090.967461
+  type: 'test'
+  ...
+1..5
+# tests 5
+# suites 0
+# pass 5
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 118057.305102
