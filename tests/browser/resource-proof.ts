@@ -1,6 +1,7 @@
 import { expect, type Page, type Browser } from '@playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
 import { resourceFixture } from '../api/resource-fixture.mjs'
 
 const origin = process.env.LARDER_BASE_URL || 'http://127.0.0.1:8787'
@@ -45,15 +46,31 @@ export async function resourceScreens(page: Page, browser: Browser) {
       }
       const receipt = await read('receipts', f.receipt.id), output = await read('outputs', f.batch.id), shipment = await read('shipments', f.shipment.id)
       expect(receipt.data).toEqual(native.receipts.find((r: any) => r.id === f.receipt.id))
-      expect(output.data).toEqual({ ...native.workOrders.find((r: any) => r.id === f.work.id).outputs[0], workOrderId: f.work.id, version: f.work.version })
+      expect(output.data).toEqual({ ...native.workOrders.find((r: any) => r.id === f.work.id).outputs.find((o: any) => o.id === f.batch.id), workOrderId: f.work.id, version: f.work.version })
       expect(shipment.data).toEqual(native.shipments.find((r: any) => r.id === f.shipment.id))
-      for (const projection of [receipt, output, shipment]) for (const link of projection.links) expect((await member.request.get(origin + link.href)).status()).toBe(200)
+      for (const projection of [receipt, output, shipment]) for (const link of [...projection.links, ...projection.planning.links]) {
+        const linked = await member.request.get(origin + link.href)
+        expect(linked.status()).toBe(200); expect((await linked.json()).resource).toEqual(link)
+      }
       for (const projection of [receipt, output, shipment]) {
-        const { href, ...pegs } = projection.planning
+        const { href, links, ...pegs } = projection.planning
         const current = await member.request.get(origin + href)
         expect(current.status()).toBe(200); expect(await current.json()).toEqual(pegs)
+        expect(projection.files.some((file: any) => file.id === f.receipt.documents[0].id)).toBe(true)
+        for (const file of projection.files) {
+          const download = await member.request.get(origin + file.href)
+          expect(download.status()).toBe(200)
+          expect(createHash('sha256').update(await download.body()).digest('hex')).toBe(file.sha256)
+        }
       }
-      expect(receipt.data.lines[0].quantity).toBe('6'); expect(output.data.good).toBe('4'); expect(shipment.data.lines[0].quantity).toBe('2')
+      expect((await member.request.get(origin + `/api/larder/attachments/${f.billFile.id}`)).status()).toBe(role === 'accounts' ? 200 : 403)
+      expect(receipt.data.lines[0].quantity).toBe('6'); expect(output.data.good).toBe('3'); expect(shipment.data.lines[0].quantity).toBe('2')
+      for (const projection of [output, shipment]) {
+        const [allocation] = projection.physical.allocations
+        expect([allocation.output.id, allocation.lot.id, allocation.quantity]).toEqual([f.batch.id, f.receipt.lines[0].lotId, '3'])
+        const movement = await member.request.get(origin + allocation.movement.href)
+        expect((await movement.json()).data.quantity).toBe('-4')
+      }
       const screens = [
         ['receipt', `make/po/${f.purchase.id}`, f.receipt.supplierReference],
         ['output', `make/wo/${f.work.id}`, 'Materials used'],
@@ -64,6 +81,27 @@ export async function resourceScreens(page: Page, browser: Browser) {
         await member.goto(origin + '/app#' + hash); await member.reload()
         await expect(member.locator('main')).toHaveAttribute('aria-busy', 'false')
         await expect(member.locator('main')).toContainText(text)
+        if (name === 'receipt') {
+          const purchase = member.locator('section.card').filter({ has: member.getByRole('heading', { name: new RegExp(f.purchase.reference) }) })
+          const line = purchase.getByRole('row').filter({ hasText: f.input.name })
+          await expect(line.getByRole('cell').nth(1)).toHaveText('10 each')
+          await expect(line.getByRole('cell').nth(2)).toHaveText(receipt.data.lines[0].quantity)
+        }
+        if (name === 'output') {
+          const job = native.workOrders.find((w: any) => w.id === f.work.id)
+          expect(job.outputs.map((o: any) => o.good)).toEqual(['1', '3'])
+          await expect(member.locator('main')).toContainText('Output 4 · scrap 0')
+        }
+        if (name === 'shipment') {
+          const parcel = member.locator('article.shipment').filter({ hasText: f.shipment.reference })
+          await expect(parcel.getByRole('listitem')).toContainText(`2 ${f.output.name} from ${f.loc.name}`)
+          await expect(parcel.getByRole('listitem')).toContainText('lot ' + native.lots.find((l: any) => l.id === f.batch.lotId).code)
+        }
+        if (name === 'lots') {
+          const positions = member.locator('section.card').filter({ has: member.getByRole('heading', { name: 'By location', exact: true }) })
+          const lot = native.lots.find((l: any) => l.id === f.batch.lotId)
+          await expect(positions.getByRole('row').filter({ hasText: lot.code }).getByRole('cell').nth(4)).toHaveText('1')
+        }
         if (name === 'output') await expect(member.locator('main')).toContainText(role === 'operator' ? 'restricted' : '$29.00')
         if (role === 'operator') await expect(member.locator('main')).not.toContainText('$7.25')
         await shot(member, 'SURFACE-007-' + role + '-' + name)

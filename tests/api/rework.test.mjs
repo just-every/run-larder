@@ -1,6 +1,7 @@
 import { traceProof } from './trace-proof.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { resourceRead } from './resource-fixture.mjs'
 import { installation, evidence } from './harness.mjs'
 const today = new Date().toISOString().slice(0, 10)
 
@@ -150,5 +151,19 @@ test('a person without wage authority reads no rework labor cost, total, output 
     assert.deepEqual(found(JSON.stringify(s)), [])
     assert.deepEqual([w.labor[0].hours, w.labor[0].rate, w.cost.source, w.cost.labor, w.cost.total, w.outputs[0].value, s.workTransferCosts[kitJob.id]], ['3', undefined, '10', 'restricted', 'restricted', 'restricted', 'restricted'])
     assert.ok(s.movements.filter(m => m.lotId === w.outputLots[0].lotId).every(m => m.unitCost === 'restricted'))
+  }
+  // Detail links retain the native wage boundary even without a cost scope.
+  const outputLot = order.outputLots[0].lotId
+  for (const who of [h.owner(), manager.cookie, production.cookie, operator.cookie, colleague.cookie]) {
+    const native = await h.state(who), lot = await resourceRead(h, 'lots', outputLot, who)
+    assert.deepEqual(lot.data, native.lots.find(l => l.id === outputLot))
+    for (const link of lot.physical.movements) {
+      const movement = await resourceRead(h, 'movements', link.id, who)
+      assert.deepEqual(movement.resource, link)
+      assert.deepEqual(movement.data, native.movements.find(m => m.id === link.id))
+      assert.equal(movement.data.unitCost, who === operator.cookie || who === colleague.cookie ? 'restricted' : '133.9999')
+    }
+    assert.ok(lot.physical.movements.length)
+    assert.deepEqual(lot.physical.allocations, [], 'A repair lot does not acquire guessed per-output production allocations')
   }
 })
