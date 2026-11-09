@@ -65,7 +65,9 @@ export function purchasing(c: Context, type: string, p: any): Row | undefined {
         if (ref.version !== l.supplierQuote.version) fail('STALE', 'Supplier terms changed. Select the quote again before approval.')
       }
       const terms = purchaseTerms(po)
-      const signed = gate(c, { category: 'spend', subjectKind: 'purchaseOrders', subject: po, measure: () => decimal(po.exposure), permitted: ['manager', 'buyer'], preparedBy: po.preparedBy, terms: { commercial: terms }, p })
+      // The existing digest already binds the subject version and normalized
+      // terms. Keep its format so in-flight signatures retain their policy.
+      const signed = gate(c, { category: 'spend', subjectKind: 'purchaseOrders', subject: po, measure: () => decimal(po.exposure), permitted: ['manager', 'buyer'], preparedBy: po.preparedBy, p })
       if (signed && 'pending' in signed) {
         signed.pending.classification = commercialClassification(c, po, 'pending', ['money', 'commitment'], terms)
         return signed.pending

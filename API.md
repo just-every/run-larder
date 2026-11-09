@@ -1284,11 +1284,13 @@ distinguishes `prepared`, `pending` and `applied`.
 
 `facts.terms` retains the normalized purchase lines, stored amount, currency
 and supplier snapshot, or the exact customer, order versions, commercial
-revisions, values and dated promises before and after an amendment. Spend
+revisions and dated promises before and after an amendment. Amendment values
+cover only the outstanding dated promises; issued shipment terms stay unchanged. Spend
 signatures bind those purchase terms. Amendment approval recomputes the
 reviewed facts from current records before applying the change. Classification
 and attribution fields supplied by a caller are refused; the existing roles,
 independence, thresholds and atomic authority checks still decide permission.
+A retained amendment preview without these facts requires fresh preparation.
 
 The applied purchase and linked approval retain the same facts. An amendment
 keeps its preparation facts on the preview and its applied classification on

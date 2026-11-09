@@ -147,7 +147,12 @@ test('LARDER-006 shortages are reviewed and drafted into purchase and work order
 test('LARDER-007 purchase approval, supplier confirmation and revised delivery are recorded', async t => {
   const h = await installation(); t.after(() => h.close())
   const w = await workshop(h)
-  const po = await h.command('po.draft', { supplierId: w.supplier.id, expectedDate: '2026-10-20', reason: 'Restock', lines: [{ itemId: w.timber.id, quantity: '2', unit: 'bundle', unitPrice: '9.5' }] })
+  const draftPayload = { supplierId: w.supplier.id, expectedDate: '2026-10-20', reason: 'Restock', lines: [{ itemId: w.timber.id, quantity: '2', unit: 'bundle', unitPrice: '9.5' }] }
+  const preparationBaseline = await h.invariant()
+  await h.command('po.draft', { ...draftPayload, classes: ['money'] }, { error: 'INPUT' })
+  const preparationAfter = await h.invariant()
+  for (const key of ['version', 'purchaseOrders', 'approvals', 'movements', 'positions', 'commands']) assert.deepEqual(preparationAfter[key], preparationBaseline[key])
+  const po = await h.command('po.draft', draftPayload)
   assert.equal(po.exposure, '190')
   assert.deepEqual(po.classification.classes, ['standard'])
   assert.equal(po.classification.effect, 'prepared')
@@ -482,6 +487,10 @@ test('BUY-001 supplier constraints, feasible quote and scheduled approval surviv
   const sent = await h.send('po.selectQuote', selected, { as: agent.cookie }); assert.equal(sent.body.ok, true)
   const po = sent.body.result
   assert.equal(po.status, 'draft'); assert.equal(po.exposure, '14.4')
+  assert.deepEqual(po.classification.classes, ['standard'])
+  assert.equal(po.classification.actor.source, 'agent')
+  assert.deepEqual([po.classification.facts.terms.amount, po.classification.facts.terms.currency], ['14.4', 'USD'])
+  assert.deepEqual([po.classification.facts.terms.lines[0].supplierQuote.currency, po.classification.facts.terms.lines[0].supplierQuote.sourceExposure], ['CAD', '19.2'])
   assert.deepEqual(po.lines.map(l => [l.quantity, l.unitPrice, l.expectedDate]), [['6','1.2',day(2)], ['6','1.2',day(4)]])
   assert.deepEqual((await h.send('po.selectQuote', selected, { as: agent.cookie, commandId: sent.commandId })).body, sent.body)
   await agent.run('po.approve', { poId: po.id, version: po.version }, { error: 'FORBIDDEN' })

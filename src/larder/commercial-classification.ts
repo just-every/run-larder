@@ -42,10 +42,14 @@ export function amendmentTerms(c: Context, order: Row, after: any, customerAppro
   const revision = order.commercialRevision ?? 1
   const before = { ...commercialSnapshot(order), commercialRevision: revision }
   const next = { ...structuredClone(after), version: order.version + 1, commercialRevision: revision + 1 }
-  const value = (snapshot: any) => format(snapshot.lines.reduce((n: bigint, line: any) => n + times(decimal(line.activeQuantity), decimal(line.unitPrice)), 0n))
+  const value = (snapshot: any) => format(snapshot.lines.reduce((n: bigint, line: any) => {
+    const outstanding = line.schedules.reduce((q: bigint, schedule: any) => q + decimal(schedule.quantity), 0n)
+    return n + times(outstanding, decimal(line.unitPrice))
+  }, 0n))
   return {
     orderId: order.id, customerId: customer.id, customer: { id: customer.id, version: customer.version, name: customer.name },
     before, after: next, beforeValue: value(before), afterValue: value(next), currency: before.currency,
+    valueBasis: 'Outstanding dated promises only; issued shipment terms remain unchanged.',
     customerApproval: structuredClone(customerApproval), attestationBasis: 'locally recorded customer attestation',
   }
 }

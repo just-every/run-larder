@@ -54,7 +54,7 @@ test('DEMAND-002 approved amendments split promises, preserve issued terms and p
   assert.equal(preview.classification.effect, 'prepared')
   assert.equal(preview.classification.actor.id, sales.id)
   const terms = preview.classification.facts.terms
-  assert.deepEqual([terms.customerId, terms.customer.name, terms.beforeValue, terms.afterValue, terms.currency], [w.customer.id, w.customer.name, '712', '1188', 'USD'])
+  assert.deepEqual([terms.customerId, terms.customer.name, terms.beforeValue, terms.afterValue, terms.currency], [w.customer.id, w.customer.name, '534', '990', 'USD'])
   assert.deepEqual([terms.before.commercialRevision, terms.after.commercialRevision], [1, 2])
   assert.deepEqual(terms.before.lines[0].schedules, [{ quantity: '6', date: '2026-11-15' }])
   assert.deepEqual(terms.after.lines[0].schedules, proposed.lines[0].schedules)
