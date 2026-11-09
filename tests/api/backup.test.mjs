@@ -68,18 +68,7 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
     assert.equal(outcome.decision.by, person?.id ?? (await h.state()).actor.id)
     retainedProposals.push({ prepared, outcome, commandId, type, payload })
   }
-  const engineer = await h.person(['synthetic-larder-971', 'example.test'].join('@'), 'engineer')
-  const engineeringPayload = async reason => {
-    const state = await h.state(), source = state.boms.filter(b => b.itemId === w.board.id && b.status === 'active').at(-1)
-    return { itemId: w.board.id, sourceBomId: source.id, safety: false, reason, effectiveOn: '2026-10-29',
-      components: source.components, routing: source.routing, attachments: [evidence(reason)], dispositions: [],
-      workTreatments: state.workOrders.filter(job => job.itemId === w.board.id && job.status === 'draft').map(job => ({ workOrderId: job.id, version: job.version, action: 'keep', reason: 'Retain reviewed recipe' })) }
-  }
-  const engineeringPrepared = await engineer.run('engineering.propose', await engineeringPayload('Retained engineering decision evidence'))
-  const engineeringInput = { changeId: engineeringPrepared.id, version: engineeringPrepared.version }, engineeringCommand = 'synthetic-larder-engineering-backup'
-  const engineeringApproved = await h.command('engineering.approve', engineeringInput, { commandId: engineeringCommand })
   const pending = await agent.run('proposal.prepare', { kind: plans[0][0], plan: plans[0][1], summary: 'Retained awaiting review', evidence: ['synthetic-larder-965'] })
-  const engineeringPending = await engineer.run('engineering.propose', await engineeringPayload('Unapproved engineering evidence'))
   const before = await h.invariant(), archive = await businessArchive(h)
   assert.ok(before.positions.some(p => p.locationId === w.store.id && p.status === 'quarantine' && p.quantity === '1'))
   assert.ok(before.positions.some(p => p.locationId === w.store.id && p.status === 'available' && p.quantity === '2'))
@@ -145,21 +134,6 @@ test('LARDER-020 an installation backup restores into a reset installation', asy
     assert.deepEqual(retained.decision, outcome.decision)
     assert.deepEqual(after.approvals.find(a => a.id === outcome.approvalId).recordedDecision, outcome.decision)
   }
-  const retainedEngineering = after.engineeringChanges.find(e => e.id === engineeringApproved.id)
-  assert.deepEqual(retainedEngineering.classification, engineeringPrepared.classification)
-  assert.deepEqual(retainedEngineering.decision, engineeringApproved.decision)
-  assert.equal(retainedEngineering.classification.actor.id, engineer.id)
-  assert.equal(retainedEngineering.decision.by, before.actor.id)
-  assert.deepEqual(after.boms.find(b => b.id === engineeringApproved.bomId).engineeringDecision, engineeringApproved.decision)
-  const inertEngineering = after.engineeringChanges.find(e => e.id === engineeringPending.id)
-  assert.deepEqual(inertEngineering, engineeringPending)
-  assert.deepEqual(inertEngineering.classification.classes, ['standard'])
-  assert.equal(inertEngineering.decision, undefined)
-  assert.ok(!after.boms.some(b => b.id === engineeringPending.prospectiveBom.id))
-  const engineeringOutbound = h.outboundCount()
-  assert.deepEqual(await h.command('engineering.approve', engineeringInput, { commandId: engineeringCommand }), engineeringApproved)
-  assert.deepEqual(await h.invariant(), after, 'Restored engineering decision is history; replay publishes no revision or physical action')
-  assert.equal(h.outboundCount(), engineeringOutbound)
   const restoredBuy = after.proposals.find(p => p.kind === 'replenishment')
   assert.deepEqual(restoredBuy.classification.classes, ['money', 'commitment'])
   const restoredApproval = after.approvals.find(a => a.id === restoredBuy.approvalId)
@@ -262,6 +236,19 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   assert.equal(recoveryDecision.personDecision.actorId, reviewer.id)
   assert.deepEqual(recoveryDecision.decisionClassification.classes, ['standard'])
   assert.equal(recoveryDecision.decisionClassification.optionDigest, chosen.classification.optionDigest)
+  const engineer = await h.person(['synthetic-larder-971', 'example.test'].join('@'), 'engineer')
+  const engineeringItem = await h.command('item.save', { sku: 'synthetic-larder-972', name: 'Archived engineering item', kind: 'make', baseUnit: 'each' })
+  await h.command('bom.revise', { itemId: engineeringItem.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Review', minutes: 1, instructions: 'Follow the retained drawing', drawings: [evidence('Engineering source drawing')] }] })
+  const engineeringPayload = async reason => {
+    const state = await h.state(), source = state.boms.filter(b => b.itemId === engineeringItem.id && b.status === 'active').at(-1)
+    return { itemId: engineeringItem.id, sourceBomId: source.id, safety: false, reason, effectiveOn: '2026-10-29',
+      components: source.components, routing: source.routing, attachments: [evidence(reason)], dispositions: [],
+      workTreatments: state.workOrders.filter(job => job.itemId === engineeringItem.id && job.status === 'draft').map(job => ({ workOrderId: job.id, version: job.version, action: 'keep', reason: 'Retain reviewed recipe' })) }
+  }
+  const engineeringPrepared = await engineer.run('engineering.propose', await engineeringPayload('Retained engineering decision evidence'))
+  const engineeringInput = { changeId: engineeringPrepared.id, version: engineeringPrepared.version }, engineeringCommand = 'synthetic-larder-engineering-backup'
+  const engineeringApproved = await h.command('engineering.approve', engineeringInput, { commandId: engineeringCommand })
+  const engineeringPending = await engineer.run('engineering.propose', await engineeringPayload('Unapproved engineering evidence'))
   const archive = await (await h.request('/api/larder/archive')).json()
   const csv = await (await h.request('/api/larder/archive.csv')).text()
   const decoded = { records: {} }
@@ -303,6 +290,33 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   assert.deepEqual(afterRestart.commands.find(c => c.id === laterScopeId), savedLaterScope)
   assert.deepEqual(afterRestart.unmappedRoles.find(r => r.id === viewer.id).scopeClassification, laterScope.scopeClassification)
   assert.deepEqual(again.records, { ...archive.records, roles: [] })
+  const retainedEngineering = again.records.engineeringChanges.find(e => e.id === engineeringApproved.id)
+  assert.deepEqual(retainedEngineering.classification, engineeringPrepared.classification)
+  assert.deepEqual(retainedEngineering.decision, engineeringApproved.decision)
+  assert.equal(retainedEngineering.classification.actor.id, engineer.id)
+  assert.equal(retainedEngineering.decision.by, (await h.state()).actor.id)
+  assert.deepEqual(again.records.boms.find(b => b.id === engineeringApproved.bomId).engineeringDecision, engineeringApproved.decision)
+  const inertEngineering = again.records.engineeringChanges.find(e => e.id === engineeringPending.id)
+  assert.deepEqual(inertEngineering, engineeringPending)
+  assert.deepEqual(inertEngineering.classification.classes, ['standard'])
+  assert.equal(inertEngineering.decision, undefined)
+  assert.ok(!again.records.boms.some(b => b.id === engineeringPending.prospectiveBom.id))
+  const savedEngineering = again.commands.find(c => c.id === engineeringCommand)
+  assert.deepEqual(JSON.parse(savedEngineering.result).result, engineeringApproved)
+  assert.equal(savedEngineering.actor_id, retainedEngineering.decision.by)
+  for (const file of [...engineeringApproved.decision.review.evidence, ...engineeringPending.classification.review.evidence]) {
+    const original = Buffer.from(await (await h.request('/api/larder/attachments/' + file.id)).arrayBuffer())
+    const response = await target.request('/api/larder/attachments/' + file.id)
+    assert.equal(response.status, 200)
+    const restored = Buffer.from(await response.arrayBuffer())
+    assert.deepEqual(restored, original); assert.equal(digest(restored), file.sha256)
+  }
+  const beforeEngineeringReplay = await target.state()
+  await target.command('engineering.approve', engineeringInput, { commandId: engineeringCommand, error: 'IDEMPOTENCY' })
+  await target.command('engineering.approve', { ...engineeringInput, version: engineeringApproved.version }, { error: 'STATE' })
+  await target.command('engineering.approve', { changeId: engineeringPending.id, version: engineeringPending.version }, { as: h.owner(), error: 'AUTH' })
+  assert.deepEqual(await target.state(), beforeEngineeringReplay, 'Restored engineering facts and signatures publish no fresh revision or stock action')
+  assert.equal((await target.request('/api/larder/state', { as: engineer.cookie })).status, 401)
   const retainedRecovery = again.records.schedulePlans.find(p => p.id === recoveryPlan.id)
   assert.deepEqual(retainedRecovery.recoveryOptions, recoveryPlan.recoveryOptions)
   assert.deepEqual(retainedRecovery.decisionClassification, recoveryDecision.decisionClassification)

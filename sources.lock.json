@@ -5129,7 +5129,7 @@
       "executable": false
     },
     "tests/api/backup.test.mjs": {
-      "sha256": "e707c433292aa2d4afa2c68e631f23b66403824ead02293202181a666e9faa48",
+      "sha256": "9fd00bbe6cdfe02fe7e697b4a5f9eba9a57881df3b6922c0a9c47872f56bd6d2",
       "executable": false
     },
     "tests/api/bom-bulk.test.mjs": {
@@ -5157,7 +5157,7 @@
       "executable": false
     },
     "tests/api/engineering.test.mjs": {
-      "sha256": "0350d4e34c86e86531ec9811a87e3281fc539da09fea12f3d997a52ac2df0c65",
+      "sha256": "86134b59d7a219ff2c0812931eddf28d808fe121066c807372a7f32038fc6434",
       "executable": false
     },
     "tests/api/expiry.test.mjs": {

@@ -103,6 +103,7 @@ test('ENG-005 safety replacement review, eligibility/evidence, effectivity, stoc
   assert.equal(recorded.actorId, manager.id); assert.equal(recorded.source, 'person')
   assert.deepEqual(recorded.after.decision.classes, ['commitment'])
   assert.equal(recorded.after.decision.inputsDigest, prepared.classification.inputsDigest)
+  assert.deepEqual(recorded.after.decision.review.evidence, review.evidence)
   assert.deepEqual(await manager.run('engineering.approve', decision, { commandId: identity }), change)
   assert.deepEqual(await h.state(), approvedState, 'Approval replay repeats no revision or work treatment')
   state = await h.invariant()
@@ -171,7 +172,24 @@ test('ENG-005 safety replacement review, eligibility/evidence, effectivity, stoc
   assert.deepEqual(declined.decision.classes, ['standard']); assert.equal(declined.decision.effect, 'declined')
   assert.equal(declined.decision.by, afterIntervention.actor.id); assert.equal(declined.decision.approvedRevision, null)
   assert.equal(declined.status, 'declined'); assert.equal(declined.declineReason, 'Refresh changed business state')
-
+  // A future phantom-parent recipe changes the affected work on a new day
+  // without a business write. The source revision and global version stay put;
+  // approving still needs a recomputation of the reviewed work identities.
+  const child = await h.command('item.save', { sku: 'synthetic-larder-980', name: 'Reviewed child', kind: 'make', baseUnit: 'each' })
+  const assembly = await h.command('item.save', { sku: 'synthetic-larder-981', name: 'Dated parent', kind: 'make', baseUnit: 'each' })
+  const childSource = await h.command('bom.revise', { itemId: child.id, components: [{ itemId: replacement.id, quantity: '1' }] })
+  await h.command('bom.revise', { itemId: assembly.id, components: [{ itemId: child.id, quantity: '1', supply: 'phantom' }] })
+  await h.command('bom.revise', { itemId: assembly.id, effectiveOn: tomorrow(), components: [{ itemId: replacement.id, quantity: '1' }] })
+  const datedWork = await draft(assembly.id)
+  const datedChange = await engineer.run('engineering.propose', { itemId: child.id, sourceBomId: childSource.id, safety: false,
+    reason: 'Review current phantom-parent reach', effectiveOn: tomorrow(), components: [{ itemId: replacement.id, quantity: '2' }],
+    workTreatments: [{ workOrderId: datedWork.id, version: datedWork.version, action: 'adopt', reason: 'Review current affected work' }], dispositions: [] })
+  await h.advanceClock('2026-10-30T12:00:00.000Z')
+  const nextDay = await h.state()
+  assert.equal(nextDay.version, datedChange.stateVersion)
+  assert.equal(nextDay.boms.find(b => b.id === childSource.id).status, 'active')
+  await manager.run('engineering.approve', { changeId: datedChange.id, version: datedChange.version }, { error: 'STALE' })
+  assert.deepEqual(await h.state(), nextDay, 'A dated change to affected work requires fresh facts without publishing a revision or moving stock')
 })
 
 test('ENG-003 configure two sizes and finishes through the quote, compare the resolved BOM and cost, release both, refuse an invalid choice and keep old work stable after a rule edit', async t => {
