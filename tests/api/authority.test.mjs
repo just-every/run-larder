@@ -559,7 +559,8 @@ test('GOV-001 operator role executes only their own assigned FLOOR-001/FLOOR-007
 
 // GOV-004: one thread through revision, scheduling, operator correction, quality release and a stock adjustment, then query, export, refused deletion and planted secrets.
 test('GOV-004 a changed BOM is followed through scheduling, operator correction, quality release and stock adjustment in a queryable, exportable, append-only audit without planted secrets', async t => {
-  const h = await installation({ now: '2026-10-20T12:00:00.000Z' }); t.after(() => h.close())
+  let interleave = async () => {}
+  const h = await installation({ now: '2026-10-20T12:00:00.000Z', beforeCommit: facts => interleave(facts) }); t.after(() => h.close())
   const w = await workshop(h), file = text => ({ name: 'qa.txt', contentType: 'text/plain', base64: Buffer.from(text).toString('base64') })
   const manager = await h.person('audit-manager@example.test', 'manager'), operator = await h.person('audit-operator@example.test', 'operator')
   const q1 = await h.person('audit-q1@example.test', 'quality'), q2 = await h.person('audit-q2@example.test', 'quality')
@@ -700,6 +701,28 @@ test('GOV-004 a changed BOM is followed through scheduling, operator correction,
   assert.equal((await h.request('/api/larder/audit/events', { as: manager.cookie })).status, 403)
   await deactivate(h, manager)
   assert.equal((await h.request('/api/larder/audit/events', { as: manager.cookie })).status, 401)
+  assert.deepEqual(await journal(h), afterAppend)
+
+  // Lose native authority after validation but before the atomic batch. The
+  // denied receipt must leave no event, source record, movement or file behind.
+  const writer = await h.person(['synthetic-larder-event-revoked', 'example.test'].join('@'), 'manager')
+  const revokedId = 'synthetic-larder-event-revoked'
+  const revokedPayload = { poId: extraPo.id, supplierReference: 'synthetic-larder-event-revoked', documents: [evidence('Retained only on a committed receipt')], lines: [{ lineId: extraPo.lines[0].id, quantity: '1', locationId: w.loc.id, lot: 'synthetic-larder-event-revoked' }] }
+  const beforeRevoked = await h.invariant(), attachmentsBeforeRevoked = await h.db.prepare('SELECT COUNT(*) AS n FROM larder_attachments').first()
+  let reachedBatch = 0
+  interleave = async facts => {
+    if (facts.commandId !== revokedId) return
+    reachedBatch++
+    await deactivate(h, writer)
+  }
+  const revoked = await h.send('receipt.create', revokedPayload, { as: writer.cookie, commandId: revokedId })
+  interleave = async () => {}
+  assert.equal(reachedBatch, 1)
+  assert.equal(revoked.res.status, 401)
+  assert.equal(revoked.body.error.code, 'AUTH')
+  const afterRevoked = await h.invariant()
+  for (const key of ['version', 'purchaseOrders', 'receipts', 'lots', 'movements', 'positions', 'reservations', 'commands']) assert.deepEqual(afterRevoked[key], beforeRevoked[key], key)
+  assert.deepEqual(await h.db.prepare('SELECT COUNT(*) AS n FROM larder_attachments').first(), attachmentsBeforeRevoked)
   assert.deepEqual(await journal(h), afterAppend)
 
   assert.equal((await h.request('/api/larder/audit.csv', { as: '' })).status, 401)
@@ -1474,6 +1497,14 @@ test('Versioned pages retain native authentication, current cost restrictions an
   await h.command('role.set', { operatorId: warehouse.id, role: 'operator' })
   await assertResourceJourney(h, f, warehouse.cookie)
   const savedReceipt = await resourceRead(h, 'receipts', f.receipt.id, accounts.cookie)
+  const savedOutput = await resourceRead(h, 'outputs', f.batch.id, accounts.cookie)
+  await h.command('member.scope', { operatorId: accounts.id, costsRestricted: true })
+  const narrowedOutput = await resourceRead(h, 'outputs', f.batch.id, accounts.cookie)
+  assert.deepEqual(narrowedOutput.physical, savedOutput.physical, 'Current cost narrowing preserves exact physical links and consumption quantities')
+  assert.equal((await resourceRead(h, 'work', f.work.id, accounts.cookie)).data.cost.materials, 'restricted')
+  assert.equal((await h.request(`/api/larder/attachments/${f.billFile.id}`, { as: accounts.cookie })).status, 403)
+  await h.command('member.scope', { operatorId: accounts.id, costsRestricted: false })
+  assert.equal((await resourceRead(h, 'work', f.work.id, accounts.cookie)).data.cost.materials, '29')
   const savedPurchaseLink = savedReceipt.links.find(l => l.kind === 'purchases')
   const currentPurchase = (await h.state()).purchaseOrders.find(p => p.id === f.purchase.id)
   await h.command('po.revise', { poId: f.purchase.id, version: currentPurchase.version, expectedDate: '2026-11-12', note: 'Actual supplier ETA changes current indicative pegs' })
@@ -1485,6 +1516,8 @@ test('Versioned pages retain native authentication, current cost restrictions an
   assert.deepEqual(refreshedReceipt.physical, savedReceipt.physical, 'A planning refresh never rewrites physical genealogy')
   assert.ok(refreshedReceipt.planning.version > savedReceipt.planning.version)
   const endpoint = `/api/larder/v1/resources/receipts/${f.receipt.id}`
+  for (const l of [savedReceipt.resource, savedOutput.resource, ...savedOutput.links, ...savedReceipt.planning.links])
+    assert.equal((await h.request(l.href, { as: '' })).status, 401)
   assert.equal((await h.request(endpoint, { as: '' })).status, 401)
   const missingPath = '/api/larder/v1/resources/receipts/00000000-0000-0000-0000-000000000000'
   const missing = await h.request(missingPath, { as: warehouse.cookie })
@@ -1497,6 +1530,9 @@ test('Versioned pages retain native authentication, current cost restrictions an
   assert.deepEqual(await hiddenResource.json(), unknown, 'Hidden and absent IDs have identical errors without IDs or counts')
   const restrictedReceipt = await resourceRead(h, 'receipts', f.receipt.id, warehouse.cookie)
   assert.equal(restrictedReceipt.links.some(l => l.kind === 'purchases'), false, 'No mixed-site received total is linked as exact')
+  assert.equal(restrictedReceipt.planning.restricted, 'restricted (includes other locations)', 'A visible purchase line retains mixed-site received totals even when both planning computations agree')
+  assert.equal(restrictedReceipt.planning.requirements, undefined)
+  assert.equal(restrictedReceipt.planning.links, undefined)
   const mixedPurchase = await h.request(`/api/larder/v1/resources/purchases/${f.purchase.id}`, { as: warehouse.cookie })
   assert.equal(mixedPurchase.status, 404)
   assert.deepEqual(await mixedPurchase.json(), unknown)
@@ -1505,7 +1541,15 @@ test('Versioned pages retain native authentication, current cost restrictions an
   // A hidden unfinished job consumes shared material in the full plan.
   // Its requirement is not an excuse to expose a partial allocation.
   const nextJob = (await h.state()).workOrders.find(w => w.reason === 'Retained receipt pegs')
+  const plannedJob = savedReceipt.planning.links.find(l => l.kind === 'work' && l.id === nextJob.id)
+  assert.ok(plannedJob, 'The receipt plan navigates to the current consuming job, rather than inventing a physical issue')
   await h.command('wo.close', { workOrderId: nextJob.id, version: nextJob.version })
+  const closedJob = await resourceRead(h, plannedJob.kind, plannedJob.id, accounts.cookie)
+  assert.equal(closedJob.resource.version, plannedJob.version + 1)
+  assert.equal(closedJob.data.status, 'closed')
+  const replannedReceipt = await resourceRead(h, 'receipts', f.receipt.id, accounts.cookie)
+  assert.equal(replannedReceipt.planning.links.some(l => l.id === nextJob.id), false)
+  assert.deepEqual(replannedReceipt.physical, savedReceipt.physical, 'Removing a current planning demand preserves the receipt genealogy')
   const hiddenJob = await h.command('wo.draft', { itemId: f.output.id, quantity: '3', requiredBy: '2026-11-04', reason: 'Hidden location work' })
   await h.command('wo.release', { workOrderId: hiddenJob.id, version: hiddenJob.version })
   const issuedHidden = await h.command('wo.issue', { workOrderId: hiddenJob.id, lines: [{ itemId: f.input.id, locationId: hidden.id, lotId: second.lines[0].lotId, quantity: '1' }] })

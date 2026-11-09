@@ -1012,6 +1012,14 @@ job-level ancestry acquire no guessed lot or per-output allocation. Physical
 movement quantities and unit costs retain their native decimal representation
 and redaction. Linked jobs retain their native recorded costs.
 
+`physical.allocations` follows each retained output allocation with its exact
+`output`, source `movement` and optional source `lot` resource links and recorded
+`quantity`. A three-unit output can consume three units of a four-unit issue;
+the linked immutable issue still reports all four units. Another output's
+one-unit allocation is separate. Legacy reports without explicit allocations
+have no invented allocation edges. Shipment ancestry follows the selected
+finished lot's outputs, rather than the job's other finished lots.
+
 `physical` is recorded genealogy, with no recomputed allocation presented as a
 physical fact. `planning` is the current indicative shared-pool pegging projection,
 with its input version and as-of date, scope and limitations. Its `href` opens
@@ -1021,6 +1029,15 @@ shipment selections use their receipt, job and sales-order inputs respectively.
 If its full and visible projections disagree, the whole planning result is
 marked restricted: no hidden edges, counts or misleading partial totals escape.
 These reads never reserve stock, approve supply, book capacity or change promises.
+`planning.links` follows supported demand and supply references to their current
+visible record versions. It is separate from `physical.allocations`; a planned
+source is never evidence of consumption. References without an authorized exact
+resource are omitted, including mixed-site parent totals. The pegging `href`
+returns the same projection fields, without these additional navigation links.
+If a planning requirement or source depends on a mixed-site purchase, order or
+job, the detail withholds the whole plan even when the full and visible
+computations agree: the parent can already carry hidden received or shipped
+quantities. No navigation link or residual quantity is exposed from that plan.
 
 `files` carries retained original metadata, digests and existing attachment-door
 links. The resource and download use the same evidence permission check; a
@@ -1361,41 +1378,6 @@ archives retain recorded classification outcomes and unmapped role history as
 inert evidence; restoring history executes no scope command or remote action.
 This door does not qualify agent execution or provider classifications.
 
-### Native commercial decision facts
-
-The existing `po.draft`, `po.selectQuote`, `po.amend`, `po.approve`,
-`so.changePreview` and `so.changeApprove` doors return server-computed
-`classification`. Its `classes` describe the recorded outcome: preparation
-and a pending purchase signature are `standard`; an applied purchase approval
-is `money` and `commitment`; an applied customer amendment is `commitment`.
-`actionClasses` separately describes the action awaiting approval. `effect`
-distinguishes `prepared`, `pending` and `applied`.
-
-`facts.terms` retains the normalized purchase lines, stored amount, currency
-and supplier snapshot, or the exact customer, order versions, commercial
-revisions and dated promises before and after an amendment. Amendment values
-cover only the outstanding dated promises; issued shipment terms stay unchanged. Spend
-signatures bind those purchase terms. Amendment approval recomputes the
-reviewed facts from current records before applying the change. Classification
-and attribution fields supplied by a caller are refused; the existing roles,
-independence, thresholds and atomic authority checks still decide permission.
-A retained amendment preview without these facts requires fresh preparation.
-
-The applied purchase and linked approval retain the same facts. An amendment
-keeps its preparation facts on the preview and its applied classification on
-the order, change history and preview's `decisionClassification`. Each outcome
-retains the actual actor, role, command and input version. A pending signature
-remains a historical pending outcome even after a later person completes the
-approval. Retries return the original outcome once, subject to current session
-and scope restrictions. Cost restrictions cover nested prices and values;
-location restrictions cover the linked snapshots. Archives preserve these
-facts as inert history.
-
-Local approvals and recorded customer attestations establish no provider
-charge, payment, provider acceptance, outbound delivery or audience change.
-These native facts do not qualify other commercial doors, external recipient
-counts or consequential agent execution under company policy.
-
 ## Native manufacturing change journal
 
 An unscoped native owner or manager reads
@@ -1481,3 +1463,38 @@ handoffs. Supplier dates and usability facts remain local journal entries;
 passing inspection alone, date extensions, other stock doors and additional
 vocabulary are not delivered as usability events by this bounded slice. A local handoff acknowledgment never
 establishes accepted books.
+
+### Native commercial decision facts
+
+The existing `po.draft`, `po.selectQuote`, `po.amend`, `po.approve`,
+`so.changePreview` and `so.changeApprove` doors return server-computed
+`classification`. Its `classes` describe the recorded outcome: preparation
+and a pending purchase signature are `standard`; an applied purchase approval
+is `money` and `commitment`; an applied customer amendment is `commitment`.
+`actionClasses` separately describes the action awaiting approval. `effect`
+distinguishes `prepared`, `pending` and `applied`.
+
+`facts.terms` retains the normalized purchase lines, stored amount, currency
+and supplier snapshot, or the exact customer, order versions, commercial
+revisions and dated promises before and after an amendment. Amendment values
+cover only the outstanding dated promises; issued shipment terms stay unchanged. Spend
+signatures bind those purchase terms. Amendment approval recomputes the
+reviewed facts from current records before applying the change. Classification
+and attribution fields supplied by a caller are refused; the existing roles,
+independence, thresholds and atomic authority checks still decide permission.
+A retained amendment preview without these facts requires fresh preparation.
+
+The applied purchase and linked approval retain the same facts. An amendment
+keeps its preparation facts on the preview and its applied classification on
+the order, change history and preview's `decisionClassification`. Each outcome
+retains the actual actor, role, command and input version. A pending signature
+remains a historical pending outcome even after a later person completes the
+approval. Retries return the original outcome once, subject to current session
+and scope restrictions. Cost restrictions cover nested prices and values;
+location restrictions cover the linked snapshots. Archives preserve these
+facts as inert history.
+
+Local approvals and recorded customer attestations establish no provider
+charge, payment, provider acceptance, outbound delivery or audience change.
+These native facts do not qualify other commercial doors, external recipient
+counts or consequential agent execution under company policy.

@@ -66,7 +66,16 @@ export function publicDetail(s: State, actor: Actor, kind: string, id: string) {
     return l
   }
   const physicalLots = new Map<string, Link>(), physicalMovements = new Map<string, Link>()
+  const allocations = new Map<string, { output: Link; movement: Link; lot?: Link; quantity: string }>()
   const lot = (key: string) => { const l = add('lots', key); if (l) physicalLots.set(l.id, l) }
+  const allocated = (output: any) => {
+    const report = add('outputs', output.id)
+    if (!report) return
+    for (const a of output.allocations ?? []) {
+      const source = add('movements', a.movementId)
+      if (source) allocations.set(`${output.id}:${a.movementId}`, { output: report, movement: source, lot: add('lots', a.lotId), quantity: a.quantity })
+    }
+  }
   const movement = (key: string) => {
     const m = find('movements', key), l = add('movements', key)
     if (!m || !l) return
@@ -88,6 +97,7 @@ export function publicDetail(s: State, actor: Actor, kind: string, id: string) {
     for (const o of selectedKind === 'work' ? job.outputs ?? [] : [data]) {
       add('outputs', o.id); lot(o.lotId); movement(o.movementId)
       for (const a of o.allocations ?? []) { lot(a.lotId); movement(a.movementId) }
+      allocated(o)
     }
   }
   if (selectedKind === 'lots') {
@@ -112,6 +122,7 @@ export function publicDetail(s: State, actor: Actor, kind: string, id: string) {
       add('work', r.documentId)
       for (const o of rows('outputs').filter(o => o.lotId === lotId)) {
         add('outputs', o.id)
+        allocated(o)
         for (const a of o.allocations ?? []) { add('movements', a.movementId); sourceEvidence(a.lotId) }
       }
     }
@@ -138,11 +149,35 @@ export function publicDetail(s: State, actor: Actor, kind: string, id: string) {
     // and no misleading partial allocation or aggregate is exposed.
     const seen = scope.locations === null ? full : materialPegging(visibleState(s, scope).state, query)
     planning = JSON.stringify(full) === JSON.stringify(seen) ? full : { version: s.version, asOf: full.asOf, restricted: restrictedFigure }
-    if (!planning.restricted) planning = { ...planning, href: `/api/larder/planning/pegging?${query}` }
+    if (!planning.restricted) {
+      const current = new Map<string, Link>()
+      let mixed = false
+      const reference = (k: DetailKind, key: string) => {
+        const record = find(k, key)
+        if (record) { const l = link(k, record); current.set(l.href, l) }
+        else mixed = true
+      }
+      // These links describe the current plan only. They never become recorded
+      // consumption, and a mixed-site order or job still has no exact resource.
+      for (const r of planning.requirements) {
+        if (r.kind === 'sales' || (r.kind === 'dependent' && s.salesOrders.some(o => o.id === r.documentId))) reference('orders', r.documentId)
+        if (r.kind === 'work' || (r.kind === 'dependent' && s.workOrders.some(w => w.id === r.documentId))) reference('work', r.documentId)
+        for (const source of [...r.sources, ...r.unavailablePurchases]) {
+          if (source.kind === 'stock' && source.lotId) reference('lots', source.lotId)
+          if (source.kind === 'purchase') reference('purchases', source.documentId)
+          if (source.kind === 'work') reference('work', source.documentId)
+        }
+      }
+      // Parent line totals can already include hidden receipts or shipments in
+      // both computations. Equal projections alone cannot authorize that money
+      // or quantity: every supported source and demand must also be exact.
+      planning = mixed ? { version: s.version, asOf: full.asOf, restricted: restrictedFigure }
+        : { ...planning, href: `/api/larder/planning/pegging?${query}`, links: [...current.values()] }
+    }
     if (scope.costs) planning = redactCosts(planning)
   }
   return { apiVersion: '1', version: s.version, resource: link(selectedKind, data), data,
     links: [...links.values()].filter(l => l.href !== detailHref(selectedKind, id)),
-    physical: { basis: 'recorded physical movements and explicit output allocations; not planning pegs', lots: [...physicalLots.values()], movements: [...physicalMovements.values()] },
+    physical: { basis: 'recorded physical movements and explicit output allocations; not planning pegs', lots: [...physicalLots.values()], movements: [...physicalMovements.values()], allocations: [...allocations.values()] },
     planning, files: [...files.values()] }
 }

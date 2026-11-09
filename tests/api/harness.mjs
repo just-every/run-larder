@@ -37,7 +37,7 @@ async function script(now, beforeCommit = false) {
         if (beforeCommit) builder.onLoad({ filter: /[/\\]larder[/\\]storage\.ts$/ }, async ({ path }) => {
           const source = await readFile(path, 'utf8'), needle = '  await db.batch(['
           assert.equal(source.split(needle).length, 2, 'Instrument the one command batch')
-          const barrier = `  if (['member.scope', 'po.approve', 'so.changeApprove'].includes(type)) await fetch('https://scope-commit.synthetic.invalid/', { method: 'POST', body: JSON.stringify({ type, commandId: c.commandId, stateVersion: before.version }) })\n`
+          const barrier = `  if (['member.scope', 'po.approve', 'so.changeApprove', 'receipt.create'].includes(type)) await fetch('https://scope-commit.synthetic.invalid/', { method: 'POST', body: JSON.stringify({ type, commandId: c.commandId, stateVersion: before.version }) })\n`
           return { contents: source.replace(needle, barrier + needle), loader: 'ts' }
         })
       } }] })
