@@ -44,6 +44,7 @@ export function publicDetail(s: State, actor: Actor, kind: string, id: string) {
     ? view.workOrders.filter((w: any) => exactWork(w.id)).flatMap((w: any) => (w.outputs ?? []).map((o: any) => ({ ...o, workOrderId: w.id, version: w.version })))
     : view[detailCollections[k]]
   const find = (k: DetailKind, key: string) => {
+    if (typeof key !== 'string' || !key) return undefined
     // Native order summaries can include received or shipped quantities from
     // other sites. Never turn such a summary into an exact detail resource.
     if (k === 'work' && !exactWork(key)) return undefined
@@ -80,7 +81,6 @@ export function publicDetail(s: State, actor: Actor, kind: string, id: string) {
   if (selectedKind === 'shipments') {
     add('orders', data.orderId)
     for (const m of view.movements.filter((m: any) => m.documentKind === 'shipments' && m.documentId === id)) movement(m.id)
-    for (const l of data.lines) lot(l.lotId)
   }
   if (selectedKind === 'outputs' || selectedKind === 'work') {
     const job = selectedKind === 'work' ? data : find('work', data.workOrderId)
@@ -138,6 +138,7 @@ export function publicDetail(s: State, actor: Actor, kind: string, id: string) {
     // and no misleading partial allocation or aggregate is exposed.
     const seen = scope.locations === null ? full : materialPegging(visibleState(s, scope).state, query)
     planning = JSON.stringify(full) === JSON.stringify(seen) ? full : { version: s.version, asOf: full.asOf, restricted: restrictedFigure }
+    if (!planning.restricted) planning = { ...planning, href: `/api/larder/planning/pegging?${query}` }
     if (scope.costs) planning = redactCosts(planning)
   }
   return { apiVersion: '1', version: s.version, resource: link(selectedKind, data), data,

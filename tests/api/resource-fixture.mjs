@@ -3,12 +3,13 @@
 import assert from 'node:assert/strict'
 import { evidence } from './harness.mjs'
 
-export async function resourceFixture(h, location) {
-  const loc = location ?? await h.command('location.save', { name: 'synthetic-larder-resource-bin' })
-  const input = await h.command('item.save', { sku: 'synthetic-larder-resource-input', name: 'Resource timber', kind: 'buy', baseUnit: 'each' })
-  const output = await h.command('item.save', { sku: 'synthetic-larder-resource-output', name: 'Resource board', kind: 'make', baseUnit: 'each' })
-  const supplier = await h.command('party.save', { name: 'synthetic-larder-resource-supplier', kind: 'supplier' })
-  const customer = await h.command('party.save', { name: 'synthetic-larder-resource-customer', kind: 'customer' })
+export async function resourceFixture(h, location, suffix = '') {
+  const label = value => value + suffix
+  const loc = location ?? await h.command('location.save', { name: label('synthetic-larder-resource-bin') })
+  const input = await h.command('item.save', { sku: label('synthetic-larder-resource-input'), name: label('Resource timber'), kind: 'buy', baseUnit: 'each' })
+  const output = await h.command('item.save', { sku: label('synthetic-larder-resource-output'), name: label('Resource board'), kind: 'make', baseUnit: 'each' })
+  const supplier = await h.command('party.save', { name: label('synthetic-larder-resource-supplier'), kind: 'supplier' })
+  const customer = await h.command('party.save', { name: label('synthetic-larder-resource-customer'), kind: 'customer' })
   await h.command('bom.revise', { itemId: output.id, components: [{ itemId: input.id, quantity: '1' }] })
   const purchase = await h.command('po.draft', { supplierId: supplier.id, expectedDate: '2026-11-01', reason: 'Resource journey', lines: [{ itemId: input.id, quantity: '10', unitPrice: '7.25' }] })
   await h.command('po.approve', { poId: purchase.id, version: purchase.version })
@@ -61,6 +62,10 @@ export async function assertResourceJourney(h, f, as = h.owner()) {
   assert.equal(nativeJob.cost.materials, costsRestricted ? 'restricted' : '29')
   for (const projection of [receipt, output, shipment]) {
     assert.match(projection.physical.basis, /not planning pegs/)
+    const { href, ...currentPegs } = projection.planning
+    const pegging = await h.request(href, { as })
+    assert.equal(pegging.status, 200)
+    assert.deepEqual(await pegging.json(), currentPegs, 'The navigable current planning door returns the same versioned indicative pegs')
     for (const link of projection.links) {
       const r = await resourceRead(h, link.kind, link.id, as)
       assert.deepEqual(r.resource, link)

@@ -1014,7 +1014,9 @@ and redaction. Linked jobs retain their native recorded costs.
 
 `physical` is recorded genealogy, with no recomputed allocation presented as a
 physical fact. `planning` is the current indicative shared-pool pegging projection,
-with its input version and as-of date, scope and limitations. Receipt, output and
+with its input version and as-of date, scope and limitations. Its `href` opens
+the existing native pegging door with the same selection and current guards.
+Receipt, output and
 shipment selections use their receipt, job and sales-order inputs respectively.
 If its full and visible projections disagree, the whole planning result is
 marked restricted: no hidden edges, counts or misleading partial totals escape.
