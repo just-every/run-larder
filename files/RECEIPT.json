@@ -12,7 +12,7 @@
     "171f7266ef82b5973a5d5036a37e60e5f6c6ea43\trefs/heads/main"
   ],
   "pr": null,
-  "generated_at": "2026-11-09T10:04:04.553616+00:00",
+  "generated_at": "2026-11-09T10:10:31.865981+00:00",
   "checks": [
     {
       "name": "candidate native HTTP journeys",
@@ -145,10 +145,10 @@
       "html_url": "https://github.com/just-every/run-larder/actions/runs/42597236581",
       "id": 42597236581,
       "name": "Verify",
-      "status": "in_progress"
+      "status": "queued"
     }
   ],
-  "github_api_calls": 3,
+  "github_api_calls": 4,
   "publication_scan": {
     "commit": "f0bcac8c7aaede63a22bef7767be70191ec5f676",
     "complete": null,

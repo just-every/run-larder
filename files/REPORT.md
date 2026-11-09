@@ -48,7 +48,7 @@ The final candidate's nine affected HTTP journeys passed, with zero failures or 
 
 MECHANICAL lock=node scripts/edition-authoring/cli.mjs lock and check exit=0; views=node src/base/contract-docs.mjs write and check exit=0, generated files restored from origin/main; ledger=none exit=0.
 
-CI: Verify 42597236581, event push, in_progress, conclusion pending, https://github.com/just-every/run-larder/actions/runs/42597236581
+CI: Verify 42597236581, event push, queued, conclusion pending, https://github.com/just-every/run-larder/actions/runs/42597236581
 
 Prior main evidence, separate from this candidate: push Verify 41252605263 and Run site 41252604855 succeeded on `171f7266ef82b5973a5d5036a37e60e5f6c6ea43`. The complete REST response is in main-ci.json. Candidate CI status is in candidate-ci.json. There was no workflow edit, dispatch or rerun when this report was first assembled.
 
@@ -60,7 +60,7 @@ Publication scan: commit=f0bcac8c7aaede63a22bef7767be70191ec5f676; complete=NOT 
 | --- | --- | --- |
 | 1 | PARTIAL for the whole clause | Native outcomes are covered above; provider charge and external-exposure qualification remain omitted. |
 | 2 | PASS for native slice | Seeded money and amendment paths complete; forged, stale and unauthorized calls refuse without effects in the named HTTP journeys. |
-| 3 | PENDING on the recorded exact-SHA Verify | All four files are in the existing push API test glob. Verify 42597236581, event push, in_progress, conclusion pending, https://github.com/just-every/run-larder/actions/runs/42597236581 |
+| 3 | PENDING on the recorded exact-SHA Verify | All four files are in the existing push API test glob. Verify 42597236581, event push, queued, conclusion pending, https://github.com/just-every/run-larder/actions/runs/42597236581 |
 | 4 | PASS for local native proof | Final nine journeys and public probe ran on `f0bcac8c7aaede63a22bef7767be70191ec5f676`. The older 73-test tree is separately identified. |
 | 5 | PASS | SURFACE-003 already cites BASE-AGENT-006 and BASE-AGENT-007; no inheritance claim was added by prose. |
 | 6 | PASS for builder mechanics | Contract write and check passed; status and generated views were preserved from main; source lock is fresh. |
