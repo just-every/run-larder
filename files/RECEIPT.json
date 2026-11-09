@@ -1,0 +1,124 @@
+{
+  "base": "171f7266ef82b5973a5d5036a37e60e5f6c6ea43",
+  "branch": "cloud/sx-larder-c-f608",
+  "candidate_main_equality": false,
+  "candidate_run_site": null,
+  "ci": {
+    "conclusion": null,
+    "event": "push",
+    "head_sha": "ce2e72da79743df947b5903ff03382e849c1f9c0",
+    "html_url": "https://github.com/just-every/run-larder/actions/runs/42594317095",
+    "id": 42594317095,
+    "name": "Verify",
+    "status": "in_progress"
+  },
+  "claim": {
+    "clause": "SURFACE-009",
+    "points": [
+      1
+    ],
+    "status": "PARTIAL"
+  },
+  "contract_changed": false,
+  "counts_after": {
+    "done": 86,
+    "missing": 39,
+    "partial": 39
+  },
+  "counts_before": {
+    "done": 86,
+    "missing": 39,
+    "partial": 39
+  },
+  "generated_views_committed": false,
+  "github_calls_used": 3,
+  "head": "ce2e72da79743df947b5903ff03382e849c1f9c0",
+  "limitations": [
+    "Native local journal only",
+    "Supplier-date and standalone material-usable vocabulary remain omitted",
+    "Provider-confirmed ledger-reconciled events remain unproved",
+    "Signed outbound delivery and retries remain CONN-014 work",
+    "MCP event subscriptions and specialist handoffs remain omitted",
+    "No policy or autonomous execution qualification is claimed"
+  ],
+  "local": {
+    "build": {
+      "command": "cloud_run npx -y @runeditrun/rer build",
+      "exit": 0
+    },
+    "composition": {
+      "command": "pnpm exec rer check --profile first-party",
+      "exit": 0
+    },
+    "deployment_spec": {
+      "command": "node scripts/build-deployment-spec.mjs --check",
+      "exit": 0
+    },
+    "lock_check": {
+      "command": "node scripts/edition-authoring/cli.mjs check",
+      "exit": 0
+    },
+    "lock_write": {
+      "command": "node scripts/edition-authoring/cli.mjs lock",
+      "exit": 0
+    },
+    "migration_ledger": {
+      "command": "cloud_run node /tmp/larder-migration-probe.mjs",
+      "exit": 0,
+      "result": {
+        "head": "ce2e72da79743df947b5903ff03382e849c1f9c0",
+        "migration": {
+          "name": "0026_change_events.sql"
+        },
+        "result": {
+          "nativeApply": false
+        },
+        "status": "pass"
+      }
+    },
+    "public_probe": {
+      "command": "cloud_run node /tmp/larder-event-probe.mjs",
+      "exit": 0,
+      "head": "ce2e72da79743df947b5903ff03382e849c1f9c0"
+    },
+    "touched_tests": {
+      "command": "node --test --test-concurrency=1 tests/api/flows.test.mjs tests/api/quality.test.mjs tests/api/authority.test.mjs tests/api/backup.test.mjs",
+      "exit": 0,
+      "head": "ce2e72da79743df947b5903ff03382e849c1f9c0",
+      "pass": 75
+    },
+    "typecheck": {
+      "command": "pnpm run typecheck",
+      "exit": 0
+    },
+    "views_check": {
+      "command": "node src/base/contract-docs.mjs check",
+      "exit": 0
+    },
+    "views_write": {
+      "command": "node src/base/contract-docs.mjs write",
+      "exit": 0
+    }
+  },
+  "product_push": {
+    "attempts": 1,
+    "command": "python3 $HOME/rer-consolidation/.tools/cloud-push.py origin cloud/sx-larder-c-f608",
+    "exit": 0,
+    "verified_remote_head": "ce2e72da79743df947b5903ff03382e849c1f9c0"
+  },
+  "publication_scan": {
+    "commit": "ce2e72da79743df947b5903ff03382e849c1f9c0",
+    "complete": null,
+    "findings": null,
+    "historyScanned": null,
+    "status": "NOT RUN: delegated to the guarded Mac lander"
+  },
+  "remote_refs": {
+    "refs/heads/cloud/sx-larder-c-f608": "ce2e72da79743df947b5903ff03382e849c1f9c0",
+    "refs/heads/main": "171f7266ef82b5973a5d5036a37e60e5f6c6ea43"
+  },
+  "repository": "just-every/run-larder",
+  "schema": 1,
+  "tag": "sx-larder-c-f608",
+  "test_registrations_added": 0
+}

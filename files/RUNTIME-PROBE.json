@@ -1,0 +1,187 @@
+{
+  "head": "ce2e72da79743df947b5903ff03382e849c1f9c0",
+  "observations": [
+    {
+      "evidence": [
+        {
+          "href": "/api/larder/attachments/5198253a-c279-4ebc-86c0-5f58e159a3c7",
+          "id": "5198253a-c279-4ebc-86c0-5f58e159a3c7",
+          "sha256": "e151f6ca83e89c1b9d0e9a0433f3e6881f00fd2dc235923a58cc1b5fd5d4207f"
+        }
+      ],
+      "id": "synthetic-larder-probe-receipt:receipt.recorded:0",
+      "quantities": {
+        "lines": [
+          {
+            "inspection": "accept",
+            "itemId": "5242f4a5-8285-4ebd-a24d-38914cdc1b39",
+            "lineId": "d67835f2-f487-4d55-9af1-8ef0996a9414",
+            "locationId": "09c1bd53-5f85-44cc-a5d8-c7c1b53204e1",
+            "lotId": "1602abe4-f47a-43fb-a7bb-1a45b3a3bd75",
+            "movementId": "28b60834-16ba-43c4-818f-d9722f03420c",
+            "quantity": "2",
+            "unit": "each"
+          }
+        ],
+        "partial": true
+      },
+      "source": {
+        "id": "01fb8e8c-5ab9-4d3f-97d4-50c8f15a7e89",
+        "kind": "receipts",
+        "version": 1
+      },
+      "stateVersion": 13,
+      "type": "receipt.recorded"
+    },
+    {
+      "evidence": [],
+      "id": "cdea314c-d7a4-4f7e-b577-a07c229c4d9c:work.output-recorded:0",
+      "quantities": {
+        "allocations": [
+          {
+            "itemId": "5242f4a5-8285-4ebd-a24d-38914cdc1b39",
+            "lotId": "",
+            "movementId": "a91d985a-145d-47dd-bccf-8fe0c609e1dc",
+            "quantity": "1"
+          },
+          {
+            "itemId": "d7b9ea57-915a-4d6f-bf7f-24647564d1bc",
+            "lotId": "",
+            "movementId": "fe075229-5f4f-4963-bc99-bdb1fc26096a",
+            "quantity": "0.05"
+          }
+        ],
+        "batchId": "69aba0ee-53e6-45c8-aaaf-df0bf625a9dc",
+        "good": "1",
+        "itemId": "a99f10a4-6b8c-435e-ad99-d03aa9959ea0",
+        "lotId": "57b43c42-15b9-4611-b795-c4f69b2fbe6c",
+        "movementId": "d7cc0aa0-bfcd-45e8-996c-e0bf0dbc0f48",
+        "scrap": "0",
+        "unit": "each"
+      },
+      "source": {
+        "id": "50ca7d9f-f5ac-4b69-a4b1-b66b8ee789b3",
+        "kind": "workOrders",
+        "version": 4
+      },
+      "stateVersion": 17,
+      "type": "work.output-recorded"
+    },
+    {
+      "evidence": [
+        {
+          "href": "/api/larder/attachments/e336202a-4175-4c77-a7c7-dc04f9c9b77f",
+          "id": "e336202a-4175-4c77-a7c7-dc04f9c9b77f",
+          "sha256": "04e4b5b8fb305f436b50599093ae51a73d37870550a6996b91307b774b825dac"
+        }
+      ],
+      "id": "032da343-6a45-4bd9-a613-f230d33d2b94:quality.held:0",
+      "quantities": {
+        "inspectionId": "ece25d6b-098e-4963-9d32-27e692da0544",
+        "itemId": "5242f4a5-8285-4ebd-a24d-38914cdc1b39",
+        "plan": {
+          "id": "8315672f-2462-40a1-b370-c49f75cec1a4",
+          "version": 2
+        },
+        "quantities": [
+          {
+            "itemId": "5242f4a5-8285-4ebd-a24d-38914cdc1b39",
+            "locationId": "09c1bd53-5f85-44cc-a5d8-c7c1b53204e1",
+            "lotId": "1602abe4-f47a-43fb-a7bb-1a45b3a3bd75",
+            "quantity": "2",
+            "unit": "each"
+          }
+        ],
+        "status": "open"
+      },
+      "source": {
+        "id": "0af658c7-2504-4154-9056-5524ef247a9f",
+        "kind": "qualityHolds",
+        "version": 1
+      },
+      "stateVersion": 20,
+      "type": "quality.held"
+    },
+    {
+      "evidence": [
+        {
+          "href": "/api/larder/attachments/c0ed65cc-3217-4a43-9a33-830e9c972590",
+          "id": "c0ed65cc-3217-4a43-9a33-830e9c972590",
+          "sha256": "08968f8ec50eab15ea3beade8bc5397504b2f0b5c2f936ac0d2fe1476f2c345c"
+        },
+        {
+          "href": "/api/larder/attachments/185c57d5-32a9-4f5e-a673-5a0f7ad7b4f2",
+          "id": "185c57d5-32a9-4f5e-a673-5a0f7ad7b4f2",
+          "sha256": "02a3698c321a05232f6856cf5621002d967d0bedbcba450c6b107ace0d185938"
+        }
+      ],
+      "id": "6f060f1c-565b-4f57-b80a-9bf1e6dd493b:quality.released:0",
+      "quantities": {
+        "inspectionId": "e992933d-e98d-4563-8b9b-4a13373d6765",
+        "itemId": "5242f4a5-8285-4ebd-a24d-38914cdc1b39",
+        "plan": {
+          "id": "8315672f-2462-40a1-b370-c49f75cec1a4",
+          "version": 2
+        },
+        "quantities": [
+          {
+            "itemId": "5242f4a5-8285-4ebd-a24d-38914cdc1b39",
+            "locationId": "09c1bd53-5f85-44cc-a5d8-c7c1b53204e1",
+            "lotId": "1602abe4-f47a-43fb-a7bb-1a45b3a3bd75",
+            "quantity": "2",
+            "unit": "each"
+          }
+        ],
+        "status": "released"
+      },
+      "source": {
+        "id": "0af658c7-2504-4154-9056-5524ef247a9f",
+        "kind": "qualityHolds",
+        "version": 2
+      },
+      "stateVersion": 22,
+      "type": "quality.released"
+    },
+    {
+      "evidence": [],
+      "id": "996bea55-22bf-4704-aeee-920eeb535a0f:shipment.dispatched:0",
+      "quantities": {
+        "lines": [
+          {
+            "itemId": "a99f10a4-6b8c-435e-ad99-d03aa9959ea0",
+            "lineId": "97fc849c-8b17-4f44-acbe-e224615897fc",
+            "locationId": "09c1bd53-5f85-44cc-a5d8-c7c1b53204e1",
+            "movementIds": [
+              "571e640c-69af-4ace-8bda-8463b4209d7e"
+            ],
+            "quantity": "1",
+            "unit": "each"
+          }
+        ],
+        "partial": true,
+        "remaining": [
+          {
+            "itemId": "a99f10a4-6b8c-435e-ad99-d03aa9959ea0",
+            "lineId": "97fc849c-8b17-4f44-acbe-e224615897fc",
+            "quantity": "1"
+          }
+        ]
+      },
+      "source": {
+        "id": "3c1ac92b-ed51-4d3b-971a-a1729004c478",
+        "kind": "shipments",
+        "version": 3
+      },
+      "stateVersion": 27,
+      "type": "shipment.dispatched"
+    }
+  ],
+  "point": 1,
+  "refusedReleaseEmitted": false,
+  "restartStable": true,
+  "restoreStable": true,
+  "retryEmitted": false,
+  "sourceOutbound": 0,
+  "status": "pass",
+  "targetOutbound": 0
+}

@@ -1,0 +1,10 @@
+{
+  "head": "ce2e72da79743df947b5903ff03382e849c1f9c0",
+  "migration": {
+    "name": "0026_change_events.sql"
+  },
+  "result": {
+    "nativeApply": false
+  },
+  "status": "pass"
+}
