@@ -1,3 +1,4 @@
+import { resourceFixture, assertResourceJourney } from './resource-fixture.mjs'
 import { foreignCurrencyJourney } from './foreign-currency-journey.mjs'
 import { varianceFixture } from './variance-fixture.mjs'
 // One test per first-release clause (ACCEPTANCE.md LARDER-001 to LARDER-013), through the public
@@ -247,6 +248,8 @@ test('LARDER-009 released work issues materials and records output and scrap', a
   assert.equal(closed.status, 'closed'); assert.equal(closed.cost.materials, '62.4')
   s = await h.invariant()
   assert.equal(avail(s, w.board.id).onHand, '8'); assert.equal(avail(s, w.timber.id).onHand, '0'); assert.equal(s.reservations.length, 0)
+  const resources = await resourceFixture(h)
+  await assertResourceJourney(h, resources)
 })
 
 test('LARDER-010 pick, pack and partially ship against reservations; the rest stays committed', async t => {

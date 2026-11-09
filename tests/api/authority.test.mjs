@@ -1,3 +1,4 @@
+import { resourceFixture, resourceRead, assertResourceJourney } from './resource-fixture.mjs'
 // GOV-001 roles are enforced in every handler; LARDER-015 agents prepare and people approve; GOV-001 roles inherit their clauses' doors.
 import test from 'node:test'
 import assert from 'node:assert/strict'
@@ -1337,6 +1338,59 @@ test('Versioned pages retain native authentication, current cost restrictions an
   assert.equal((await page('?cursor=' + encodeURIComponent(first.body.nextCursor), warehouse.cookie)).body.error.code, 'STALE')
   await h.restart()
   assert.equal((await page()).body.data.length, full.length + 1)
+  const site = await h.command('site.save', { name: 'synthetic-larder-resource-site' })
+  // Grant the site before creating its bin; effective reach is resolved live.
+  await h.command('member.scope', { operatorId: warehouse.id, sites: [site.id], locations: null, costsRestricted: true })
+  const bin = await h.command('location.save', { name: 'synthetic-larder-resource-visible', siteId: site.id, binCode: 'SYN', binSequence: 1 })
+  const f = await resourceFixture(h, bin)
+  const accounts = await h.person(['synthetic-larder-resource-accounts', 'example.test'].join('@'), 'accounts')
+  await assertResourceJourney(h, f, accounts.cookie)
+  await assertResourceJourney(h, f, warehouse.cookie)
+  await h.command('role.set', { operatorId: warehouse.id, role: 'operator' })
+  await assertResourceJourney(h, f, warehouse.cookie)
+  const endpoint = `/api/larder/v1/resources/receipts/${f.receipt.id}`
+  assert.equal((await h.request(endpoint, { as: '' })).status, 401)
+  const missingPath = '/api/larder/v1/resources/receipts/00000000-0000-0000-0000-000000000000'
+  const missing = await h.request(missingPath, { as: warehouse.cookie })
+  assert.equal(missing.status, 404)
+  const unknown = await missing.json()
+  const hidden = await h.command('location.save', { name: 'synthetic-larder-resource-hidden' })
+  const second = await h.command('receipt.create', { poId: f.purchase.id, supplierReference: 'synthetic-larder-resource-hidden-delivery', documents: [evidence('Hidden supplier source')], lines: [{ lineId: f.purchase.lines[0].id, quantity: '1', locationId: hidden.id, lot: 'synthetic-larder-resource-hidden-lot' }] })
+  const hiddenResource = await h.request(`/api/larder/v1/resources/receipts/${second.id}`, { as: warehouse.cookie })
+  assert.equal(hiddenResource.status, 404)
+  assert.deepEqual(await hiddenResource.json(), unknown, 'Hidden and absent IDs have identical errors without IDs or counts')
+  const restrictedReceipt = await resourceRead(h, 'receipts', f.receipt.id, warehouse.cookie)
+  assert.equal(restrictedReceipt.links.some(l => l.kind === 'purchases'), false, 'No mixed-site received total is linked as exact')
+  const mixedPurchase = await h.request(`/api/larder/v1/resources/purchases/${f.purchase.id}`, { as: warehouse.cookie })
+  assert.equal(mixedPurchase.status, 404)
+  assert.deepEqual(await mixedPurchase.json(), unknown)
+  const body = JSON.stringify(restrictedReceipt)
+  for (const secret of [second.id, hidden.id, second.lines[0].lotId, second.documents[0].id, second.supplierReference, '7.25']) assert.ok(!body.includes(secret), secret)
+  // A hidden unfinished job consumes shared material in the full plan.
+  // Its requirement is not an excuse to expose a partial allocation.
+  const hiddenJob = await h.command('wo.draft', { itemId: f.output.id, quantity: '3', requiredBy: '2026-11-04', reason: 'Hidden location work' })
+  await h.command('wo.release', { workOrderId: hiddenJob.id, version: hiddenJob.version })
+  const issuedHidden = await h.command('wo.issue', { workOrderId: hiddenJob.id, lines: [{ itemId: f.input.id, locationId: hidden.id, lotId: second.lines[0].lotId, quantity: '1' }] })
+  const issueMovement = (await h.state()).movements.find(m => m.documentId === hiddenJob.id && m.kind === 'issue')
+  await h.command('wo.output', { workOrderId: hiddenJob.id, version: issuedHidden.version, locationId: hidden.id, quantity: '1', lot: 'synthetic-larder-resource-hidden-output', allocations: [{ movementId: issueMovement.id, quantity: '1' }] })
+  const mixedPlan = await resourceRead(h, 'receipts', f.receipt.id, warehouse.cookie)
+  assert.equal(mixedPlan.planning.restricted, 'restricted (includes other locations)')
+  assert.equal(mixedPlan.planning.pegs, undefined)
+  assert.ok(!JSON.stringify(mixedPlan).includes(hiddenJob.id))
+  await h.command('member.scope', { operatorId: warehouse.id, sites: [site.id], locations: [hidden.id], costsRestricted: true })
+  const narrowed = await h.request(endpoint, { as: warehouse.cookie })
+  assert.equal(narrowed.status, 404); assert.deepEqual(await narrowed.json(), unknown)
+  assert.equal((await h.request(restrictedReceipt.files[0].href, { as: warehouse.cookie })).status, 403)
+  await h.command('member.scope', { operatorId: warehouse.id, sites: [site.id], locations: null, costsRestricted: true })
+  await h.command('role.set', { operatorId: warehouse.id, role: 'warehouse' })
+  await h.command('count.schedule', { locationId: bin.id, scheduledOn: '2026-01-01', basis: 'bin', counterId: warehouse.id })
+  for (const path of [endpoint, restrictedReceipt.resource.href, restrictedReceipt.files[0].href, '/api/larder/v1/resources/outputs/' + f.batch.id])
+    assert.equal((await h.request(path, { as: warehouse.cookie })).status, 403, 'Blind counting refuses resource and evidence reads')
+  const revoked = await h.request('/auth/revoke', { method: 'POST', body: { operatorId: warehouse.id } })
+  assert.equal(revoked.status, 200)
+  assert.equal((await h.request(endpoint, { as: warehouse.cookie })).status, 401)
+  assert.equal((await h.request(endpoint, { as: accounts.cookie })).status, 200)
+
 })
 
 test('Owner-consented integration read credentials are resource-scoped, cost-redacted, one-time, revocable and bounded by the native session through restart and restore', async t => {
