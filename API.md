@@ -81,6 +81,45 @@ exposure; received stock and reservations are untouched. Every decision writes a
 approval record (`category: supply-change`) with the recommendation and reason,
 and the usual audit entries.
 
+## Planning result provenance
+
+The materials and pegging GET responses return `provenance` with
+`kind: informational-material-allocation`, `inputVersion`, `asOf` and the
+explicit `UTC calendar day` time basis. These are recomputed allocations,
+never adopted schedules. `workFeasibility.feasible` proves material coverage
+only; its `finiteFeasibility` remains `not-evaluated`, and its `routingBasis`
+identifies the pinned work recipe or an unpinned draft. Existing pegs, source
+dates, shortages, held stock, late candidates and unproven supply remain
+visible subject to the requester's current scope.
+
+`GET /api/larder/scheduling/finite?asOf=<instant>&days=<1-60>` returns a bounded
+capacity projection. Its `provenance` retains the input version, planning
+instant and exact horizon; material feasibility remains `not-evaluated`.
+The entries in `provenance.operations` identify each operation's routing basis
+and exact occupancy alongside the existing `operations` array. An entry's
+`kind` is `active-booking` only when its exact machine slot,
+qualified person, occupied minutes and intervals match the current active
+booking and that booking's adopted plan. The entry's `booking` identifies the
+current booking ID and version and the adopted plan ID and version. The
+adopted plan must retain that same booking version; legacy history without
+this binding establishes no current booking provenance. A
+protected interval, retained comparison or matching operation key alone is
+`finite-projection` with no booking reference. The response as a whole stays
+a projection, including when some intervals have exact booking evidence.
+
+Unscheduled operations retain their reason and an explicit `code`, including
+`NO_ROUTING`, `MISSING_MACHINE_CALENDAR`,
+`MISSING_QUALIFIED_PERSON_CALENDAR`, `HORIZON_EXHAUSTED` and
+`UNAVAILABLE_PIN`. Search exhaustion establishes no capacity beyond that
+horizon. An active booking whose resources or intervals no longer fit is
+unavailable; the read neither moves it nor adopts a replacement. Restoring
+retained bookings does not restore their operators' live authority.
+
+All three GET doors use current native authentication, blind-count, location,
+site and cost restrictions. Reads change no records, reservations, calendars,
+bookings, customer promises or outbound effects. Internal interval evidence
+provides no overtime, purchasing or customer-commitment authority.
+
 ## Commands
 
 | Command | Payload | Who |

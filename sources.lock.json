@@ -197,7 +197,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "c1f6f6bcccc6bc62bddc63a15787432f2ad0246790b46957b11fdda4d6622ded",
+      "sha256": "7fd9bdfb0c55310151e0456474bda136de2987f1184e3d269bdd950e8a0d2262",
       "executable": false
     },
     "base-copies.json": {
@@ -1769,7 +1769,7 @@
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "cc06f50e4d4285506b1bcbcebc56544c51a191ec38a2952f8384f3bbf3d9f2e7",
+      "sha256": "9b4a0d8383b36ba20daa6abd48a1750b5cd218d845d0ce67d99904814b20b71e",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -2049,7 +2049,7 @@
       "executable": false
     },
     "src/larder/material-dates.ts": {
-      "sha256": "c81b09c3cf36cedcb3f7c996e45f914438705a7431825b55107bae937918928a",
+      "sha256": "87138d32afbab97aba1e5a264ccf19d24021e1ab85648d54d39bb9950d1f6cdc",
       "executable": false
     },
     "src/larder/material-demand.ts": {
@@ -2061,7 +2061,7 @@
       "executable": false
     },
     "src/larder/material-pegging.ts": {
-      "sha256": "a7769be9151e017dda547d24a28956acd79df8870350758e2cb9ea9aa5f997cb",
+      "sha256": "5cff850fc52833625766f3e61de66886755b4826764f39499b39e241a8553ee2",
       "executable": false
     },
     "src/larder/material-supplier.ts": {
@@ -2261,7 +2261,7 @@
       "executable": false
     },
     "src/larder/scheduling/booking.ts": {
-      "sha256": "96cb763889609671e6e3bd8bbf72034272714190f35641492cfbdd0e2ba776cf",
+      "sha256": "f2b97c03433f03d14e73d53066f88962ede0d79d5f1015e213ae8333e8b6c5f6",
       "executable": false
     },
     "src/larder/scheduling/calendars.ts": {
@@ -2277,7 +2277,7 @@
       "executable": false
     },
     "src/larder/scheduling/finite.ts": {
-      "sha256": "8d912649c97ed0fca2dbdc3c1c9972d58241f183865ac1a6198f3595146ccad3",
+      "sha256": "9c7a9c6eaf8e1954c307a67226aeea16e87eb20860bd05ac40c83d03e755c551",
       "executable": false
     },
     "src/larder/scheduling/grants.ts": {
@@ -2325,7 +2325,7 @@
       "executable": false
     },
     "src/larder/scope-view.ts": {
-      "sha256": "cb1770c750c8aa4ec30b30194496b8d489a54c7632644387b277de22fab01fe4",
+      "sha256": "c525f16b1ea4009cf1c1234c295e824c38c465f181d072d09a1b10ab6d1d321c",
       "executable": false
     },
     "src/larder/scope.ts": {
@@ -5125,7 +5125,7 @@
       "executable": false
     },
     "tests/api/authority.test.mjs": {
-      "sha256": "bce27cefc09a1cee992ee8cf4e5f109c04d213451cf389d0301af36d414bbc0b",
+      "sha256": "873840b2eaba9f8ee2e4b21428d446c6e20e6f795a64907005b1b2f6bc9f47ee",
       "executable": false
     },
     "tests/api/backup.test.mjs": {
@@ -5197,11 +5197,11 @@
       "executable": false
     },
     "tests/api/mrp-feasibility.test.mjs": {
-      "sha256": "40808bf7342d683893b09b6b7ad5132b800a2755ad31f66c4711f9683c982a0c",
+      "sha256": "7176dd708cc3cae3e047ccb4ae04321ce5aac223358dbb420be859a85967ede4",
       "executable": false
     },
     "tests/api/multilevel.test.mjs": {
-      "sha256": "b9afd00bc732efa9ab8302d57a948eeadfb54248d181cfc5b195324484eaea70",
+      "sha256": "3281692558deb481a9011589b1f4ff280941941ecbcd99643aa44fd38c7ed05c",
       "executable": false
     },
     "tests/api/order-amendments.test.mjs": {
@@ -5237,7 +5237,7 @@
       "executable": false
     },
     "tests/api/schedule-approval.test.mjs": {
-      "sha256": "c6a71fb2b0d27aa1c10ee4657a5223a7928cf2b1e75009044a676f0f24e84347",
+      "sha256": "beda389aae7387bf8a288ad2d6a28e76e4d9dddba787af023dc88aa9840d26c8",
       "executable": false
     },
     "tests/api/subcontract.test.mjs": {
