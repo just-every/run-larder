@@ -4,6 +4,8 @@ import { type Row, type State } from '../model'
 import { decimal, format } from '../decimal'
 import { activeBom } from '../bom'
 import { deliveries } from '../sales-schedules'
+import { commandTime } from '../clock'
+import { canonicalJson } from '../../modules/import-kit/src/d1/index'
 import { operationEffort, operationReady } from '../operation-effort'
 import { predecessors } from '../operation-dependencies'
 import { calendarMask, instant, integer, localGrid } from './calendars'
@@ -144,4 +146,64 @@ export function finitePlan(s: State, people: Person[], at = new Date().toISOStri
   const loads = [...machines, ...labor].map(r => ({ kind: machines.includes(r) ? 'machine' : 'labor', id: r.id, calendarId: r.calendar.id, name: r.name, capacityMinutes: r.available.reduce((n, v) => n + v * r.capacity, 0), bookedMinutes: r.used.reduce((n, v) => n + v, 0) })).map(r => ({ ...r, percent: r.capacityMinutes ? Math.round(r.bookedMinutes / r.capacityMinutes * 1000) / 10 : 0 }))
   const bottleneck = loads.filter(l => l.bookedMinutes > 0).sort((a, b) => b.percent - a.percent || b.bookedMinutes - a.bookedMinutes || a.id.localeCompare(b.id))[0] ?? null
   return { protectionConflicts, version: s.version, asOf, startsAt: iso(from), endsAt: iso(until), horizonDays, today: asOf.slice(0, 10), promises, operations, jobs, unscheduled, lateJobs: jobs.filter(j => j.late).map(j => j.workOrderId), unscheduledJobs: jobs.filter(j => j.unscheduled).map(j => j.workOrderId), loads, bottleneck, counts: { late: jobs.filter(j => j.late).length, unscheduled: jobs.filter(j => j.unscheduled).length }, semantics: 'Read-only finite projection; intervals are occupied minutes, queue is elapsed before occupation; CPM slack uses dependency effort and due slack uses projected finish. Drafts do not book or approve execution. Unreleased maintenance recovery is provisional.' }
+}
+
+
+// GET provenance is computed from the current state, never copied from a
+// retained scenario. Preparing or protecting an interval grants no adoption.
+// Keep this separate from finitePlan: retained comparisons and their digests
+// continue to describe the exact preview originally reviewed by a person.
+export function finiteReadback(s: State, people: Person[], at = commandTime(), days = 14) {
+  const plan = finitePlan(s, people, at, days)
+  const horizon = { startsAt: plan.startsAt, endsAt: plan.endsAt, days: plan.horizonDays }
+  const inputs = { inputVersion: s.version, asOf: plan.asOf }
+  const intervalIdentity = (op: ScheduledOperation) => canonicalJson({
+    key: op.key, workOrderId: op.workOrderId, sequence: op.sequence,
+    machineId: op.machineId, machineSlot: op.machineSlot, laborId: op.laborId, operatorId: op.operatorId,
+    startsAt: op.startsAt, endsAt: op.endsAt, occupiedMinutes: op.occupiedMinutes, intervals: op.intervals,
+  })
+  const routingBasis = (workOrderId: string, sequence: number | null) => {
+    const work = s.workOrders.find(w => w.id === workOrderId)!
+    const bom = work.status === 'released' ? undefined : work.engineeringBomId ? s.boms.find(b => b.id === work.engineeringBomId) : activeBom(s, work.itemId)
+    const step = (work.status === 'released' ? work.routing : bom?.routing)?.find((r: any) => r.sequence === sequence)
+    return { kind: work.status === 'released' ? 'pinned-work' : 'current-bom', workOrderVersion: work.version,
+      bomId: work.status === 'released' ? work.bomId : bom?.id ?? null, revision: work.status === 'released' ? work.bomRevision : bom?.revision ?? null,
+      sequence, requiredSkills: step?.requiredSkills ?? [], requiredTools: step?.requiredTools ?? [],
+      eligibleCentres: step ? step.eligibleCentres?.length ? step.eligibleCentres : [step.workCentre] : [],
+    }
+  }
+  const operationResults = plan.operations.map(op => {
+    // Match both sides of the durable adoption link and exact occupancy.
+    // Never infer adoption from an operation key, historical label or pin.
+    const matches = s.scheduleBookings.filter(b => b.status === 'active' && Number.isSafeInteger(b.version) && b.version > 0
+      && s.schedulePlans.some(p => p.id === b.planId && p.status === 'adopted' && p.bookingId === b.id && p.bookingVersion === b.version
+        && p.after.operations.some((retained: ScheduledOperation) => intervalIdentity(retained) === intervalIdentity(op)))
+      && b.operations.some((booked: ScheduledOperation) => intervalIdentity(booked) === intervalIdentity(op)))
+    const booking = matches.length === 1 ? matches[0] : undefined
+    const adoptedPlan = booking && s.schedulePlans.find(p => p.id === booking.planId)!
+    return { key: op.key, workOrderId: op.workOrderId, sequence: op.sequence,
+      machineId: op.machineId, machineSlot: op.machineSlot, laborId: op.laborId, operatorId: op.operatorId,
+      startsAt: op.startsAt, endsAt: op.endsAt, occupiedMinutes: op.occupiedMinutes, intervals: op.intervals,
+      ...inputs, kind: booking ? 'active-booking' : 'finite-projection', adopted: Boolean(booking), materialFeasibility: 'not-evaluated',
+      booking: booking ? { id: booking.id, version: booking.version, planId: adoptedPlan!.id, planVersion: adoptedPlan!.version } : null,
+      routingBasis: routingBasis(op.workOrderId, op.sequence),
+    }
+  })
+  const failureCodes: Record<string, string> = {
+    'No routing on this job.': 'NO_ROUTING',
+    'Predecessor is unscheduled.': 'UNSCHEDULED_PREDECESSOR',
+    'No configured eligible machine.': 'MISSING_MACHINE_CALENDAR',
+    'No live qualified person with a calendar.': 'MISSING_QUALIFIED_PERSON_CALENDAR',
+    'Protected or booked interval is unavailable; explicit review required.': 'UNAVAILABLE_PIN',
+    'Completed legacy operations have no recorded finish time; the job date is unproven.': 'UNPROVEN_COMPLETION',
+  }
+  const unscheduled = plan.unscheduled.map(u => ({ ...u, code: failureCodes[u.reason] ?? (u.reason.endsWith('capacity within the planning horizon.') ? 'HORIZON_EXHAUSTED' : 'UNPROVEN_MATERIAL'), routingBasis: routingBasis(u.workOrderId, u.sequence) }))
+  return { ...plan, unscheduled, provenance: { ...inputs, kind: 'finite-projection', adopted: false, materialFeasibility: 'not-evaluated', horizon, operations: operationResults },
+    limitations: [
+      'Capacity only: material feasibility, quality, source supply and customer promises require their own current evidence.',
+      'Projected intervals and protected pins are not adopted bookings. Only an exact current active booking is identified on an operation.',
+      'Missing eligible calendars, qualified live people and capacity within the bounded horizon remain explicit; no capacity outside the search is inferred.',
+      'An active booking identifies retained internal intervals only; it grants no stock, overtime, spending or customer-promise authority.',
+    ],
+  }
 }

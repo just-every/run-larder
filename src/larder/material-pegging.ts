@@ -36,7 +36,7 @@ export function materialPegging(s: State, query: URLSearchParams) {
     .filter(p => matchesDemand(r) || (kind === 'purchase' && p.documentId === id && (lineId === null || p.lineId === lineId)))
     .map(source => ({ demand: demand(r), source })))
   const salesIds = new Set(pegs.filter(p => p.demand.kind === 'sales' || p.demand.kind === 'dependent').map(p => p.demand.documentId))
-  return { version: plan.version, asOf: plan.asOf, selection: { kind, id, lineId },
+  return { version: plan.version, asOf: plan.asOf, provenance: plan.provenance, selection: { kind, id, lineId },
     scope: 'current indicative dated material allocations; not persisted reservations, physical genealogy or approved supply changes',
     requirements, pegs, lateCandidates,
     allocatedSalesOrders: s.salesOrders.filter(o => salesIds.has(o.id)).map(o => ({ id: o.id, reference: o.reference, customerId: o.customerId })),

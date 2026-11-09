@@ -18,7 +18,7 @@ import { replenishment } from './replenishment'
 import { recovery, observeRecovery } from './scheduling/recovery'
 import { laborCosts } from './scheduling/labor-costs'
 import { calendars, rateReaders } from './scheduling/calendars'
-import { finitePlan } from './scheduling/finite'
+import { finiteReadback } from './scheduling/finite'
 import { supplierQuotes } from './supplier-terms'
 // Larder's public door: /api/larder/*. Every request resolves the current
 // native session and Larder role; every command re-checks both inside the
@@ -329,7 +329,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     }
     if (path === '/scheduling/finite') {
       const named = await people(env, actor)
-      return json(await read(s => finitePlan(s, named.people as any, url.searchParams.get('asOf') ?? new Date().toISOString(), Number(url.searchParams.get('days') ?? 14))))
+      return json(await read(s => finiteReadback(s, named.people as any, url.searchParams.get('asOf') ?? commandTime(), Number(url.searchParams.get('days') ?? 14))))
     }
     if (path === '/purchasing/quotes') return json(await read(s => supplierQuotes(s, url.searchParams.get('itemId') ?? '', url.searchParams.get('quantity') ?? '', url.searchParams.get('requiredBy') ?? '', new Date().toISOString().slice(0, 10))))
     if (path === '/configurations/resolve') return json(await read(s => resolveFor(s, url.searchParams.get('itemId') ?? '', JSON.parse(url.searchParams.get('selection') ?? '{}'))))

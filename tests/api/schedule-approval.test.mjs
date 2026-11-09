@@ -26,6 +26,9 @@ test('GOV-009 a two-signature schedule threshold gates an above-threshold plan a
     await h.command('wo.release', { workOrderId: job.id, version: job.version })
   }
   await h.command('schedule.protect', { asOf: week, days: 14, freezeUntil: '2026-11-26T00:00:00Z', manualLocks: [], reason: 'synthetic-larder-94 protect the first day' })
+  const protectedRead = await (await h.request(`/api/larder/scheduling/finite?asOf=${week}&days=14`)).json()
+  assert.ok(protectedRead.operations.length > 0)
+  assert.ok(protectedRead.provenance.operations.every(op => op.kind === 'finite-projection' && !op.adopted && op.booking === null), 'Protected operation keys do not establish adoption')
   const signature = async id => (await h.state()).approvalSignatures.find(x => x.id === id)
   const scenario = (who, end, name) => who.run('schedule.scenario', { asOf: week, days: 14, name, reason: 'synthetic-larder-95 isolated outage', outages: [{ machineId: machine.id, startsAt: '2026-12-02T00:00:00Z', endsAt: end }] })
   const override = (reason = 'Customer line is stopped') => ({ reason, accountableId: manager.id })
@@ -61,6 +64,14 @@ test('GOV-009 a two-signature schedule threshold gates an above-threshold plan a
   plan = await scenario(manager, '2026-12-02T04:00:00Z', 'Four hour outage')
   const small = await adopt(production, plan)
   assert.deepEqual([small.status, small.signatureIds], ['adopted', undefined])
+  const finiteRead = await (await h.request(`/api/larder/scheduling/finite?asOf=${week}&days=14`)).json()
+  const currentBooking = (await h.state()).scheduleBookings.find(b => b.id === small.bookingId)
+  const inactiveBooking = (await h.state()).scheduleBookings.find(b => b.id === adopted.bookingId)
+  assert.deepEqual([inactiveBooking.status, inactiveBooking.version > currentBooking.version], ['superseded', true])
+  assert.ok(finiteRead.operations.length > 0)
+  assert.ok(finiteRead.provenance.operations.every(op => op.kind === 'active-booking' && op.booking.id === currentBooking.id && op.booking.version === currentBooking.version))
+  assert.ok(!JSON.stringify(finiteRead).includes(inactiveBooking.id), 'A superseded booking never supplies current provenance')
+
   // The owner overrides a two-day outage, naming the accountable manager.
   plan = await scenario(manager, '2026-12-04T00:00:00Z', 'Two day outage')
   const overridden = await adopt(owned, plan, { override: override() })
@@ -126,8 +137,6 @@ test('GOV-009 a reschedule proposal delaying a job past the schedule threshold n
   const h = await installation({ now }); t.after(() => h.close())
   const w = await workshop(h), person = (name, role) => h.person(`gov9r-${name}@example.test`, role)
   const planner = await person('planner', 'planner'), production = await person('production', 'production'), principal = await person('principal', 'planner'), deputy = await person('deputy', 'sales'), agent = await person('agent', 'agent'), operator = await person('operator', 'operator'), manager = await person('manager', 'manager')
-  await h.command('capacity.machine', calendar('Bench'))
-  await h.command('capacity.labor', calendar('Reschedule operator', { operatorIds: [operator.id], skills: [] }))
   const jobs = []
   for (let i = 0; i < 2; i++) {
     const product = await h.command('item.save', { sku: `synthetic-larder-99-${i}`, name: `Reschedule assembly ${i}`, kind: 'make', baseUnit: 'each' })
@@ -135,6 +144,31 @@ test('GOV-009 a reschedule proposal delaying a job past the schedule threshold n
     const work = await h.command('wo.draft', { itemId: product.id, quantity: '1', requiredBy: '2026-12-06', plannedStart: '2026-11-25', reason: 'synthetic-larder-100 competing work' })
     jobs.push(await h.command('wo.release', { workOrderId: work.id, version: work.version }))
   }
+
+  const read = async (days = 2) => {
+    const result = await h.request(`/api/larder/scheduling/finite?asOf=${week}&days=${days}`)
+    assert.equal(result.status, 200); return result.json()
+  }
+  const noMachine = await read()
+  assert.equal(noMachine.operations.length, 0)
+  assert.ok(noMachine.unscheduled.every(u => u.code === 'MISSING_MACHINE_CALENDAR'))
+  await h.command('capacity.machine', calendar('Bench'))
+  const noPerson = await read()
+  assert.equal(noPerson.operations.length, 0)
+  assert.ok(noPerson.unscheduled.every(u => u.code === 'MISSING_QUALIFIED_PERSON_CALENDAR'))
+  // Configured calendars with only a later window distinguish a bounded search
+  // failure from missing configuration. A longer read changes no booking.
+  const labor = await h.command('capacity.labor', calendar('Reschedule operator', { timeZone: 'UTC', operatorIds: [operator.id], skills: [], closedDates: ['2026-11-25'] }))
+  const beforeReads = await recoveryBusiness(h), outbound = h.outboundCount()
+  const short = await read(1), longer = await read(2)
+  assert.deepEqual(short.provenance.horizon, { startsAt: '2026-11-25T00:00:00.000Z', endsAt: '2026-11-26T00:00:00.000Z', days: 1 })
+  assert.equal(short.operations.length, 0)
+  assert.ok(short.unscheduled.every(u => u.code === 'HORIZON_EXHAUSTED'))
+  assert.equal(longer.unscheduled.length, 0)
+  assert.ok(longer.provenance.operations.every(op => op.kind === 'finite-projection' && op.booking === null && !op.adopted))
+  assert.equal(longer.provenance.inputVersion, beforeReads.version)
+  assert.deepEqual(await recoveryBusiness(h), beforeReads); assert.equal(h.outboundCount(), outbound)
+  await h.command('capacity.labor', calendar('Reschedule operator', { timeZone: 'UTC', id: labor.id, version: labor.version, operatorIds: [operator.id], skills: [] }))
   const asOf = week, baseline = await (await h.request(`/api/larder/scheduling/finite?asOf=${encodeURIComponent(asOf)}&days=2`)).json()
   const urgent = jobs.find(j => j.id !== baseline.operations[0].workOrderId)
   const payload = { kind: 'reschedule', summary: 'synthetic-larder-101 urgent job first', evidence: ['synthetic-larder-102 capacity review'], plan: { changes: [{ workOrderId: urgent.id, plannedStart: '2026-11-25', priority: 20 }], capacity: { asOf, days: 2, reason: 'synthetic-larder-103 unchanged customer promises' } } }
@@ -179,6 +213,15 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
   const w = await workshop(h), owner = (await h.state()).actor
   const planner = await h.person('recovery-planner@example.test', 'planner'), reviewer = await h.person('recovery-reviewer@example.test', 'production'), agent = await h.person('recovery-agent@example.test', 'agent')
   const { names, order, job, po } = await recoveryFixture(h, w, planner)
+  const finiteRead = async (instance = h, asOf = week) => {
+    const response = await instance.request(`/api/larder/scheduling/finite?asOf=${asOf}&days=7`)
+    assert.equal(response.status, 200); return response.json()
+  }
+  const projected = await finiteRead()
+  const projectedOperation = projected.provenance.operations.find(op => op.workOrderId === job.id)
+  assert.deepEqual([projectedOperation.kind, projectedOperation.adopted, projectedOperation.booking], ['finite-projection', false, null])
+  assert.deepEqual([projectedOperation.routingBasis.kind, projectedOperation.routingBasis.bomId, projectedOperation.routingBasis.revision], ['pinned-work', job.bomId, job.bomRevision])
+
   const slip = await h.send('po.revise', { poId: po.id, version: po.version, expectedDate: '2026-11-26', note: 'Supplier reports one day late' })
   assert.equal(slip.body.ok, true)
   const currentPlan = async commandId => (await h.state()).schedulePlans.find(p => p.event?.commandId === commandId)
@@ -254,6 +297,22 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
   assert.deepEqual(await recoveryBusiness(h), replayBaseline)
   assert.equal(h.outboundCount(), outboundBefore)
   assert.deepEqual(after.scheduleBookings.find(b => b.id === done.bookingId).operations, chosen.after.operations)
+  const booked = await finiteRead(), active = after.scheduleBookings.find(b => b.id === done.bookingId)
+  const bookedOperation = booked.provenance.operations.find(op => op.workOrderId === job.id)
+  assert.equal(done.bookingVersion, active.version)
+  assert.deepEqual(bookedOperation.booking, { id: active.id, version: active.version, planId: done.id, planVersion: done.version })
+  assert.deepEqual([bookedOperation.kind, bookedOperation.adopted, booked.provenance.adopted], ['active-booking', true, false])
+  assert.deepEqual(bookedOperation.intervals, active.operations.find(op => op.key === bookedOperation.key).intervals)
+  assert.equal(booked.provenance.inputVersion, after.version)
+  const readBaseline = await recoveryBusiness(h)
+  // Same operation key, but the exact booking no longer fits the requested
+  // horizon. It must be unavailable rather than relabelled or silently moved.
+  const clipped = await finiteRead(h, new Date(Date.parse(bookedOperation.startsAt) + 60000).toISOString())
+  assert.ok(clipped.protectionConflicts.includes(bookedOperation.key))
+  assert.ok(clipped.unscheduled.some(op => op.key === bookedOperation.key && op.code === 'UNAVAILABLE_PIN'))
+  assert.ok(!clipped.operations.some(op => op.key === bookedOperation.key))
+  assert.deepEqual(await recoveryBusiness(h), readBaseline)
+
   assert.deepEqual(after.workOrders.find(j => j.id === job.id).scheduleChoices, chosen.changes[0].scheduleChoices)
   for (const key of ['salesOrders', 'movements', 'reservations', 'purchaseOrders']) assert.deepEqual(after[key], before[key])
   const calendarBefore = after.machineCalendars.find(m => m.name === names[1])
@@ -272,14 +331,22 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
   assert.equal(cancellation.body.ok, true, JSON.stringify(cancellation.body.error))
   assert.equal((await h.state()).schedulePlans.find(p => p.event?.commandId === cancellation.commandId).automation.status, 'review')
   assert.equal((await h.state()).scheduleBookings.length, after.scheduleBookings.length)
+  const retainedReadback = await finiteRead(), beforeRestart = await recoveryBusiness(h)
   await h.restart(); assert.equal((await h.state()).schedulePlans.filter(p => p.event?.commandId === stopped.commandId).length, 1)
+  assert.deepEqual(await finiteRead(), retainedReadback)
+  assert.deepEqual(await recoveryBusiness(h), beforeRestart)
   const archive = await (await h.request('/api/larder/archive')).json()
   const csv = await (await h.request('/api/larder/archive.csv')).text(); assert.ok(csv.includes('recoveryOptions')); assert.ok(csv.includes('selectedOptionId'))
-  const target = await installation(); t.after(() => target.close())
+  const target = await installation({ now }); t.after(() => target.close())
   assert.equal((await target.request('/api/larder/archive/restore', { method: 'POST', body: archive })).status, 200)
   const restored = await (await target.request('/api/larder/archive')).json()
   assert.deepEqual(restored.records.schedulePlans, archive.records.schedulePlans)
   assert.deepEqual(restored.records.scheduleBookings, archive.records.scheduleBookings)
   assert.deepEqual(restored.movements, archive.movements)
+  const inertBaseline = await recoveryBusiness(target), inert = await finiteRead(target)
+  assert.ok(!inert.provenance.operations.some(op => op.adopted), 'Archived operators are not active capacity in a new installation')
+  assert.ok(inert.unscheduled.some(op => op.workOrderId === job.id && op.code === 'UNAVAILABLE_PIN'))
+  assert.deepEqual(await recoveryBusiness(target), inertBaseline); assert.equal(target.outboundCount(), 0)
+  await target.restart(); assert.deepEqual(await finiteRead(target), inert)
   await h.invariant(); await target.invariant()
 })
