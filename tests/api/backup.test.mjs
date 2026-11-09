@@ -291,7 +291,8 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   const eventId = 'synthetic-larder-event-archive'
   await h.command('receipt.create', eventPayload, { commandId: eventId })
   const eventJournal = await journal(h)
-  assert.deepEqual(eventJournal.events.map(e => e.type), ['receipt.recorded', 'material.usable', 'work.output-recorded', 'material.usable', 'shipment.dispatched', 'supplier.date-recorded', 'receipt.recorded', 'material.usable'])
+  assert.deepEqual(eventJournal.events.map(e => e.type), ['receipt.recorded', 'material.usable', 'work.output-recorded', 'material.usable', 'work.output-recorded', 'material.usable', 'shipment.dispatched', 'supplier.date-recorded', 'receipt.recorded', 'material.usable'])
+  assert.deepEqual(eventJournal.events.filter(e => e.type === 'work.output-recorded').map(e => e.details.good), ['1', '3'], 'Both committed output batches retain their own event quantities')
   const archive = await (await h.request('/api/larder/archive')).json()
   assert.deepEqual(archive.changeEvents, eventJournal.events)
   const csv = await (await h.request('/api/larder/archive.csv')).text()
@@ -409,6 +410,27 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   await h.command('history.preview', { file: { name: 'bad.json', content: JSON.stringify(invalid) }, attachments: [originalFile] }, { error: 'INPUT' })
   assert.equal((await h.state()).sourceHistory.length, 5)
   assert.equal(w.loc.name, 'Workshop')
+  // Saved cursors remain usable after restoration; the next actual receipt
+  // appends once instead of replaying the retained producer history.
+  const receiptBeforeAppend = await target.state(), providerBeforeAppend = target.outboundCount()
+  const nextReceiptId = 'synthetic-larder-event-after-restore'
+  const nextReceiptPayload = { ...eventPayload, supplierReference: nextReceiptId,
+    lines: eventPayload.lines.map(l => ({ ...l, lot: nextReceiptId })) }
+  const nextReceipt = await target.command('receipt.create', nextReceiptPayload, { commandId: nextReceiptId })
+  const appendedEvents = await journal(target, '?after=' + eventJournal.until)
+  assert.deepEqual(appendedEvents.events.map(e => e.type), ['receipt.recorded', 'material.usable'])
+  assert.equal(appendedEvents.events[0].source.id, nextReceipt.id)
+  assert.ok(appendedEvents.events.every(e => e.seq > eventJournal.until && e.commandId === nextReceiptId))
+  assert.equal(appendedEvents.events[1].details.transitionId, appendedEvents.events[0].id)
+  const oldPage = await journal(target, '?until=' + eventJournal.until)
+  assert.deepEqual(oldPage, eventJournal, 'A restored snapshot remains byte-for-byte stable after a new business transition')
+  const afterReceipt = await target.invariant()
+  assert.equal(afterReceipt.movements.length, receiptBeforeAppend.movements.length + 1)
+  await target.restart()
+  assert.deepEqual(await target.command('receipt.create', nextReceiptPayload, { commandId: nextReceiptId }), nextReceipt)
+  assert.deepEqual(await journal(target, '?after=' + eventJournal.until), appendedEvents)
+  assert.deepEqual((await target.invariant()).movements, afterReceipt.movements)
+  assert.equal(target.outboundCount(), providerBeforeAppend)
 })
 
 

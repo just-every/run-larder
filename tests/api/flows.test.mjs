@@ -233,6 +233,26 @@ test('LARDER-007 purchase approval, supplier confirmation and revised delivery a
   const remainderEvent = (await journal(h, '?commandId=synthetic-larder-date-remainder')).events[0]
   assert.deepEqual(remainderEvent.details.lines, [{ lineId: po.lines[0].id, itemId: w.timber.id, quantity: '15', unit: 'each', before: '2026-10-29', after: '2026-10-30', confirmedDate: '2026-10-22' }])
   await followEvent(h, remainderEvent)
+  // A filtered traversal crosses the receipt and usability sequences without
+  // skipping a supplier fact or including a later append after its snapshot.
+  const dates = await journal(h, '?type=supplier.date-recorded')
+  assert.deepEqual(dates.events.map(e => e.id), [confirmedEvent.id, revisedEvent.id, remainderEvent.id])
+  const firstDate = await journal(h, '?type=supplier.date-recorded&limit=1')
+  const latest = (await h.state()).purchaseOrders.find(p => p.id === po.id)
+  const later = await h.command('po.revise', { ...revisePayload, version: latest.version, expectedDate: '2026-11-02' }, { commandId: 'synthetic-larder-date-after-cursor' })
+  await h.restart()
+  const traversed = [...firstDate.events]
+  let after = firstDate.next
+  while (after !== null) {
+    const page = await journal(h, '?type=supplier.date-recorded&limit=1&until=' + firstDate.until + '&after=' + after)
+    assert.equal(page.until, firstDate.until)
+    traversed.push(...page.events); after = page.next
+  }
+  assert.deepEqual(traversed, dates.events)
+  const appended = await journal(h, '?type=supplier.date-recorded&after=' + firstDate.until)
+  assert.equal(appended.events.length, 1)
+  assert.deepEqual(appended.events[0].source, { kind: 'purchaseOrders', id: po.id, version: later.version })
+  assert.deepEqual(appended.events[0].movements, [])
 })
 
 test('LARDER-008 partial receipts record supplier lots and quarantine decisions', async t => {
