@@ -250,9 +250,13 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   eventPo = await h.command('po.approve', { poId: eventPo.id, version: eventPo.version })
   const eventPayload = { poId: eventPo.id, supplierReference: 'synthetic-larder-event-archive', documents: [{ ...originalFile, name: 'synthetic-larder-delivery.txt' }], lines: [{ lineId: eventPo.lines[0].id, quantity: '1', locationId: w.loc.id, lot: 'synthetic-larder-event-archive' }] }
   const eventId = 'synthetic-larder-event-archive'
+  const priorEvents = (await journal(h)).events
   await h.command('receipt.create', eventPayload, { commandId: eventId })
   const eventJournal = await journal(h)
-  assert.equal(eventJournal.events.length, 1)
+  assert.equal(eventJournal.events.length, priorEvents.length + 1)
+  assert.deepEqual(eventJournal.events.slice(0, priorEvents.length), priorEvents)
+  const receiptEvents = eventJournal.events.filter(event => event.commandId === eventId)
+  assert.equal(receiptEvents.length, 1)
   const engineer = await h.person(['synthetic-larder-971', 'example.test'].join('@'), 'engineer')
   const engineeringItem = await h.command('item.save', { sku: 'synthetic-larder-972', name: 'Archived engineering item', kind: 'make', baseUnit: 'each' })
   await h.command('bom.revise', { itemId: engineeringItem.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Review', minutes: 1, instructions: 'Follow the retained drawing', drawings: [evidence('Engineering source drawing')] }] })
@@ -294,7 +298,7 @@ test('MOVE-008 source history searches original IDs and files, exports every rec
   assert.equal((await target.request('/api/larder/audit/events', { as: reviewer.cookie })).status, 401)
   await target.command('receipt.create', eventPayload, { commandId: eventId, error: 'IDEMPOTENCY' })
   assert.deepEqual(await journal(target), eventJournal)
-  const eventEvidence = eventJournal.events[0].evidence[0]
+  const eventEvidence = receiptEvents[0].evidence[0]
   assert.equal(digest(Buffer.from(await (await target.request(eventEvidence.href)).arrayBuffer())), eventEvidence.sha256)
   assert.deepEqual(again.unmappedRoles, archive.records.roles)
   assert.deepEqual(again.unmappedRoles.find(r => r.id === viewer.id).scopeClassification, laterScope.scopeClassification)
