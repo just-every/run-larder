@@ -324,6 +324,27 @@ test('LARDER-008 partial receipts record supplier lots and quarantine decisions'
   await warehouse.run('quarantine.decide', { itemId: w.timber.id, locationId: w.loc.id, lotId: mixed.lines[2].lotId, quantity: '1', decision: 'release', reason: 'Inspection release does not extend expiry' }, { commandId: 'synthetic-larder-expired-release' })
   assert.deepEqual((await journal(h, '?commandId=synthetic-larder-expired-release')).events.map(e => e.type), ['quality.released'])
   assert.deepEqual((await journal(h, '?type=material.usable')).events, beforeExpiredRelease.events, 'A physical status release cannot establish that expired material is usable')
+  const certificatePolicy = await h.command('certificate.requirements', { itemId: heldItem.id, types: ['coa'], note: 'The received material needs its own current document' })
+  const controlledRelease = { itemId: heldItem.id, lotId: heldLot.id, locationId: heldBin.id, quantity: '2', decision: 'release', reason: 'Received evidence reviewed' }
+  const beforeMissingCertificate = await journal(h)
+  await warehouse.run('quarantine.decide', controlledRelease, { error: 'CERTIFICATE_REQUIRED' })
+  assert.deepEqual(await journal(h), beforeMissingCertificate)
+  let certificate = await warehouse.run('certificate.prepare', { itemId: heldItem.id, lotId: heldLot.id, type: 'coa', documentVersion: '1', declaredLot: heldLot.code, issuer: 'synthetic-larder-source', expiresOn: '2026-12-31', evidence: evidence('Exact supplier lot analysis') })
+  certificate = await h.command('certificate.approve', { certificateId: certificate.id, version: certificate.version, note: 'Exact lot checked independently' })
+  assert.deepEqual((await journal(h)).events, beforeMissingCertificate.events, 'Document approval alone moves no material')
+  await warehouse.run('quarantine.decide', controlledRelease, { commandId: 'synthetic-larder-controlled-usable' })
+  const controlledEvents = (await journal(h, '?commandId=synthetic-larder-controlled-usable')).events
+  assert.deepEqual(controlledEvents.map(e => e.type), ['quality.released', 'material.usable'])
+  const controlledUsable = controlledEvents[1]
+  assert.deepEqual(controlledUsable.details.quantities.map(q => [q.lotId, q.quantity]), [[heldLot.id, '2']])
+  assert.ok(controlledUsable.records.some(r => r.kind === 'certificatePolicies' && r.id === certificatePolicy.id && r.version === certificatePolicy.version))
+  assert.ok(controlledUsable.records.some(r => r.kind === 'certificates' && r.id === certificate.id && r.version === certificate.version))
+  assert.deepEqual(controlledUsable.evidence.map(f => f.id), [certificate.file.id])
+  await followEvent(h, controlledUsable)
+  const beforeRevocation = await journal(h)
+  await h.command('certificate.revoke', { certificateId: certificate.id, version: certificate.version, note: 'Supplier withdrew this evidence' })
+  await warehouse.run('quarantine.decide', controlledRelease, { error: 'CERTIFICATE_REQUIRED' })
+  assert.deepEqual(await journal(h), beforeRevocation, 'Revocation never rewrites the earlier usability fact or establishes another one')
 })
 
 test('LARDER-009 released work issues materials and records output and scrap', async t => {

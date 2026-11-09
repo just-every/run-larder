@@ -197,7 +197,7 @@
       "executable": false
     },
     "API.md": {
-      "sha256": "ce3f13d027c8459e58d5beee88c7372845fd88067e08aa02bf1000526d18148e",
+      "sha256": "6aa29441a8814f612d4d656be804c192f694b3051e1b52e1512d921206c76b23",
       "executable": false
     },
     "base-copies.json": {
@@ -462,6 +462,10 @@
     },
     "migrations/core/0026_change_events.sql": {
       "sha256": "577475ca5fc23f6adc986f9b2aa4f38d998aa4d9fd6a4038ac65416263331211",
+      "executable": false
+    },
+    "migrations/core/0027_change_event_vocabulary.sql": {
+      "sha256": "cf6d1bab4c943af155193a701a91192ba659fcd6bb7518acffece031c690c3cd",
       "executable": false
     },
     "MOVE-IN.md": {
@@ -1861,7 +1865,7 @@
       "executable": false
     },
     "src/larder/change-events.ts": {
-      "sha256": "96786bf6bb594c1704d679e4498fe44a2c8a20b52b876dabf95112a1c8a535fc",
+      "sha256": "5a654b7633d34b56cbb3ef601593af122d92aed9af7d138a918eca8cd6bdc947",
       "executable": false
     },
     "src/larder/clock.ts": {
@@ -5177,7 +5181,7 @@
       "executable": false
     },
     "tests/api/flows.test.mjs": {
-      "sha256": "9813bf50d5ea8ed1e872afc0e2e9e815ef1032c64adc772e04f3d372e87a7ea6",
+      "sha256": "a4a837821b8de6c7da3815191718b8fb3cce9369a2c7cf043a92c645efb48d6a",
       "executable": false
     },
     "tests/api/follow-up.test.mjs": {

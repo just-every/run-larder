@@ -1303,6 +1303,8 @@ The bounded vocabulary currently contains:
   Its `quantities` include only positive available-status movements passing
   current lot dates, open quality and recall holds, general certificate rules
   and required receipt or production inspections, on the captured UTC day.
+  The exact certificate policies, approved documents, inspection plans and
+  results used are linked with their committed revisions and original files.
   Multiple lines and paired status movements yield one projection per source
   transition. Missing checks, quarantine, expired lots, pending signatures and
   releases with no physical quantity produce no usability event. The original

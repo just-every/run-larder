@@ -8,6 +8,7 @@ import { lotBlock } from './lot-dates'
 import { approvedCertificates } from './certificate-policy'
 import { lotRecalls } from './recall-policy'
 import { plansFor } from './quality-holds'
+import { purchaseDate } from './supplier-terms'
 import type { Actor, ChangeEvent, ChangeEventDetails, ChangeEventType, Collection, Context, Row, State } from './model'
 
 export const changeEventTypes: readonly ChangeEventType[] = ['receipt.recorded', 'work.output-recorded', 'quality.held', 'quality.released', 'shipment.dispatched', 'supplier.date-recorded', 'material.usable']
@@ -47,8 +48,8 @@ export function changeEvents(c: Context, before: State, commandType: string): Ch
     // the buyer's estimate. Repeating an unchanged date is not a new date fact.
     const lines = po.lines.flatMap((l: any) => {
       const was = old.lines.find((b: any) => b.id === l.id)
-      if (!was || (was.expectedDate === l.expectedDate && (commandType !== 'po.confirm' || was.confirmedDate === l.confirmedDate))) return []
-      return [{ lineId: l.id, itemId: l.itemId, quantity: format(decimal(l.quantity) - decimal(l.received)), unit: c.s.items.find(i => i.id === l.itemId)!.baseUnit, before: was.expectedDate, after: l.expectedDate, confirmedDate: l.confirmedDate || null }]
+      if (!was || (purchaseDate(old, was) === purchaseDate(po, l) && (commandType !== 'po.confirm' || was.confirmedDate === l.confirmedDate))) return []
+      return [{ lineId: l.id, itemId: l.itemId, quantity: format(decimal(l.quantity) - decimal(l.received)), unit: c.s.items.find(i => i.id === l.itemId)!.baseUnit, before: purchaseDate(old, was), after: purchaseDate(po, l), confirmedDate: l.confirmedDate || null }]
     })
     if (lines.length) make('supplier.date-recorded', 'purchaseOrders', po, {
       supplierId: po.supplierId, basis: commandType === 'po.confirm' ? 'supplier-confirmed' : 'buyer-revised', lines,
@@ -104,13 +105,18 @@ export function changeEvents(c: Context, before: State, commandType: string): Ch
   for (const transition of [...out]) {
     if (!['receipt.recorded', 'work.output-recorded', 'quality.released'].includes(transition.type)) continue
     const on = c.now.slice(0, 10)
-    const quantities = transition.movements.filter(m => m.status === 'available' && decimal(m.quantity, 'quantity', { signed: true }) > 0n && materialUsable(c.s, m.itemId, m.lotId, on)).map(m => ({
-      itemId: m.itemId, lotId: m.lotId, locationId: m.locationId, quantity: m.quantity,
-      unit: c.s.items.find(i => i.id === m.itemId)!.baseUnit, movementId: m.id,
-    }))
+    const related: [Collection, string][] = transition.records.map(r => [r.kind, r.id]), evidence: unknown[] = [...transition.evidence]
+    const quantities = transition.movements.flatMap(m => {
+      if (m.status !== 'available' || decimal(m.quantity, 'quantity', { signed: true }) <= 0n) return []
+      const proof = materialEligibility(c.s, m.itemId, m.lotId, on)
+      if (!proof) return []
+      related.push(...proof.records); evidence.push(...proof.evidence)
+      return [{ itemId: m.itemId, lotId: m.lotId, locationId: m.locationId, quantity: m.quantity,
+        unit: c.s.items.find(i => i.id === m.itemId)!.baseUnit, movementId: m.id }]
+    })
     if (!quantities.length) continue
     const source = c.s[transition.source.kind].find(r => r.id === transition.source.id)!
-    make('material.usable', transition.source.kind, source, { transitionId: transition.id, on, quantities }, transition.records.map(r => [r.kind, r.id]), transition.evidence)
+    make('material.usable', transition.source.kind, source, { transitionId: transition.id, on, quantities }, related, evidence)
   }
   return out
 }
@@ -118,22 +124,28 @@ export function changeEvents(c: Context, before: State, commandType: string): Ch
 // The journal cannot turn an available-status movement into a blanket quality
 // approval. Inspect the committed lot's date, holds, certificates and current
 // required inspections; missing proof simply omits the usability projection.
-function materialUsable(s: State, itemId: string, lotId: string, on: string): boolean {
+function materialEligibility(s: State, itemId: string, lotId: string, on: string): { records: [Collection, string][]; evidence: unknown[] } | undefined {
   const lot = s.lots.find(l => l.id === lotId)
-  if (lotBlock(lot, on) || lotRecalls(s, lotId).length || s.qualityHolds.some(h => h.status === 'open' && h.lots.some((l: any) => l.lotId === lotId))) return false
+  if (lotBlock(lot, on) || lotRecalls(s, lotId).length || s.qualityHolds.some(h => h.status === 'open' && h.lots.some((l: any) => l.lotId === lotId))) return
+  const records: [Collection, string][] = [], evidence: unknown[] = []
   let subjectKind = 'lots', subjectId = lotId, plans = plansFor(s, 'receipt', itemId, null)
   if (lot?.source === 'production') {
     const work = s.workOrders.find(w => w.id === lot.documentId)!
     subjectKind = 'workOrders'; subjectId = work.id
     plans = ['in-process', 'final'].flatMap(stage => plansFor(s, stage, itemId, work.bomRevision))
   }
-  if (plans.filter(p => p.required).some(p => {
+  for (const p of plans.filter(p => p.required)) {
     const latest = s.inspections.filter(i => i.planId === p.id && i.subjectKind === subjectKind && i.subjectId === subjectId).at(-1)
-    return !latest?.passed || latest.planVersion !== p.version
-  })) return false
-  try { approvedCertificates(s, itemId, lotId, on) }
-  catch (error) { if (error instanceof Problem) return false; throw error }
-  return true
+    if (!latest?.passed || latest.planVersion !== p.version) return
+    records.push(['inspectionPlans', p.id], ['inspections', latest.id]); evidence.push(latest.evidence)
+  }
+  try {
+    for (const certificate of approvedCertificates(s, itemId, lotId, on)) {
+      records.push(['certificates', certificate.id]); evidence.push(certificate.file)
+    }
+  } catch (error) { if (error instanceof Problem) return; throw error }
+  records.push(...s.certificatePolicies.filter(p => p.itemId === itemId && p.customerId === '').map((p): [Collection, string] => ['certificatePolicies', p.id]))
+  return { records, evidence }
 }
 
 export const changeEventInsert = 'INSERT INTO larder_change_events(id,command_id,type,data) VALUES(?,?,?,?)'
