@@ -140,7 +140,7 @@ test('GOV-009 a reschedule proposal delaying a job past the schedule threshold n
   const jobs = []
   for (let i = 0; i < 2; i++) {
     const product = await h.command('item.save', { sku: `synthetic-larder-99-${i}`, name: `Reschedule assembly ${i}`, kind: 'make', baseUnit: 'each' })
-    await h.command('bom.revise', { itemId: product.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Constrained assembly', workCentre: 'Bench', minutes: 120 }] })
+    await h.command('bom.revise', { itemId: product.id, components: [{ itemId: w.timber.id, quantity: '1' }], routing: [{ name: 'Constrained assembly', workCentre: 'Bench', requiredSkills: ['synthetic-larder-qualified-cut'], minutes: 120 }] })
     const work = await h.command('wo.draft', { itemId: product.id, quantity: '1', requiredBy: '2026-12-06', plannedStart: '2026-11-25', reason: 'synthetic-larder-100 competing work' })
     jobs.push(await h.command('wo.release', { workOrderId: work.id, version: work.version }))
   }
@@ -150,25 +150,30 @@ test('GOV-009 a reschedule proposal delaying a job past the schedule threshold n
     assert.equal(result.status, 200); return result.json()
   }
   const noMachine = await read()
-  assert.equal(noMachine.operations.length, 0)
+  assert.equal(noMachine.operations.length, 0); assert.equal(noMachine.unscheduled.length, jobs.length)
   assert.ok(noMachine.unscheduled.every(u => u.code === 'MISSING_MACHINE_CALENDAR'))
   await h.command('capacity.machine', calendar('Bench'))
   const noPerson = await read()
-  assert.equal(noPerson.operations.length, 0)
+  assert.equal(noPerson.operations.length, 0); assert.equal(noPerson.unscheduled.length, jobs.length)
   assert.ok(noPerson.unscheduled.every(u => u.code === 'MISSING_QUALIFIED_PERSON_CALENDAR'))
   // Configured calendars with only a later window distinguish a bounded search
   // failure from missing configuration. A longer read changes no booking.
-  const labor = await h.command('capacity.labor', calendar('Reschedule operator', { timeZone: 'UTC', operatorIds: [operator.id], skills: [], closedDates: ['2026-11-25'] }))
+  let labor = await h.command('capacity.labor', calendar('Reschedule operator', { timeZone: 'UTC', operatorIds: [operator.id], skills: [] }))
+  const unqualified = await read()
+  assert.equal(unqualified.operations.length, 0); assert.equal(unqualified.unscheduled.length, jobs.length)
+  assert.ok(unqualified.unscheduled.every(u => u.code === 'MISSING_QUALIFIED_PERSON_CALENDAR'))
+  assert.deepEqual(unqualified.unscheduled[0].routingBasis.requiredSkills, ['synthetic-larder-qualified-cut'])
+  labor = await h.command('capacity.labor', calendar('Reschedule operator', { timeZone: 'UTC', id: labor.id, version: labor.version, operatorIds: [operator.id], skills: ['synthetic-larder-qualified-cut'], closedDates: ['2026-11-25'] }))
   const beforeReads = await recoveryBusiness(h), outbound = h.outboundCount()
   const short = await read(1), longer = await read(2)
   assert.deepEqual(short.provenance.horizon, { startsAt: '2026-11-25T00:00:00.000Z', endsAt: '2026-11-26T00:00:00.000Z', days: 1 })
-  assert.equal(short.operations.length, 0)
+  assert.equal(short.operations.length, 0); assert.equal(short.unscheduled.length, jobs.length)
   assert.ok(short.unscheduled.every(u => u.code === 'HORIZON_EXHAUSTED'))
   assert.equal(longer.unscheduled.length, 0)
   assert.ok(longer.provenance.operations.every(op => op.kind === 'finite-projection' && op.booking === null && !op.adopted))
   assert.equal(longer.provenance.inputVersion, beforeReads.version)
   assert.deepEqual(await recoveryBusiness(h), beforeReads); assert.equal(h.outboundCount(), outbound)
-  await h.command('capacity.labor', calendar('Reschedule operator', { timeZone: 'UTC', id: labor.id, version: labor.version, operatorIds: [operator.id], skills: [] }))
+  await h.command('capacity.labor', calendar('Reschedule operator', { timeZone: 'UTC', id: labor.id, version: labor.version, operatorIds: [operator.id], skills: ['synthetic-larder-qualified-cut'] }))
   const asOf = week, baseline = await (await h.request(`/api/larder/scheduling/finite?asOf=${encodeURIComponent(asOf)}&days=2`)).json()
   const urgent = jobs.find(j => j.id !== baseline.operations[0].workOrderId)
   const payload = { kind: 'reschedule', summary: 'synthetic-larder-101 urgent job first', evidence: ['synthetic-larder-102 capacity review'], plan: { changes: [{ workOrderId: urgent.id, plannedStart: '2026-11-25', priority: 20 }], capacity: { asOf, days: 2, reason: 'synthetic-larder-103 unchanged customer promises' } } }
@@ -348,5 +353,14 @@ test('AGENT-001 supplier slip and breakdown continuously compute two material-fe
   assert.ok(inert.unscheduled.some(op => op.workOrderId === job.id && op.code === 'UNAVAILABLE_PIN'))
   assert.deepEqual(await recoveryBusiness(target), inertBaseline); assert.equal(target.outboundCount(), 0)
   await target.restart(); assert.deepEqual(await finiteRead(target), inert)
+  // A still-active booking is not evidence of currently qualified capacity
+  // after the recorded skill changes, even with the same operation identity.
+  const liveLabor = (await h.state()).laborCalendars.find(l => l.operatorIds.includes(owner.id))
+  await h.command('capacity.labor', { ...liveLabor, skills: [], reason: 'synthetic-larder-836 qualification removed' })
+  const disqualifiedBefore = await recoveryBusiness(h), disqualified = await finiteRead()
+  assert.ok(disqualified.unscheduled.some(op => op.key === bookedOperation.key && op.code === 'UNAVAILABLE_PIN'))
+  assert.ok(!disqualified.provenance.operations.some(op => op.key === bookedOperation.key && op.adopted))
+  assert.deepEqual(await recoveryBusiness(h), disqualifiedBefore)
+
   await h.invariant(); await target.invariant()
 })
