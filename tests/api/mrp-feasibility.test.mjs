@@ -3,7 +3,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { installation, evidence } from './harness.mjs'
 
-const day = n => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10)
+const now = '2026-11-09T12:00:00.000Z'
+const day = n => new Date(Date.parse(now) + n * 86400000).toISOString().slice(0, 10)
 const shift = (on, n) => new Date(Date.parse(on + 'T00:00:00Z') + n * 86400000).toISOString().slice(0, 10)
 
 // A raw material, a stocked-by-work subassembly and a finished good: F = S + C, S = 2 R.
@@ -27,7 +28,7 @@ const requirement = (plan, documentId, itemId) => plan.requirements.find(r => r.
 const feasibility = (plan, id) => plan.workFeasibility.find(w => w.workOrderId === id)
 
 test('MRP-001 released work nets demand on its completion day only while every pinned input is covered, explodes only the remainder and recovers when a PO lands before its inputs are needed', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const p = await plant(h, { raw: '10', comp: '8' })
   const first = await p.order('4', 10)
   // Without any outstanding work the finished order explodes into a subassembly shortage.
@@ -36,6 +37,13 @@ test('MRP-001 released work nets demand on its completion day only while every p
   // A released job whose eight raw units are in stock is proven: its output covers the order from its completion day.
   const proven = await p.job(p.s.id, '4', 5)
   plan = await p.read()
+  assert.deepEqual(plan.provenance, { kind: 'informational-material-allocation', inputVersion: plan.version, asOf: day(0), timeBasis: 'UTC calendar day', adopted: false, finiteFeasibility: 'not-evaluated' })
+  assert.deepEqual([feasibility(plan, proven.id).finiteFeasibility, feasibility(plan, proven.id).adopted, feasibility(plan, proven.id).routingBasis.kind, feasibility(plan, proven.id).routingBasis.bomId], ['not-evaluated', false, 'pinned-work', proven.bomId])
+  const finite = await (await h.request('/api/larder/scheduling/finite?asOf=' + day(0) + 'T12:00:00Z&days=14')).json()
+  assert.equal(finite.provenance.kind, 'finite-projection')
+  assert.equal(finite.provenance.materialFeasibility, 'not-evaluated')
+  assert.ok(finite.unscheduled.some(u => u.workOrderId === proven.id && u.code === 'NO_ROUTING'))
+  assert.ok(!finite.operations.some(o => o.workOrderId === proven.id), 'Material-covered work without routing has no finite interval')
   assert.deepEqual([feasibility(plan, proven.id).feasible, feasibility(plan, proven.id).remainingOutput, feasibility(plan, proven.id).completionOn, feasibility(plan, proven.id).shortages], [true, '4', day(5), []])
   const covered = requirement(plan, first.id, p.s.id)
   assert.deepEqual([covered.covered, covered.shortage, covered.sources.map(s => [s.kind, s.documentId, s.date, s.quantity])], ['4', '0', [['work', proven.id, day(5), '4']]])
@@ -64,15 +72,15 @@ test('MRP-001 released work nets demand on its completion day only while every p
   const before = await h.state(), outbound = h.outboundCount()
   assert.deepEqual(await p.read(), plan); assert.deepEqual(await h.state(), before); assert.equal(h.outboundCount(), outbound)
   await h.restart(); assert.deepEqual(await p.read(), plan)
-  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation(); t.after(() => target.close())
+  const archive = await (await h.request('/api/larder/archive')).json(), target = await installation({ now }); t.after(() => target.close())
   const restored = await target.request('/api/larder/archive/restore', { method: 'POST', body: archive }); assert.equal(restored.status, 200, await restored.text())
   const copy = await (await target.request('/api/larder/planning/materials')).json()
-  for (const key of ['requirements', 'workFeasibility', 'blockedExplosions', 'provisionalSupply', 'scope', 'limitations']) assert.deepEqual(copy[key], plan[key], key)
+  for (const key of ['provenance', 'requirements', 'workFeasibility', 'blockedExplosions', 'provisionalSupply', 'scope', 'limitations']) assert.deepEqual(copy[key], plan[key], key)
   await h.invariant()
 })
 
 test('MRP-001 proven work chains through multilevel jobs and is followed to the demand it supplies', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const p = await plant(h, { raw: '10', comp: '8' })
   const sub = await p.job(p.s.id, '4', 3), top = await p.job(p.f.id, '4', 6), sale = await p.order('4', 10)
   const plan = await p.read()
@@ -82,6 +90,7 @@ test('MRP-001 proven work chains through multilevel jobs and is followed to the 
   assert.deepEqual(requirement(plan, sale.id, p.f.id).sources.map(s => [s.kind, s.documentId, s.quantity]), [['work', top.id, '4']])
   assert.deepEqual(plan.requirements.filter(r => r.documentId === sale.id && r.itemId !== p.f.id), [])
   const pegs = await (await h.request(`/api/larder/planning/pegging?kind=work&id=${sub.id}`)).json()
+  assert.deepEqual(pegs.provenance, plan.provenance)
   assert.deepEqual(pegs.pegs.filter(x => x.source.kind === 'work' && x.source.documentId === sub.id).map(x => [x.demand.kind, x.demand.documentId, x.source.quantity]), [['work', top.id, '4']])
   // Inputs a released job reserved stay protected: a later job competing for the same raw stock is the unproven one,
   // while the proven chain keeps covering the order.
@@ -95,7 +104,7 @@ test('MRP-001 proven work chains through multilevel jobs and is followed to the 
 })
 
 test('MRP-001 bought suggestions follow the supplier calendar, lead working days, MOQ and pack, and restore an uncovered floor from dated supply', async t => {
-  const h = await installation(); t.after(() => h.close())
+  const h = await installation({ now }); t.after(() => h.close())
   const item = await h.command('item.save', { sku: 'CAL-BUY', name: 'Calendar-bound material', kind: 'buy', baseUnit: 'each' })
   const floorItem = await h.command('item.save', { sku: 'CAL-FLOOR', name: 'Floor material', kind: 'buy', baseUnit: 'each' })
   const loc = await h.command('location.save', { name: 'Calendar stores' })

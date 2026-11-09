@@ -1,9 +1,10 @@
 // A counter's active assignment is a server-enforced blind workspace, not
 // merely a hidden field in the stock page. Old command replays/downloads are
 // blocked too; other warehouse people keep receiving and moving stock.
+import { commandTime } from './clock'
 import { collections, type Actor, type State } from './model'
 
-export const blindSessions = (s: State, actor: Actor) => s.countSessions.filter(x => x.counterId === actor.id && x.status !== 'complete' && x.scheduledOn <= new Date().toISOString().slice(0, 10))
+export const blindSessions = (s: State, actor: Actor) => s.countSessions.filter(x => x.counterId === actor.id && x.status !== 'complete' && x.scheduledOn <= commandTime().slice(0, 10))
 
 export function blindView(s: State, actor: Actor, extra: Record<string, unknown>) {
   const sessions = blindSessions(s, actor)

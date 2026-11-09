@@ -3,7 +3,7 @@ import { purchaseDate } from './supplier-terms'
 // bin-level commitments, and the suggested lots are never a physical pick.
 import { addDays, forecastDemand } from './forecast-plan'
 import { decimal, format, max, min } from './decimal'
-import { lotBlock, shipBlock } from './lot-dates'
+import { lotBlock, shipBlock, utcToday } from './lot-dates'
 import { positions } from './stock'
 import { deliveries } from './sales-schedules'
 import type { Row, State } from './model'
@@ -18,19 +18,19 @@ import { datedRequirementKey, openDatedSupply, demandOrder, materialMode, materi
 // completion day like a purchase. Covering one work order's inputs can free another's, so the projection is
 // recomputed with each newly proven output until the set stops growing; adding supply never removes cover.
 export function materialDates(s: State) {
-  let proven = new Set<string>(), plan = project(s, proven)
+  const today = utcToday()
+  let proven = new Set<string>(), plan = project(s, proven, today)
   for (let pass = 0; pass <= s.workOrders.length; pass++) {
     const next = plan.workFeasibility.filter(w => w.feasible).map(w => w.workOrderId)
     if (next.every(id => proven.has(id))) break
-    proven = new Set(next); plan = project(s, proven)
+    proven = new Set(next); plan = project(s, proven, today)
   }
   return plan
 }
 
 const remainingOutput = (w: Row) => max(0n, decimal(w.quantity) - decimal(w.output) - decimal(w.scrap))
 
-function project(s: State, proven: Set<string>) {
-  const today = new Date().toISOString().slice(0, 10)
+function project(s: State, proven: Set<string>, today: string) {
   const demands: Demand[] = []
   const add = (d: Omit<Demand, 'sources' | 'left'>) => { if (d.quantity > 0n) demands.push({ ...d, sources: [], left: d.quantity }) }
   for (const o of s.salesOrders) if (['confirmed', 'part shipped'].includes(o.status)) for (const l of o.lines)
@@ -203,6 +203,7 @@ function project(s: State, proven: Set<string>) {
       : completionOn < today ? 'the completion day has passed and no output is recorded'
       : shortages.length ? 'pinned inputs are not all covered' : null
     return { workOrderId: w.id, reference: w.reference as string, itemId: w.itemId as string, status: w.status as string, remainingOutput: format(remainingOutput(w)), completionOn,
+      finiteFeasibility: 'not-evaluated', adopted: false, routingBasis: { kind: w.status === 'released' ? 'pinned-work' : 'unpinned-draft', workOrderVersion: w.version, bomId: w.bomId ?? null, revision: w.bomRevision ?? null },
       feasible: blocker === null, reason: blocker ?? 'every pinned input is covered by usable stock or dated supply', shortages }
   })
   const requirements = allocated.map(d => {
@@ -220,7 +221,7 @@ function project(s: State, proven: Set<string>) {
       unavailableStock: physical.filter(p => p.itemId === d.itemId && (p.status !== 'available' || !usable(d, p.lotId))).map(p => ({ ...p, reason: p.status !== 'available' ? p.status : timingBlocked ? d.workTiming!.basis : d.kind === 'sales' ? shipBlock(s, p.lotId, d.date > today ? d.date : today, d.customerId!) : lotBlock(s.lots.find(l => l.id === p.lotId), d.date > today ? d.date : today) })),
       suggestion: timingBlocked ? null : d.left > 0n && d.supply === 'buy' ? (unscheduled > 0n ? buySuggestion(terms, unscheduled, d.date, today) : null) : d.left > 0n && d.supply === 'make' && manufacturing?.releaseOn ? { kind: 'make' as const, quantity: format(d.left), ...manufacturing } : null }
   })
-  return { version: s.version, asOf: today, scope: 'current physical safety floors, dated multilevel sales/forecast demand and pinned released-work inputs; physical stock and dated purchases',
+  return { version: s.version, asOf: today, provenance: { kind: 'informational-material-allocation', inputVersion: s.version, asOf: today, timeBasis: 'UTC calendar day', adopted: false, finiteFeasibility: 'not-evaluated' }, scope: 'current physical safety floors, dated multilevel sales and forecast demand and pinned released-work inputs; physical stock and dated purchases',
     limitations: ['Purchase dates are declared expectations; receipt and quality still gate use.', 'Manufacturing offsets use recorded full-batch routing critical paths in UTC calendar days; missing routing remains unknown, and capacity and transfer overlap are not applied.', 'Draft work output is provisional; released work output nets demand on its completion day only when every pinned input is covered.', 'Safety floors protect current physical stock only; automatic adoption is not applied; open supply restores an uncovered floor on its dated receipt without being physical cover; exact dated suggestions can be prepared as drafts after current-input review.'],
     requirements, blockedExplosions, unverifiedReservations: unverified, workFeasibility,
     provisionalSupply: [

@@ -81,6 +81,45 @@ exposure; received stock and reservations are untouched. Every decision writes a
 approval record (`category: supply-change`) with the recommendation and reason,
 and the usual audit entries.
 
+## Planning result provenance
+
+The materials and pegging GET responses return `provenance` with
+`kind: informational-material-allocation`, `inputVersion`, `asOf` and the
+explicit `UTC calendar day` time basis. These are recomputed allocations,
+never adopted schedules. `workFeasibility.feasible` proves material coverage
+only; its `finiteFeasibility` remains `not-evaluated`, and its `routingBasis`
+identifies the pinned work recipe or an unpinned draft. Existing pegs, source
+dates, shortages, held stock, late candidates and unproven supply remain
+visible subject to the requester's current scope.
+
+`GET /api/larder/scheduling/finite?asOf=<instant>&days=<1-60>` returns a bounded
+capacity projection. Its `provenance` retains the input version, planning
+instant and exact horizon; material feasibility remains `not-evaluated`.
+The entries in `provenance.operations` identify each operation's routing basis
+and exact occupancy alongside the existing `operations` array. An entry's
+`kind` is `active-booking` only when its exact machine slot,
+qualified person, occupied minutes and intervals match the current active
+booking and that booking's adopted plan. The entry's `booking` identifies the
+current booking ID and version and the adopted plan ID and version. The
+adopted plan must retain that same booking version; legacy history without
+this binding establishes no current booking provenance. A
+protected interval, retained comparison or matching operation key alone is
+`finite-projection` with no booking reference. The response as a whole stays
+a projection, including when some intervals have exact booking evidence.
+
+Unscheduled operations retain their reason and an explicit `code`, including
+`NO_ROUTING`, `MISSING_MACHINE_CALENDAR`,
+`MISSING_QUALIFIED_PERSON_CALENDAR`, `HORIZON_EXHAUSTED` and
+`UNAVAILABLE_PIN`. Search exhaustion establishes no capacity beyond that
+horizon. An active booking whose resources or intervals no longer fit is
+unavailable; the read neither moves it nor adopts a replacement. Restoring
+retained bookings does not restore their operators' live authority.
+
+All three GET doors use current native authentication, blind-count, location,
+site and cost restrictions. Reads change no records, reservations, calendars,
+bookings, customer promises or outbound effects. Internal interval evidence
+provides no overtime, purchasing or customer-commitment authority.
+
 ## Commands
 
 | Command | Payload | Who |
@@ -942,6 +981,54 @@ The review is invalidated when business state changes. Provider outcomes explici
 not attempted; consent sends no outbound request. Eligible document, message and model
 context erasure and complete controlled-copy deletion remain unimplemented. GOV-005
 remains partial under the approved indefinite-document policy.
+
+## Native manufacturing detail resources (SURFACE-007, partial)
+
+`GET /api/larder/v1/resources/<kind>/<id>` reads one current visible record.
+Supported kinds are `receipts`, `outputs`, `shipments`, `lots`, `movements`,
+`purchases`, `orders` and `work`. These are native-session reads, with the same
+live role, site, location, cost and wage restrictions as the manufacturing
+screen. Existing service credentials grant no access to these detail routes.
+Blind counting refuses them; revoked sessions and anonymous requests are refused.
+Hidden and unknown records both return the same `404 NOT_FOUND`, without the
+requested ID. An order summary whose received or shipped total includes hidden
+records has no detail or link, even if its native summary remains visible.
+
+The reply has `apiVersion: "1"`, the current state `version`, `resource`, `data`,
+`links`, `physical`, `planning` and `files`. Each resource link has `kind`, `id`,
+`version` and `href`. `data` is the exact native filtered record. Outputs are
+nested immutable reports, returned with their containing `workOrderId` and job
+`version`; movements use their immutable ledger `sequence` as link `version`
+and keep their original formatted ledger fields. Other links return the exact
+record version. A later read resolves current authority and current versions;
+a retained link is neither a grant nor a historical snapshot.
+
+A partial receipt links its exact purchase, recorded lots and movements. An
+output links its exact job, lot, output movement and explicit component-lot
+allocations. A partial shipment links its order, actual shipment movements and
+lots; the source finished output follows only recorded batch allocations to
+component receipts and their retained evidence. Unlotted records and legacy
+job-level ancestry acquire no guessed lot or per-output allocation. Physical
+movement quantities and unit costs retain their native decimal representation
+and redaction. Linked jobs retain their native recorded costs.
+
+`physical` is recorded genealogy, with no recomputed allocation presented as a
+physical fact. `planning` is the current indicative shared-pool pegging projection,
+with its input version and as-of date, scope and limitations. Its `href` opens
+the existing native pegging door with the same selection and current guards.
+Receipt, output and
+shipment selections use their receipt, job and sales-order inputs respectively.
+If its full and visible projections disagree, the whole planning result is
+marked restricted: no hidden edges, counts or misleading partial totals escape.
+These reads never reserve stock, approve supply, book capacity or change promises.
+
+`files` carries retained original metadata, digests and existing attachment-door
+links. The resource and download use the same evidence permission check; a
+financial file never becomes available through a resource link. File content is
+served only by the existing download door under authority at download time.
+Restored resource and file links are inert history reads, with no reinstated
+session, credential or command authority. Broader resource coverage, MCP resource
+templates and shared resource-family qualification remain outside this slice.
 
 ## Versioned integration reads (CONN-014, partial)
 
