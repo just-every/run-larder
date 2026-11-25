@@ -8,7 +8,7 @@ import { fail } from './problem'
 import { caseHumanRoleSql } from './follow-up'
 import { auditInsertSql, auditParams, type AuditEntry } from './audit'
 import { erasureStatements, type ErasurePlan } from './audit-erasure'
-import { collections, type Actor, type Context, type State } from './model'
+import { collections, type Actor, type Context, type Row, type State } from './model'
 
 export const roleSql = `CASE WHEN EXISTS(SELECT 1 FROM larder_records WHERE kind='roles' AND id=o.id) THEN (SELECT json_extract(data,'$.role') FROM larder_records WHERE kind='roles' AND id=o.id) WHEN o.role='owner' THEN 'owner' ELSE 'viewer' END`
 
@@ -46,18 +46,26 @@ function doorAuthority(a: Actor) {
 export async function load(db: D1Database): Promise<State> {
   const out = await db.batch<any>([
     db.prepare('SELECT version FROM larder_meta WHERE id=1'),
-    db.prepare("SELECT kind,data FROM larder_records ORDER BY kind,json_extract(data,'$.createdAt'),id"),
+    // Primary-key order reads each row once; the sort by creation time is done below.
+    db.prepare('SELECT kind,data FROM larder_records ORDER BY kind,id'),
     db.prepare('SELECT * FROM larder_movements ORDER BY sequence'),
     db.prepare('SELECT * FROM larder_reservations ORDER BY rowid'),
   ])
   const s = { version: out[0].results[0].version, movements: [], reservations: [] } as unknown as State
   for (const k of collections) s[k] = []
   for (const r of out[1].results) if ((collections as readonly string[]).includes(r.kind)) s[r.kind as (typeof collections)[number]].push(JSON.parse(r.data))
+  // Each collection reads in creation order, ties by id (rows arrive in id order and the sort is stable).
+  for (const k of collections) s[k].sort((a: Row, b: Row) => { const x = a.createdAt ?? '', y = b.createdAt ?? ''; return x < y ? -1 : x > y ? 1 : 0 })
   // Inspection decisions follow atomic commit order even when their timestamps tie.
   s.inspections.sort((a, b) => (a.recordedVersion ?? 0) - (b.recordedVersion ?? 0) || a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id))
   s.movements = out[2].results.map((r: any) => ({ id: r.id, sequence: r.sequence, itemId: r.item_id, locationId: r.location_id, status: r.status, lotId: r.lot_id, quantity: BigInt(r.quantity), unitCost: BigInt(r.unit_cost), kind: r.kind, documentKind: r.document_kind, documentId: r.document_id, reversesId: r.reverses_id, actorId: r.actor_id, commandId: r.command_id, importId: r.import_id, reason: r.reason, createdAt: r.created_at }))
   s.reservations = out[3].results.map((r: any) => ({ id: r.id, demandKind: r.demand_kind, demandId: r.demand_id, lineId: r.line_id, itemId: r.item_id, locationId: r.location_id, quantity: BigInt(r.quantity) }))
   return s
+}
+
+// The state version alone, for a retry that only needs to know whether another command committed.
+export async function currentVersion(db: D1Database): Promise<number> {
+  return (await db.prepare('SELECT version FROM larder_meta WHERE id=1').first<{ version: number }>())!.version
 }
 
 export async function saved(db: D1Database, commandId: string, digest: string, actor: Actor) {

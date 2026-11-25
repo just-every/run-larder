@@ -6,6 +6,13 @@ import { collections, type Actor, type State } from './model'
 
 export const blindSessions = (s: State, actor: Actor) => s.countSessions.filter(x => x.counterId === actor.id && x.status !== 'complete' && x.scheduledOn <= commandTime().slice(0, 10))
 
+// The same assignments for one person, read through the open-count-session index
+// (migration 0028) so a command or download never loads the whole state to ask.
+export async function blindSessionsOf(db: D1Database, actor: Actor): Promise<State['countSessions']> {
+  const open = (await db.prepare("SELECT data FROM larder_records WHERE kind='countSessions' AND json_extract(data,'$.status')<>'complete' AND json_extract(data,'$.counterId')=?").bind(actor.id).all<{ data: string }>()).results
+  return open.map(r => JSON.parse(r.data)).filter(x => x.scheduledOn <= commandTime().slice(0, 10))
+}
+
 export function blindView(s: State, actor: Actor, extra: Record<string, unknown>) {
   const sessions = blindSessions(s, actor)
   if (!sessions.length) return null

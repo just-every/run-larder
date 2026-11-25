@@ -45,7 +45,7 @@ import { bomBulk } from './bom-bulk'
 import { bomCsv } from './bom-csv'
 import { ranking } from './order-ranking'
 import { counts } from './counts'
-import { blindSessions } from './count-visibility'
+import { blindSessions, blindSessionsOf } from './count-visibility'
 import { catalogBulk } from './catalog-bulk'
 import { catalogCsv } from './catalog-csv'
 import { catalogue } from './catalogue'
@@ -98,7 +98,7 @@ import { effectiveScope, enforcePayload, enforceScope, hiddenLocations, isScoped
 import { gateCommand } from './scope-gate'
 import { redactCosts } from './scope-cost'
 import { refuseHidden, scopedRead, scopedState, stubHidden, visibleState } from './scope-view'
-import { commit, load, roleSql, saved, authority } from './storage'
+import { commit, currentVersion, load, roleSql, saved, authority } from './storage'
 import { stateView } from './view'
 import { readsWages, withoutWages } from './wage-view'
 import { get, type Actor, type Context, type Row } from './model'
@@ -159,7 +159,7 @@ export async function executeCommand(env: Bindings, actor: Actor, body: any, aut
   refuseCommercialFacts(type, payload)
   if (['so.review', 'so.reviewClear', 'so.invoice'].includes(type) && isScoped(actor)) forbidden('Costed quote preparation requires unrestricted commercial and location access.')
   if ((type.startsWith('costing.') || type.startsWith('reports.')) && !costingReaders.includes(actor.role)) forbidden('Only accounts or managers may use costing.')
-  if (blindSessions(await load(env.DB), actor).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
+  if ((await blindSessionsOf(env.DB, actor)).length && type !== 'count.submit') forbidden('Finish your assigned blind count before using other commands.')
   if (type === 'count.schedule') {
     const counter = await env.DB.prepare(`SELECT ${roleSql} AS role FROM oa_operators o WHERE o.id=? AND o.status='active'`).bind(payload.counterId).first<{ role: string }>()
     if (counter?.role !== 'warehouse') fail('INPUT', 'Assign an active warehouse person.')
@@ -248,7 +248,7 @@ export async function executeCommand(env: Bindings, actor: Actor, body: any, aut
     catch (error) {
       const replay = await saved(env.DB, commandId, digest, actor)
       if (replay) return respond(replay)
-      if ((await load(env.DB)).version !== before.version && attempt < 7) continue
+      if ((await currentVersion(env.DB)) !== before.version && attempt < 7) continue
       // Native membership changes do not bump the domain version. Recompute
       // the event as a review proposal if its delegated authorizer was revoked.
       if (/CHECK constraint failed/.test(String((error as Error)?.message ?? '')) && newBookings(c,before).some(b=>b.automatic) && attempt < 7) continue
@@ -277,7 +277,9 @@ async function liveReportOwner(db: D1Database, scheduleId: string, automatic: bo
 
 export async function runDueReports(original: Bindings): Promise<void> {
   const env = runtimeBindings(original), today = commandTime().slice(0, 10)
-  const due = (await load(env.DB)).reportSchedules.filter(r => r.status === 'active' && r.consent?.by === r.ownerId && r.nextDate <= today)
+  // Only the few schedule records are read to learn what is due; the whole state loads only inside a report that runs.
+  const schedules = (await env.DB.prepare("SELECT data FROM larder_records WHERE kind='reportSchedules'").all<{ data: string }>()).results.map(r => JSON.parse(r.data))
+  const due = schedules.filter(r => r.status === 'active' && r.consent?.by === r.ownerId && r.nextDate <= today)
   const failures: unknown[] = []
   for (const r of due) {
     try {
@@ -299,7 +301,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     const env = runtimeBindings(original), actor = await current(request, env)
     const path = url.pathname.slice('/api/larder'.length)
     if (request.method === 'POST' && path === '/commands') return await command(env, actor, request)
-    if (path !== '/state' && blindSessions(await load(env.DB), actor).length) forbidden('Downloads are unavailable during your assigned blind count.')
+    if (path !== '/state' && (await blindSessionsOf(env.DB, actor)).length) forbidden('Downloads are unavailable during your assigned blind count.')
     if (request.method === 'POST' && path === '/archive/migrate-aud') return json(await migrateAudArchive(env, actor, request))
     if (request.method === 'POST' && path === '/archive/restore') return json(await restore(env, actor, request))
     if (request.method !== 'GET') throw new Problem('METHOD', 'Use GET to read or POST /api/larder/commands to act.', null, 405)

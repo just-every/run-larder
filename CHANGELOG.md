@@ -1,5 +1,10 @@
 # Changelog
 
+## Bounded D1 reads
+
+- The report-schedule cron reads only the schedule records until one is due, so a run costs the same rows at 30 days of history as at one day (2,694 to 2 at 30 days).
+- Commands and downloads check a blind count through an index of open count sessions (migration 0028) instead of loading the whole state, and record loading no longer sorts by a JSON field, so each state load reads each row once.
+
 ## Company-agent runtime refresh
 
 - Align nesting, master production, replenishment and dated/scenario planning tool citations with their existing native contract clauses.
