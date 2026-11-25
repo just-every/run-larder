@@ -77,7 +77,7 @@ async function commandInstallation(root) {
   return { checkout, persistence: join(checkout, '.wrangler/state/v3'), databases: Object.fromEntries(config.d1_databases.map(d => [d.binding, d.database_id])), run }
 }
 
-export async function installation({ now, modelEdge, modelKey, publicCommands = false, beforeCommit } = {}) {
+export async function installation({ now, modelEdge, modelKey, publicCommands = false, beforeCommit, mailOff = false } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'larder-api-'))
   let native
   try { native = publicCommands ? await commandInstallation(root) : undefined }
@@ -97,7 +97,10 @@ export async function installation({ now, modelEdge, modelKey, publicCommands = 
     return Response.json({ id: `test-${mails.length}` })
   }
   const sessionSecret = randomBytes(32).toString('hex'), devKey = randomBytes(32).toString('hex')
-  const bindings = () => ({ ...(modelEdge ? { ANTHROPIC_API_KEY: modelKey ?? 'synthetic-larder-814', OPENROUTER_API_KEY: modelKey ?? 'synthetic-larder-814' } : {}), AUTH_LOCAL: 'true', AUTH_ORIGIN: origin, OWNER_EMAIL: 'owner@example.test', SESSION_SECRET: sessionSecret, SETUP_TOKEN: setup, MAIL_PROVIDER: 'resend', MAIL_API_KEY: 'test-only-resend-key', MAIL_FROM: 'auth@example.test', RER_DEV_KEY: devKey })
+  const mail = mailOff ? { MAIL_PROVIDER: 'none' } : {
+    MAIL_PROVIDER: 'resend', MAIL_API_KEY: 'test-only-resend-key', MAIL_FROM: 'auth@example.test',
+  }
+  const bindings = () => ({ ...(modelEdge ? { ANTHROPIC_API_KEY: modelKey ?? 'synthetic-larder-814', OPENROUTER_API_KEY: modelKey ?? 'synthetic-larder-814' } : {}), AUTH_LOCAL: 'true', AUTH_ORIGIN: origin, OWNER_EMAIL: 'owner@example.test', SESSION_SECRET: sessionSecret, SETUP_TOKEN: setup, ...mail, RER_DEV_KEY: devKey })
   const options = port => ({
     ...convertV4MiniflareOptions({
       host: '127.0.0.1', port, modules: true, script: code, compatibilityDate: '2026-09-08', compatibilityFlags: ['nodejs_compat'], d1Databases: native?.databases ?? ['DB'],

@@ -6,23 +6,22 @@ import { optionalText, text, type Row, type State } from './model'
 import { parseCsv } from './odoo/csv'
 
 const headers = ['item_sku', 'revision', 'effective_on', 'component_sku', 'quantity', 'unit', 'routing', 'note', 'yield', 'supply']
-const today = () => new Date().toISOString().slice(0, 10)
 const quote = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`
 // Only free-text cells are escaped. SKU identifiers must retain their exact bytes.
 const risky = /^[\s]*[=+\-@\t\r\n]/
 const protect = (value: string) => risky.test(value) || value.startsWith("'") ? "'" + value : value
 const unprotect = (value: string) => value.startsWith("'") && (risky.test(value.slice(1)) || value.startsWith("''")) ? value.slice(1) : value
 
-export function bomCsv(s: State): string {
+export function bomCsv(s: State, today: string): string {
   const rows: unknown[][] = [headers]
   for (const item of s.items.filter(i => i.kind === 'make' && !i.archived)) {
-    const bom = activeBom(s, item.id)
+    const bom = activeBom(s, item.id, today)
     if (!bom) continue
     const routing = JSON.stringify(bom.routing ?? [])
     for (const component of bom.components) {
       const part = s.items.find(i => i.id === component.itemId)
       if (!part) throw new Error(`BOM ${bom.id} references a missing component.`)
-      const effectiveOn = bom.effectiveOn && bom.effectiveOn > today() ? bom.effectiveOn : today()
+      const effectiveOn = bom.effectiveOn && bom.effectiveOn > today ? bom.effectiveOn : today
       rows.push([item.sku, bom.revision, effectiveOn, part.sku, component.quantity, part.baseUnit, routing, protect(bom.note ?? ''), bom.yield ?? '1', component.supply ?? part.kind])
     }
   }
@@ -55,7 +54,7 @@ function rowLines(content: string): number[] {
   return lines
 }
 
-export function parseBomCsv(s: State, content: string, file: string): { revisions: any[]; errors: CsvError[] } {
+export function parseBomCsv(s: State, content: string, file: string, today: string): { revisions: any[]; errors: CsvError[] } {
   const errors: CsvError[] = [], groups = new Map<string, Group>()
   const error = (row: number, column: string, message: string) => { errors.push({ file, row, column, reason: message }) }
   let rows: string[][]
@@ -77,7 +76,7 @@ export function parseBomCsv(s: State, content: string, file: string): { revision
     if (!item) { error(row, 'item_sku', 'Unknown item SKU.'); continue }
     let group = groups.get(item.id)
     if (!group) {
-      const source = activeBom(s, item.id)
+      const source = activeBom(s, item.id, today)
       group = { revision: { itemId: item.id, sourceBomId: source?.id, sourceRevision: source?.revision, effectiveOn: data.effective_on, components: [], routing: [], note: '' }, invalid: false, seen: new Set(), metadata: {} }
       groups.set(item.id, group)
     }
@@ -88,7 +87,7 @@ export function parseBomCsv(s: State, content: string, file: string): { revision
     if (!/^[1-9]\d*$/.test(data.revision) || Number(data.revision) !== group.revision.sourceRevision) reject('revision', 'Revision does not match the current active BOM. Export again before revising.')
     const timestamp = Date.parse(data.effective_on + 'T00:00:00Z')
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data.effective_on) || !Number.isFinite(timestamp)
-      || new Date(timestamp).toISOString().slice(0, 10) !== data.effective_on || data.effective_on < today()) reject('effective_on', 'Use a real date on or after today (YYYY-MM-DD, UTC).')
+      || new Date(timestamp).toISOString().slice(0, 10) !== data.effective_on || data.effective_on < today) reject('effective_on', 'Use a real date on or after today (YYYY-MM-DD, UTC).')
     let steps: ReturnType<typeof routing> = [], note = ''
     try { steps = routing(data.routing, s.boms) } catch (e) { reject('routing', reason(e)) }
     try { note = optionalText(unprotect(data.note), 'change note', 400) } catch (e) { reject('note', reason(e)) }

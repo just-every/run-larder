@@ -27,6 +27,7 @@ export const commandAdapter = createCommandAdapter(lifecycle, {
   context.store.report('Hosting fees: Cloudflare may charge for Workers requests, compute, D1 storage and queries, and custom domains under your account plan. Review your Cloudflare pricing before deployment. Larder charges no hosting entitlement, seat or upgrade fee.');
   return deploy(context);
  }, deploy),
+ mailOffSignIn: 'rer signin',
  portability: localPortability({ database: 'foundation', policy: portabilityPolicy, transient: ['local runtime caches and logs'] }),
  setup: { manifestFile: 'rer-setup.json' }, browserModule: 'scripts/installer/ui/seed.mjs',
  // The run site (rer build --site, rer deploy --site, RER_SITE): the landing, /run and the docs

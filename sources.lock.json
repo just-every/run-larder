@@ -225,7 +225,7 @@
       "executable": false
     },
     "deploy.json": {
-      "sha256": "68724565c6438537fca8caff1ef108b89416c2a05eb610c02785ee22b77bcdb9",
+      "sha256": "9611995c521ae3b975a71d3ddaa617b0502eb3d49bb5ec8112b767f94607a8bd",
       "executable": false
     },
     "docs/backup-and-restore.md": {
@@ -485,7 +485,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "9e5b9b2f335b92d94f6201c7a5bb64e501520ecd0fd8eb5ddfde9970aa0171d9",
+      "sha256": "369ca563b21330f079351287753275906cce2f57c6833f0e0c67b2c421df0e1e",
       "executable": false
     },
     "packaging.json": {
@@ -493,7 +493,7 @@
       "executable": false
     },
     "pnpm-lock.yaml": {
-      "sha256": "2771b1b7c39b46a00810e5b7073564c6afecba8d31c8ad47a5451d05ac7066b7",
+      "sha256": "46201bd04111ef8ebc4df1b6e969a7d6fe4cc9e10901fc8d944479c01533718c",
       "executable": false
     },
     "public/apple-touch-icon.png": {
@@ -741,11 +741,11 @@
       "executable": false
     },
     "rer-project.json": {
-      "sha256": "cb994e33a097f81a38af2dff1d1a9326e872c2d65ab1f68d1f7004c808a39a83",
+      "sha256": "a617d0cf4ccf6aeb372ef46fde242dd7bdd73a7194bd7cde2e9f1bc4732b0d38",
       "executable": false
     },
     "rer-setup.json": {
-      "sha256": "24b53a50210cf61d5026fc9f1ee54d256225b78704bfb4e7666d7fc1c9faf20a",
+      "sha256": "3421be6140b9a1bb2d26f73a1399e7a2b3218b033a1b33f241c38b7d52340fdc",
       "executable": false
     },
     "RULINGS.md": {
@@ -753,7 +753,7 @@
       "executable": false
     },
     "RUN-LOCALLY.md": {
-      "sha256": "94a616dbb8809513eb1594604ff774d486410a4d9aaea353184c6c89b10c9cb6",
+      "sha256": "da385e6614672f94e9ad0213d3e5467c3557362d319fd2c3aca2d0b0d16ee54a",
       "executable": false
     },
     "scripts/build-deployment-spec.mjs": {
@@ -1481,7 +1481,7 @@
       "executable": false
     },
     "scripts/installer/local.mjs": {
-      "sha256": "37f34dc75f74902186cede4bea0696da74651cc302949ccc410bd9f6e20f4ae9",
+      "sha256": "e3a25808a6a4bac7ab9ab3fc47ae3b820e9d91367d20fc62907780f2ea32f571",
       "executable": false
     },
     "scripts/installer/portability-policy.mjs": {
@@ -1589,7 +1589,7 @@
       "executable": false
     },
     "src/auth.server.ts": {
-      "sha256": "6be8f70f1fd89ad74f2041c19d875c10aecbc1330f663cb9da400438494e6598",
+      "sha256": "40c73607e99458bc14109a77e8fae65a3b42774f9625d336d614af08a2060191",
       "executable": false
     },
     "src/base/actor.ts": {
@@ -1777,7 +1777,7 @@
       "executable": false
     },
     "src/larder/api.ts": {
-      "sha256": "2ca8b5575ff51c77031c4bf100bca50ad7e6e3502e8e939b99d310909d5730fb",
+      "sha256": "cb4c874b3a3438c9afc5769d5f4d8bc9d2cefc1d0c0e5a1b064b118fb5ccfbc3",
       "executable": false
     },
     "src/larder/approval-policy.ts": {
@@ -1817,11 +1817,11 @@
       "executable": false
     },
     "src/larder/bom-bulk.ts": {
-      "sha256": "e588e1bcd48db1950af634244941a51d0fc6fcb7e19402155d5fa7aec87ec4b1",
+      "sha256": "c65d77854d7eb66060051af17bf1f1a588c4c3b814dc815366dda6006ac0d981",
       "executable": false
     },
     "src/larder/bom-csv.ts": {
-      "sha256": "39bc4052ea5363fc06e3cf021e8323b1f4dcd065f6a5751ce95b3b8e40a4518e",
+      "sha256": "4aff275f898145fee6f28cfe792aef17fd5c94e2e7c2bc3f53791824545b8932",
       "executable": false
     },
     "src/larder/bom-explosion.ts": {
@@ -2437,7 +2437,7 @@
       "executable": false
     },
     "src/mail.server.mjs": {
-      "sha256": "0f150355572338be1f23c6fc0467b9d61edade1260786c98f780c0e77f468ec5",
+      "sha256": "f18489a95b6888c936580c65949df81ce6163c366a06b6eb7dac6e109e60f6cf",
       "executable": false
     },
     "src/modules/agent-door/admission.ts": {
@@ -5201,11 +5201,15 @@
       "executable": false
     },
     "tests/api/harness.mjs": {
-      "sha256": "9e1a3100c2761063c6dedc105bf2730708dd01b0fbbd67e1b2a32b17ef1be42a",
+      "sha256": "5cae48618a5a618128aa67d1965f9672372bc97bc74be86bb3483bdc3ee4fec3",
       "executable": false
     },
     "tests/api/inventory.test.mjs": {
       "sha256": "b3d4570347d36aa9c773d488b462a6e8d9d6b3db09c7aee4805bb6038874c0b1",
+      "executable": false
+    },
+    "tests/api/mail-off.test.mjs": {
+      "sha256": "15bcc420a7b9afcbc6989570b6801ac10025beb7f0ef2008fa314cc6aba5f7b0",
       "executable": false
     },
     "tests/api/maintenance.test.mjs": {
@@ -5221,7 +5225,7 @@
       "executable": false
     },
     "tests/api/multilevel.test.mjs": {
-      "sha256": "3281692558deb481a9011589b1f4ff280941941ecbcd99643aa44fd38c7ed05c",
+      "sha256": "9a2bd8d9bd78d994b0270b6e2ba5ef3221c1c40be77bb75349a91c8c7121e5e1",
       "executable": false
     },
     "tests/api/order-amendments.test.mjs": {

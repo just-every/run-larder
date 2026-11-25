@@ -12,7 +12,7 @@ export function bomBulk(c: Context, type: string, p: any): Row | undefined {
     const file = text(p.file?.name, 'CSV filename', 200)
     if (typeof p.file?.content !== 'string' || p.file.content.length > 2 * 1024 * 1024) fail('INPUT', 'Send CSV text of at most 2 MiB.')
     const content: string = p.file.content
-    const { revisions, errors } = parseBomCsv(c.s, content, file)
+    const { revisions, errors } = parseBomCsv(c.s, content, file, c.now.slice(0, 10))
     // Exercise the same revision validator before presenting an approvable plan.
     const candidate = { ...c, s: structuredClone(c.s) }
     for (const revision of revisions) bom(candidate, 'bom.revise', revision)

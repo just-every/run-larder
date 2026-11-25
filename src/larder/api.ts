@@ -379,7 +379,7 @@ export async function larderResponse(request: Request, original: Bindings): Prom
     }
     if (path === '/boms.csv') {
       if (!['owner', 'manager', 'production', 'engineer'].includes(actor.role)) forbidden('Only manufacturing engineers or managers export BOMs.')
-      return new Response(bomCsv(await scopedState(await load(env.DB), scope)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-boms.csv"' } })
+      return new Response(bomCsv(await scopedState(await load(env.DB), scope), commandTime().slice(0, 10)), { headers: { ...headers, 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="larder-boms.csv"' } })
     }
     const certificateDownload = /^\/shipments\/([-0-9a-f]{36})\/certificates\.json$/.exec(path)
     if (certificateDownload) {

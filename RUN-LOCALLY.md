@@ -224,10 +224,17 @@ and account charges; setup displays this disclosure beside the provider choice.
 An optional linked Auth installation and its hosting may also charge under their
 own plans; setup and Sign-in settings disclose this before enabling it.
 Future connected-provider clauses inherit this pre-connection fee disclosure.
-`rer deploy --dry-run` validates and builds locally without a
-provider request. The default environment is `production`; select another with
-`--environment NAME`. Local validation does not establish provider acceptance,
-hosted health or mail delivery.
+
+For a Business without a mail provider, run `MAIL_PROVIDER=none rer deploy --dry-run`
+to validate the plan. The same setting on a real deployment needs no sender
+or mail API key. After the deployment claims the owner, run `rer signin`
+from the checkout with the Cloudflare credentials for that deployment.
+The command issues a one-time owner sign-in link. Email sign-in, invitations
+and email confirmation are unavailable while mail is off.
+
+The dry run builds locally without provider requests. The default environment
+is `production`. Use `--environment NAME` for a different environment on both
+commands.
 
 `rer describe` reads the current checkout's actual verbs,
 flags, aliases, pins, effects and local state without installing or running

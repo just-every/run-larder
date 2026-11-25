@@ -98,12 +98,16 @@
           "label": "Cloudflare Email Sending"
         },
         {
+          "value": "none",
+          "label": "Off (owner signs in with rer signin)"
+        },
+        {
           "value": "development",
           "label": "Local development (no outbound mail)"
         }
       ],
       "localDefault": "development",
-      "help": "Local development sends no mail and has no provider fee. RER managed mail, Resend, SendGrid and Cloudflare Email Sending may charge for sending or account usage under your provider plan. Review that plan before selecting an outbound provider. Larder charges no connection or upgrade fee."
+      "help": "Choose Off to run without a sender or API key. Local development also sends no mail. RER managed mail, Resend, SendGrid and Cloudflare Email Sending may charge for sending or account usage under your provider plan. Review that plan before selecting an outbound provider. Larder charges no connection or upgrade fee."
     },
     {
       "name": "MAIL_FROM",

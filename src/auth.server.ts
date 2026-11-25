@@ -41,7 +41,7 @@ export interface Bindings {
  INSTALLATION_KEY: string
  INSTALLATION_KEY_PREVIOUS?: string
  SETUP_TOKEN?: string
- MAIL_PROVIDER?: 'development' | 'rer' | 'resend' | 'sendgrid' | 'cloudflare'
+ MAIL_PROVIDER?: 'none' | 'development' | 'rer' | 'resend' | 'sendgrid' | 'cloudflare'
  MAIL_RELAY_URL?: string
  MAIL_FROM?: string
  MAIL_API_KEY?: string
@@ -49,9 +49,10 @@ export interface Bindings {
 }
 
 export const runtimeBindings = (env: Bindings): Bindings => env.RER_DEV_ORIGIN && env.AUTH_LOCAL === 'true' ? { ...env, AUTH_ORIGIN: env.RER_DEV_ORIGIN } : env
-export const authConfig = (env: Bindings): AuthConfig => ({ dependencies: true, ...(env.AUTH_ALLOW_LIST !== undefined ? {allowList: env.AUTH_ALLOW_LIST.split(',').map(email=>email.trim().toLowerCase()).filter(Boolean)} : {}), origin: env.AUTH_ORIGIN, local: env.AUTH_LOCAL === 'true', OWNER_EMAIL: env.OWNER_EMAIL, SESSION_SECRET: env.SESSION_SECRET, INSTALLATION_KEY: env.INSTALLATION_KEY, INSTALLATION_KEY_PREVIOUS: env.INSTALLATION_KEY_PREVIOUS, SETUP_TOKEN: env.SETUP_TOKEN, MAIL_FROM: env.MAIL_FROM, branding: { productName: branding.name, accentColor: branding.primaryColor, signInPath: '/signin', theme: theme.href } })
+export const authConfig = (env: Bindings): AuthConfig => ({ dependencies: true, ...(env.AUTH_ALLOW_LIST !== undefined ? {allowList: env.AUTH_ALLOW_LIST.split(',').map(email=>email.trim().toLowerCase()).filter(Boolean)} : {}), origin: env.AUTH_ORIGIN, local: env.AUTH_LOCAL === 'true', OWNER_EMAIL: env.OWNER_EMAIL, SESSION_SECRET: env.SESSION_SECRET, INSTALLATION_KEY: env.INSTALLATION_KEY, INSTALLATION_KEY_PREVIOUS: env.INSTALLATION_KEY_PREVIOUS, SETUP_TOKEN: env.SETUP_TOKEN, MAIL_FROM: env.MAIL_PROVIDER === 'none' ? undefined : env.MAIL_FROM, branding: { productName: branding.name, accentColor: branding.primaryColor, signInPath: '/signin', theme: theme.href } })
 export function operatorAuth(env: Bindings) {
- return createOperatorAuth({ db: env.DB, config: authConfig(env), mailSender: operatorMail(env), clientIp: request => request.headers.get('CF-Connecting-IP') ?? '' })
+ const auth = createOperatorAuth({ db: env.DB, config: authConfig(env), mailSender: operatorMail(env), clientIp: request => request.headers.get('CF-Connecting-IP') ?? '' })
+ return env.MAIL_PROVIDER === 'none' ? { ...auth, emailSignInAvailable: false } : auth
 }
 
 const privateHeaders = { 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff', 'x-robots-tag': 'noindex, nofollow' }
@@ -87,6 +88,10 @@ export async function authResponse(request: Request, original: Bindings): Promis
  }
  if (url.pathname.startsWith('/auth/')) {
   let response = await createAuthHandler(operatorAuth(env))(request)
+  if (env.MAIL_PROVIDER === 'none' && response?.status === 503 && response.headers.get('content-type')?.startsWith('application/json')) {
+   const error = await response.clone().json<{ error: string }>()
+   if (error.error === 'mail_unavailable') response = Response.json({ error: 'mail_off' }, response)
+  }
   if (response && url.pathname === '/auth/settings/identity' && request.method === 'GET' && response.status === 200 && response.headers.get('content-type')?.includes(['text', 'html'].join('/'))) {
    response = new Response((await response.text()).replace('<h2>Provider setup</h2>', '<h2>Provider setup</h2><p>Your identity provider and its hosting may charge under their own plans. Review those fees before enabling provider sign-in. Larder charges no connection or upgrade fee.</p>'), response)
   }
