@@ -744,6 +744,10 @@
       "sha256": "f8046463c44e5b1a8ee6997b856732ad5bc89ccc29539a1e6a1c16267298f304",
       "executable": false
     },
+    "release-history/0.1.3.json": {
+      "sha256": "fb1265895dc6a1bd34118c1543acf4805f0296d3f9a40501df6595ab82110002",
+      "executable": false
+    },
     "RELEASE.json": {
       "sha256": "0e74a600620465ac79e9ce55817904ab88f4603c84b31c4cb2984666c6c7644a",
       "executable": false
