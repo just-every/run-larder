@@ -1,8 +1,19 @@
 {
-  "version": "0.1.3",
-  "previousVersion": "0.1.2",
-  "publicReleaseNotes": "Release Larder with the exact rer 0.2.80 pin and refreshed native delivery metadata. Keep local verification state out of the deployment artifact and correct hosted mail configuration for external providers. No database migrations are required.",
-  "migrations": [],
+  "version": "0.1.4",
+  "previousVersion": "0.1.3",
+  "publicReleaseNotes": "Release Larder on current Base with the exact rer 0.2.134 pin. Adds service keys, report sessions, the Base agent door with signed Business decision audit, business settings and people, agent attribution, change events and their vocabulary, and a retired-business state, and deploys the public demo on each published release. Ten database migrations (0020 to 0029) apply on upgrade.",
+  "migrations": [
+    "migrations/core/0020_service_keys.sql",
+    "migrations/core/0021_report_sessions.sql",
+    "migrations/core/0022_agent_door.sql",
+    "migrations/core/0023_business_settings.sql",
+    "migrations/core/0024_business_people.sql",
+    "migrations/core/0025_agent_attribution.sql",
+    "migrations/core/0026_change_events.sql",
+    "migrations/core/0027_change_event_vocabulary.sql",
+    "migrations/core/0028_agent_door_relay_upgrade.sql",
+    "migrations/core/0029_business_retired.sql"
+  ],
   "breaking": false,
-  "agentUpdateInstructions": "No migrations or runtime configuration changes are required for this patch. Keep the exact rer 0.2.80 pin for native installation, export and restore."
+  "agentUpdateInstructions": "Apply migrations 0020 to 0029 in order; the platform applies them on upgrade and none rewrites existing business rows. No runtime configuration changes are required. Keep the exact rer 0.2.134 pin for native installation, export and restore."
 }

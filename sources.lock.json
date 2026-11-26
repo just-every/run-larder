@@ -493,7 +493,7 @@
       "executable": false
     },
     "package.json": {
-      "sha256": "369ca563b21330f079351287753275906cce2f57c6833f0e0c67b2c421df0e1e",
+      "sha256": "767801f07f15610d6bde1d5e450aea34c451c65a161bf5c8de0fb52d7e560f4d",
       "executable": false
     },
     "packaging.json": {
@@ -745,7 +745,7 @@
       "executable": false
     },
     "RELEASE.json": {
-      "sha256": "fb1265895dc6a1bd34118c1543acf4805f0296d3f9a40501df6595ab82110002",
+      "sha256": "0e74a600620465ac79e9ce55817904ab88f4603c84b31c4cb2984666c6c7644a",
       "executable": false
     },
     "rer-project.json": {
@@ -1545,7 +1545,7 @@
       "executable": false
     },
     "seed.json": {
-      "sha256": "5ffa36fc293870e685dca45a0f972f2a1d84967b8eef4aa558a9931c21c88b18",
+      "sha256": "6b5866a8c6e49728113d9d7ba0a1dee97f68a3b69d035fb2472e4b79ff76665e",
       "executable": false
     },
     "SOURCE.md": {
