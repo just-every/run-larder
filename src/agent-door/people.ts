@@ -16,7 +16,7 @@ export function larderPeople(env: Bindings): PeopleAdapter {
     policyRoles.set(current.id,env.RER_OWNER_CLAIM_PUBLIC_KEYS ? member?.role ?? null : current.role === 'owner' ? 'owner' : null)
     return current
   }
-  return { person, businessMember: native.businessMember, businessRole: person => policyRoles.get(person.id) ?? null,
+  return { person, businessStopped: native.businessStopped, businessMember: native.businessMember, businessRole: person => policyRoles.get(person.id) ?? null,
     async sponsor(claims) { const found = await native.sponsor(claims); return found ? person(found.id) : null },
     async session(request) { const found = await native.session(request); return found ? person(found.id) : null },
   }

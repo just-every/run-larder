@@ -38,7 +38,7 @@ export default withDemo({
       const business = await larderBusinessSettings(bindings).handle(request)
       if (business) return rejectedResponse(request,business)
     }
-    if (path === '/mcp' || path.startsWith('/agents') || path === '/api/rer/agent-policy' || path.startsWith('/.well-known/oauth-protected-resource')) {
+    if (path === '/mcp' || path.startsWith('/agents') || path === '/api/rer/agent-policy' || path === '/api/rer/agent-decisions' || path.startsWith('/.well-known/oauth-protected-resource')) {
       const door = await larderAgentDoor(bindings).handle(request)
       if (door) return rejectedResponse(request,door)
     }
