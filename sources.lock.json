@@ -5425,7 +5425,7 @@
       "executable": false
     },
     "tests/browser/maintenance.spec.ts": {
-      "sha256": "284cd16b3196bb32c76e2f6848f9aba4ac7885e759a97197cdfcd8dabf65872c",
+      "sha256": "d49e85356d52cdf7a9250e331fb818bd7d3d38a3cfc7b33e0fb61b7afa1b3742",
       "executable": false
     },
     "tests/browser/multilevel.spec.ts": {
