@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4
+
+- Release Larder on current Base with the exact rer 0.2.134 pin; the public demo now redeploys on each published release.
+- Add the shared company-agent door with native owner-id sponsorship, Pause, audit and once-only command replay, and signed Business decision audit; native activity and records name the agent and its sponsoring person separately.
+- Add service keys, report sessions, business settings and people, agent attribution, change events with their vocabulary, and a retired-business state (migrations 0020 to 0029, all additive; none rewrites existing business rows).
+- Keep manufacturing events, subscriptions, multiple sponsors, resource refresh and provider execution explicitly partial.
+
 ## Company-agent runtime refresh
 
 - Align nesting, master production, replenishment and dated/scenario planning tool citations with their existing native contract clauses.
